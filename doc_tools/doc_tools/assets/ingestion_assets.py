@@ -69,6 +69,14 @@ def process_document_artifact(context: AssetExecutionContext, minio: MinioResour
                         extract_images=True, 
                         image_output_dir=temp_extract_dir
                     )
+
+                    # PPTX Special Handling: Direct Extraction
+                    if filename.lower().endswith((".pptx", ".ppt")):
+                        from doc_tools.utils.pptx_media_extractor import extract_images_from_pptx
+                        
+                        direct_images = extract_images_from_pptx(file_path, temp_extract_dir)
+                        context.log.info(f"Direct PPTX extraction found {len(direct_images)} images.")
+
                 except Exception as extract_err:
                     context.log.error(f"Extraction error: {extract_err}")
                     if not elements:

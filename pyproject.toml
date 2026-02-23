@@ -15,6 +15,7 @@ dependencies = [
     "pydantic",
     "python-dotenv",
     "minio",
+    "python-pptx",
 ]
 
 [dependency-groups]
