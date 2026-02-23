@@ -13,8 +13,11 @@ A domain-agnostic, configurable document data ingestion pipeline built with [Dag
 ---
 
 ## 🏗️ Project Structure
+- `baml_src/`: LLM prompt definitions mapped to structural schemas. Compiles via `baml-py` into Pydantic models.
+- `charts/doc-tools/`: The Helm Chart for deploying the application to Kubernetes, fully supporting ConfigMaps and Secrets.
 - `doc_tools/`: The main Dagster application codebase.
   - `doc_tools/assets/`: The Dagster data assets forming the core ingestion and semantic pipelines.
+  - `doc_tools/plugins/`: Contains the **Domain-Agnostic Plugin Architecture**. Base structural nodes are passed here where domain logic (Training/MAT) invokes BAML schemas and returns Cypher/SPARQL queries.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
   - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration that binds dependencies, resources, and configurations.
 - `pyproject.toml`: The root Python project configuration and exact dependencies managed via [uv](https://docs.astral.sh/uv/).
@@ -35,6 +38,12 @@ A domain-agnostic, configurable document data ingestion pipeline built with [Dag
    uv sync
    ```
    *(Note: You may need system-level tools like Tesseract-OCR and poppler installed depending on your OS for Unstructured logic to work out of the box).*
+
+3. **Compile BAML Schemas:**
+   If you modify the LLM prompts or schemas in `baml_src/`, you must recompile the Python clients.
+   ```bash
+   uv run baml-cli generate
+   ```
 
 ---
 
@@ -67,4 +76,19 @@ ops:
 To invoke that pipeline immediately from the CLI over a specific document dynamically:
 ```bash
 uv run dagster job execute -m doc_tools.definitions -j process_documents_job -c doc_tools/example_run_config.yaml --tags '{"dagster/partition": "doc_id/file.pdf"}'
+```
+
+---
+
+## 🌩️ Deployment via Helm
+
+A packaged Helm chart `/charts/doc-tools` is dynamically wired to receive credentials, mount configurations, and pull the latest GHCR Cloud Native Buildpack containers dynamically.
+
+To configure and deploy to your cluster:
+1. Copy or modify `charts/doc-tools/values.yaml` to specify your `secrets` (MinIO, Neo4j, Weaviate credentials) and your Dagster run properties.
+2. Template or deploy:
+```bash
+helm template doc-tools ./charts/doc-tools
+# OR 
+helm install doc-tools ./charts/doc-tools
 ```

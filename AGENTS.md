@@ -13,5 +13,9 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
 - **Containerization**: Do not write vanilla `Dockerfiles`. This project uses CNCF Buildpacks. System-level packages belong in `Aptfile`. Start commands belong in `project.toml`.
 
 ## Extension Patterns
-- To add a new document type parser, extend the existing logic in `doc_tools/assets/ingestion_assets.py` without tying it to a specific format domain.
+- **Adding a New Domain**: Do not write raw litellm or langchain logic in the assets. 
+  1. Define the parsing schema in `baml_src/{domain}.baml`.
+  2. Run `baml-cli generate`.
+  3. Create `doc_tools/plugins/{domain}.py` extending `AugmentationPlugin`.
+  4. Register the new plugin in the Dispatcher switch inside `doc_tools/assets/semantic_assets.py`.
 - To configure external services, subclass `ConfigurableResource` inside `doc_tools/utils/dagster_resources.py`.
