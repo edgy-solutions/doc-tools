@@ -1,0 +1,15 @@
+[_]
+schema-version = "0.2"
+
+[[build.env]]
+name = "BP_CPYTHON_VERSION"
+value = "3.11"
+
+[[processes]]
+type = "web"
+command = "dagster-webserver -h 0.0.0.0 -p 8080 -m doc_tools.definitions"
+default = true
+
+[[processes]]
+type = "worker"
+command = "dagster job execute -m doc_tools.definitions -j process_documents_job"

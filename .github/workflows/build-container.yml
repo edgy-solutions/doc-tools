@@ -1,0 +1,57 @@
+name: Build Container via CNB
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Generate Requirements for CNCF Buildpack
+        # The Paketo Python Buildpack will automatically detect and use requirements.txt
+        run: |
+          uv export --format requirements-txt > requirements.txt
+
+      - name: Set up Pack CLI (Cloud Native Buildpacks)
+        uses: buildpacks/github-actions/setup-pack@v5.0.0
+
+      # - name: Log in to GitHub Container Registry
+      #   uses: docker/login-action@v3
+      #   if: github.event_name != 'pull_request'
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Container Image
+        run: |
+          # Use local daemon to build only if on PR. On main branch push, add --publish
+          IMAGE_NAME="ghcr.io/${{ github.repository }}/doc-tools"
+          PUBLISH_FLAG=""
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            PUBLISH_FLAG="--publish"
+          fi
+          
+          # Force the Apt buildpack and Python buildpack
+          pack build $IMAGE_NAME:latest \
+            --builder paketobuildpacks/builder-jammy-base \
+            --buildpack paketo-buildpacks/apt \
+            --buildpack paketo-buildpacks/python \
+            --tag $IMAGE_NAME:${{ github.sha }} \
+            $PUBLISH_FLAG \
+            --path .
