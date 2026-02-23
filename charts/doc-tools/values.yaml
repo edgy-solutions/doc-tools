@@ -1,0 +1,79 @@
+# Default values for doc-tools.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/edgy-solutions/doc-tools
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 256Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 256Mi
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8080
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8080
+
+# --- Custom App Configuration ---
+
+# Secrets for the application (Neo4j, Weaviate, MinIO credentials)
+secrets:
+  MINIO_ROOT_USER: "minioadmin"
+  MINIO_ROOT_PASSWORD: "minioadmin"
+  NEO4J_URI: "bolt://neo4j:7687"
+  NEO4J_USERNAME: "neo4j"
+  NEO4J_PASSWORD: "password"
+  WEAVIATE_URL: "http://weaviate:8080"
+  WEAVIATE_API_KEY: ""
+
+# Non-sensitive environment variables
+env:
+  MINIO_ENDPOINT: "minio:9000"
+
+# Dagster Run Configuration (example_run_config.yaml)
+runConfig:
+  ops:
+    build_knowledge_graph:
+      config:
+        source_directory: "/data/inputs"
+        graph_node_label: "Course"
+        graph_child_label: "Slide"
+        vector_collection_name: "TrainingCourse"
+
+autoscaling:
+  enabled: false
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
