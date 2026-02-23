@@ -1,0 +1,12 @@
+# doc-tools Cursor Rules
+
+- **Domain-Agnostic Code ONLY**: Do NOT hardcode domain concepts like "Course", "Slide", or "Module".
+- **Tech Stack**:
+  - Python >= 3.10
+  - Dagster & Dagster Webserver
+  - Unstructured for document parsing
+  - Neo4j (Graph DB)
+  - Weaviate (Vector DB)
+- **Configuration**: Use `dagster.Config` for providing runtime configuration like graph node labels and vector collection names.
+- **Cypher Queries**: Parameterize node labels carefully in Python using f-strings before passing to Neo4j. Neo4j python drivers do not support parameterizing node labels directly.
+- **Imports**: Ensure all project imports use absolute paths relative to the project root or proper relative imports. No lingering imports from the source `training-consolidation-workbench` repository.

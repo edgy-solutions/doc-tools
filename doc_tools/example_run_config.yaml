@@ -1,0 +1,7 @@
+ops:
+  build_knowledge_graph:
+    config:
+      source_directory: "/data/inputs"
+      graph_node_label: "Course"
+      graph_child_label: "Slide"
+      vector_collection_name: "TrainingCourse"

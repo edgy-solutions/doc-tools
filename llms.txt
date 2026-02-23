@@ -1,0 +1,23 @@
+# doc-tools Architecture and AI Context
+
+This repository extracts and generalizes the ingestion pipeline from `training-consolidation-workbench`.
+
+## Core Purpose
+Provide a domain-agnostic document processing pipeline using Dagster. It extracts text/layout from documents (using Unstructured/pikepdf), builds a knowledge graph in Neo4j, and vectorizes content in Weaviate.
+
+## Architecture
+- **Dagster**: Orchestrates the data ingestion and processing pipeline.
+- **Config-Driven**: Uses `dagster.Config` (`IngestionConfig`) to dynamically assign graph node labels (`graph_node_label`, `graph_child_label`) and vector database collections (`vector_collection_name`).
+- **Graph Builder**: Inserts parsed document chunks into Neo4j.
+- **Vector DB**: Ingests document chunks into Weaviate.
+
+## Key Files
+- `doc_tools/assets.py` (or similar): Contains generic `@asset` definitions.
+- `doc_tools/jobs.py` (or similar): Contains the `process_documents_job` `@job` definition.
+- `doc_tools/utils/graph_builder.py`: Neo4j interaction utilities.
+- `doc_tools/utils/vector_db.py`: Weaviate interaction utilities.
+- `doc_tools/utils/layout_detector.py` & `pdf_unlocker.py`: Document processing utilities.
+
+## AI Instructions
+- All code MUST be domain-agnostic. No references to "Course", "Module", "Slide", etc.
+- Always use `IngestionConfig` for domain-specific schema details.
