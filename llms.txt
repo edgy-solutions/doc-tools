@@ -1,23 +1,22 @@
 # doc-tools Architecture and AI Context
 
-This repository extracts and generalizes the ingestion pipeline from `training-consolidation-workbench`.
+This repository provides a generalized, domain-agnostic document data ingestion pipeline built with Dagster.
 
 ## Core Purpose
-Provide a domain-agnostic document processing pipeline using Dagster. It extracts text/layout from documents (using Unstructured/pikepdf), builds a knowledge graph in Neo4j, and vectorizes content in Weaviate.
+Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and embedded images. Build a robust knowledge graph in Neo4j representing the semantic layout, and vectorize the content into Weaviate for Retrieval-Augmented Generation (RAG).
 
 ## Architecture
-- **Dagster**: Orchestrates the data ingestion and processing pipeline.
-- **Config-Driven**: Uses `dagster.Config` (`IngestionConfig`) to dynamically assign graph node labels (`graph_node_label`, `graph_child_label`) and vector database collections (`vector_collection_name`).
-- **Graph Builder**: Inserts parsed document chunks into Neo4j.
-- **Vector DB**: Ingests document chunks into Weaviate.
+- **Dependency Management**: `uv` powers all dependency resolution securely via `pyproject.toml`.
+- **Orchestration**: `Dagster` orchestrates the pipeline, using generic dynamic partitions (`doc_id/filename`). Sensors monitor MinIO for raw file drops to automatically trigger ingestion workflows.
+- **Config-Driven Domain Mapping**: Uses `dagster.Config` (`IngestionConfig`) and `ConfigurableResource` to dynamically assign graph node schemas (`graph_node_label`, `graph_child_label`) and vector database collections (`vector_collection_name`), keeping the underlying code strictly domain-agnostic.
+- **Deployments**: Containerized CI/CD is bound to GitHub Actions using Cloud Native Buildpacks (Paketo). System dependencies for unstructured optical parsing (`libmagic-dev`, `poppler-utils`, `tesseract-ocr`) are natively declared in the `Aptfile`.
 
-## Key Files
-- `doc_tools/assets.py` (or similar): Contains generic `@asset` definitions.
-- `doc_tools/jobs.py` (or similar): Contains the `process_documents_job` `@job` definition.
-- `doc_tools/utils/graph_builder.py`: Neo4j interaction utilities.
-- `doc_tools/utils/vector_db.py`: Weaviate interaction utilities.
-- `doc_tools/utils/layout_detector.py` & `pdf_unlocker.py`: Document processing utilities.
+## Key Files & Directories
+- `doc_tools/assets/ingestion_assets.py`: Layout detection, unstructuring, and intermediate manifest generation. Custom python-pptx extraction is layered here inside.
+- `doc_tools/assets/semantic_assets.py`: Cypher logic to build Neo4j Knowledge Graphs and semantic vectorization into Weaviate.
+- `doc_tools/definitions.py`: Entrypoint for Dagster binding assets, jobs (`process_documents_job`), sensors (`document_upload_sensor`), and resources.
+- `pyproject.toml`: The root configuration of Python parameters.
 
 ## AI Instructions
-- All code MUST be domain-agnostic. No references to "Course", "Module", "Slide", etc.
-- Always use `IngestionConfig` for domain-specific schema details.
+- All code MUST remain domain-agnostic. Do NOT hardcode domain references (e.g., "Course", "Slide").
+- Always use the `uv` toolchain for dependency testing.
