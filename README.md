@@ -17,7 +17,7 @@ A domain-agnostic, configurable document data ingestion pipeline built with [Dag
   - `doc_tools/assets/`: The Dagster data assets forming the core ingestion and semantic pipelines.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
   - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration that binds dependencies, resources, and configurations.
-- `requirements.txt`: Environment dependencies required for the Python environment.
+- `pyproject.toml`: The root Python project configuration and exact dependencies managed via [uv](https://docs.astral.sh/uv/).
 
 ---
 
@@ -29,20 +29,10 @@ A domain-agnostic, configurable document data ingestion pipeline built with [Dag
    cd doc-tools
    ```
 
-2. **Initialize Local Virtual Environment:**
+2. **Setup and Install via `uv`:**
+   Use the ultrafast Python package manager `uv` to automatically wire the virtual environment and sync the specific subdependencies seamlessly.
    ```bash
-   python -m venv .venv
-   
-   # On macOS/Linux:
-   source .venv/bin/activate
-   # On Windows:
-   .venv\Scripts\activate
-   ```
-
-3. **Install Dependencies:**
-   Install pip requirements and heavy-weight `unstructured` doc parsing tools.
-   ```bash
-   pip install -r requirements.txt
+   uv sync
    ```
    *(Note: You may need system-level tools like Tesseract-OCR and poppler installed depending on your OS for Unstructured logic to work out of the box).*
 
@@ -54,8 +44,7 @@ To spin up the Dagster webserver, view the pipeline UI, or execute the underlyin
 
 **Start Dagster Webserver:**
 ```bash
-cd doc_tools
-dagster dev
+uv run dagster dev
 ```
 
 ### Running the Generalized Pipeline
@@ -77,6 +66,5 @@ ops:
 
 To invoke that pipeline immediately from the CLI over a specific document dynamically:
 ```bash
-cd doc_tools
-dagster job execute -m doc_tools.definitions -j process_documents_job -c example_run_config.yaml --tags '{"dagster/partition": "doc_id/file.pdf"}'
+uv run dagster job execute -m doc_tools.definitions -j process_documents_job -c doc_tools/example_run_config.yaml --tags '{"dagster/partition": "doc_id/file.pdf"}'
 ```

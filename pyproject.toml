@@ -1,0 +1,26 @@
+[project]
+name = "doc-tools"
+version = "0.1.0"
+description = "Generative AI Document Ingestion Tools"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dagster",
+    "dagster-webserver",
+    "unstructured[all-docs]",
+    "neo4j",
+    "weaviate-client",
+    "pikepdf",
+    "langchain",
+    "pydantic",
+    "python-dotenv",
+    "minio",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.dagster]
+module_name = "doc_tools.definitions"
