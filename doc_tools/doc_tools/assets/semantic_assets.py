@@ -5,6 +5,9 @@ from dagster import asset, AssetExecutionContext
 from doc_tools.config import IngestionConfig
 from doc_tools.assets.ingestion_assets import document_files_partition, BUCKET_NAME
 from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource
+from doc_tools.plugins import BaseSection, DocumentNode
+from doc_tools.plugins.training import TrainingPlugin
+from doc_tools.plugins.manufacturing import ManufacturingPlugin
 
 @asset(partitions_def=document_files_partition)
 def build_knowledge_graph(
@@ -101,6 +104,11 @@ def build_knowledge_graph(
                 current_chunk_page += 1
                 current_chunk_size = 0
         
+    # Initialize appropriate Plugin based on metadata
+    project_type = manifest.get("metadata", {}).get("project", "Training")
+    plugin = ManufacturingPlugin() if project_type == "MAT" else TrainingPlugin()
+    context.log.info(f"Initialized {type(plugin).__name__} for project: {project_type}")
+
     # Ensure Weaviate Class exists with dynamic collection name
     try:
         weaviate_client.ensure_class({
@@ -120,14 +128,14 @@ def build_knowledge_graph(
     except Exception as e:
         context.log.error(f"Weaviate Class creation failed: {e}")
 
-    # Process each page/chunk
+    # Process each page/chunk through the Plugin architecture
+    document_nodes = []
     for page_num, texts in pages.items():
         chunk_text = "\n".join(texts)
         if not chunk_text.strip():
             continue
             
         chunk_id = f"{doc_id}_p{page_num}"
-        
         elements = page_elements.get(page_num, [])
         layout_style = detect_layout(elements)
         
@@ -135,7 +143,22 @@ def build_knowledge_graph(
         file_ext = os.path.splitext(filename)[1].upper().replace('.', '') if filename else "Unknown"
         asset_type = file_ext
         
-        # Create Child Node dynamically
+        # 1. Instantiate Base Section
+        section = BaseSection(
+            title=f"Page {page_num}",
+            level=1,
+            page_start=page_num,
+            content=chunk_text
+        )
+        
+        # 2. Augment via Domain Plugin
+        try:
+            node = plugin.augment(section)
+            document_nodes.append(node)
+        except Exception as e:
+            context.log.error(f"Plugin augmentation failed for chunk {chunk_id}: {e}")
+
+        # Baseline Child Node still maintained for full structural map
         try:
             neo4j_client.execute_query(
                 f"""
@@ -151,31 +174,24 @@ def build_knowledge_graph(
                 {"parent_id": doc_id, "id": chunk_id, "page_num": page_num, "text": chunk_text[:500], "asset_type": asset_type, "layout_style": layout_style, "elements_json": json.dumps(elements)}
             )
         except Exception as e:
-            context.log.error(f"Neo4j chunk node creation failed: {e}")
-            
-        # Extract Concepts (Stubbed LLM)
+            context.log.error(f"Neo4j baseline chunk creation failed: {e}")
+
+    # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
+    context.log.info(f"Generating domain graph queries from {len(document_nodes)} augmented nodes...")
+    cypher_queries, sparql_queries = plugin.to_graph_queries(document_nodes, config)
+    
+    # Execute Cypher
+    for idx, c_query in enumerate(cypher_queries):
         try:
-            content = llm_client.extract_concepts(chunk_text)
-            for concept in content.concepts:
-                salience = getattr(concept, 'salience', 0.5)
-                neo4j_client.execute_query(
-                    f"""
-                    MERGE (con:Concept {{name: $name}})
-                    SET con.description = $desc
-                    WITH con
-                    MATCH (child:{child_label} {{id: $chunk_id}})
-                    MERGE (child)-[r:LINKS_TO]->(con)
-                    SET r.salience = $salience
-                    """,
-                    {
-                        "name": concept.name, 
-                        "desc": getattr(concept, "description", ""), 
-                        "chunk_id": chunk_id,
-                        "salience": salience
-                    }
-                )
+            neo4j_client.execute_query(c_query["query"], c_query.get("params", {}))
         except Exception as e:
-            context.log.error(f"Concept extraction failed for chunk {chunk_id}: {e}")
+            context.log.error(f"Failed executing domain cypher query {idx}: {e}")
+            
+    # Mock Jena/SPARQL sink since we don't have a configured JenaResource in this architecture yet
+    if sparql_queries:
+        context.log.info(f"SPARQL Queries to emit to Jena: {len(sparql_queries)}")
+        for idx, s_query in enumerate(sparql_queries):
+            context.log.debug(f"SPARQL [{idx}]:\n{s_query}")
 
         # Vector Indexing
         try:

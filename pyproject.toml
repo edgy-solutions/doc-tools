@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv",
     "minio",
     "python-pptx",
+    "baml-py",
 ]
 
 [dependency-groups]
