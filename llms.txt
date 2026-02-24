@@ -3,7 +3,7 @@
 This repository provides a generalized, domain-agnostic document data ingestion pipeline built with Dagster.
 
 ## Core Purpose
-Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and embedded images. Build a robust knowledge graph in Neo4j representing the semantic layout, and vectorize the content into Weaviate for Retrieval-Augmented Generation (RAG).
+Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and embedded images. Build a robust knowledge graph in Neo4j representing the semantic layout, vectorize the content into Weaviate for Retrieval-Augmented Generation (RAG), and emit domain-specific RDF triples to Apache Jena.
 
 ## Architecture
 - **Dependency Management**: `uv` powers all dependency resolution securely via `pyproject.toml`.

@@ -8,12 +8,13 @@
   - Unstructured for generic document parsing, `python-pptx` for presentations.
   - Neo4j (Graph DB)
   - Weaviate (Vector DB)
+  - Apache Jena (SPARQL Semantic Graph DB)
 - **Containerization**: 
   - Managed via Cloud Native Buildpacks (CNB) and Paketo.
   - See `project.toml` and `Aptfile` for system and build-level configurations.
 - **Configuration & Resources**: 
   - Use `dagster.Config` for providing runtime configuration like graph node labels and vector collection names.
-  - Databases and object storage are configured via `ConfigurableResource` (e.g., `MinioResource`, `Neo4jResource`).
+  - Databases and object storage are configured via `ConfigurableResource` (e.g., `MinioResource`, `Neo4jResource`, `JenaResource`).
 - **Domain-Agnostic Core with Plugin Layers**:
   - The core DAG pipeline extracts structure (BaseSection) without domain context.
   - Domain-specific logic (e.g. Training concepts versus Manufacturing steps) is handled ONLY by extending `doc_tools.plugins.base.AugmentationPlugin`.
