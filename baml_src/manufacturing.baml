@@ -7,8 +7,10 @@ class ManufacturingStep {
   hazard_class string? @description("Explosives Safety Hazard, e.g. '1.1D'. If none, leave null.")
   required_cert string? @description("Quality/Personnel requirement, e.g. 'QC Inspector'. If none, leave null.")
   standard_ref string? @description("e.g. 'ISO-9001'. If none, leave null.")
-  is_value_added bool @description("True if the step physically transforms the product. False if it is just an inspection, verification, QC check, or movement.")
-  process_category string @description("Classify the fundamental physics (e.g., 'Curing', 'Machining', 'Chemical Coating', 'Assembly', 'Non-Destructive Testing').")
+  is_value_added bool @description("True ONLY if the step physically transforms the product (e.g., machining, curing, applying sealant). False if it is an inspection, movement, or waiting.")
+  is_safety_critical bool @description("CRITICAL: True if the step involves static grounding, explosive hazard mitigation (Class 1.1, 1.3), environmental safety, or regulatory sign-offs. False otherwise.")
+  process_category string @description("Must be one of: 'Transformation', 'Inspection', 'Movement', 'Critical Safety Hold', 'Rework'")
+  justification string @description("A 1-sentence explanation of why the value-added and safety-critical flags were chosen.")
   estimated_duration_minutes int? @description("Extract any mentioned time constraints, cure times, or labor durations. If none, leave null.")
 }
 
@@ -25,8 +27,18 @@ class MatAugmentation {
 function ExtractWorkInstructions(text: string) -> MatAugmentation {
   client Ollama
   prompt #"
-    Analyze the following Munitions Acceleration & Manufacturing (MAT) document text.
-    Extract the sequenced manufacturing procedures and steps.
+    Analyze the following munitions assembly text and extract each discrete manufacturing step.
+    
+    CRITICAL CLASSIFICATION RULES for `is_value_added` and `is_safety_critical`:
+    1. **Value-Added (VA):** The step must physically alter the missile or component. 
+       - *Examples of VA:* "Apply 50ml of epoxy", "Torque bolt to 15Nm", "Mate warhead to chassis." -> is_value_added: true
+    2. **Non-Value-Added (NVA):** The step is an inspection, test, or movement. 
+       - *Examples of NVA:* "Verify torque", "Move pallet to Bay 4", "Inspect for cracks." -> is_value_added: false
+    3. **The Safety Exception (Essential NVA):** Some steps do not physically change the product but are strictly required to prevent catastrophic failure or loss of life.
+       - *Examples of Safety Critical:* "Attach static grounding strap", "Verify Class 1.1 ESQD limits", "Perform stray voltage test." 
+       - For these: `is_value_added: false`, but `is_safety_critical: true`. `process_category` MUST be 'Critical Safety Hold'.
+
+    If a step is an inspection that DOES NOT involve explosive safety or high-voltage grounding, it is simply `is_safety_critical: false`.
     
     CRITICAL: For every step, identify:
     - The `procedure_id` it belongs to.
@@ -36,8 +48,9 @@ function ExtractWorkInstructions(text: string) -> MatAugmentation {
     - Any safety `hazard_class` designations (e.g., Class 1.1).
     - Any `required_cert` (Personnel authorizations like 'QC Inspector' or 'Journeyman').
     - Compliance `standard_ref` (e.g. ISO-9001, MIL-STD).
-    - Whether it `is_value_added` (physical transformation vs verification/movement).
+    - Whether it `is_value_added` and `is_safety_critical` based on the strict limits above.
     - The `process_category` of the fundamental physics.
+    - The chain-of-thought `justification`.
     - Any `estimated_duration_minutes` (e.g., cure times, labor time).
 
     Also, generate a strategic assessment assigning a proprietary_score (0 to 1.0) and determination of outsourceability.

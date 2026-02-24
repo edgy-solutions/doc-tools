@@ -14,7 +14,9 @@ class ManufacturingStep(BaseModel):
     required_cert: Optional[str] = Field(default=None)
     standard_ref: Optional[str] = Field(default=None, description="e.g. 'ISO-9001'")
     is_value_added: bool
+    is_safety_critical: bool
     process_category: str
+    justification: str
     estimated_duration_minutes: Optional[int] = Field(default=None)
 
 class StrategicAssessment(BaseModel):
@@ -51,7 +53,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                     required_cert=s.required_cert,
                     standard_ref=s.standard_ref,
                     is_value_added=s.is_value_added,
+                    is_safety_critical=s.is_safety_critical,
                     process_category=s.process_category,
+                    justification=s.justification,
                     estimated_duration_minutes=s.estimated_duration_minutes
                 ))
                 
@@ -77,7 +81,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                         required_cert="QC Inspector",
                         standard_ref="ISO-9001",
                         is_value_added=True,
-                        process_category="Assembly",
+                        is_safety_critical=False,
+                        process_category="Transformation",
+                        justification="This step physically builds the component.",
                         estimated_duration_minutes=15
                     )
                 ],
@@ -132,7 +138,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                     step_id: $step_id, 
                     action: $action,
                     is_value_added: $is_value_added,
+                    is_safety_critical: $is_safety_critical,
                     process_category: $process_category,
+                    justification: $justification,
                     estimated_duration_minutes: $duration
                 }})
                 MERGE (proc)-[:CONTAINS_STEP]->(s)
@@ -163,7 +171,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                         "step_id": step.step_id,
                         "action": step.action_verb,
                         "is_value_added": step.is_value_added,
+                        "is_safety_critical": step.is_safety_critical,
                         "process_category": step.process_category,
+                        "justification": step.justification,
                         "duration": step.estimated_duration_minutes if step.estimated_duration_minutes is not None else -1,
                         "hazard_id": f"hazard_{step.hazard_class}" if step.hazard_class else "",
                         "hazard": step.hazard_class or "",
