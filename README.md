@@ -2,6 +2,40 @@
 
 A domain-agnostic, configurable document data ingestion pipeline built with [Dagster](https://dagster.io). This repository provides a robust and reliable system for processing various document types (PDFs, presentations, words, etc.) and converting them into structured knowledge representations suitable for Generative AI applications like RAG (Retrieval-Augmented Generation).
 
+## 🌊 Data Flow Architecture
+
+```mermaid
+graph TD
+    %% Define Styles
+    classDef storage fill:#f97316,stroke:#333,stroke-width:1px,color:#fff
+    classDef dagster fill:#3b82f6,stroke:#333,stroke-width:1px,color:#fff
+    classDef llm fill:#22c55e,stroke:#333,stroke-width:1px,color:#fff
+    classDef plugin fill:#6366f1,stroke:#333,stroke-width:1px,color:#fff
+    classDef db fill:#a855f7,stroke:#333,stroke-width:1px,color:#fff
+
+    A[(MinIO / S3 <br> Raw Documents)]:::storage -->|doc_tools/sensors.py| B(Dagster Sensors <br> S3 Prefix Monitoring):::dagster
+    B -->|RunRequest + domain_type| C(Ingestion Assets <br> unstructured & python-pptx):::dagster
+    C -->|DocumentPackage| D{Domain Dispatcher <br> semantic_assets.py}:::dagster
+    
+    D -->|tag: manufacturing| E1(Manufacturing Plugin <br> 10x Physics Layer):::plugin
+    D -->|tag: compliance| E2(Compliance Plugin <br> DAFMAN Rules):::plugin
+    D -->|tag: training| E3(Training Plugin <br> Course Modules):::plugin
+    
+    E1 -->|baml_src/| F(BAML Client <br> LLM Chain-of-Thought):::llm
+    E2 -->|baml_src/| F
+    E3 -->|baml_src/| F
+    
+    F -->|Validated Pydantic| G(Graph & Semantic <br> Adapters):::plugin
+    
+    E1 -.-> G
+    E2 -.-> G
+    E3 -.-> G
+
+    G -->|Cypher| H1[(Neo4j <br> Knowledge Graph)]:::db
+    G -->|SPARQL| H2[(Apache Jena <br> RDF Triples)]:::db
+    G -->|Vectors| H3[(Weaviate <br> RAG DB)]:::db
+```
+
 ## 🚀 Key Features
 
 1. **Robust Document Parsing:** Extracts rich text, metadata, and embedded images from generic document formats using the high-resolution power of the `unstructured` library.
