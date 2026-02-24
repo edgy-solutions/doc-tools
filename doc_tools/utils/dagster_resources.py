@@ -43,3 +43,8 @@ class LLMExtractorResource(ConfigurableResource):
                 return Content()
         return StubExtractor()
 
+class JenaResource(ConfigurableResource):
+    def get_client(self):
+        from .jena_client import JenaClient
+        return JenaClient()
+

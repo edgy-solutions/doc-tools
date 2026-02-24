@@ -4,7 +4,7 @@ from typing import Any, Dict
 from dagster import asset, AssetExecutionContext
 from doc_tools.config import IngestionConfig
 from doc_tools.assets.ingestion_assets import document_files_partition, BUCKET_NAME
-from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource
+from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
@@ -17,7 +17,8 @@ def build_knowledge_graph(
     minio: MinioResource,
     neo4j: Neo4jResource,
     weaviate: WeaviateResource,
-    llm: LLMExtractorResource
+    llm: LLMExtractorResource,
+    jena: JenaResource
 ):
     """
     Ingests documents into Neo4j using generic labels provided via Configuration.
@@ -38,6 +39,7 @@ def build_knowledge_graph(
     neo4j_client = neo4j.get_client()
     weaviate_client = weaviate.get_client()
     llm_client = llm.get_client()
+    jena_client = jena.get_client()
     
     # 2. Load Text Data
     import tempfile
@@ -187,11 +189,14 @@ def build_knowledge_graph(
         except Exception as e:
             context.log.error(f"Failed executing domain cypher query {idx}: {e}")
             
-    # Mock Jena/SPARQL sink since we don't have a configured JenaResource in this architecture yet
+    # Execute SPARQL sink update
     if sparql_queries:
         context.log.info(f"SPARQL Queries to emit to Jena: {len(sparql_queries)}")
         for idx, s_query in enumerate(sparql_queries):
-            context.log.debug(f"SPARQL [{idx}]:\n{s_query}")
+            try:
+                jena_client.execute_update(s_query)
+            except Exception as e:
+                context.log.error(f"Failed executing domain SPARQL query {idx}: {e}")
 
         # Vector Indexing
         try:

@@ -17,6 +17,7 @@ dependencies = [
     "minio",
     "python-pptx",
     "baml-py",
+    "sparqlwrapper>=2.0.0",
 ]
 
 

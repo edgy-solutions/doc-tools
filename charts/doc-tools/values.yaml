@@ -56,6 +56,9 @@ secrets:
   NEO4J_PASSWORD: "password"
   WEAVIATE_URL: "http://weaviate:8080"
   WEAVIATE_API_KEY: ""
+  JENA_URL: "http://jena-fuseki:3030/ds/update"
+  JENA_USERNAME: "admin"
+  JENA_PASSWORD: "password"
 
 # Non-sensitive environment variables
 env:
