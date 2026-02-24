@@ -1,6 +1,11 @@
 class ManufacturingStep {
-  action string @description("The concrete action to take, e.g. 'Tighten bolt'")
+  procedure_id string @description("e.g. 'PROC-04' - The parent procedure this step belongs to")
+  step_id string @description("e.g. '3.2.1' - The specific step identifier")
+  action_verb string @description("The concrete action to take, e.g. 'Tighten bolt'")
   tooling string[] @description("List of tools required, e.g. ['Wrench', 'Torque'] If missing, empty list.")
+  consumables string[] @description("Consumable materials, e.g. ['Sealant MIL-S-81733']. If missing, empty list.")
+  hazard_class string? @description("Explosives Safety Hazard, e.g. '1.1D'. If none, leave null.")
+  required_cert string? @description("Quality/Personnel requirement, e.g. 'QC Inspector'. If none, leave null.")
   standard_ref string? @description("e.g. 'ISO-9001'. If none, leave null.")
 }
 
@@ -18,7 +23,17 @@ function ExtractWorkInstructions(text: string) -> MatAugmentation {
   client Ollama
   prompt #"
     Analyze the following Munitions Acceleration & Manufacturing (MAT) document text.
-    Extract the sequenced manufacturing steps (actions, required tooling, and compliance standard references).
+    Extract the sequenced manufacturing procedures and steps.
+    
+    CRITICAL: For every step, identify:
+    - The `procedure_id` it belongs to.
+    - The `step_id` (e.g. 1.2.4).
+    - The `action_verb` (the core task being performed).
+    - Any `tooling` and `consumables` (materials like sealants, epoxies).
+    - Any safety `hazard_class` designations (e.g., Class 1.1).
+    - Any `required_cert` (Personnel authorizations like 'QC Inspector' or 'Journeyman').
+    - Compliance `standard_ref` (e.g. ISO-9001, MIL-STD).
+
     Also, generate a strategic assessment assigning a proprietary_score (0 to 1.0) and determination of outsourceability.
     
     Document Text:

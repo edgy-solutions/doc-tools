@@ -17,11 +17,10 @@ class TrainingPlugin(AugmentationPlugin):
     """
     Original extraction logic generalized for Training content.
     """
-    
     def augment(self, section: BaseSection) -> DocumentNode:
         try:
-            from baml_client import b
-            from baml_client.types import SlideAugmentation as BamlSlideAugmentation
+            from doc_tools.baml_client import b
+            from doc_tools.baml_client.types import SlideAugmentation as BamlSlideAugmentation
             
             # Execute BAML LLM inference
             baml_response: BamlSlideAugmentation = b.ExtractConcepts(slide_text=section.content)

@@ -36,8 +36,13 @@ class LearningObjective(BaseModel):
     description: typing.Optional[str] = None
 
 class ManufacturingStep(BaseModel):
-    action: typing.Optional[str] = Field(default=None, description='The concrete action to take, e.g. \'Tighten bolt\'')
+    procedure_id: typing.Optional[str] = Field(default=None, description='e.g. \'PROC-04\' - The parent procedure this step belongs to')
+    step_id: typing.Optional[str] = Field(default=None, description='e.g. \'3.2.1\' - The specific step identifier')
+    action_verb: typing.Optional[str] = Field(default=None, description='The concrete action to take, e.g. \'Tighten bolt\'')
     tooling: typing.List[str] = Field(description='List of tools required, e.g. [\'Wrench\', \'Torque\'] If missing, empty list.')
+    consumables: typing.List[str] = Field(description='Consumable materials, e.g. [\'Sealant MIL-S-81733\']. If missing, empty list.')
+    hazard_class: typing.Optional[str] = Field(default=None, description='Explosives Safety Hazard, e.g. \'1.1D\'. If none, leave null.')
+    required_cert: typing.Optional[str] = Field(default=None, description='Quality/Personnel requirement, e.g. \'QC Inspector\'. If none, leave null.')
     standard_ref: typing.Optional[str] = Field(default=None, description='e.g. \'ISO-9001\'. If none, leave null.')
 
 class MatAugmentation(BaseModel):

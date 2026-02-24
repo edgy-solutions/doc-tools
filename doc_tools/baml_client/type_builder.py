@@ -171,7 +171,7 @@ class ManufacturingStepAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("ManufacturingStep")
-        self._properties: typing.Set[str] = set([  "action",  "tooling",  "standard_ref",  ])
+        self._properties: typing.Set[str] = set([  "procedure_id",  "step_id",  "action_verb",  "tooling",  "consumables",  "hazard_class",  "required_cert",  "standard_ref",  ])
         self._props = ManufacturingStepProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -200,12 +200,32 @@ class ManufacturingStepProperties:
     
     
     @property
-    def action(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("action"))
+    def procedure_id(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("procedure_id"))
+    
+    @property
+    def step_id(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("step_id"))
+    
+    @property
+    def action_verb(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("action_verb"))
     
     @property
     def tooling(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("tooling"))
+    
+    @property
+    def consumables(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("consumables"))
+    
+    @property
+    def hazard_class(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("hazard_class"))
+    
+    @property
+    def required_cert(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("required_cert"))
     
     @property
     def standard_ref(self) -> type_builder.ClassPropertyViewer:
