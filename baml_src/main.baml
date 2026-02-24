@@ -1,4 +1,7 @@
-
+generator target {
+  type "python/pydantic"
+  output_dir "../doc_tools/baml_client"
+}
 
 // Global Clients
 client<llm> Ollama {

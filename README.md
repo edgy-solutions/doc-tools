@@ -13,7 +13,7 @@ A domain-agnostic, configurable document data ingestion pipeline built with [Dag
 ---
 
 ## 🏗️ Project Structure
-- `baml_src/`: LLM prompt definitions mapped to structural schemas. Compiles via `baml-py` into Pydantic models.
+- `baml_src/`: LLM prompt definitions mapped to structural schemas. Compiles via `baml-py` into Pydantic models natively in `doc_tools/baml_client`.
 - `charts/doc-tools/`: The Helm Chart for deploying the application to Kubernetes, fully supporting ConfigMaps and Secrets.
 - `doc_tools/`: The main Dagster application codebase.
   - `doc_tools/assets/`: The Dagster data assets forming the core ingestion and semantic pipelines.

@@ -14,7 +14,7 @@ Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and 
 ## Key Files & Directories
 - `doc_tools/assets/ingestion_assets.py`: Layout detection, unstructuring, and intermediate manifest generation. Custom python-pptx extraction is layered here inside.
 - `doc_tools/plugins/`: Contains the **Domain-Agnostic Plugin Architecture**. Base structural nodes are passed here where domain logic (Training/MAT) invokes BAML schemas and returns Cypher/SPARQL queries.
-- `baml_src/`: LLM prompt definitions mapped to structural schemas. Compiles via `baml-py` into Pydantic models.
+- `baml_src/`: LLM prompt definitions mapped to structural schemas. Compiles via `baml-py` into Pydantic models natively inside the Dagster workspace at `doc_tools/baml_client`.
 - `doc_tools/assets/semantic_assets.py`: Cypher logic to build Neo4j Knowledge Graphs and semantic vectorization into Weaviate. Routes extractions dynamically using a Factory switch pattern against the loaded plugins.
 - `doc_tools/definitions.py`: Entrypoint for Dagster binding assets, jobs (`process_documents_job`), sensors (`document_upload_sensor`), and resources.
 - `pyproject.toml`: The root configuration of Python parameters.

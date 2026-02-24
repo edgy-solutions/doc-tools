@@ -15,7 +15,7 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
 ## Extension Patterns
 - **Adding a New Domain**: Do not write raw litellm or langchain logic in the assets. 
   1. Define the parsing schema in `baml_src/{domain}.baml`.
-  2. Run `baml-cli generate`.
+  2. Run `baml-cli generate`. This drops the compiled models directly natively into `doc_tools/baml_client` to bypass Dagster's isolated import space issues.
   3. Create `doc_tools/plugins/{domain}.py` extending `AugmentationPlugin`.
   4. Register the new plugin in the Dispatcher switch inside `doc_tools/assets/semantic_assets.py`.
 - To configure external services, subclass `ConfigurableResource` inside `doc_tools/utils/dagster_resources.py`.
