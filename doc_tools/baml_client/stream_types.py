@@ -23,8 +23,18 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (8)
+# Generated classes (10)
 # #########################################################################
+
+class ComplianceAugmentation(BaseModel):
+    rules: typing.List["ComplianceRule"]
+
+class ComplianceRule(BaseModel):
+    manual_reference: typing.Optional[str] = Field(default=None, description='e.g. \'DAFMAN 21-201 Section 4.2\' - The source manual or regulatory document reference.')
+    rule_type: typing.Optional[str] = Field(default=None, description='e.g. \'Safety\', \'Throughput\', \'Storage\', \'Certification\' - The category of the compliance rule.')
+    applicable_hazard_class: typing.Optional[str] = Field(default=None, description='e.g. \'1.1D\', \'1.3\' - The explosives hazard class this rule targets. If none, leave null.')
+    target_metric: typing.Optional[str] = Field(default=None, description='e.g. \'Max 5 Units\', \'< 15 mins\' - The quantitative or qualitative metric mandated by the rule.')
+    rule_description: typing.Optional[str] = Field(default=None, description='A concise summary of what the rule requires.')
 
 class Concept(BaseModel):
     name: typing.Optional[str] = None

@@ -23,6 +23,12 @@ class LlmResponseParser:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
+    def ExtractComplianceRules(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> types.ComplianceAugmentation:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractComplianceRules", llm_response=llm_response, mode="request")
+        return typing.cast(types.ComplianceAugmentation, __result__)
+
     def ExtractConcepts(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> types.SlideAugmentation:
@@ -48,6 +54,12 @@ class LlmStreamParser:
 
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
+
+    def ExtractComplianceRules(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> stream_types.ComplianceAugmentation:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractComplianceRules", llm_response=llm_response, mode="stream")
+        return typing.cast(stream_types.ComplianceAugmentation, __result__)
 
     def ExtractConcepts(
         self, llm_response: str, baml_options: BamlCallOptions = {},

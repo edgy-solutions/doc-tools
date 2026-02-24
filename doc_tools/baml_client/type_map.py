@@ -16,6 +16,12 @@ from . import stream_types
 
 type_map = {
 
+    "types.ComplianceAugmentation": types.ComplianceAugmentation,
+    "stream_types.ComplianceAugmentation": stream_types.ComplianceAugmentation,
+
+    "types.ComplianceRule": types.ComplianceRule,
+    "stream_types.ComplianceRule": stream_types.ComplianceRule,
+
     "types.Concept": types.Concept,
     "stream_types.Concept": stream_types.Concept,
 

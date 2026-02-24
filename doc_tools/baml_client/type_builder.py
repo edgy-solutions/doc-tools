@@ -20,7 +20,7 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["Concept","LearningObjective","ManufacturingStep","MatAugmentation","Outline","Section","SlideAugmentation","StrategicAssessment",]
+          ["ComplianceAugmentation","ComplianceRule","Concept","LearningObjective","ManufacturingStep","MatAugmentation","Outline","Section","SlideAugmentation","StrategicAssessment",]
         ), enums=set(
           []
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
@@ -31,8 +31,16 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 8
+    # Generated classes 10
     # #########################################################################
+
+    @property
+    def ComplianceAugmentation(self) -> "ComplianceAugmentationViewer":
+        return ComplianceAugmentationViewer(self)
+
+    @property
+    def ComplianceRule(self) -> "ComplianceRuleViewer":
+        return ComplianceRuleViewer(self)
 
     @property
     def Concept(self) -> "ConceptViewer":
@@ -74,8 +82,102 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
 # #########################################################################
-# Generated classes 8
+# Generated classes 10
 # #########################################################################
+
+class ComplianceAugmentationAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("ComplianceAugmentation")
+        self._properties: typing.Set[str] = set([  "rules",  ])
+        self._props = ComplianceAugmentationProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "ComplianceAugmentationProperties":
+        return self._props
+
+
+class ComplianceAugmentationViewer(ComplianceAugmentationAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class ComplianceAugmentationProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def rules(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("rules"))
+    
+    
+
+
+class ComplianceRuleAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("ComplianceRule")
+        self._properties: typing.Set[str] = set([  "manual_reference",  "rule_type",  "applicable_hazard_class",  "target_metric",  "rule_description",  ])
+        self._props = ComplianceRuleProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "ComplianceRuleProperties":
+        return self._props
+
+
+class ComplianceRuleViewer(ComplianceRuleAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class ComplianceRuleProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def manual_reference(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("manual_reference"))
+    
+    @property
+    def rule_type(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("rule_type"))
+    
+    @property
+    def applicable_hazard_class(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("applicable_hazard_class"))
+    
+    @property
+    def target_metric(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("target_metric"))
+    
+    @property
+    def rule_description(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("rule_description"))
+    
+    
+
 
 class ConceptAst:
     def __init__(self, tb: type_builder.TypeBuilder):
