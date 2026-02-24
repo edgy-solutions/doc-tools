@@ -7,6 +7,9 @@ class ManufacturingStep {
   hazard_class string? @description("Explosives Safety Hazard, e.g. '1.1D'. If none, leave null.")
   required_cert string? @description("Quality/Personnel requirement, e.g. 'QC Inspector'. If none, leave null.")
   standard_ref string? @description("e.g. 'ISO-9001'. If none, leave null.")
+  is_value_added bool @description("True if the step physically transforms the product. False if it is just an inspection, verification, QC check, or movement.")
+  process_category string @description("Classify the fundamental physics (e.g., 'Curing', 'Machining', 'Chemical Coating', 'Assembly', 'Non-Destructive Testing').")
+  estimated_duration_minutes int? @description("Extract any mentioned time constraints, cure times, or labor durations. If none, leave null.")
 }
 
 class StrategicAssessment {
@@ -33,6 +36,9 @@ function ExtractWorkInstructions(text: string) -> MatAugmentation {
     - Any safety `hazard_class` designations (e.g., Class 1.1).
     - Any `required_cert` (Personnel authorizations like 'QC Inspector' or 'Journeyman').
     - Compliance `standard_ref` (e.g. ISO-9001, MIL-STD).
+    - Whether it `is_value_added` (physical transformation vs verification/movement).
+    - The `process_category` of the fundamental physics.
+    - Any `estimated_duration_minutes` (e.g., cure times, labor time).
 
     Also, generate a strategic assessment assigning a proprietary_score (0 to 1.0) and determination of outsourceability.
     

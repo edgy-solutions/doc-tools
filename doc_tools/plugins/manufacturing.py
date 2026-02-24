@@ -13,6 +13,9 @@ class ManufacturingStep(BaseModel):
     hazard_class: Optional[str] = Field(default=None)
     required_cert: Optional[str] = Field(default=None)
     standard_ref: Optional[str] = Field(default=None, description="e.g. 'ISO-9001'")
+    is_value_added: bool
+    process_category: str
+    estimated_duration_minutes: Optional[int] = Field(default=None)
 
 class StrategicAssessment(BaseModel):
     proprietary_score: float = Field(ge=0.0, le=1.0, description="0.0 (Common) to 1.0 (Secret Sauce)")
@@ -46,7 +49,10 @@ class ManufacturingPlugin(AugmentationPlugin):
                     consumables=s.consumables,
                     hazard_class=s.hazard_class,
                     required_cert=s.required_cert,
-                    standard_ref=s.standard_ref
+                    standard_ref=s.standard_ref,
+                    is_value_added=s.is_value_added,
+                    process_category=s.process_category,
+                    estimated_duration_minutes=s.estimated_duration_minutes
                 ))
                 
             augmentation = MatAugmentation(
@@ -69,7 +75,10 @@ class ManufacturingPlugin(AugmentationPlugin):
                         consumables=["Epoxy #9"],
                         hazard_class="1.1D",
                         required_cert="QC Inspector",
-                        standard_ref="ISO-9001"
+                        standard_ref="ISO-9001",
+                        is_value_added=True,
+                        process_category="Assembly",
+                        estimated_duration_minutes=15
                     )
                 ],
                 assessment=StrategicAssessment(
@@ -121,7 +130,10 @@ class ManufacturingPlugin(AugmentationPlugin):
                 MERGE (s:ManufacturingStep {{
                     id: $step_node_id, 
                     step_id: $step_id, 
-                    action: $action
+                    action: $action,
+                    is_value_added: $is_value_added,
+                    process_category: $process_category,
+                    estimated_duration_minutes: $duration
                 }})
                 MERGE (proc)-[:CONTAINS_STEP]->(s)
                 """
@@ -150,6 +162,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                         "step_node_id": step_node_id,
                         "step_id": step.step_id,
                         "action": step.action_verb,
+                        "is_value_added": step.is_value_added,
+                        "process_category": step.process_category,
+                        "duration": step.estimated_duration_minutes if step.estimated_duration_minutes is not None else -1,
                         "hazard_id": f"hazard_{step.hazard_class}" if step.hazard_class else "",
                         "hazard": step.hazard_class or "",
                         "cert_id": f"cert_{step.required_cert}" if step.required_cert else "",

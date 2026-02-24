@@ -1,0 +1,10 @@
+2026-02-24T10:12:13.238 [BAML INFO] Generating clients with CLI version: 0.219.0
+2026-02-24T10:12:13.242 [BAML ERROR] Error generating clients: Client generation failed
+
+Caused by:
+    Version mismatch: ⚠️⚠️⚠️ BAML GENERATION DISABLED: A 'version' is now required in generator config. Please add 'version "0.219.0"' inside the generator to continue generating baml_client.
+    
+    Make sure your installed baml package dependency and VSCode are also version 0.219.0 
+    
+    See https://docs.boundaryml.com/docs/calling-baml/generate-baml-client
+Error: Client generation failed

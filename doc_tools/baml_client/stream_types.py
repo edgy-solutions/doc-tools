@@ -44,6 +44,9 @@ class ManufacturingStep(BaseModel):
     hazard_class: typing.Optional[str] = Field(default=None, description='Explosives Safety Hazard, e.g. \'1.1D\'. If none, leave null.')
     required_cert: typing.Optional[str] = Field(default=None, description='Quality/Personnel requirement, e.g. \'QC Inspector\'. If none, leave null.')
     standard_ref: typing.Optional[str] = Field(default=None, description='e.g. \'ISO-9001\'. If none, leave null.')
+    is_value_added: typing.Optional[bool] = Field(default=None, description='True if the step physically transforms the product. False if it is just an inspection, verification, QC check, or movement.')
+    process_category: typing.Optional[str] = Field(default=None, description='Classify the fundamental physics (e.g., \'Curing\', \'Machining\', \'Chemical Coating\', \'Assembly\', \'Non-Destructive Testing\').')
+    estimated_duration_minutes: typing.Optional[int] = Field(default=None, description='Extract any mentioned time constraints, cure times, or labor durations. If none, leave null.')
 
 class MatAugmentation(BaseModel):
     steps: typing.List["ManufacturingStep"]

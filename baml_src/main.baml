@@ -1,6 +1,7 @@
 generator target {
-  type "python/pydantic"
-  output_dir "../doc_tools/baml_client"
+  output_type "python/pydantic"
+  output_dir "../doc_tools"
+  version "0.219.0"
 }
 
 // Global Clients
