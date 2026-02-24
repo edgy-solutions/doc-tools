@@ -9,7 +9,9 @@ A domain-agnostic, configurable document data ingestion pipeline built with [Dag
 3. **Graph Knowledge Representation:** Maps processed documents into a highly-linked **Neo4j** Knowledge Graph for traversing document relationships, concepts, and metadata.
 4. **Vector Embeddings for RAG:** Embeds text chunks directly into **Weaviate** for immediate semantic search availability.
 5. **Semantic Web Triples:** Emits standard OWL/RDF Triples representing structural schemas into **Apache Jena / Fuseki** via SPARQL.
-5. **Configurability:** Fully configurable domains! Easily override GraphQL / Graph target labels and Vector DB collections via Dagster run configs.
+6. **Configurability:** Fully configurable domains! Easily override GraphQL / Graph target labels and Vector DB collections via Dagster run configs.
+7. **Event-Driven Ingestion:** Dynamic Dagster sensors monitor configurable S3 bucket/directory prefixes, instantaneously injecting `domain_type` routing tags (`manufacturing`, `compliance`) into the pipeline.
+8. **10x Factory Extraction:** Maps deep-physics logic by rigorously isolating `is_value_added` from `is_safety_critical` steps into Neo4j for exact bottleneck and critical path analysis.
 
 ---
 
@@ -18,9 +20,10 @@ A domain-agnostic, configurable document data ingestion pipeline built with [Dag
 - `charts/doc-tools/`: The Helm Chart for deploying the application to Kubernetes, fully supporting ConfigMaps and Secrets.
 - `doc_tools/`: The main Dagster application codebase.
   - `doc_tools/assets/`: The Dagster data assets forming the core ingestion and semantic pipelines.
-  - `doc_tools/plugins/`: Contains the **Domain-Agnostic Plugin Architecture**. Base structural nodes are passed here where domain logic (Training/MAT) invokes BAML schemas and returns Cypher/SPARQL queries.
+  - `doc_tools/plugins/`: Contains the **Domain-Agnostic Plugin Architecture**. Base structural nodes are passed here where domain logic (Training, Manufacturing/MAT, Compliance) invokes BAML schemas and returns Cypher/SPARQL queries.
+  - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests based on mapped S3 directory prefixes.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
-  - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration that binds dependencies, resources, and configurations.
+  - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration that binds dependencies, resources, sensors, and configurations.
 - `pyproject.toml`: The root Python project configuration and exact dependencies managed via [uv](https://docs.astral.sh/uv/).
 
 ---

@@ -17,8 +17,8 @@
   - Databases and object storage are configured via `ConfigurableResource` (e.g., `MinioResource`, `Neo4jResource`, `JenaResource`).
 - **Domain-Agnostic Core with Plugin Layers**:
   - The core DAG pipeline extracts structure (BaseSection) without domain context.
-  - Domain-specific logic (e.g. Training concepts versus Manufacturing steps) is handled ONLY by extending `doc_tools.plugins.base.AugmentationPlugin`.
-  - All LLM interactions are handled via strictly-typed **BAML** (`baml_src/`). Do not write raw litellm or langchain extraction loops.
+  - Domain-specific logic (e.g. Training concepts versus Manufacturing steps versus Compliance regulations) is handled ONLY by extending `doc_tools.plugins.base.AugmentationPlugin` and dynamically routing using context run tags.
+  - All LLM interactions are handled via strictly-typed **BAML** (`baml_src/`) incorporating strict safety classifications and Chain-of-thought validations. Do not write raw litellm or langchain extraction loops.
   - When you add a new plugin domain, you must write the native schema in `.baml`, compile via `baml-cli generate` (which outputs to `doc_tools/baml_client`), and implement the `augment` mapping inside a new `doc_tools/plugins/{domain}.py` file.
 - **Cypher Queries**: Parameterize node labels carefully in Python using f-strings before passing to Neo4j. Neo4j python drivers do not support parameterizing node labels directly.
 - **Imports**: Ensure all project imports use absolute paths relative to the project root (`doc_tools.xyz`). No relative imports going up the tree.

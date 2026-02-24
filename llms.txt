@@ -7,16 +7,17 @@ Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and 
 
 ## Architecture
 - **Dependency Management**: `uv` powers all dependency resolution securely via `pyproject.toml`.
-- **Orchestration**: `Dagster` orchestrates the pipeline, using generic dynamic partitions (`doc_id/filename`). Sensors monitor MinIO for raw file drops to automatically trigger ingestion workflows.
+- **Orchestration**: `Dagster` orchestrates the pipeline, using generic dynamic partitions (`doc_id/filename`). Dynamic sensors map configured S3 prefixes, triggering `RunRequests` stamped with `domain_type` runtime tags to dynamically route document assets.
 - **Config-Driven Domain Mapping**: Uses `dagster.Config` (`IngestionConfig`) and `ConfigurableResource` to dynamically assign graph node schemas (`graph_node_label`, `graph_child_label`) and vector database collections (`vector_collection_name`), keeping the underlying code strictly domain-agnostic.
 - **Deployments**: Containerized CI/CD is bound to GitHub Actions using Cloud Native Buildpacks (Paketo). System dependencies for unstructured optical parsing (`libmagic-dev`, `poppler-utils`, `tesseract-ocr`) are natively declared in the `Aptfile`.
 
 ## Key Files & Directories
 - `doc_tools/assets/ingestion_assets.py`: Layout detection, unstructuring, and intermediate manifest generation. Custom python-pptx extraction is layered here inside.
-- `doc_tools/plugins/`: Contains the **Domain-Agnostic Plugin Architecture**. Base structural nodes are passed here where domain logic (Training/MAT) invokes BAML schemas and returns Cypher/SPARQL queries.
-- `baml_src/`: LLM prompt definitions mapped to structural schemas. Compiles via `baml-py` into Pydantic models natively inside the Dagster workspace at `doc_tools/baml_client`.
-- `doc_tools/assets/semantic_assets.py`: Cypher logic to build Neo4j Knowledge Graphs and semantic vectorization into Weaviate. Routes extractions dynamically using a Factory switch pattern against the loaded plugins.
-- `doc_tools/definitions.py`: Entrypoint for Dagster binding assets, jobs (`process_documents_job`), sensors (`document_upload_sensor`), and resources.
+- `doc_tools/plugins/`: Contains the **Domain-Agnostic Plugin Architecture**. Base structural nodes are passed here where domain logic invokes BAML LLM schemas (e.g. `Training`, advanced factory physics via strictly separated `Manufacturing` constraints, or rigorous `Compliance` directives) and returns Cypher/SPARQL queries.
+- `baml_src/`: LLM prompt definitions mapped to structural schemas with strictly enforced Chain-of-Thought Guardrails. Compiles via `baml-py` into Pydantic models natively inside the Dagster workspace at `doc_tools/baml_client`.
+- `doc_tools/sensors.py`: Factory definitions routing Event-driven workflow hooks.
+- `doc_tools/assets/semantic_assets.py`: Cypher logic to build Neo4j Knowledge Graphs and semantic vectorization into Weaviate. Routes extractions dynamically using a Factory switch pattern against the tags populated by `sensors.py`.
+- `doc_tools/definitions.py`: Entrypoint for Dagster binding assets, jobs (`process_documents_job`), generated sensor arrays, and context resources.
 - `pyproject.toml`: The root configuration of Python parameters.
 
 ## AI Instructions
