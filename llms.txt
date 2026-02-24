@@ -18,6 +18,7 @@ Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and 
 - `doc_tools/sensors.py`: Factory definitions routing Event-driven workflow hooks.
 - `doc_tools/assets/semantic_assets.py`: Cypher logic to build Neo4j Knowledge Graphs and semantic vectorization into Weaviate. Routes extractions dynamically using a Factory switch pattern against the tags populated by `sensors.py`.
 - `doc_tools/definitions.py`: Entrypoint for Dagster binding assets, jobs (`process_documents_job`), generated sensor arrays, and context resources.
+- `setup/setup_env.py`: Crucial pre-flight script that initializes Weaviate schemas, Neo4j constraints, and downloads the IOF/ISA95 ontologies to Apache Jena. Do not modify databases manually.
 - `pyproject.toml`: The root configuration of Python parameters.
 
 ## AI Instructions
