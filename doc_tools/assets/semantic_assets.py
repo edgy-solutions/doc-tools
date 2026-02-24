@@ -106,10 +106,28 @@ def build_knowledge_graph(
                 current_chunk_page += 1
                 current_chunk_size = 0
         
-    # Initialize appropriate Plugin based on metadata
-    project_type = manifest.get("metadata", {}).get("project", "Training")
-    plugin = ManufacturingPlugin() if project_type == "MAT" else TrainingPlugin()
-    context.log.info(f"Initialized {type(plugin).__name__} for project: {project_type}")
+    # Initialize appropriate Plugin based on run tags
+    try:
+        domain_type = context.run_tags.get("domain_type")
+    except AttributeError:
+        try:
+             domain_type = context.run.tags.get("domain_type")
+        except AttributeError:
+             domain_type = manifest.get("metadata", {}).get("project", "Training")
+             
+    if domain_type == "manufacturing":
+        plugin = ManufacturingPlugin()
+    elif domain_type == "compliance":
+        try:
+            from doc_tools.plugins.compliance import CompliancePlugin
+            plugin = CompliancePlugin()
+        except ImportError:
+            context.log.warning("CompliancePlugin not found, falling back to TrainingPlugin")
+            plugin = TrainingPlugin()
+    else:
+        plugin = TrainingPlugin()
+        
+    context.log.info(f"Initialized {type(plugin).__name__} for domain: {domain_type}")
 
     # Ensure Weaviate Class exists with dynamic collection name
     try:
