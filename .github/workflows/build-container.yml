@@ -54,6 +54,7 @@ jobs:
             --builder paketobuildpacks/builder-jammy-base \
             --buildpack paketo-buildpacks/apt \
             --buildpack paketo-buildpacks/python \
+            --buildpack paketo-buildpacks/procfile \
             --tag $IMAGE_NAME:${{ github.sha }} \
             $PUBLISH_FLAG \
             --path .

@@ -6,6 +6,11 @@ image:
   pullPolicy: IfNotPresent
   tag: "latest"
 
+# Cloud Native Buildpack (CNB) process type to run. 
+# "grpc" maps to the [[processes]] defined in project.toml.
+command: []
+args: ["grpc"]
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
