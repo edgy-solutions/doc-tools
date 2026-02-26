@@ -46,52 +46,7 @@ def prime_neo4j():
     except Exception as e:
         print(f"Failed to prime Neo4j: {e}")
 
-def prime_weaviate():
-    print("--- Priming Weaviate (Schema & Vectorizer) ---")
-    url = os.environ.get("WEAVIATE_URL", "http://localhost:8080")
-    api_key = os.environ.get("WEAVIATE_API_KEY", "")
-    
-    auth_config = None
-    if api_key:
-        auth_config = weaviate.AuthApiKey(api_key=api_key)
-        
-    try:
-        client = weaviate.Client(url=url, auth_client_secret=auth_config)
-        
-        class_name = "DocumentChunk"
-        if not client.schema.exists(class_name):
-            schema = {
-                "class": class_name,
-                "description": "A chunk of text extracted from a parsed industrial document.",
-                "vectorizer": "text2vec-transformers",
-                "properties": [
-                    {
-                        "name": "raw_text",
-                        "dataType": ["text"],
-                        "description": "The raw chunked text content"
-                    },
-                    {
-                        "name": "document_title",
-                        "dataType": ["text"]
-                    },
-                    {
-                        "name": "page_number",
-                        "dataType": ["int"]
-                    },
-                    {
-                        "name": "domain_type",
-                        "dataType": ["text"],
-                        "description": "Domain routing tag, e.g., 'manufacturing' or 'compliance'"
-                    }
-                ]
-            }
-            client.schema.create_class(schema)
-            print(f"Created Weaviate schema for class: {class_name}")
-        else:
-            print(f"Weaviate schema {class_name} already exists.")
-            
-    except Exception as e:
-        print(f"Failed to prime Weaviate: {e}")
+
 
 def prime_jena():
     print("--- Priming Apache Jena (Ontologies) ---")
@@ -167,7 +122,6 @@ def main():
     time.sleep(2)
     
     prime_neo4j()
-    prime_weaviate()
     prime_jena()
     
     print("=== Pre-Flight Complete ===")
