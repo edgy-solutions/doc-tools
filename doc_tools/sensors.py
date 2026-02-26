@@ -14,10 +14,13 @@ def get_minio_client():
         secure=False
     )
 
-def build_document_sensor(bucket_name: str, directory: str):
+def build_document_sensor(bucket_name: str, directory: str, run_config: dict = None):
     domain_type = directory.strip('/')
     sensor_name = f"{domain_type}_document_sensor"
     
+    if run_config is None:
+        run_config = {}
+            
     @sensor(name=sensor_name, job_name="process_documents_job", default_status=_sensor_status)
     def _document_sensor(context: SensorEvaluationContext):
         """
@@ -77,6 +80,7 @@ def build_document_sensor(bucket_name: str, directory: str):
                 yield RunRequest(
                     run_key=key,
                     partition_key=key,
+                    run_config=run_config,
                     tags={"domain_type": domain_type}
                 )
                 new_cursor = key
