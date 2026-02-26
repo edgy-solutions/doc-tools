@@ -16,4 +16,4 @@ command = "dagster job execute -m doc_tools.definitions -j process_documents_job
 
 [[processes]]
 type = "grpc"
-command = "dagster api grpc -h 0.0.0.0 -p 4000 -m doc_tools.definitions"
+command = "dagster api grpc -h 0.0.0.0 -p 3030 -m doc_tools.definitions"
