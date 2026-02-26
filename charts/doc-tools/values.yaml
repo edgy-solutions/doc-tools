@@ -73,18 +73,18 @@ runConfig:
         ops:
           build_knowledge_graph:
             config:
-              graph_node_label: "Part"
-              graph_child_label: "ManufacturingStep"
-              vector_collection_name: "ManufacturingStep"
+              graph_node_label: "WorkInstruction"
+              graph_child_label: "Page"
+              vector_collection_name: "ManufacturingDocumentChunk"
     - bucket: "processing-artifacts"
       directory: "compliance"
       config:
         ops:
           build_knowledge_graph:
             config:
-              graph_node_label: "Regulation"
-              graph_child_label: "ComplianceRule"
-              vector_collection_name: "ComplianceRule"
+              graph_node_label: "RegulationDocument"
+              graph_child_label: "Page"
+              vector_collection_name: "ComplianceDocumentChunk"
     - bucket: "processing-artifacts"
       directory: "training"
       config:
@@ -93,7 +93,7 @@ runConfig:
             config:
               graph_node_label: "Course"
               graph_child_label: "Slide"
-              vector_collection_name: "TrainingCourse"
+              vector_collection_name: "TrainingDocumentChunk"
 
 autoscaling:
   enabled: false
