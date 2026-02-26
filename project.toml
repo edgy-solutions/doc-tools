@@ -9,11 +9,14 @@ value = "3.11"
 type = "web"
 command = "dagster-webserver -h 0.0.0.0 -p 8080 -m doc_tools.definitions"
 default = true
+direct = false
 
 [[processes]]
 type = "worker"
 command = "dagster job execute -m doc_tools.definitions -j process_documents_job"
+direct = false
 
 [[processes]]
 type = "grpc"
 command = "dagster api grpc -h 0.0.0.0 -p 3030 -m doc_tools.definitions"
+direct = false
