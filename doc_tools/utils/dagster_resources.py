@@ -9,15 +9,15 @@ class MinioResource(ConfigurableResource):
         from minio import Minio
         # Return a simple minio client or mock for now as configuration wasn't fully specified
         return Minio(
-            endpoint=os.getenv("MINIO_ENDPOINT", "localhost:9000"),
-            access_key=os.getenv("MINIO_ROOT_USER", "minioadmin"),
-            secret_key=os.getenv("MINIO_ROOT_PASSWORD", "minioadmin"),
+            endpoint=os.getenv("S3_ENDPOINT_URL", "localhost:9000"),
+            access_key=os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
+            secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
             secure=False
         )
     
     @property
     def endpoint(self):
-        return os.getenv("MINIO_ENDPOINT", "localhost:9000")
+        return os.getenv("S3_ENDPOINT_URL", "localhost:9000")
 
 class Neo4jResource(ConfigurableResource):
     def get_client(self):

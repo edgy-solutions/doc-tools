@@ -8,9 +8,9 @@ _sensor_status = DefaultSensorStatus.RUNNING if _sensor_default_enabled else Def
 def get_minio_client():
     from minio import Minio
     return Minio(
-        endpoint=os.getenv("MINIO_ENDPOINT", "localhost:9000"),
-        access_key=os.getenv("MINIO_ROOT_USER", "minioadmin"),
-        secret_key=os.getenv("MINIO_ROOT_PASSWORD", "minioadmin"),
+        endpoint=os.getenv("S3_ENDPOINT_URL", "localhost:9000"),
+        access_key=os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
+        secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
         secure=False
     )
 
