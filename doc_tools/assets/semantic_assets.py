@@ -148,8 +148,33 @@ def build_knowledge_graph(
     except Exception as e:
         context.log.error(f"Weaviate Class creation failed: {e}")
 
-    # Process each page/chunk through the Plugin architecture
+    # Reconstruct full text for optional Global Plugin Pass
+    full_text_parts = []
+    current_page = -1
+    for el in text_elements:
+        text = el.get("text", "")
+        if not text:
+            continue
+        page_num = el.get("metadata", {}).get("page_number")
+        if page_num is not None and page_num != current_page:
+            full_text_parts.append(f"\n--- Page {page_num} ---\n")
+            current_page = page_num
+        type_ = el.get("type", "Text")
+        full_text_parts.append(f"[{type_}] {text}")
+        
+    full_text = "\n".join(full_text_parts)
+
+    # Allow plugins an optional full-document processing pass (e.g. Outlines)
     document_nodes = []
+    try:
+        context.log.info(f"Executing global full-text pass for {type(plugin).__name__}...")
+        global_nodes = plugin.process_fulltext(full_text, doc_id, manifest.get("metadata", {}))
+        if global_nodes:
+            document_nodes.extend(global_nodes)
+    except Exception as e:
+        context.log.error(f"Global plugin extraction failed: {e}")
+
+    # Process each page/chunk through the Plugin architecture
     for page_num, texts in pages.items():
         chunk_text = "\n".join(texts)
         if not chunk_text.strip():
@@ -168,7 +193,8 @@ def build_knowledge_graph(
             title=f"Page {page_num}",
             level=1,
             page_start=page_num,
-            content=chunk_text
+            content=chunk_text,
+            node_id=chunk_id
         )
         
         # 2. Augment via Domain Plugin
@@ -228,6 +254,13 @@ def build_knowledge_graph(
             )
         except Exception as e:
             context.log.error(f"Vector indexing failed for chunk {chunk_id}: {e}")
+
+    # --- PASS 2: LINK & ROLL-UP (Domain-Specific) ---
+    try:
+        context.log.info(f"Executing Pass 2 Roll-up for {type(plugin).__name__}...")
+        plugin.execute_pass2_rollup(neo4j_client, doc_id, config)
+    except Exception as e:
+        context.log.error(f"Pass 2 Roll-up failed: {e}")
 
     try:
         neo4j_client.close()

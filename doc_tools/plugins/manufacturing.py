@@ -109,8 +109,8 @@ class ManufacturingPlugin(AugmentationPlugin):
             if not isinstance(aug, MatAugmentation):
                 continue
                 
-            # --- NEO4J CYPHER: (Part)-[:REQUIRES_STEP]->(ManufacturingStep) ---
-            part_id = f"part_{sec.page_start}_{sec.title}"
+            # --- NEO4J CYPHER: (Page)-[:REQUIRES_PROCEDURE]->(Procedure) ---
+            part_id = sec.node_id or f"part_{sec.page_start}_{sec.title}"
             cypher_queries.append({
                 "query": f"""
                 MERGE (p:{config.graph_child_label} {{id: $part_id}})

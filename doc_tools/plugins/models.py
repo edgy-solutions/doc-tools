@@ -6,6 +6,7 @@ class BaseSection(BaseModel):
     level: int = Field(description="The hierarchical level of the section (e.g., 1 for H1, 2 for H2).")
     page_start: int = Field(description="The page number where this section starts.")
     content: str = Field(description="The raw text content contained within this section.")
+    node_id: str = Field(default="", description="The globally unique graph/vector ID of this section chunk.")
 
 class DocumentNode(BaseModel):
     """

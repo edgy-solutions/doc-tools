@@ -25,3 +25,20 @@ class AugmentationPlugin(ABC):
         If a database is unused by the domain, return an empty list.
         """
         pass
+        
+    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None) -> List[DocumentNode]:
+        """
+        Optional hook for plugins to process the entire document text at once
+        (e.g., extracting a hierarchical outline or synthesizing summaries).
+        Defaults to a no-op returning an empty list.
+        """
+        return []
+
+    def execute_pass2_rollup(self, neo4j_client: Any, doc_id: str, config: Any) -> None:
+        """
+        Optional hook executed after all nodes and edges are inserted into the graph.
+        Used for domain-specific cross-linking (e.g. linking Sections to Slides) 
+        and mathematical rollups (e.g. averaging concept salience scores).
+        Defaults to a no-op.
+        """
+        pass

@@ -70,8 +70,8 @@ class CompliancePlugin(AugmentationPlugin):
             if not isinstance(aug, ComplianceAugmentation):
                 continue
                 
-            # Node ID base for the Document Section
-            section_id = f"section_{sec.page_start}_{sec.title}"
+            # Use unified hardware ID linking Graph to Vector DB
+            section_id = sec.node_id or f"section_{sec.page_start}_{sec.title}"
             cypher_queries.append({
                 "query": f"""
                 MERGE (p:{config.graph_child_label} {{id: $section_id}})
