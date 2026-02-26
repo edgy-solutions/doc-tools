@@ -7,8 +7,8 @@ image:
   tag: "latest"
 
 # Cloud Native Buildpack (CNB) process type to run.
-# The CNB launcher is now the default entrypoint, so just pass the process name.
-# Options: "web" (dagster-webserver), "grpc" (dagster api grpc), "worker" (dagster job execute)
+# Process types are defined in the Procfile (web, grpc, worker).
+# The CNB launcher is the default entrypoint; just pass the process name.
 command: []
 args: ["grpc"]
 
