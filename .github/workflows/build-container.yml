@@ -49,11 +49,13 @@ jobs:
             PUBLISH_FLAG="--publish"
           fi
           
-          # Let the builder use its full default buildpack group.
-          # This ensures the CNB lifecycle launcher is set as the entrypoint
-          # and project.toml process types (web, grpc, worker) are registered.
+          # Provide explicit buildpacks since paketo-buildpacks/apt is not in the default group
+          # We specify the exact procfile buildpack version present in the Jammy builder
           pack build $IMAGE_NAME:latest \
             --builder paketobuildpacks/builder-jammy-base \
+            --buildpack paketo-buildpacks/apt \
+            --buildpack paketo-buildpacks/python \
+            --buildpack paketo-buildpacks/procfile@5.13.0 \
             --tag $IMAGE_NAME:${{ github.sha }} \
             $PUBLISH_FLAG \
             --path .

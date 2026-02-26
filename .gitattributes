@@ -1,0 +1,2 @@
+# Force Unix line endings on files that Linux containers parse directly
+Procfile text eol=lf
