@@ -1,7 +1,28 @@
-ops:
-  build_knowledge_graph:
+sensors:
+  - bucket: "processing-artifacts"
+    directory: "manufacturing"
     config:
-      source_directory: "/data/inputs"
-      graph_node_label: "Course"
-      graph_child_label: "Slide"
-      vector_collection_name: "TrainingCourse"
+      ops:
+        build_knowledge_graph:
+          config:
+            graph_node_label: "Part"
+            graph_child_label: "ManufacturingStep"
+            vector_collection_name: "ManufacturingStep"
+  - bucket: "processing-artifacts"
+    directory: "compliance"
+    config:
+      ops:
+        build_knowledge_graph:
+          config:
+            graph_node_label: "Regulation"
+            graph_child_label: "ComplianceRule"
+            vector_collection_name: "ComplianceRule"
+  - bucket: "processing-artifacts"
+    directory: "training"
+    config:
+      ops:
+        build_knowledge_graph:
+          config:
+            graph_node_label: "Course"
+            graph_child_label: "Slide"
+            vector_collection_name: "TrainingCourse"
