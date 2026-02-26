@@ -49,11 +49,11 @@ jobs:
             PUBLISH_FLAG="--publish"
           fi
           
-          # Force the Apt buildpack and Python buildpack
+          # Let the builder use its full default buildpack group.
+          # This ensures the CNB lifecycle launcher is set as the entrypoint
+          # and project.toml process types (web, grpc, worker) are registered.
           pack build $IMAGE_NAME:latest \
             --builder paketobuildpacks/builder-jammy-base \
-            --buildpack paketo-buildpacks/apt \
-            --buildpack paketo-buildpacks/python \
             --tag $IMAGE_NAME:${{ github.sha }} \
             $PUBLISH_FLAG \
             --path .
