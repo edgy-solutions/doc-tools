@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Any
+from typing import List, Any, Dict
 from doc_tools.plugins.models import BaseSection, DocumentNode
 
 class AugmentationPlugin(ABC):

@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
@@ -145,7 +145,7 @@ class TrainingPlugin(AugmentationPlugin):
             
             if len(full_text) <= max_chars:
                 print(f"[TrainingPlugin] Document fits in context ({len(full_text)} chars)")
-                baml_response: CourseOutline = b.ExtractOutline(text=full_text)
+                baml_response = b.ExtractOutline(text=full_text)
                 final_sections = self._merge_outlines([baml_response])
             else:
                 print(f"[TrainingPlugin] Document too large ({len(full_text)} chars), chunking...")
