@@ -36,10 +36,18 @@ for c in SENSOR_CONFIGS:
             fallback_config["ops"][op]["config"]["bucket"] = c.get("bucket", "processing-artifacts")
         break
 
+import json
 process_documents_job = define_asset_job(
     name="process_documents_job",
     selection=["process_document_artifact", "build_knowledge_graph"],
-    config=fallback_config
+    config=fallback_config,
+    tags={
+        "dagster-k8s/config": json.dumps({
+            "container_config": {
+                "command": ["/cnb/lifecycle/launcher"]
+            }
+        })
+    }
 )
 
 defs = Definitions(

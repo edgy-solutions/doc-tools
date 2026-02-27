@@ -8,8 +8,8 @@ image:
 
 # Cloud Native Buildpack (CNB) process type to run.
 # Process types are defined in the Procfile (web, grpc, worker).
-# The CNB launcher is the default entrypoint; just pass the process name.
-command: []
+# We explicitly invoke the launcher here to bypass the image's default entrypoint.
+command: ["/cnb/lifecycle/launcher"]
 args: ["grpc"]
 
 imagePullSecrets: []
