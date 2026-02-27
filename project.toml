@@ -6,6 +6,12 @@ name = "BP_CPYTHON_VERSION"
 value = "3.12"
 
 [[processes]]
+type = "grpc"
+command = "dagster api grpc -h 0.0.0.0 -p 3030 -m doc_tools.definitions"
+default = true
+direct = false
+
+[[processes]]
 type = "web"
 command = "dagster-webserver -h 0.0.0.0 -p 8080 -m doc_tools.definitions"
 direct = false
@@ -13,9 +19,4 @@ direct = false
 [[processes]]
 type = "worker"
 command = "dagster job execute -m doc_tools.definitions -j process_documents_job"
-direct = false
-
-[[processes]]
-type = "grpc"
-command = "dagster api grpc -h 0.0.0.0 -p 3030 -m doc_tools.definitions"
 direct = false
