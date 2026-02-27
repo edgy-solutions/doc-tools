@@ -3,7 +3,7 @@ schema-version = "0.2"
 
 [[build.env]]
 name = "BP_CPYTHON_VERSION"
-value = "3.11"
+value = "3.12"
 
 [[processes]]
 type = "web"
@@ -18,5 +18,4 @@ direct = false
 [[processes]]
 type = "grpc"
 command = "dagster api grpc -h 0.0.0.0 -p 3030 -m doc_tools.definitions"
-default = true
 direct = false
