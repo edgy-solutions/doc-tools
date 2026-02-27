@@ -44,7 +44,7 @@ process_documents_job = define_asset_job(
     tags={
         "dagster-k8s/config": json.dumps({
             "container_config": {
-                "command": ["/cnb/lifecycle/launcher"]
+                "command": ["/cnb/lifecycle/launcher", "bash", "-c", "exec \"$@\"", "--"]
             }
         })
     }
