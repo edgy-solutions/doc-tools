@@ -4,16 +4,14 @@ import json
 import tempfile
 from typing import Dict, Any
 from dagster import asset, AssetExecutionContext, DynamicPartitionsDefinition
-from doc_tools.config import IngestionConfig
+from doc_tools.config import ProcessConfig
 from doc_tools.utils.dagster_resources import MinioResource
 from doc_tools.utils.extraction import extract_text_and_metadata
-
-BUCKET_NAME = "processing-artifacts"
 
 document_files_partition = DynamicPartitionsDefinition(name="document_files")
 
 @asset(partitions_def=document_files_partition)
-def process_document_artifact(context: AssetExecutionContext, minio: MinioResource) -> Dict[str, Any]:
+def process_document_artifact(context: AssetExecutionContext, config: ProcessConfig, minio: MinioResource) -> Dict[str, Any]:
     """
     Processes a single document artifact downloaded from MinIO.
     Triggered when a new file is found.
@@ -38,7 +36,7 @@ def process_document_artifact(context: AssetExecutionContext, minio: MinioResour
         file_path = os.path.join(temp_dir, filename)
         
         try:
-            client.download_file(BUCKET_NAME, source_object_name, file_path)
+            client.download_file(config.bucket, source_object_name, file_path)
         except Exception as e:
             context.log.warning(f"Failed to download from minio (mocking for now): {e}")
             # Mock file creation for standalone execution if minio isn't there
@@ -50,7 +48,7 @@ def process_document_artifact(context: AssetExecutionContext, minio: MinioResour
         doc_metadata = {}
         try:
              metadata_path = os.path.join(temp_dir, "metadata.json")
-             client.download_file(BUCKET_NAME, f"{doc_id}/metadata.json", metadata_path)
+             client.download_file(config.bucket, f"{doc_id}/metadata.json", metadata_path)
              with open(metadata_path, 'r', encoding='utf-8') as f:
                  doc_metadata = json.load(f)
         except Exception:
@@ -92,7 +90,7 @@ def process_document_artifact(context: AssetExecutionContext, minio: MinioResour
                             ext = os.path.splitext(img_filename)[1].lower()
                             ctype = "image/jpeg" if ext in [".jpg", ".jpeg"] else "image/png"
                             try:
-                                url = client.upload_file(BUCKET_NAME, object_name, img_local_path, content_type=ctype)
+                                url = client.upload_file(config.bucket, object_name, img_local_path, content_type=ctype)
                                 embedded_images_map[img_filename] = url
                             except Exception:
                                 embedded_images_map[img_filename] = f"mock_url/{object_name}"
@@ -106,7 +104,7 @@ def process_document_artifact(context: AssetExecutionContext, minio: MinioResour
             text_object_name = f"{doc_id}/generated/text.json"
             text_json = json.dumps(elements, indent=2)
             try:
-                client.upload_bytes(BUCKET_NAME, text_object_name, text_json.encode('utf-8'), content_type="application/json")
+                client.upload_bytes(config.bucket, text_object_name, text_json.encode('utf-8'), content_type="application/json")
             except Exception:
                 pass
                 
@@ -126,7 +124,7 @@ def process_document_artifact(context: AssetExecutionContext, minio: MinioResour
         manifest_object_name = f"{doc_id}/generated/manifest.json"
         manifest_json = json.dumps(manifest, indent=2)
         try:
-            client.upload_bytes(BUCKET_NAME, manifest_object_name, manifest_json.encode('utf-8'), content_type="application/json")
+            client.upload_bytes(config.bucket, manifest_object_name, manifest_json.encode('utf-8'), content_type="application/json")
         except Exception:
             pass
             

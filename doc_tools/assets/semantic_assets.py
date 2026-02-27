@@ -3,7 +3,7 @@ import os
 from typing import Any, Dict
 from dagster import asset, AssetExecutionContext
 from doc_tools.config import IngestionConfig
-from doc_tools.assets.ingestion_assets import document_files_partition, BUCKET_NAME
+from doc_tools.assets.ingestion_assets import document_files_partition
 from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
@@ -46,7 +46,7 @@ def build_knowledge_graph(
     text_elements = []
     try:
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            minio_client.download_file(BUCKET_NAME, text_location, tmp.name)
+            minio_client.download_file(config.bucket, text_location, tmp.name)
             with open(tmp.name, 'r', encoding='utf-8') as f:
                 text_elements = json.load(f)
     except Exception as e:

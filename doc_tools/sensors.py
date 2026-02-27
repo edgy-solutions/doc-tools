@@ -7,11 +7,19 @@ _sensor_status = DefaultSensorStatus.RUNNING if _sensor_default_enabled else Def
 
 def get_minio_client():
     from minio import Minio
+    
+    # The Minio python client requires the endpoint WITHOUT http:// or https://
+    endpoint_url = os.getenv("S3_ENDPOINT_URL", "localhost:9000")
+    if endpoint_url.startswith("http://"):
+        endpoint_url = endpoint_url[len("http://"):]
+    elif endpoint_url.startswith("https://"):
+        endpoint_url = endpoint_url[len("https://"):]
+        
     return Minio(
-        endpoint=os.getenv("S3_ENDPOINT_URL", "localhost:9000"),
+        endpoint=endpoint_url,
         access_key=os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
         secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-        secure=False
+        secure=os.getenv("MINIO_SECURE", "false").lower() == "true"
     )
 
 def build_document_sensor(bucket_name: str, directory: str, run_config: dict = None):
@@ -76,11 +84,23 @@ def build_document_sensor(bucket_name: str, directory: str, run_config: dict = N
             # Register new partitions to Dagster state
             context.instance.add_dynamic_partitions(document_files_partition.name, new_partition_keys)
             
+            # Inject bucket config into the job payloads dynamically
+            import copy
+            sensor_run_config = copy.deepcopy(run_config)
+            if "ops" not in sensor_run_config:
+                sensor_run_config["ops"] = {}
+            for op in ["process_document_artifact", "build_knowledge_graph"]:
+                if op not in sensor_run_config["ops"]:
+                    sensor_run_config["ops"][op] = {}
+                if "config" not in sensor_run_config["ops"][op]:
+                    sensor_run_config["ops"][op]["config"] = {}
+                sensor_run_config["ops"][op]["config"]["bucket"] = bucket_name
+                
             for key in new_partition_keys:
                 yield RunRequest(
                     run_key=key,
                     partition_key=key,
-                    run_config=run_config,
+                    run_config=sensor_run_config,
                     tags={"domain_type": domain_type}
                 )
                 new_cursor = key

@@ -21,10 +21,19 @@ sensors = [build_document_sensor(c["bucket"], c["directory"], c.get("config", {}
 all_assets = load_assets_from_modules([ingestion_assets, semantic_assets])
 
 # Fallback config for manual UI executions (e.g. defaulting to training)
+import copy
 fallback_config = {}
 for c in SENSOR_CONFIGS:
     if c["directory"] == "training":
-        fallback_config = c.get("config", {})
+        fallback_config = copy.deepcopy(c.get("config", {}))
+        if "ops" not in fallback_config:
+            fallback_config["ops"] = {}
+        for op in ["process_document_artifact", "build_knowledge_graph"]:
+            if op not in fallback_config["ops"]:
+                fallback_config["ops"][op] = {}
+            if "config" not in fallback_config["ops"][op]:
+                fallback_config["ops"][op]["config"] = {}
+            fallback_config["ops"][op]["config"]["bucket"] = c.get("bucket", "processing-artifacts")
         break
 
 process_documents_job = define_asset_job(
