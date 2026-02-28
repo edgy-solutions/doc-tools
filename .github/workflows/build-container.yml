@@ -83,6 +83,9 @@ jobs:
           ENV PYTHONPATH="/app"
           WORKDIR /app
 
+          # Clear Chainguard's default 'python' entrypoint
+          ENTRYPOINT []
+
           # Default process: Dagster webserver.
           # Override in K8s manifests for grpc or worker processes.
           CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
