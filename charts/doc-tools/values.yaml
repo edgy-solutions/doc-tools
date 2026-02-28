@@ -6,11 +6,10 @@ image:
   pullPolicy: IfNotPresent
   tag: "latest"
 
-# Cloud Native Buildpack (CNB) process type to run.
-# Process types are defined in the Procfile (web, grpc, worker).
-# We explicitly invoke the launcher here to bypass the image's default entrypoint.
-command: ["/cnb/lifecycle/launcher"]
-args: ["grpc"]
+# Dagster gRPC server for user code deployment.
+# Override CMD from the distroless image (which defaults to webserver).
+command: ["dagster"]
+args: ["api", "grpc", "-h", "0.0.0.0", "-p", "3030", "-m", "doc_tools.definitions"]
 
 imagePullSecrets: []
 nameOverride: ""
