@@ -62,7 +62,8 @@ jobs:
           RUN uv venv /app/venv
           COPY requirements.txt /app/
           RUN uv pip install --python /app/venv --no-cache -r /app/requirements.txt \
-              --extra-index-url https://download.pytorch.org/whl/cpu
+              --extra-index-url https://download.pytorch.org/whl/cpu \
+              --index-strategy unsafe-best-match
 
           COPY . /app
           WORKDIR /app
