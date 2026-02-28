@@ -32,8 +32,11 @@ jobs:
         # It is generated fresh on every CI run and never committed.
         run: |
           cat << 'EOF' > Dockerfile
-          # ── Stage 1: Builder ──────────────────────────────────────
+          # ── Stage 1: Builder (uv-accelerated) ────────────────────
           FROM python:3.12-slim AS builder
+
+          # Pull uv binary for blazing-fast dependency installation
+          COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
           RUN apt-get update && apt-get install -y --no-install-recommends \
               libmagic-dev \
@@ -43,11 +46,10 @@ jobs:
               build-essential \
             && rm -rf /var/lib/apt/lists/*
 
-          RUN python -m venv /app/venv
-          ENV PATH="/app/venv/bin:$PATH"
-
+          # Create venv and install deps with uv (10-100x faster than pip)
+          RUN uv venv /app/venv
           COPY requirements.txt /app/
-          RUN pip install --no-cache-dir -r /app/requirements.txt
+          RUN uv pip install --python /app/venv --no-cache -r /app/requirements.txt
 
           COPY . /app
           WORKDIR /app
