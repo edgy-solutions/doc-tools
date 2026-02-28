@@ -99,7 +99,7 @@ def build_document_sensor(bucket_name: str, directory: str, run_config: dict = N
             import json
             k8s_config = {
                 "container_config": {
-                    "command": ["/layers/paketo-buildpacks_cpython/cpython/bin/python3", "-m"]
+                    "command": ["/cnb/lifecycle/launcher", "python", "-m"]
                 }
             }
             

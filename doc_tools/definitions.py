@@ -44,7 +44,7 @@ process_documents_job = define_asset_job(
     tags={
         "dagster-k8s/config": json.dumps({
             "container_config": {
-                "command": ["/layers/paketo-buildpacks_cpython/cpython/bin/python3", "-m"]
+                "command": ["/cnb/lifecycle/launcher", "python", "-m"]
             }
         })
     }
