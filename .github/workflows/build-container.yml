@@ -31,6 +31,18 @@ jobs:
         # The "Invisible Dockerfile" pattern: developers never see this file.
         # It is generated fresh on every CI run and never committed.
         run: |
+          cat << 'EOF' > .dockerignore
+          .git
+          .github
+          .venv
+          venv
+          __pycache__
+          *.pyc
+          data/
+          tests/
+          *.egg-info
+          EOF
+
           cat << 'EOF' > Dockerfile
           # ── Stage 1: Builder (uv-accelerated) ────────────────────
           FROM python:3.12-slim AS builder
@@ -49,7 +61,8 @@ jobs:
           # Create venv and install deps with uv (10-100x faster than pip)
           RUN uv venv /app/venv
           COPY requirements.txt /app/
-          RUN uv pip install --python /app/venv --no-cache -r /app/requirements.txt
+          RUN uv pip install --python /app/venv --no-cache -r /app/requirements.txt \
+              --extra-index-url https://download.pytorch.org/whl/cpu
 
           COPY . /app
           WORKDIR /app
