@@ -96,12 +96,22 @@ def build_document_sensor(bucket_name: str, directory: str, run_config: dict = N
                     sensor_run_config["ops"][op]["config"] = {}
                 sensor_run_config["ops"][op]["config"]["bucket"] = bucket_name
                 
+            import json
+            k8s_config = {
+                "container_config": {
+                    "command": ["/layers/paketo-buildpacks_cpython/cpython/bin/python3", "-m"]
+                }
+            }
+            
             for key in new_partition_keys:
                 yield RunRequest(
                     run_key=key,
                     partition_key=key,
                     run_config=sensor_run_config,
-                    tags={"domain_type": domain_type}
+                    tags={
+                        "domain_type": domain_type,
+                        "dagster-k8s/config": json.dumps(k8s_config)
+                    }
                 )
                 new_cursor = key
                 
