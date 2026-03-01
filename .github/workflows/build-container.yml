@@ -23,14 +23,12 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Generate requirements.txt from pyproject.toml
-        # Ephemeral: generated on runner only, never checked in.
         run: |
           uv export --format requirements-txt --no-hashes > requirements.txt
 
       - name: Inject Golden Dockerfile
-        # The "Invisible Dockerfile" pattern: developers never see this file.
-        # It is generated fresh on every CI run and never committed.
         run: |
+          # 1. Create the Dockerignore (EOF markers MUST be flush left)
           cat << 'EOF' > .dockerignore
           .git
           .github
@@ -42,12 +40,14 @@ jobs:
           tests/
           *.egg-info
           EOF
-
+          
+          # 2. Create the Dockerfile (EOF markers MUST be flush left)
           cat << 'EOF' > Dockerfile
-          # ── Stage 1: Builder (uv-accelerated) ────────────────────
+          # syntax=docker/dockerfile:1
+          
+          # ── Stage 1: Builder (Python 3.12 on Debian 12) ────────────────────
           FROM python:3.12-slim AS builder
 
-          # Pull uv binary for blazing-fast dependency installation
           COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
           RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -59,49 +59,56 @@ jobs:
               poppler-utils \
               build-essential
 
-          # Create venv and install deps with uv (10-100x faster than pip)
-          RUN uv venv /app/venv
           COPY requirements.txt /app/
+          
+          # Install deps to /app/deps (NO virtual environment)
           RUN --mount=type=cache,target=/root/.cache/uv \
-              uv pip install --python /app/venv -r /app/requirements.txt \
+              uv pip install --system --target=/app/deps -r /app/requirements.txt \
               --extra-index-url https://download.pytorch.org/whl/cpu \
               --index-strategy unsafe-best-match
 
           COPY . /app
           WORKDIR /app
 
-          # ── Stage 2: Runtime (Distroless Debian 12) ─────────────────
-          FROM gcr.io/distroless/python3-debian12
+          # ── Stage 2: Runtime (Distroless C-Base Debian 12) ─────────────────
+          # We use the 'cc' version of distroless, which has glibc but NO Python or Shell.
+          FROM gcr.io/distroless/cc-debian12
 
-          # Copy the entire virtual environment
-          COPY --link --from=builder /app/venv /app/venv
+          # 1. THE SAFETY NET: Copy 'env' so standard Python shebangs never crash
+          COPY --link --from=builder /usr/bin/env /usr/bin/env
 
-          # Copy application source code
+          # 2. Transplant the Python 3.12 interpreter from the slim image!
+          COPY --link --from=builder /usr/local/bin/python /usr/local/bin/python
+          COPY --link --from=builder /usr/local/lib/libpython3.12.so* /usr/local/lib/
+          COPY --link --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
+
+          # 3. Copy the Python dependencies and our app
+          COPY --link --from=builder /app/deps /app/deps
           COPY --link --from=builder /app /app
 
-          # Copy native shared libraries required at runtime
-          # -- libmagic (python-magic / unstructured)
+          # 4. Copy native shared libraries (Tesseract, Poppler, etc.)
           COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libmagic* /usr/lib/x86_64-linux-gnu/
           COPY --link --from=builder /usr/share/misc/magic* /usr/share/misc/
 
-          # -- Tesseract OCR
           COPY --link --from=builder /usr/bin/tesseract /usr/bin/tesseract
           COPY --link --from=builder /usr/share/tesseract-ocr /usr/share/tesseract-ocr
           COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libtesseract* /usr/lib/x86_64-linux-gnu/
           COPY --link --from=builder /usr/lib/x86_64-linux-gnu/liblept* /usr/lib/x86_64-linux-gnu/
 
-          # -- Poppler (pdftotext, pdftoppm)
           COPY --link --from=builder /usr/bin/pdftotext /usr/bin/pdftotext
           COPY --link --from=builder /usr/bin/pdftoppm /usr/bin/pdftoppm
           COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libpoppler* /usr/lib/x86_64-linux-gnu/
 
-          ENV PATH="/app/venv/bin:$PATH"
-          ENV PYTHONPATH="/app"
+          # Update paths so the OS knows where the transplanted Python and dependencies are
+          ENV LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+          ENV PYTHONPATH="/app/deps:/app"
+          
+          # Adding /app/deps/bin to PATH allows K8s Helm charts to just call "dagster"
+          ENV PATH="/app/deps/bin:/usr/local/bin:$PATH"
           WORKDIR /app
 
-          # Default process: Dagster webserver.
-          # Override in K8s manifests for grpc or worker processes.
-          CMD ["/app/venv/bin/python", "/app/venv/bin/dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
+          # Because we transplanted standard Python and env, we can use native commands
+          CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
           EOF
 
       - name: Set up Docker Buildx
