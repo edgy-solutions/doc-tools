@@ -8,8 +8,9 @@ image:
 
 # Dagster gRPC server for user code deployment.
 # Override CMD from the distroless image (which defaults to webserver).
-command: ["dagster"]
-args: ["api", "grpc", "-h", "0.0.0.0", "-p", "3030", "-m", "doc_tools.definitions"]
+# Use explicit venv paths since distroless has no shell for PATH resolution.
+command: ["/app/venv/bin/python"]
+args: ["/app/venv/bin/dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "3030", "-m", "doc_tools.definitions"]
 
 imagePullSecrets: []
 nameOverride: ""

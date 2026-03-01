@@ -50,59 +50,58 @@ jobs:
           # Pull uv binary for blazing-fast dependency installation
           COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-          RUN apt-get update && apt-get install -y --no-install-recommends \
+          RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+              --mount=type=cache,target=/var/lib/apt,sharing=locked \
+              apt-get update && apt-get install -y --no-install-recommends \
               libmagic-dev \
               tesseract-ocr \
               tesseract-ocr-eng \
               poppler-utils \
-              build-essential \
-            && rm -rf /var/lib/apt/lists/*
+              build-essential
 
           # Create venv and install deps with uv (10-100x faster than pip)
           RUN uv venv /app/venv
           COPY requirements.txt /app/
-          RUN uv pip install --python /app/venv --no-cache -r /app/requirements.txt \
+          RUN --mount=type=cache,target=/root/.cache/uv \
+              uv pip install --python /app/venv -r /app/requirements.txt \
               --extra-index-url https://download.pytorch.org/whl/cpu \
               --index-strategy unsafe-best-match
 
           COPY . /app
           WORKDIR /app
 
-          # ── Stage 2: Runtime (Zero-CVE Distroless) ────────────────
-          FROM cgr.dev/chainguard/python:latest
+          # ── Stage 2: Runtime (Distroless Debian 12) ─────────────────
+          FROM gcr.io/distroless/python3-debian12
 
           # Copy the entire virtual environment
-          COPY --from=builder /app/venv /app/venv
+          COPY --link --from=builder /app/venv /app/venv
 
           # Copy application source code
-          COPY --from=builder /app /app
+          COPY --link --from=builder /app /app
 
           # Copy native shared libraries required at runtime
           # -- libmagic (python-magic / unstructured)
-          COPY --from=builder /usr/lib/x86_64-linux-gnu/libmagic* /usr/lib/x86_64-linux-gnu/
-          COPY --from=builder /usr/share/misc/magic* /usr/share/misc/
+          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libmagic* /usr/lib/x86_64-linux-gnu/
+          COPY --link --from=builder /usr/share/misc/magic* /usr/share/misc/
 
           # -- Tesseract OCR
-          COPY --from=builder /usr/bin/tesseract /usr/bin/tesseract
-          COPY --from=builder /usr/share/tesseract-ocr /usr/share/tesseract-ocr
-          COPY --from=builder /usr/lib/x86_64-linux-gnu/libtesseract* /usr/lib/x86_64-linux-gnu/
-          COPY --from=builder /usr/lib/x86_64-linux-gnu/liblept* /usr/lib/x86_64-linux-gnu/
+          COPY --link --from=builder /usr/bin/tesseract /usr/bin/tesseract
+          COPY --link --from=builder /usr/share/tesseract-ocr /usr/share/tesseract-ocr
+          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libtesseract* /usr/lib/x86_64-linux-gnu/
+          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/liblept* /usr/lib/x86_64-linux-gnu/
 
           # -- Poppler (pdftotext, pdftoppm)
-          COPY --from=builder /usr/bin/pdftotext /usr/bin/pdftotext
-          COPY --from=builder /usr/bin/pdftoppm /usr/bin/pdftoppm
-          COPY --from=builder /usr/lib/x86_64-linux-gnu/libpoppler* /usr/lib/x86_64-linux-gnu/
+          COPY --link --from=builder /usr/bin/pdftotext /usr/bin/pdftotext
+          COPY --link --from=builder /usr/bin/pdftoppm /usr/bin/pdftoppm
+          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libpoppler* /usr/lib/x86_64-linux-gnu/
 
           ENV PATH="/app/venv/bin:$PATH"
           ENV PYTHONPATH="/app"
           WORKDIR /app
 
-          # Clear Chainguard's default 'python' entrypoint
-          ENTRYPOINT []
-
           # Default process: Dagster webserver.
           # Override in K8s manifests for grpc or worker processes.
-          CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
+          CMD ["/app/venv/bin/python", "/app/venv/bin/dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
           EOF
 
       - name: Set up Docker Buildx
