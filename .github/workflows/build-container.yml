@@ -46,7 +46,7 @@ jobs:
           # syntax=docker/dockerfile:1
           
           # ── Stage 1: Builder (Python 3.12 on Debian 12) ────────────────────
-          FROM python:3.12-slim AS builder
+          FROM python:3.12-slim-bookworm AS builder
 
           COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
