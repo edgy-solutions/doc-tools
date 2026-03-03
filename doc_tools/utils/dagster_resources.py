@@ -7,12 +7,24 @@ from dagster import ConfigurableResource
 class MinioResource(ConfigurableResource):
     def get_client(self):
         from minio import Minio
+        
+        ep = os.getenv("S3_ENDPOINT_URL", "localhost:9000")
+        secure = False
+        if ep.startswith("http://"):
+            ep = ep[len("http://"):]
+        elif ep.startswith("https://"):
+            ep = ep[len("https://"):]
+            secure = True
+            
+        if "/" in ep:
+            ep = ep.split("/")[0]
+
         # Return a simple minio client or mock for now as configuration wasn't fully specified
         return Minio(
-            endpoint=os.getenv("S3_ENDPOINT_URL", "localhost:9000"),
+            endpoint=ep,
             access_key=os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
             secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-            secure=False
+            secure=secure
         )
     
     @property
