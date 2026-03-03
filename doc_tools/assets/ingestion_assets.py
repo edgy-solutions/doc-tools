@@ -36,7 +36,7 @@ def process_document_artifact(context: AssetExecutionContext, config: ProcessCon
         file_path = os.path.join(temp_dir, filename)
         
         try:
-            client.download_file(config.bucket, source_object_name, file_path)
+            client.fget_object(config.bucket, source_object_name, file_path)
         except Exception as e:
             context.log.warning(f"Failed to download from minio (mocking for now): {e}")
             # Mock file creation for standalone execution if minio isn't there
@@ -48,7 +48,7 @@ def process_document_artifact(context: AssetExecutionContext, config: ProcessCon
         doc_metadata = {}
         try:
              metadata_path = os.path.join(temp_dir, "metadata.json")
-             client.download_file(config.bucket, f"{doc_id}/metadata.json", metadata_path)
+             client.fget_object(config.bucket, f"{doc_id}/metadata.json", metadata_path)
              with open(metadata_path, 'r', encoding='utf-8') as f:
                  doc_metadata = json.load(f)
         except Exception:
@@ -90,7 +90,8 @@ def process_document_artifact(context: AssetExecutionContext, config: ProcessCon
                             ext = os.path.splitext(img_filename)[1].lower()
                             ctype = "image/jpeg" if ext in [".jpg", ".jpeg"] else "image/png"
                             try:
-                                url = client.upload_file(config.bucket, object_name, img_local_path, content_type=ctype)
+                                client.fput_object(config.bucket, object_name, img_local_path, content_type=ctype)
+                                url = f"s3://{config.bucket}/{object_name}"
                                 embedded_images_map[img_filename] = url
                             except Exception:
                                 embedded_images_map[img_filename] = f"mock_url/{object_name}"
@@ -104,7 +105,8 @@ def process_document_artifact(context: AssetExecutionContext, config: ProcessCon
             text_object_name = f"{doc_id}/generated/text.json"
             text_json = json.dumps(elements, indent=2)
             try:
-                client.upload_bytes(config.bucket, text_object_name, text_json.encode('utf-8'), content_type="application/json")
+                text_bytes = text_json.encode('utf-8')
+                client.put_object(config.bucket, text_object_name, io.BytesIO(text_bytes), len(text_bytes), content_type="application/json")
             except Exception:
                 pass
                 
@@ -124,7 +126,8 @@ def process_document_artifact(context: AssetExecutionContext, config: ProcessCon
         manifest_object_name = f"{doc_id}/generated/manifest.json"
         manifest_json = json.dumps(manifest, indent=2)
         try:
-            client.upload_bytes(config.bucket, manifest_object_name, manifest_json.encode('utf-8'), content_type="application/json")
+            manifest_bytes = manifest_json.encode('utf-8')
+            client.put_object(config.bucket, manifest_object_name, io.BytesIO(manifest_bytes), len(manifest_bytes), content_type="application/json")
         except Exception:
             pass
             

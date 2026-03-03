@@ -78,6 +78,9 @@ jobs:
           ENV PATH="/app/venv/bin:$PATH"
           ENV PYTHONPATH="/app"
 
+          # Pre-download spaCy model to avoid runtime SSL issues during NLP extraction
+          RUN python -m spacy download en_core_web_sm
+
           # Standard Dagster Webserver command
           CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
           EOF

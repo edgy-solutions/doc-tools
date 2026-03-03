@@ -9,7 +9,7 @@ dependencies = [
     "dagster-webserver",
     "unstructured[all-docs]",
     "neo4j",
-    "weaviate-client",
+    "weaviate-client>=3.26.7,<4.0.0",
     "pikepdf",
     "langchain",
     "pydantic",
