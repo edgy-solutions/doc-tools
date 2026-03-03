@@ -46,7 +46,7 @@ def build_knowledge_graph(
     text_elements = []
     try:
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            minio_client.download_file(config.bucket, text_location, tmp.name)
+            minio_client.fget_object(config.bucket, text_location, tmp.name)
             with open(tmp.name, 'r', encoding='utf-8') as f:
                 text_elements = json.load(f)
     except Exception as e:
