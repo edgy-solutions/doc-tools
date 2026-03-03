@@ -79,7 +79,9 @@ jobs:
           ENV PYTHONPATH="/app"
 
           # Pre-download spaCy model to avoid runtime SSL issues during NLP extraction
-          RUN python -m spacy download en_core_web_sm
+          # Using uv pip install directly instead of `python -m spacy download` because uv environments don't have pip
+          RUN --mount=type=cache,target=/root/.cache/uv \
+              uv pip install --python /app/venv https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 
           # Standard Dagster Webserver command
           CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
