@@ -28,7 +28,7 @@ jobs:
 
       - name: Inject Golden Dockerfile
         run: |
-          # 1. Create the Dockerignore (EOF markers MUST be flush left)
+          # 1. Create the Dockerignore (Keeps context small so build starts instantly)
           cat << 'EOF' > .dockerignore
           .git
           .github
@@ -41,78 +41,43 @@ jobs:
           *.egg-info
           EOF
           
-          # 2. Create the Dockerfile (EOF markers MUST be flush left)
+          # 2. Create the Single-Stage Dockerfile
           cat << 'EOF' > Dockerfile
           # syntax=docker/dockerfile:1
-          
-          # ── Stage 1: Builder (Python 3.12 pinned to Debian 12 Bookworm) ──
-          FROM python:3.12-slim-bookworm AS builder
+          FROM python:3.12-slim
 
-          COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+          # Set environment variables so Python prints directly to logs
+          ENV PYTHONUNBUFFERED=1
+          ENV PYTHONDONTWRITEBYTECODE=1
 
-          RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-              --mount=type=cache,target=/var/lib/apt,sharing=locked \
-              apt-get update && apt-get install -y --no-install-recommends \
-              libmagic-dev \
+          # Install system dependencies (Tesseract, Poppler, libmagic)
+          RUN apt-get update && apt-get install -y --no-install-recommends \
+              libmagic1 \
               tesseract-ocr \
               tesseract-ocr-eng \
               poppler-utils \
-              build-essential
+              && rm -rf /var/lib/apt/lists/*
 
+          # Pull uv binary for blazing-fast dependency installation
+          COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+          WORKDIR /app
+
+          # Create a standard virtual environment and install dependencies
+          RUN uv venv /app/venv
           COPY requirements.txt /app/
-          
-          # Install deps to /app/deps (NO virtual environment)
           RUN --mount=type=cache,target=/root/.cache/uv \
-              uv pip install --system --target=/app/deps -r /app/requirements.txt \
-              --extra-index-url https://download.pytorch.org/whl/cpu \
-              --index-strategy unsafe-best-match
+              uv pip install --python /app/venv -r /app/requirements.txt \
+              --extra-index-url https://download.pytorch.org/whl/cpu
 
+          # Copy the application code
           COPY . /app
-          WORKDIR /app
 
-          # ── Stage 2: Runtime (Distroless Base Debian 12) ─────────────────
-          # 'base' includes zlib, openssl, and ca-certificates natively
-          FROM gcr.io/distroless/base-debian12
+          # Put the virtual environment in the PATH so 'dagster' commands work natively
+          ENV PATH="/app/venv/bin:$PATH"
+          ENV PYTHONPATH="/app"
 
-          # 1. THE SAFETY NET: Copy 'env' so standard Python shebangs never crash
-          COPY --link --from=builder /usr/bin/env /usr/bin/env
-
-          # 2. Transplant the Python 3.12 interpreter from the slim image!
-          COPY --link --from=builder /usr/local/bin/python /usr/local/bin/python
-          COPY --link --from=builder /usr/local/lib/libpython3.12.so* /usr/local/lib/
-          COPY --link --from=builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
-
-          # 2.5 Transplant the remaining OS C-libraries Python expects
-          COPY --link --from=builder /lib/x86_64-linux-gnu/libexpat* /lib/x86_64-linux-gnu/
-          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libffi* /usr/lib/x86_64-linux-gnu/
-          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libsqlite3* /usr/lib/x86_64-linux-gnu/
-
-          # 3. Copy the Python dependencies and our app
-          COPY --link --from=builder /app/deps /app/deps
-          COPY --link --from=builder /app /app
-
-          # 4. Copy native shared libraries (Tesseract, Poppler, etc.)
-          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libmagic* /usr/lib/x86_64-linux-gnu/
-          COPY --link --from=builder /usr/share/misc/magic* /usr/share/misc/
-
-          COPY --link --from=builder /usr/bin/tesseract /usr/bin/tesseract
-          COPY --link --from=builder /usr/share/tesseract-ocr /usr/share/tesseract-ocr
-          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libtesseract* /usr/lib/x86_64-linux-gnu/
-          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/liblept* /usr/lib/x86_64-linux-gnu/
-
-          COPY --link --from=builder /usr/bin/pdftotext /usr/bin/pdftotext
-          COPY --link --from=builder /usr/bin/pdftoppm /usr/bin/pdftoppm
-          COPY --link --from=builder /usr/lib/x86_64-linux-gnu/libpoppler* /usr/lib/x86_64-linux-gnu/
-
-          # Update paths so the OS knows where the transplanted Python and dependencies are
-          ENV LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
-          ENV PYTHONPATH="/app/deps:/app"
-          
-          # Adding /app/deps/bin to PATH allows K8s Helm charts to just call "dagster"
-          ENV PATH="/app/deps/bin:/usr/local/bin:$PATH"
-          WORKDIR /app
-
-          # Because we transplanted standard Python and env, we can use native commands
+          # Standard Dagster Webserver command
           CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
           EOF
 
