@@ -66,9 +66,12 @@ jobs:
           # Create a standard virtual environment and install dependencies
           RUN uv venv /app/venv
           COPY requirements.txt /app/
+          
+          # ADD THE INDEX STRATEGY FLAG HERE
           RUN --mount=type=cache,target=/root/.cache/uv \
               uv pip install --python /app/venv -r /app/requirements.txt \
-              --extra-index-url https://download.pytorch.org/whl/cpu
+              --extra-index-url https://download.pytorch.org/whl/cpu \
+              --index-strategy unsafe-best-match
 
           # Copy the application code
           COPY . /app
