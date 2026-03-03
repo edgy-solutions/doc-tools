@@ -35,7 +35,7 @@ class ManufacturingPlugin(AugmentationPlugin):
     
     def augment(self, section: BaseSection) -> DocumentNode:
         try:
-            from doc_tools.baml_client import b
+            from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import MatAugmentation as BamlMatAugmentation
             
             # Execute BAML LLM inference

@@ -53,6 +53,7 @@ jobs:
           # Install system dependencies (Tesseract, Poppler, libmagic)
           RUN apt-get update && apt-get install -y --no-install-recommends \
               libmagic1 \
+              libgl1 \
               tesseract-ocr \
               tesseract-ocr-eng \
               poppler-utils \
