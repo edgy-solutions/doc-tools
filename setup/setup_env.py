@@ -1,8 +1,11 @@
 import os
 import time
 import requests
+import urllib3
 from neo4j import GraphDatabase
 import weaviate
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def parse_env():
     """Simple parser for local .env if python-dotenv is not installed"""
@@ -49,70 +52,68 @@ def prime_neo4j():
 
 
 def prime_jena():
-    print("--- Priming Apache Jena (Ontologies) ---")
-    # Base endpoint, e.g. http://localhost:3030/ds
-    import urllib.parse
-    raw_url = os.environ.get("JENA_URL", "http://localhost:3030/ds/update")
-    # To load data via Graph Store HTTP protocol, we usually submit to /data
-    base_endpoint = raw_url.replace("/update", "/data")
+    print("--- Priming Apache Jena (Auto-Provisioning) ---")
     
+    # Configuration
+    host = os.environ.get("JENA_URL", "http://localhost:3030")
+    ds_name = os.environ.get("JENA_DS", "ds")
     user = os.environ.get("JENA_USERNAME", "admin")
-    password = os.environ.get("JENA_PASSWORD", "password")
+    pw = os.environ.get("JENA_PASSWORD", "password")
+    auth = (user, pw)
     
-    # 1. Download IOF Base Ontology (Placeholder URL mapping to external IOF core)
-    iof_core = "https://raw.githubusercontent.com/iofoundry/ontology/master/core/Core.rdf"
-    dinen = "https://raw.githubusercontent.com/hsu-aut/IndustrialStandard-ODP-DINEN62264-2/v1.4.2/DINEN62264.owl"
-    
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    munitions_path = os.path.join(current_dir, "munitions_ontology.ttl")
-    
+    # 1. ENSURE DATASET EXISTS
+    print(f"Checking for dataset /{ds_name}...")
+    try:
+        check = requests.get(f"{host}/$/datasets/{ds_name}", auth=auth, proxies=proxy_int, verify=False)
+        if check.status_code == 404:
+            print(f"  [!] Dataset /{ds_name} not found. Creating it now...")
+            # Create a persistent TDB2 dataset
+            create_params = {'dbName': ds_name, 'dbType': 'tdb2'}
+            create_res = requests.post(f"{host}/$/datasets", data=create_params, auth=auth, proxies=proxy_int, verify=False)
+            if create_res.status_code in [200, 201]:
+                print(f"  [SUCCESS] Dataset /{ds_name} created.")
+            else:
+                print(f"  [ERROR] Could not create dataset: {create_res.status_code} {create_res.text}")
+                return
+        else:
+            print(f"  [OK] Dataset /{ds_name} exists.")
+    except Exception as e:
+        print(f"  [ERROR] Connection failed: {e}")
+        return
+
+    # 2. LOAD ONTOLOGIES
     ontologies = [
-        {"name": "IOF_Core", "source": "url", "path": iof_core},
-        {"name": "DINEN62264", "source": "url", "path": dinen},
-        {"name": "Munitions_Custom", "source": "file", "path": munitions_path}
+        {"name": "IOF_Core", "path": "https://raw.githubusercontent.com/iofoundry/ontology/master/core/Core.rdf"},
+        {"name": "DINEN62264", "path": "https://raw.githubusercontent.com/hsu-aut/IndustrialStandard-ODP-DINEN62264-2/v1.4.2/DINEN62264.owl"},
+        {"name": "Munitions", "path": "munitions_ontology.ttl"}
     ]
-    
+
     for ont in ontologies:
-        print(f"Loading {ont['name']} into Jena...")
-        turtle_data = None
-        
+        print(f"Loading {ont['name']}...")
         try:
-            if ont["source"] == "url":
-                resp = requests.get(ont["path"], timeout=10)
-                if resp.status_code == 200:
-                    turtle_data = resp.text
-                else:
-                    print(f"Failed to download {ont['path']} (HTTP {resp.status_code})")
-                    continue
+            if ont["path"].startswith("http"):
+                data = requests.get(ont["path"], verify=False, timeout=15).text
             else:
-                if os.path.exists(ont["path"]):
-                    with open(ont["path"], "r") as f:
-                        turtle_data = f.read()
-                else:
-                    print(f"File not found: {ont['path']}")
-                    continue
+                with open(ont["path"], "r") as f: data = f.read()
             
-            # Post to Jena
-            auth = (user, password) if user else None
+            # Content Type Logic
+            c_type = "application/rdf+xml" if ont["path"].endswith((".rdf", ".owl")) else "text/turtle"
             
-            # Determine content type based on extension
-            if ont["path"].endswith(".rdf") or ont["path"].endswith(".owl"):
-                content_type = "application/rdf+xml"
+            # Upload using Graph Store Protocol
+            res = requests.post(
+                f"{host}/{ds_name}/data?default",
+                data=data.encode('utf-8'),
+                headers={"Content-Type": f"{c_type}; charset=utf-8"},
+                auth=auth,
+                verify=False
+            )
+            
+            if res.status_code in [200, 201, 204]:
+                print(f"  [SUCCESS] Loaded {ont['name']}.")
             else:
-                content_type = "text/turtle"
-                
-            headers = {"Content-Type": content_type}
-            
-            # We use 'default' graph
-            post_resp = requests.post(f"{base_endpoint}?default", data=turtle_data.encode('utf-8'), headers=headers, auth=auth)
-            
-            if post_resp.status_code in [200, 201, 204]:
-                print(f"Successfully loaded {ont['name']} into Jena.")
-            else:
-                print(f"Failed to load {ont['name']} into Jena. Status code: {post_resp.status_code}. Response: {post_resp.text}")
-                
+                print(f"  [FAILED] {ont['name']} Status: {res.status_code}")
         except Exception as e:
-            print(f"Error loading {ont['name']}: {e}")
+            print(f"  [ERROR] {ont['name']}: {e}")
 
 def main():
     print("=== Starting Virigin Environment Pre-Flight Checklist ===")
@@ -123,8 +124,3 @@ def main():
     
     prime_neo4j()
     prime_jena()
-    
-    print("=== Pre-Flight Complete ===")
-
-if __name__ == "__main__":
-    main()

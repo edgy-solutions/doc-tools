@@ -943,18 +943,6 @@ wheels = [
 ]
 
 [[package]]
-name = "deprecation"
-version = "2.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/d3/8ae2869247df154b64c1884d7346d412fed0c49df84db635aab2d1c40e62/deprecation-2.1.0.tar.gz", hash = "sha256:72b3bde64e5d778694b0cf68178aed03d15e15477116add3fb773e581f9518ff", size = 173788, upload-time = "2020-04-20T14:23:38.738Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/c3/253a89ee03fc9b9682f1541728eb66db7db22148cd94f89ab22528cd1e1b/deprecation-2.1.0-py2.py3-none-any.whl", hash = "sha256:a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a", size = 11178, upload-time = "2020-04-20T14:23:36.581Z" },
-]
-
-[[package]]
 name = "doc-tools"
 version = "0.1.0"
 source = { virtual = "." }
@@ -1002,7 +990,7 @@ requires-dist = [
     { name = "python-pptx" },
     { name = "sparqlwrapper", specifier = ">=2.0.0" },
     { name = "unstructured", extras = ["all-docs"] },
-    { name = "weaviate-client" },
+    { name = "weaviate-client", specifier = ">=3.26.7,<4.0.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -6092,20 +6080,16 @@ wheels = [
 
 [[package]]
 name = "weaviate-client"
-version = "4.19.4"
+version = "3.26.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "authlib" },
-    { name = "deprecation" },
-    { name = "grpcio" },
-    { name = "httpx" },
-    { name = "protobuf" },
-    { name = "pydantic" },
+    { name = "requests" },
     { name = "validators" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/34/c4587c49255cb6310d9ef395422f3b8eb88f54fb344e6dfebe97746b279f/weaviate_client-4.19.4.tar.gz", hash = "sha256:9b448df63a40461c6e20153eb5f2dd8f58f18bdf7c0c60d168c1e628c1088e0b", size = 788828, upload-time = "2026-02-18T15:05:31.565Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/2e/9588bae34c1d67d05ccc07d74a4f5d73cce342b916f79ab3a9114c6607bb/weaviate_client-3.26.7.tar.gz", hash = "sha256:ea538437800abc6edba21acf213accaf8a82065584ee8b914bae4a4ad4ef6b70", size = 210480, upload-time = "2024-08-15T13:27:02.431Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dc/ad/c8cf1f52686988deeb2775e3e1bf78023405769e1c2ff9abd7b39a11222b/weaviate_client-4.19.4-py3-none-any.whl", hash = "sha256:440ec600d702c88ee807c2382d4a3493c877c6db8dc0a22767b4acbc004d0e8b", size = 604242, upload-time = "2026-02-18T15:05:29.931Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/95/fb326052bc1d73cb3c19fcfaf6ebb477f896af68de07eaa1337e27ee57fa/weaviate_client-3.26.7-py3-none-any.whl", hash = "sha256:48b8d4b71df881b4e5e15964d7ac339434338ccee73779e3af7eab698a92083b", size = 120051, upload-time = "2024-08-15T13:27:00.212Z" },
 ]
 
 [[package]]
