@@ -84,6 +84,10 @@ jobs:
           RUN --mount=type=cache,target=/root/.cache/uv \
               uv pip install --python /app/venv https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 
+          # Pre-download unstructured NLP models to avoid runtime SSL issues
+          RUN /app/venv/bin/python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger')"
+          RUN /app/venv/bin/huggingface-cli download unstructuredio/yolo_x_layout
+
           # Standard Dagster Webserver command
           CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
           EOF
