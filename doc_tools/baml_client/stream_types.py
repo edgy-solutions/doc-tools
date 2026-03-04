@@ -59,6 +59,9 @@ class ManufacturingStep(BaseModel):
     process_category: typing.Optional[str] = Field(default=None, description='Must be one of: \'Transformation\', \'Inspection\', \'Movement\', \'Critical Safety Hold\', \'Rework\'')
     justification: typing.Optional[str] = Field(default=None, description='A 1-sentence explanation of why the value-added and safety-critical flags were chosen.')
     estimated_duration_minutes: typing.Optional[int] = Field(default=None, description='Extract any mentioned time constraints, cure times, or labor durations. If none, leave null.')
+    military_and_industry_standards: typing.List[str] = Field(description='Extract formal standards mentioned. Look for prefixes: MIL-, MS, AN, NAS, AS, DIN, ASTM. Normalize to remove spaces (e.g., \'MIL PRF 81733\' -> \'MIL-PRF-81733\', \'MS 20426\' -> \'MS20426\'). Return empty array if none.')
+    internal_part_numbers: typing.List[str] = Field(description='Extract internal proprietary part numbers, assembly numbers, or drawing numbers explicitly mentioned (e.g., \'PN 99-812\', \'Assy 104-B\'). Strip the \'PN\' prefix; return the alphanumeric identifier.')
+    material_and_hardware_slang: typing.List[str] = Field(description='Extract generic nouns for consumables/hardware lacking a specific part number (e.g., \'RTV Silicone\', \'Loctite\', \'Hex Nut\', \'Epoxy\'). Used for downstream vector similarity searches against a materials index.')
 
 class MatAugmentation(BaseModel):
     steps: typing.List["ManufacturingStep"]

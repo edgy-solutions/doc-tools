@@ -12,6 +12,15 @@ class ManufacturingStep {
   process_category string @description("Must be one of: 'Transformation', 'Inspection', 'Movement', 'Critical Safety Hold', 'Rework'")
   justification string @description("A 1-sentence explanation of why the value-added and safety-critical flags were chosen.")
   estimated_duration_minutes int? @description("Extract any mentioned time constraints, cure times, or labor durations. If none, leave null.")
+  
+  // Hook 1: Direct link to DLA PUB LOG
+  military_and_industry_standards string[] @description("Extract formal standards mentioned. Look for prefixes: MIL-, MS, AN, NAS, AS, DIN, ASTM. Normalize to remove spaces (e.g., 'MIL PRF 81733' -> 'MIL-PRF-81733', 'MS 20426' -> 'MS20426'). Return empty array if none.")
+
+  // Hook 2: Direct link to Windchill
+  internal_part_numbers string[] @description("Extract internal proprietary part numbers, assembly numbers, or drawing numbers explicitly mentioned (e.g., 'PN 99-812', 'Assy 104-B'). Strip the 'PN' prefix; return the alphanumeric identifier.")
+
+  // Hook 3: The Semantic Fallback (For Weaviate)
+  material_and_hardware_slang string[] @description("Extract generic nouns for consumables/hardware lacking a specific part number (e.g., 'RTV Silicone', 'Loctite', 'Hex Nut', 'Epoxy'). Used for downstream vector similarity searches against a materials index.")
 }
 
 class StrategicAssessment {
@@ -29,6 +38,8 @@ function ExtractWorkInstructions(text: string) -> MatAugmentation {
   prompt #"
     Analyze the following munitions assembly text and extract each discrete manufacturing step.
     
+    You are an aerospace manufacturing data extraction agent. Your primary objective is to identify supply chain database hooks. Scan the text meticulously for Military Standards, Industry Standards, and Internal Part Numbers. Do not hallucinate standards. If a technician uses slang (e.g., 'Zip tie', 'Safety wire'), log it in the slang array so our downstream semantic database can resolve the true specification.
+
     CRITICAL CLASSIFICATION RULES for `is_value_added` and `is_safety_critical`:
     1. **Value-Added (VA):** The step must physically alter the missile or component. 
        - *Examples of VA:* "Apply 50ml of epoxy", "Torque bolt to 15Nm", "Mate warhead to chassis." -> is_value_added: true

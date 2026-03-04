@@ -273,7 +273,7 @@ class ManufacturingStepAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("ManufacturingStep")
-        self._properties: typing.Set[str] = set([  "procedure_id",  "step_id",  "action_verb",  "tooling",  "consumables",  "hazard_class",  "required_cert",  "standard_ref",  "is_value_added",  "is_safety_critical",  "process_category",  "justification",  "estimated_duration_minutes",  ])
+        self._properties: typing.Set[str] = set([  "procedure_id",  "step_id",  "action_verb",  "tooling",  "consumables",  "hazard_class",  "required_cert",  "standard_ref",  "is_value_added",  "is_safety_critical",  "process_category",  "justification",  "estimated_duration_minutes",  "military_and_industry_standards",  "internal_part_numbers",  "material_and_hardware_slang",  ])
         self._props = ManufacturingStepProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -352,6 +352,18 @@ class ManufacturingStepProperties:
     @property
     def estimated_duration_minutes(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("estimated_duration_minutes"))
+    
+    @property
+    def military_and_industry_standards(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("military_and_industry_standards"))
+    
+    @property
+    def internal_part_numbers(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("internal_part_numbers"))
+    
+    @property
+    def material_and_hardware_slang(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("material_and_hardware_slang"))
     
     
 

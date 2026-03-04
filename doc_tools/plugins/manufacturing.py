@@ -18,6 +18,9 @@ class ManufacturingStep(BaseModel):
     process_category: str
     justification: str
     estimated_duration_minutes: Optional[int] = Field(default=None)
+    military_and_industry_standards: List[str] = Field(default_factory=list)
+    internal_part_numbers: List[str] = Field(default_factory=list)
+    material_and_hardware_slang: List[str] = Field(default_factory=list)
 
 class StrategicAssessment(BaseModel):
     proprietary_score: float = Field(ge=0.0, le=1.0, description="0.0 (Common) to 1.0 (Secret Sauce)")
@@ -56,7 +59,10 @@ class ManufacturingPlugin(AugmentationPlugin):
                     is_safety_critical=s.is_safety_critical,
                     process_category=s.process_category,
                     justification=s.justification,
-                    estimated_duration_minutes=s.estimated_duration_minutes
+                    estimated_duration_minutes=s.estimated_duration_minutes,
+                    military_and_industry_standards=s.military_and_industry_standards,
+                    internal_part_numbers=s.internal_part_numbers,
+                    material_and_hardware_slang=s.material_and_hardware_slang
                 ))
                 
             augmentation = MatAugmentation(
@@ -84,7 +90,10 @@ class ManufacturingPlugin(AugmentationPlugin):
                         is_safety_critical=False,
                         process_category="Transformation",
                         justification="This step physically builds the component.",
-                        estimated_duration_minutes=15
+                        estimated_duration_minutes=15,
+                        military_and_industry_standards=["MIL-PRF-81733"],
+                        internal_part_numbers=["99-812"],
+                        material_and_hardware_slang=["Epoxy"]
                     )
                 ],
                 assessment=StrategicAssessment(
@@ -141,7 +150,10 @@ class ManufacturingPlugin(AugmentationPlugin):
                     is_safety_critical: $is_safety_critical,
                     process_category: $process_category,
                     justification: $justification,
-                    estimated_duration_minutes: $duration
+                    estimated_duration_minutes: $duration,
+                    military_and_industry_standards: $military_and_industry_standards,
+                    internal_part_numbers: $internal_part_numbers,
+                    material_and_hardware_slang: $material_and_hardware_slang
                 }})
                 MERGE (proc)-[:CONTAINS_STEP]->(s)
                 """
@@ -175,6 +187,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                         "process_category": step.process_category,
                         "justification": step.justification,
                         "duration": step.estimated_duration_minutes if step.estimated_duration_minutes is not None else -1,
+                        "military_and_industry_standards": step.military_and_industry_standards,
+                        "internal_part_numbers": step.internal_part_numbers,
+                        "material_and_hardware_slang": step.material_and_hardware_slang,
                         "hazard_id": f"hazard_{step.hazard_class}" if step.hazard_class else "",
                         "hazard": step.hazard_class or "",
                         "cert_id": f"cert_{step.required_cert}" if step.required_cert else "",
