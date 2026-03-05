@@ -87,7 +87,7 @@ jobs:
           # Pre-download unstructured NLP models to avoid runtime SSL issues
           RUN uv pip install --python /app/venv nltk huggingface_hub
           RUN /app/venv/bin/python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger')"
-          RUN /app/venv/bin/python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='unstructuredio/yolo_x_layout', filename='yolox_l0.05.onnx')"
+          RUN /app/venv/bin/python -c "from huggingface_hub import hf_hub_download, snapshot_download; hf_hub_download(repo_id='unstructuredio/yolo_x_layout', filename='yolox_l0.05.onnx'); snapshot_download(repo_id='microsoft/table-transformer-structure-recognition')"
 
           # Standard Dagster Webserver command
           CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
