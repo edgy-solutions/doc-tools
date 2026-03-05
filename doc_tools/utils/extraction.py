@@ -5,6 +5,21 @@ from typing import List, Any, Dict
 from unstructured.partition.auto import partition
 from unstructured.staging.base import elements_to_json
 
+import ssl
+
+# 1. The "Nuclear" SSL Bypass for all Python libraries (requests, urllib, etc.)
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
+# 2. Set Environment Variables for the underlying C libraries
+os.environ['CURL_CA_BUNDLE'] = ""
+os.environ['REQUESTS_CA_BUNDLE'] = ""
+os.environ['PYTHONHTTPSVERIFY'] = "0"
+
 # Configure Tesseract OCR path
 def configure_tesseract():
     """
