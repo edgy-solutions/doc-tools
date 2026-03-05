@@ -25,7 +25,7 @@ def process_document_artifact(context: AssetExecutionContext, config: ProcessCon
     parts = source_object_name.split('/')
     if len(parts) >= 2:
         doc_id = parts[0]
-        filename = parts[1]
+        filename = parts[-1]
     else:
         doc_id = "unknown_doc"
         filename = source_object_name
