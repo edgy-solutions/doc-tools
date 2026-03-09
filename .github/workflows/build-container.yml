@@ -49,6 +49,9 @@ jobs:
           # Set environment variables so Python prints directly to logs
           ENV PYTHONUNBUFFERED=1
           ENV PYTHONDONTWRITEBYTECODE=1
+          ENV DO_NOT_TRACK=true
+          ENV HF_HUB_DISABLE_TELEMETRY=1
+          ENV SCARF_NO_ANALYTICS=true
 
           # Install system dependencies (Tesseract, Poppler, libmagic)
           RUN apt-get update && apt-get install -y --no-install-recommends \

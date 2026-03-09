@@ -2,25 +2,6 @@ import json
 import os
 import shutil
 from typing import List, Any, Dict
-import requests
-import warnings
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-
-# 1. Suppress the annoying "Unverified HTTPS request" warnings
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-# 2. Monkeypatch requests.Session to always set verify=False
-# This overrides the default behavior for ALL requests in this process
-old_request = requests.Session.request
-
-def unverified_request(self, method, url, *args, **kwargs):
-    print(f"[SSL BYPASS] Downloading: {url}")
-    kwargs['verify'] = False
-    return old_request(self, method, url, *args, **kwargs)
-
-requests.Session.request = unverified_request
-
-# Now import unstructured
 from unstructured.partition.auto import partition
 from unstructured.staging.base import elements_to_json
 
