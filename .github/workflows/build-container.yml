@@ -53,13 +53,14 @@ jobs:
           ENV HF_HUB_DISABLE_TELEMETRY=1
           ENV SCARF_NO_ANALYTICS=true
 
-          # Install system dependencies (Tesseract, Poppler, libmagic)
+          # Install system dependencies (Tesseract, Poppler, libmagic, LibreOffice for MS docs)
           RUN apt-get update && apt-get install -y --no-install-recommends \
               libmagic1 \
               libgl1 \
               tesseract-ocr \
               tesseract-ocr-eng \
               poppler-utils \
+              libreoffice \
               && rm -rf /var/lib/apt/lists/*
 
           # Pull uv binary for blazing-fast dependency installation
