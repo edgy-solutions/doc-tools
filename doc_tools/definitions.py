@@ -39,7 +39,17 @@ for c in SENSOR_CONFIGS:
 process_documents_job = define_asset_job(
     name="process_documents_job",
     selection=["process_document_artifact", "build_knowledge_graph"],
-    config=fallback_config
+    config=fallback_config,
+    tags={
+        "dagster-k8s/config": {
+            "container_config": {
+                "resources": {
+                    "requests": {"cpu": "2000m", "memory": "6Gi"},
+                    "limits": {"cpu": "4000m", "memory": "12Gi"}
+                }
+            }
+        }
+    }
 )
 
 defs = Definitions(
