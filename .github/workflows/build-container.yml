@@ -52,6 +52,8 @@ jobs:
           ENV DO_NOT_TRACK=true
           ENV HF_HUB_DISABLE_TELEMETRY=1
           ENV SCARF_NO_ANALYTICS=true
+          ENV HF_HUB_OFFLINE=1
+          ENV HF_HOME=/app/.cache/huggingface
 
           # Install system dependencies (Tesseract, Poppler, libmagic, LibreOffice for MS docs)
           RUN apt-get update && apt-get install -y --no-install-recommends \
