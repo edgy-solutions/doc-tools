@@ -1,6 +1,7 @@
 class ManufacturingStep {
   procedure_id string @description("The parent procedure this step belongs to")
   step_id string @description("The specific step identifier")
+  instruction_text string @description("The full, verbatim raw text of the step from the document.")
   action_verb string @description("The concrete action to take, e.g. 'Tighten bolt'")
   tooling string[] @description("List of tools required, e.g. ['Wrench', 'Torque'] If missing, empty list.")
   consumables string[] @description("Consumable materials, e.g. ['Sealant MIL-S-81733']. If missing, empty list.")
@@ -58,6 +59,7 @@ function ExtractWorkInstructions(text: string, procedure_id_format: string, step
     CRITICAL: For every step, identify:
     - The `procedure_id` it belongs to. This must strictly match this pattern or regular expression: '{{ procedure_id_format }}'. Do not include the action text, just the identifier block.
     - The `step_id`. This must strictly match this pattern or regular expression: '{{ step_id_format }}'. Do not include the action text, just the identifier block.
+    - The `instruction_text` (the full verbatim text exactly as it appears in the document).
     - The `action_verb` (the core task being performed).
     - Any `tooling` and `consumables` (materials like sealants, epoxies).
     - Any safety `hazard_class` designations. This MUST be exactly one of the following strings if present: {{ valid_hazard_classes }}. If none apply, leave null.

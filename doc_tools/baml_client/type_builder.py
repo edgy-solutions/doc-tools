@@ -273,7 +273,7 @@ class ManufacturingStepAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("ManufacturingStep")
-        self._properties: typing.Set[str] = set([  "procedure_id",  "step_id",  "action_verb",  "tooling",  "consumables",  "hazard_class",  "required_cert",  "standard_ref",  "is_value_added",  "is_safety_critical",  "process_category",  "justification",  "estimated_duration_minutes",  "military_and_industry_standards",  "internal_part_numbers",  "material_and_hardware_slang",  ])
+        self._properties: typing.Set[str] = set([  "procedure_id",  "step_id",  "instruction_text",  "action_verb",  "tooling",  "consumables",  "hazard_class",  "required_cert",  "standard_ref",  "is_value_added",  "is_safety_critical",  "process_category",  "justification",  "estimated_duration_minutes",  "military_and_industry_standards",  "internal_part_numbers",  "material_and_hardware_slang",  ])
         self._props = ManufacturingStepProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -308,6 +308,10 @@ class ManufacturingStepProperties:
     @property
     def step_id(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("step_id"))
+    
+    @property
+    def instruction_text(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("instruction_text"))
     
     @property
     def action_verb(self) -> type_builder.ClassPropertyViewer:

@@ -7,6 +7,7 @@ from doc_tools.plugins.models import BaseSection, DocumentNode
 class ManufacturingStep(BaseModel):
     procedure_id: str
     step_id: str
+    instruction_text: str
     action_verb: str
     tooling: List[str]
     consumables: List[str]
@@ -56,6 +57,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                 steps.append(ManufacturingStep(
                     procedure_id=s.procedure_id,
                     step_id=s.step_id,
+                    instruction_text=s.instruction_text,
                     action_verb=s.action_verb,
                     tooling=s.tooling,
                     consumables=s.consumables,
@@ -87,6 +89,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                     ManufacturingStep(
                         procedure_id="PROC-MOCK",
                         step_id="3.2.1",
+                        instruction_text="Mock raw text of the procedure step",
                         action_verb=f"Assemble component derived from {section.title}", 
                         tooling=["Wrench", "Calipers"],
                         consumables=["Epoxy #9"],
@@ -152,6 +155,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                 MERGE (s:ManufacturingStep {{
                     id: $step_node_id, 
                     step_id: $step_id, 
+                    raw_text: $instruction_text,
                     action: $action,
                     is_value_added: $is_value_added,
                     is_safety_critical: $is_safety_critical,
@@ -188,6 +192,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                         "proc_id": step.procedure_id,
                         "step_node_id": step_node_id,
                         "step_id": step.step_id,
+                        "instruction_text": step.instruction_text,
                         "action": step.action_verb,
                         "is_value_added": step.is_value_added,
                         "is_safety_critical": step.is_safety_critical,
@@ -211,7 +216,8 @@ class ManufacturingPlugin(AugmentationPlugin):
                 
                 INSERT DATA {{
                     mfg:{step_node_id} a mfg:ManufacturingStep ;
-                        mfg:hasAction "{step.action_verb}" .
+                        mfg:hasAction "{step.action_verb}" ;
+                        mfg:hasText "{step.instruction_text.replace('"', '')}" .
                 """
                 
                 if step.standard_ref:

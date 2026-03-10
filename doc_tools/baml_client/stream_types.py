@@ -48,6 +48,7 @@ class LearningObjective(BaseModel):
 class ManufacturingStep(BaseModel):
     procedure_id: typing.Optional[str] = Field(default=None, description='The parent procedure this step belongs to')
     step_id: typing.Optional[str] = Field(default=None, description='The specific step identifier')
+    instruction_text: typing.Optional[str] = Field(default=None, description='The full, verbatim raw text of the step from the document.')
     action_verb: typing.Optional[str] = Field(default=None, description='The concrete action to take, e.g. \'Tighten bolt\'')
     tooling: typing.List[str] = Field(description='List of tools required, e.g. [\'Wrench\', \'Torque\'] If missing, empty list.')
     consumables: typing.List[str] = Field(description='Consumable materials, e.g. [\'Sealant MIL-S-81733\']. If missing, empty list.')
