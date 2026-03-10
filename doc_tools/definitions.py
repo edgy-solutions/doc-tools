@@ -1,4 +1,4 @@
-from dagster import define_asset_job, Definitions, load_assets_from_modules
+from dagster import define_asset_job, Definitions, load_assets_from_modules, AssetSelection
 
 from doc_tools.assets import ingestion_assets
 from doc_tools.assets import semantic_assets
@@ -36,25 +36,34 @@ for c in SENSOR_CONFIGS:
             fallback_config["ops"][op]["config"]["bucket"] = c.get("bucket", "processing-artifacts")
         break
 
+k8s_tags = {
+    "dagster-k8s/config": {
+        "container_config": {
+            "resources": {
+                "requests": {"cpu": "2000m", "memory": "6Gi"},
+                "limits": {"cpu": "4000m", "memory": "12Gi"}
+            }
+        }
+    }
+}
+
 process_documents_job = define_asset_job(
     name="process_documents_job",
     selection=["process_document_artifact", "build_knowledge_graph"],
     config=fallback_config,
-    tags={
-        "dagster-k8s/config": {
-            "container_config": {
-                "resources": {
-                    "requests": {"cpu": "2000m", "memory": "6Gi"},
-                    "limits": {"cpu": "4000m", "memory": "12Gi"}
-                }
-            }
-        }
-    }
+    tags=k8s_tags
+)
+
+# Override the implicit __ASSET_JOB to ensure UI manual materializations get the right resources
+implicit_asset_job = define_asset_job(
+    name="__ASSET_JOB",
+    selection=AssetSelection.all(),
+    tags=k8s_tags
 )
 
 defs = Definitions(
     assets=all_assets,
-    jobs=[process_documents_job],
+    jobs=[process_documents_job, implicit_asset_job],
     sensors=sensors,
     resources={
         "minio": MinioResource(),
