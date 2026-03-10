@@ -84,16 +84,18 @@ def build_document_sensor(bucket_name: str, directory: str, run_config: dict = N
             # Register new partitions to Dagster state
             context.instance.add_dynamic_partitions(document_files_partition.name, new_partition_keys)
             
-            # Inject bucket config into the job payloads dynamically
+            # Inject bucket and ALL domain configurations into the job payloads dynamically
             import copy
             sensor_run_config = copy.deepcopy(run_config)
             if "ops" not in sensor_run_config:
                 sensor_run_config["ops"] = {}
+                
             for op in ["process_document_artifact", "build_knowledge_graph"]:
                 if op not in sensor_run_config["ops"]:
                     sensor_run_config["ops"][op] = {}
                 if "config" not in sensor_run_config["ops"][op]:
                     sensor_run_config["ops"][op]["config"] = {}
+                # Ensure bucket is passed to both operations regardless of YAML config
                 sensor_run_config["ops"][op]["config"]["bucket"] = bucket_name
                 
             for key in new_partition_keys:

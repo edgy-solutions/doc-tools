@@ -24,7 +24,7 @@ all_assets = load_assets_from_modules([ingestion_assets, semantic_assets])
 import copy
 fallback_config = {}
 for c in SENSOR_CONFIGS:
-    if c["directory"] == "training":
+    if c["directory"] == "manufacturing":
         fallback_config = copy.deepcopy(c.get("config", {}))
         if "ops" not in fallback_config:
             fallback_config["ops"] = {}
