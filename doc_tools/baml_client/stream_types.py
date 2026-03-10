@@ -46,17 +46,17 @@ class LearningObjective(BaseModel):
     description: typing.Optional[str] = None
 
 class ManufacturingStep(BaseModel):
-    procedure_id: typing.Optional[str] = Field(default=None, description='e.g. \'PROC-04\' - The parent procedure this step belongs to')
-    step_id: typing.Optional[str] = Field(default=None, description='e.g. \'3.2.1\' - The specific step identifier')
+    procedure_id: typing.Optional[str] = Field(default=None, description='The parent procedure this step belongs to')
+    step_id: typing.Optional[str] = Field(default=None, description='The specific step identifier')
     action_verb: typing.Optional[str] = Field(default=None, description='The concrete action to take, e.g. \'Tighten bolt\'')
     tooling: typing.List[str] = Field(description='List of tools required, e.g. [\'Wrench\', \'Torque\'] If missing, empty list.')
     consumables: typing.List[str] = Field(description='Consumable materials, e.g. [\'Sealant MIL-S-81733\']. If missing, empty list.')
-    hazard_class: typing.Optional[str] = Field(default=None, description='Explosives Safety Hazard, e.g. \'1.1D\'. If none, leave null.')
-    required_cert: typing.Optional[str] = Field(default=None, description='Quality/Personnel requirement, e.g. \'QC Inspector\'. If none, leave null.')
+    hazard_class: typing.Optional[str] = Field(default=None, description='Explosives Safety Hazard. If none, leave null.')
+    required_cert: typing.Optional[str] = Field(default=None, description='Quality/Personnel requirement. If none, leave null.')
     standard_ref: typing.Optional[str] = Field(default=None, description='e.g. \'ISO-9001\'. If none, leave null.')
     is_value_added: typing.Optional[bool] = Field(default=None, description='True ONLY if the step physically transforms the product (e.g., machining, curing, applying sealant). False if it is an inspection, movement, or waiting.')
     is_safety_critical: typing.Optional[bool] = Field(default=None, description='CRITICAL: True if the step involves static grounding, explosive hazard mitigation (Class 1.1, 1.3), environmental safety, or regulatory sign-offs. False otherwise.')
-    process_category: typing.Optional[str] = Field(default=None, description='Must be one of: \'Transformation\', \'Inspection\', \'Movement\', \'Critical Safety Hold\', \'Rework\'')
+    process_category: typing.Optional[str] = Field(default=None, description='The functional category of the manufacturing process.')
     justification: typing.Optional[str] = Field(default=None, description='A 1-sentence explanation of why the value-added and safety-critical flags were chosen.')
     estimated_duration_minutes: typing.Optional[int] = Field(default=None, description='Extract any mentioned time constraints, cure times, or labor durations. If none, leave null.')
     military_and_industry_standards: typing.List[str] = Field(description='Extract formal standards mentioned. Look for prefixes: MIL-, MS, AN, NAS, AS, DIN, ASTM. Normalize to remove spaces (e.g., \'MIL PRF 81733\' -> \'MIL-PRF-81733\', \'MS 20426\' -> \'MS20426\'). Return empty array if none.')
