@@ -1,9 +1,12 @@
 import os
 import time
+import argparse
 import requests
 import urllib3
 from neo4j import GraphDatabase
 import weaviate
+
+proxy_int = None
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -115,12 +118,64 @@ def prime_jena():
         except Exception as e:
             print(f"  [ERROR] {ont['name']}: {e}")
 
+def wipe_databases():
+    print("=== DANGER: Wiping All Databases ===")
+    
+    # 1. Neo4j Wipe
+    uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+    user = os.environ.get("NEO4J_USERNAME", "neo4j")
+    password = os.environ.get("NEO4J_PASSWORD", "password")
+    try:
+        driver = GraphDatabase.driver(uri, auth=(user, password))
+        with driver.session() as session:
+            session.run("MATCH (n) DETACH DELETE n")
+        driver.close()
+        print("[SUCCESS] Neo4j graph cleared.")
+    except Exception as e:
+        print(f"[ERROR] Failed to clear Neo4j: {e}")
+
+    # 2. Weaviate Wipe
+    weaviate_url = os.environ.get("WEAVIATE_URL", "http://localhost:8080")
+    try:
+        client = weaviate.Client(weaviate_url)
+        client.schema.delete_all()
+        print("[SUCCESS] Weaviate schemas and vectors cleared.")
+    except Exception as e:
+        print(f"[ERROR] Failed to clear Weaviate: {e}")
+
+    # 3. Jena Wipe
+    host = os.environ.get("JENA_URL", "http://localhost:3030")
+    ds_name = os.environ.get("JENA_DS", "ds")
+    user = os.environ.get("JENA_USERNAME", "admin")
+    pw = os.environ.get("JENA_PASSWORD", "password")
+    try:
+        res = requests.delete(f"{host}/$/datasets/{ds_name}", auth=(user, pw), verify=False)
+        if res.status_code in [200, 204]:
+            print(f"[SUCCESS] Jena dataset /{ds_name} deleted.")
+        elif res.status_code == 404:
+            print(f"[OK] Jena dataset /{ds_name} already absent.")
+        else:
+            print(f"[ERROR] Failed to delete Jena dataset: {res.status_code} {res.text}")
+    except Exception as e:
+        print(f"[ERROR] Failed to clear Jena: {e}")
+
 def main():
-    print("=== Starting Virigin Environment Pre-Flight Checklist ===")
+    parser = argparse.ArgumentParser(description="Document Tools Environment Setup")
+    parser.add_argument("--wipe", action="store_true", help="Clear all data from Neo4j, Weaviate, and Jena.")
+    args = parser.parse_args()
+
     parse_env()
     
+    if args.wipe:
+        wipe_databases()
+        return
+
+    print("=== Starting Virigin Environment Pre-Flight Checklist ===")
     # Add brief sleep to allow services to start if running simultaneously in a pod
     time.sleep(2)
     
     prime_neo4j()
     prime_jena()
+
+if __name__ == "__main__":
+    main()
