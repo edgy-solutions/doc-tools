@@ -118,56 +118,59 @@ def prime_jena():
         except Exception as e:
             print(f"  [ERROR] {ont['name']}: {e}")
 
-def wipe_databases():
-    print("=== DANGER: Wiping All Databases ===")
+def wipe_databases(wipe_neo4j_weaviate=True, wipe_jena=False):
+    print("=== DANGER: Wiping Databases ===")
     
-    # 1. Neo4j Wipe
-    uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-    user = os.environ.get("NEO4J_USERNAME", "neo4j")
-    password = os.environ.get("NEO4J_PASSWORD", "password")
-    try:
-        driver = GraphDatabase.driver(uri, auth=(user, password))
-        with driver.session() as session:
-            session.run("MATCH (n) DETACH DELETE n")
-        driver.close()
-        print("[SUCCESS] Neo4j graph cleared.")
-    except Exception as e:
-        print(f"[ERROR] Failed to clear Neo4j: {e}")
+    if wipe_neo4j_weaviate:
+        # 1. Neo4j Wipe
+        uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+        user = os.environ.get("NEO4J_USERNAME", "neo4j")
+        password = os.environ.get("NEO4J_PASSWORD", "password")
+        try:
+            driver = GraphDatabase.driver(uri, auth=(user, password))
+            with driver.session() as session:
+                session.run("MATCH (n) DETACH DELETE n")
+            driver.close()
+            print("[SUCCESS] Neo4j graph cleared.")
+        except Exception as e:
+            print(f"[ERROR] Failed to clear Neo4j: {e}")
 
-    # 2. Weaviate Wipe
-    weaviate_url = os.environ.get("WEAVIATE_URL", "http://localhost:8080")
-    try:
-        client = weaviate.Client(weaviate_url)
-        client.schema.delete_all()
-        print("[SUCCESS] Weaviate schemas and vectors cleared.")
-    except Exception as e:
-        print(f"[ERROR] Failed to clear Weaviate: {e}")
+        # 2. Weaviate Wipe
+        weaviate_url = os.environ.get("WEAVIATE_URL", "http://localhost:8080")
+        try:
+            client = weaviate.Client(weaviate_url)
+            client.schema.delete_all()
+            print("[SUCCESS] Weaviate schemas and vectors cleared.")
+        except Exception as e:
+            print(f"[ERROR] Failed to clear Weaviate: {e}")
 
-    # 3. Jena Wipe
-    host = os.environ.get("JENA_URL", "http://localhost:3030")
-    ds_name = os.environ.get("JENA_DS", "ds")
-    user = os.environ.get("JENA_USERNAME", "admin")
-    pw = os.environ.get("JENA_PASSWORD", "password")
-    try:
-        res = requests.delete(f"{host}/$/datasets/{ds_name}", auth=(user, pw), verify=False)
-        if res.status_code in [200, 204]:
-            print(f"[SUCCESS] Jena dataset /{ds_name} deleted.")
-        elif res.status_code == 404:
-            print(f"[OK] Jena dataset /{ds_name} already absent.")
-        else:
-            print(f"[ERROR] Failed to delete Jena dataset: {res.status_code} {res.text}")
-    except Exception as e:
-        print(f"[ERROR] Failed to clear Jena: {e}")
+    if wipe_jena:
+        # 3. Jena Wipe
+        host = os.environ.get("JENA_URL", "http://localhost:3030")
+        ds_name = os.environ.get("JENA_DS", "ds")
+        user = os.environ.get("JENA_USERNAME", "admin")
+        pw = os.environ.get("JENA_PASSWORD", "password")
+        try:
+            res = requests.delete(f"{host}/$/datasets/{ds_name}", auth=(user, pw), verify=False)
+            if res.status_code in [200, 204]:
+                print(f"[SUCCESS] Jena dataset /{ds_name} deleted.")
+            elif res.status_code == 404:
+                print(f"[OK] Jena dataset /{ds_name} already absent.")
+            else:
+                print(f"[ERROR] Failed to delete Jena dataset: {res.status_code} {res.text}")
+        except Exception as e:
+            print(f"[ERROR] Failed to clear Jena: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="Document Tools Environment Setup")
-    parser.add_argument("--wipe", action="store_true", help="Clear all data from Neo4j, Weaviate, and Jena.")
+    parser.add_argument("--wipe", action="store_true", help="Clear data from Neo4j and Weaviate (document extraction targets).")
+    parser.add_argument("--wipe-jena", action="store_true", help="Clear semantic ontology data from Apache Jena.")
     args = parser.parse_args()
 
     parse_env()
     
-    if args.wipe:
-        wipe_databases()
+    if args.wipe or args.wipe_jena:
+        wipe_databases(wipe_neo4j_weaviate=args.wipe, wipe_jena=args.wipe_jena)
         return
 
     print("=== Starting Virigin Environment Pre-Flight Checklist ===")
