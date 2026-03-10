@@ -8,6 +8,11 @@ sensors:
             graph_node_label: "WorkInstruction"
             graph_child_label: "Page"
             vector_collection_name: "ManufacturingDocumentChunk"
+            procedure_id_format: "PROC-04"
+            step_id_format: "1.2.3"
+            valid_personnel_roles: "QC Inspector, Journeyman, Safety Officer"
+            valid_hazard_classes: "1.1D, 1.3C, Hazmat 3, Biohazard"
+            valid_process_categories: "Transformation, Inspection, Movement, Rework, Critical Safety Hold"
   - bucket: "processing-artifacts"
     directory: "compliance"
     config:

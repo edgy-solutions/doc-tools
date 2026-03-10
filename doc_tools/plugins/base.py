@@ -10,7 +10,7 @@ class AugmentationPlugin(ABC):
     """
     
     @abstractmethod
-    def augment(self, section: BaseSection) -> DocumentNode:
+    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         """
         Receives a raw text section, queries the domain-specific LLM layer, 
         and returns the augmented DocumentNode.

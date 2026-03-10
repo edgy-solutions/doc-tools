@@ -20,7 +20,7 @@ class CompliancePlugin(AugmentationPlugin):
     Logistics and Compliance validation logic (e.g. DAFMAN).
     """
     
-    def augment(self, section: BaseSection) -> DocumentNode:
+    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
             from doc_tools.baml_client import b
             from doc_tools.baml_client.types import ComplianceAugmentation as BamlComplianceAugmentation

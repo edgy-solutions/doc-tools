@@ -36,13 +36,20 @@ class ManufacturingPlugin(AugmentationPlugin):
     New Munitions Acceleration & Manufacturing (MAT) extraction logic.
     """
     
-    def augment(self, section: BaseSection) -> DocumentNode:
+    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
             from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import MatAugmentation as BamlMatAugmentation
             
             # Execute BAML LLM inference
-            baml_response: BamlMatAugmentation = b.ExtractWorkInstructions(text=section.content)
+            baml_response: BamlMatAugmentation = b.ExtractWorkInstructions(
+                text=section.content,
+                procedure_id_format=getattr(config, "procedure_id_format", "PROC-01"),
+                step_id_format=getattr(config, "step_id_format", "1.2.3"),
+                valid_personnel_roles=getattr(config, "valid_personnel_roles", "QC Inspector, Journeyman, Safety Officer"),
+                valid_hazard_classes=getattr(config, "valid_hazard_classes", "1.1D, 1.3C, Hazmat 3, Biohazard"),
+                valid_process_categories=getattr(config, "valid_process_categories", "Transformation, Inspection, Movement, Rework, Critical Safety Hold")
+            )
             
             steps = []
             for s in baml_response.steps:

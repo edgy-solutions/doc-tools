@@ -28,7 +28,7 @@ class TrainingPlugin(AugmentationPlugin):
     """
     Original extraction logic generalized for Training content.
     """
-    def augment(self, section: BaseSection) -> DocumentNode:
+    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
             from doc_tools.baml_client import b
             from doc_tools.baml_client.types import SlideAugmentation as BamlSlideAugmentation

@@ -33,7 +33,7 @@ class MatAugmentation {
   assessment StrategicAssessment
 }
 
-function ExtractWorkInstructions(text: string) -> MatAugmentation {
+function ExtractWorkInstructions(text: string, procedure_id_format: string, step_id_format: string, valid_personnel_roles: string, valid_hazard_classes: string, valid_process_categories: string) -> MatAugmentation {
   client Ollama
   prompt #"
     Analyze the following munitions assembly text and extract each discrete manufacturing step.
@@ -47,20 +47,20 @@ function ExtractWorkInstructions(text: string) -> MatAugmentation {
        - *Examples of NVA:* "Verify torque", "Move pallet to Bay 4", "Inspect for cracks." -> is_value_added: false
     3. **The Safety Exception (Essential NVA):** Some steps do not physically change the product but are strictly required to prevent catastrophic failure or loss of life.
        - *Examples of Safety Critical:* "Attach static grounding strap", "Verify Class 1.1 ESQD limits", "Perform stray voltage test." 
-       - For these: `is_value_added: false`, but `is_safety_critical: true`. `process_category` MUST be 'Critical Safety Hold'.
+       - For these: `is_value_added: false`, but `is_safety_critical: true`.
 
     If a step is an inspection that DOES NOT involve explosive safety or high-voltage grounding, it is simply `is_safety_critical: false`.
     
     CRITICAL: For every step, identify:
-    - The `procedure_id` it belongs to.
-    - The `step_id` (e.g. 1.2.4).
+    - The `procedure_id` it belongs to. This must strictly follow this formatting pattern: e.g. '{{ procedure_id_format }}'. Do not include the action text, just the identifier block.
+    - The `step_id`. This must strictly follow this hierarchical formatting pattern: e.g. '{{ step_id_format }}'. Do not include the action text, just the identifier block.
     - The `action_verb` (the core task being performed).
     - Any `tooling` and `consumables` (materials like sealants, epoxies).
-    - Any safety `hazard_class` designations (e.g., Class 1.1).
-    - Any `required_cert` (Personnel authorizations like 'QC Inspector' or 'Journeyman').
+    - Any safety `hazard_class` designations. This MUST be exactly one of the following strings if present: {{ valid_hazard_classes }}. If none apply, leave null.
+    - Any `required_cert` (Personnel authorizations). This MUST be exactly one of the following strings if present: {{ valid_personnel_roles }}. If none apply, leave null.
     - Compliance `standard_ref` (e.g. ISO-9001, MIL-STD).
     - Whether it `is_value_added` and `is_safety_critical` based on the strict limits above.
-    - The `process_category` of the fundamental physics.
+    - The `process_category` of the fundamental physics. This MUST be exactly one of the following strings: {{ valid_process_categories }}.
     - The chain-of-thought `justification`.
     - Any `estimated_duration_minutes` (e.g., cure times, labor time).
 

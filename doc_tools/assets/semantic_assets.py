@@ -199,7 +199,7 @@ def build_knowledge_graph(
         
         # 2. Augment via Domain Plugin
         try:
-            node = plugin.augment(section)
+            node = plugin.augment(section, config)
             document_nodes.append(node)
         except Exception as e:
             context.log.error(f"Plugin augmentation failed for chunk {chunk_id}: {e}")
