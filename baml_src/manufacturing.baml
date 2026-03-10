@@ -52,8 +52,8 @@ function ExtractWorkInstructions(text: string, procedure_id_format: string, step
     If a step is an inspection that DOES NOT involve explosive safety or high-voltage grounding, it is simply `is_safety_critical: false`.
     
     CRITICAL: For every step, identify:
-    - The `procedure_id` it belongs to. This must strictly follow this formatting pattern: e.g. '{{ procedure_id_format }}'. Do not include the action text, just the identifier block.
-    - The `step_id`. This must strictly follow this hierarchical formatting pattern: e.g. '{{ step_id_format }}'. Do not include the action text, just the identifier block.
+    - The `procedure_id` it belongs to. This must strictly match this pattern or regular expression: '{{ procedure_id_format }}'. Do not include the action text, just the identifier block.
+    - The `step_id`. This must strictly match this pattern or regular expression: '{{ step_id_format }}'. Do not include the action text, just the identifier block.
     - The `action_verb` (the core task being performed).
     - Any `tooling` and `consumables` (materials like sealants, epoxies).
     - Any safety `hazard_class` designations. This MUST be exactly one of the following strings if present: {{ valid_hazard_classes }}. If none apply, leave null.
