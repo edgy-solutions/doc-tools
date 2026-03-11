@@ -3,6 +3,7 @@ import time
 import argparse
 import requests
 import urllib3
+from urllib.parse import urlparse
 from neo4j import GraphDatabase
 import weaviate
 
@@ -23,10 +24,14 @@ def parse_env():
                     k, v = line.split("=", 1)
                     env_vars[k.strip()] = v.strip().strip("'").strip('"')
     
-    # Merge with actual environment so os.environ overrides .env
     for k, v in env_vars.items():
         if k not in os.environ:
             os.environ[k] = v
+
+def get_base_url(url):
+    """Safely extracts just the scheme and host:port from a full URL."""
+    parsed = urlparse(url)
+    return f"{parsed.scheme}://{parsed.netloc}"
 
 def prime_neo4j():
     print("--- Priming Neo4j (Constraints & Indexes) ---")
@@ -52,20 +57,19 @@ def prime_neo4j():
     except Exception as e:
         print(f"Failed to prime Neo4j: {e}")
 
-
-
 def prime_jena():
     print("--- Priming Apache Jena (Auto-Provisioning) ---")
     
-    # Configuration
-    host = os.environ.get("JENA_URL", "http://localhost:3030")
+    # Configuration with safe base URL parsing
+    raw_host = os.environ.get("JENA_URL", "http://localhost:3030")
+    host = get_base_url(raw_host)
     ds_name = os.environ.get("JENA_DS", "ds")
     user = os.environ.get("JENA_USERNAME", "admin")
     pw = os.environ.get("JENA_PASSWORD", "password")
     auth = (user, pw)
     
     # 1. ENSURE DATASET EXISTS
-    print(f"Checking for dataset /{ds_name}...")
+    print(f"Checking for dataset /{ds_name} at {host}...")
     try:
         check = requests.get(f"{host}/$/datasets/{ds_name}", auth=auth, proxies=proxy_int, verify=False)
         if check.status_code == 404:
@@ -145,21 +149,28 @@ def wipe_databases(wipe_neo4j_weaviate=True, wipe_jena=False):
             print(f"[ERROR] Failed to clear Weaviate: {e}")
 
     if wipe_jena:
-        # 3. Jena Wipe
-        host = os.environ.get("JENA_URL", "http://localhost:3030")
+        # 3. Jena Wipe 
+        raw_host = os.environ.get("JENA_URL", "http://localhost:3030")
+        host = get_base_url(raw_host)
         ds_name = os.environ.get("JENA_DS", "ds")
         user = os.environ.get("JENA_USERNAME", "admin")
         pw = os.environ.get("JENA_PASSWORD", "password")
+        
         try:
-            res = requests.delete(f"{host}/$/datasets/{ds_name}", auth=(user, pw), verify=False)
+            update_query = "CLEAR ALL"
+            res = requests.post(
+                f"{host}/{ds_name}/update",
+                data={"update": update_query},
+                auth=(user, pw),
+                verify=False
+            )
+            
             if res.status_code in [200, 204]:
-                print(f"[SUCCESS] Jena dataset /{ds_name} deleted.")
-            elif res.status_code == 404:
-                print(f"[OK] Jena dataset /{ds_name} already absent.")
+                print(f"[SUCCESS] Jena dataset /{ds_name} contents cleared.")
             else:
-                print(f"[ERROR] Failed to delete Jena dataset: {res.status_code} {res.text}")
+                print(f"[ERROR] Failed to clear Jena contents: {res.status_code} {res.text}")
         except Exception as e:
-            print(f"[ERROR] Failed to clear Jena: {e}")
+            print(f"[ERROR] Failed to connect to Jena to clear data: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="Document Tools Environment Setup")
@@ -173,8 +184,7 @@ def main():
         wipe_databases(wipe_neo4j_weaviate=args.wipe, wipe_jena=args.wipe_jena)
         return
 
-    print("=== Starting Virigin Environment Pre-Flight Checklist ===")
-    # Add brief sleep to allow services to start if running simultaneously in a pod
+    print("=== Starting Virgin Environment Pre-Flight Checklist ===")
     time.sleep(2)
     
     prime_neo4j()
