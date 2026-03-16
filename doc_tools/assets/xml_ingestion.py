@@ -4,6 +4,7 @@ from dagster import asset, Config, MaterializeResult
 from doc_tools.parsers.s1000d_rdf import S1000dGraphBuilder
 from doc_tools.parsers.dita_rdf import DitaGraphBuilder
 from doc_tools.parsers.iads_rdf import IadsGraphBuilder
+from doc_tools.parsers.mil_std_40051_rdf import MilStd40051GraphBuilder
 
 class XmlIngestConfig(Config):
     s3_bucket: str
@@ -43,7 +44,8 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, minio: MinioResource)
     PARSERS = {
         's1000d': S1000dGraphBuilder,
         'iads': IadsGraphBuilder,
-        'dita': DitaGraphBuilder
+        'dita': DitaGraphBuilder,
+        '40051': MilStd40051GraphBuilder
     }
 
     if doc_type not in PARSERS:
