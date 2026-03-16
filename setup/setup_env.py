@@ -90,9 +90,19 @@ def prime_jena():
 
     # 2. LOAD ONTOLOGIES
     ontologies = [
+        # --- LAYER A: The Foundation ---
         {"name": "IOF_Core", "path": "https://raw.githubusercontent.com/iofoundry/ontology/master/core/Core.rdf"},
-        {"name": "DINEN62264", "path": "https://raw.githubusercontent.com/hsu-aut/IndustrialStandard-ODP-DINEN62264-2/v1.4.2/DINEN62264.owl"},
-        {"name": "Munitions", "path": "munitions_ontology.ttl"}
+        
+        # --- LAYER B: The Domains (Manufacturing & Sustainment) ---
+        {"name": "DINEN62264", "path": "https://raw.githubusercontent.com/hsu-aut/IndustrialStandard-ODP-DINEN62264-2/v1.4.2/DINEN62264.owl"}, 
+        {"name": "IOF_MRO", "path": "https://raw.githubusercontent.com/iofoundry/ontology/master/maintenance/MaintenanceReferenceOntology.rdf"}, 
+        
+        # --- LAYER C: The Logistics Standards (S-Series) ---
+        {"name": "S3000L", "path": "https://www.semanticstep.org/sites/default/files/2018-01/s3kl_0.ttl"}, 
+        
+        # --- LAYER D: Our Custom App Logic (Local Files in /setup) ---
+        {"name": "MIL_Unified", "path": "setup/mil_ontology.ttl"},
+        {"name": "Munitions", "path": "setup/munitions_ontology.ttl"}
     ]
 
     for ont in ontologies:
