@@ -65,6 +65,8 @@ class ManufacturingPlugin(AugmentationPlugin):
             
             steps = []
             for s in baml_response.steps:
+                # BAML Dynamic Enums can return strings or Enum objects depending on registration.
+                # We use getattr to safely extract the value if it's an Enum, otherwise use the string.
                 steps.append(ManufacturingStep(
                     procedure_id=s.procedure_id,
                     step_id=s.step_id,
@@ -72,12 +74,12 @@ class ManufacturingPlugin(AugmentationPlugin):
                     action_verb=s.action_verb,
                     tooling=s.tooling,
                     consumables=s.consumables,
-                    hazard_class=s.hazard_class.value if s.hazard_class else None,
-                    required_cert=s.required_cert.value if s.required_cert else None,
+                    hazard_class=getattr(s.hazard_class, 'value', s.hazard_class) if s.hazard_class else None,
+                    required_cert=getattr(s.required_cert, 'value', s.required_cert) if s.required_cert else None,
                     standard_ref=s.standard_ref,
                     is_value_added=s.is_value_added,
                     is_safety_critical=s.is_safety_critical,
-                    process_category=s.process_category.value,
+                    process_category=getattr(s.process_category, 'value', s.process_category),
                     justification=s.justification,
                     estimated_duration_minutes=s.estimated_duration_minutes,
                     military_and_industry_standards=s.military_and_industry_standards,
