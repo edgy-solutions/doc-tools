@@ -53,8 +53,9 @@ graph TD
 - `baml_src/`: LLM prompt definitions mapped to structural schemas. Compiles via `baml-py` into Pydantic models natively in `doc_tools/baml_client`.
 - `charts/doc-tools/`: The Helm Chart for deploying the application to Kubernetes, fully supporting ConfigMaps and Secrets.
 - `doc_tools/`: The main Dagster application codebase.
-  - `doc_tools/assets/`: The Dagster data assets forming the core ingestion and semantic pipelines. Includes the `hybrid_graph_assets.py` for Jena/Neo4j synchronization.
-  - `doc_tools/plugins/`: Contains the **Domain-Agnostic Plugin Architecture**. Base structural nodes are passed here where domain logic (Training, Manufacturing/MAT, Compliance) invokes BAML schemas and returns Cypher/SPARQL queries.
+  - `doc_tools/assets/ingestion_assets.py`: Core ingestion logic for unstructured/PPTX files.
+  - `doc_tools/assets/semantic_assets.py`: Cypher logic for Neo4j Knowledge Graphs and generic Hybrid Graph synchronization (Jena/Neo4j).
+  - `doc_tools/assets/xml_ingestion.py`: Universal XML extractor routing to specialized parsers based on MinIO directory prefixes.
   - `doc_tools/parsers/`: Specialized parsers for structured standards, featuring the `s1000d_rdf.py` graph builder.
   - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests based on mapped S3 directory prefixes.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
@@ -118,6 +119,8 @@ To invoke that pipeline immediately from the CLI over a specific document dynami
 uv run dagster job execute -m doc_tools.definitions -j process_documents_job -c doc_tools/example_run_config.yaml --tags '{"dagster/partition": "doc_id/file.pdf"}'
 ```
 
+For the semantic XML pipeline, execute the `xml_graph_sync_job`. This job is optimized for K8s, passing RDF data in-memory between assets.
+
 ---
 
 ## 🧩 S1000D Semantic Parsing (Experimental)
@@ -154,11 +157,12 @@ def s1000d_knowledge_graph_asset():
 
 ### Hybrid Graph Synchronization
 
-The `hybrid_graph_assets` module provides an end-to-end orchestration for bridging semantic reasoning with property graphs:
+The system provides an end-to-end orchestration for bridging semantic reasoning with property graphs via the `xml_graph_sync_job`:
 
-1. **`upload_to_jena`**: Pushes the generated `.ttl` to the Jena Fuseki endpoint via `httpx`.
-2. **`init_neo4j_n10s`**: Idempotently prepares Neo4j for RDF ingestion.
-3. **`sync_jena_to_neo4j`**: Uses a SPARQL `CONSTRUCT` query against the Jena `/query` endpoint to pull the **fully inferred knowledge graph** (including logical deductions) and syncs it into Neo4j using Neosemantics (n10s).
+1. **`extract_rdf_from_xml`**: Universal extractor in `xml_ingestion.py` that pulls files from MinIO into memory using `MinioResource` and routes them to the correct parser (e.g., S1000D) based on directory. **Passes the serialized RDF string in-memory.**
+2. **`upload_to_jena`**: Pushes the raw Turtle string (no disk I/O) to the Jena Fuseki endpoint via `httpx`.
+3. **`init_neo4j_n10s`**: Idempotently prepares Neo4j for RDF ingestion.
+4. **`sync_jena_to_neo4j`**: Uses a SPARQL `CONSTRUCT` query against the Jena `/query` endpoint to pull the **fully inferred knowledge graph** and syncs it into Neo4j.
 ```
 
 ---

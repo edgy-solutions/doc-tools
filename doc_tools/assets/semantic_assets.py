@@ -1,7 +1,9 @@
-import json
 import os
+import httpx
+import urllib.parse
 from typing import Any, Dict
-from dagster import asset, AssetExecutionContext
+from dagster import asset, AssetExecutionContext, MaterializeResult
+from neo4j import GraphDatabase
 from doc_tools.config import IngestionConfig
 from doc_tools.assets.ingestion_assets import document_files_partition
 from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
@@ -268,3 +270,94 @@ def build_knowledge_graph(
         pass
         
     return {"doc_id": doc_id, "status": "processed", "node_label": node_label, "collection": collection_name}
+
+@asset
+def upload_to_jena(context, extract_rdf_from_xml: str) -> MaterializeResult:
+    """
+    Uploads the generic RDF Turtle string (from extract_rdf_from_xml) to Apache Jena.
+    """
+    jena_url = os.environ.get("JENA_URL", "http://localhost:3030/ds/data")
+    user = os.environ.get("JENA_USERNAME", "admin")
+    pw = os.environ.get("JENA_PASSWORD", "password")
+    
+    context.log.info(f"Uploading in-memory RDF data to Jena at {jena_url}...")
+    
+    # The extract_rdf_from_xml asset now returns the raw Turtle string
+    data = extract_rdf_from_xml.encode('utf-8')
+        
+    try:
+        with httpx.Client(auth=(user, pw), verify=False) as client:
+            response = client.post(
+                jena_url,
+                content=data,
+                headers={"Content-Type": "text/turtle; charset=utf-8"}
+            )
+            response.raise_for_status()
+            
+        return MaterializeResult(
+            metadata={
+                "status": "success",
+                "bytes_uploaded": len(data),
+                "endpoint": jena_url
+            }
+        )
+    except Exception as e:
+        context.log.error(f"Failed to upload to Jena: {e}")
+        raise e
+
+@asset(deps=[upload_to_jena])
+def init_neo4j_n10s(context) -> MaterializeResult:
+    """
+    Idempotently initializes Neosemantics (n10s) config in Neo4j.
+    """
+    uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+    user = os.environ.get("NEO4J_USERNAME", "neo4j")
+    pw = os.environ.get("NEO4J_PASSWORD", "password")
+    
+    driver = GraphDatabase.driver(uri, auth=(user, pw))
+    
+    with driver.session() as session:
+        try:
+            session.run("CALL n10s.graphconfig.init({handleVocabUris: 'IGNORE'})")
+            context.log.info("Initialized n10s graph config.")
+        except Exception as e:
+            if "already exists" in str(e).lower():
+                context.log.info("n10s graph config already exists.")
+            else:
+                raise e
+        
+        session.run("CREATE CONSTRAINT n10s_unique_uri IF NOT EXISTS FOR (r:Resource) REQUIRE r.uri IS UNIQUE")
+        
+    driver.close()
+    return MaterializeResult(metadata={"n10s_status": "ready"})
+
+@asset(deps=[init_neo4j_n10s])
+def sync_jena_to_neo4j(context) -> MaterializeResult:
+    """
+    Uses a SPARQL CONSTRUCT query to fetch the inferred graph from Jena into Neo4j via n10s.
+    """
+    uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+    user = os.environ.get("NEO4J_USERNAME", "neo4j")
+    pw = os.environ.get("NEO4J_PASSWORD", "password")
+    
+    jena_query_url = os.environ.get("JENA_QUERY_URL", "http://localhost:3030/ds/query")
+    sparql_query = "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }"
+    encoded_query = urllib.parse.quote(sparql_query)
+    fetch_url = f"{jena_query_url}?query={encoded_query}"
+    
+    driver = GraphDatabase.driver(uri, auth=(user, pw))
+    
+    with driver.session() as session:
+        context.log.info(f"Triggering Neo4j n10s fetch from inferred endpoint: {jena_query_url}")
+        result = session.run("CALL n10s.rdf.import.fetch($url, 'Turtle')", url=fetch_url)
+        summary = result.single()
+        triples_imported = summary["triplesLoaded"] if summary else 0
+        
+    driver.close()
+    
+    return MaterializeResult(
+        metadata={
+            "triples_imported": triples_imported,
+            "source_jena_query_url": jena_query_url
+        }
+    )

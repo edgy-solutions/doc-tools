@@ -23,10 +23,11 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
 
 - **S1000D Semantic Parsing**: 
   1. Use `doc_tools.parsers.s1000d_rdf.S1000dGraphBuilder` for XML-to-RDF mapping.
-  2. Maintain `lxml` for XPath speed and `rdflib` for formal graph construction.
-  3. Map DMC attributes to unique URIs in the `http://edgy-solutions.com/ontology/s1000d#` namespace.
+  2. Implement extraction logic in `doc_tools/assets/xml_ingestion.py` using the directory routing pattern.
+  3. **High-Performance Passing**: Always return the serialized RDF string (as a string, not a file path) to ensure compatibility with isolated Dagster K8s pods.
 
 - **Hybrid Graph Synchronization**:
-  1. **Jena First**: Always push raw `.ttl` to Apache Jena via `httpx` first to allow the semantic engine to perform reasoner-based inference.
-  2. **Inferred Fetch**: Trigger Neo4j `n10s` (Neosemantics) using a SPARQL `CONSTRUCT` query against the Jena `/query` endpoint. This ensures the logically deduced graph (not just raw data) is synced into the Property Graph.
-  3. **Idempotency**: Always wrap `n10s.graphconfig.init` in a try/except to avoid "config already exists" errors.
+  1. **Jena First**: Always push raw `.ttl` to Apache Jena via `httpx` (implemented in `semantic_assets.py`) first.
+  2. **In-Memory Triples**: Pass raw Turtle data between assets as strings; do not use the local filesystem as it is not persistent between Dagster K8s steps.
+  3. **Inferred Fetch**: Trigger Neo4j `n10s` (Neosemantics) using a SPARQL `CONSTRUCT` query against the Jena `/query` endpoint.
+  4. **Idempotency**: Always wrap `n10s.graphconfig.init` in a try/except to avoid "config already exists" errors.
