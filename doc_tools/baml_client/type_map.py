@@ -47,4 +47,10 @@ type_map = {
     "stream_types.StrategicAssessment": stream_types.StrategicAssessment,
 
 
+    "types.HazardClass": types.HazardClass,
+
+    "types.PersonnelRole": types.PersonnelRole,
+
+    "types.ProcessCategory": types.ProcessCategory,
+
 }

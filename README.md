@@ -53,8 +53,9 @@ graph TD
 - `baml_src/`: LLM prompt definitions mapped to structural schemas. Compiles via `baml-py` into Pydantic models natively in `doc_tools/baml_client`.
 - `charts/doc-tools/`: The Helm Chart for deploying the application to Kubernetes, fully supporting ConfigMaps and Secrets.
 - `doc_tools/`: The main Dagster application codebase.
-  - `doc_tools/assets/`: The Dagster data assets forming the core ingestion and semantic pipelines.
+  - `doc_tools/assets/`: The Dagster data assets forming the core ingestion and semantic pipelines. Includes the `hybrid_graph_assets.py` for Jena/Neo4j synchronization.
   - `doc_tools/plugins/`: Contains the **Domain-Agnostic Plugin Architecture**. Base structural nodes are passed here where domain logic (Training, Manufacturing/MAT, Compliance) invokes BAML schemas and returns Cypher/SPARQL queries.
+  - `doc_tools/parsers/`: Specialized parsers for structured standards, featuring the `s1000d_rdf.py` graph builder.
   - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests based on mapped S3 directory prefixes.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
   - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration that binds dependencies, resources, sensors, and configurations.
@@ -115,6 +116,49 @@ ops:
 To invoke that pipeline immediately from the CLI over a specific document dynamically:
 ```bash
 uv run dagster job execute -m doc_tools.definitions -j process_documents_job -c doc_tools/example_run_config.yaml --tags '{"dagster/partition": "doc_id/file.pdf"}'
+```
+
+---
+
+## 🧩 S1000D Semantic Parsing (Experimental)
+
+For aerospace and defense applications handling S1000D XML Data Modules, `doc-tools` provides a formal RDF builder to map complex documents to industrial ontologies.
+
+### Dagster Integration Example
+
+Lower-level engineers can integrate the `S1000dGraphBuilder` inside a modular Dagster `@asset` to build unified RDF graphs:
+
+```python
+from dagster import asset, Output
+from doc_tools.parsers.s1000d_rdf import S1000dGraphBuilder
+import os
+
+@asset
+def s1000d_knowledge_graph_asset():
+    builder = S1000dGraphBuilder()
+    xml_dir = "data/s1000d_modules"
+    
+    for filename in os.listdir(xml_dir):
+        if filename.endswith(".xml"):
+            path = os.path.join(xml_dir, filename)
+            with open(path, "rb") as f:
+                dmc_uri = builder.parse_data_module(f.read())
+                print(f"Ingested DM: {dmc_uri}")
+    
+    # Serialize to Turtle for Graph DB ingestion
+    rdf_data = builder.serialize(format="turtle")
+    with open("output/unified_s1000d.ttl", "w") as f:
+        f.write(rdf_data)
+        
+    return Output(value=rdf_data, metadata={"triples": len(builder.graph)})
+
+### Hybrid Graph Synchronization
+
+The `hybrid_graph_assets` module provides an end-to-end orchestration for bridging semantic reasoning with property graphs:
+
+1. **`upload_to_jena`**: Pushes the generated `.ttl` to the Jena Fuseki endpoint via `httpx`.
+2. **`init_neo4j_n10s`**: Idempotently prepares Neo4j for RDF ingestion.
+3. **`sync_jena_to_neo4j`**: Uses a SPARQL `CONSTRUCT` query against the Jena `/query` endpoint to pull the **fully inferred knowledge graph** (including logical deductions) and syncs it into Neo4j using Neosemantics (n10s).
 ```
 
 ---

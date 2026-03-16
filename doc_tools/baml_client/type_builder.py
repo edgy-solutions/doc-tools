@@ -22,12 +22,24 @@ class TypeBuilder(type_builder.TypeBuilder):
         super().__init__(classes=set(
           ["ComplianceAugmentation","ComplianceRule","Concept","LearningObjective","ManufacturingStep","MatAugmentation","Outline","Section","SlideAugmentation","StrategicAssessment",]
         ), enums=set(
-          []
+          ["HazardClass","PersonnelRole","ProcessCategory",]
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
 
     # #########################################################################
-    # Generated enums 0
+    # Generated enums 3
     # #########################################################################
+
+    @property
+    def HazardClass(self) -> "HazardClassBuilder":
+        return HazardClassBuilder(self)
+
+    @property
+    def PersonnelRole(self) -> "PersonnelRoleBuilder":
+        return PersonnelRoleBuilder(self)
+
+    @property
+    def ProcessCategory(self) -> "ProcessCategoryBuilder":
+        return ProcessCategoryBuilder(self)
 
 
     # #########################################################################
@@ -77,8 +89,140 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
 # #########################################################################
-# Generated enums 0
+# Generated enums 3
 # #########################################################################
+
+class HazardClassAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.enum("HazardClass")
+        self._values: typing.Set[str] = set([  ])
+        self._vals = HazardClassValues(self._bldr, self._values)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def values(self) -> "HazardClassValues":
+        return self._vals
+
+
+class HazardClassBuilder(HazardClassAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_values(self) -> typing.List[typing.Tuple[str, baml_py.EnumValueBuilder]]:
+        return [(name, self._bldr.value(name)) for name in self._values]
+
+    def add_value(self, name: str) -> baml_py.EnumValueBuilder:
+        if name in self._values:
+            raise ValueError(f"Value {name} already exists.")
+        return self._bldr.value(name)
+    
+
+class HazardClassValues:
+    def __init__(self, enum_bldr: baml_py.EnumBuilder, values: typing.Set[str]):
+        self.__bldr = enum_bldr
+        self.__values = values # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    def __getattr__(self, name: str) -> baml_py.EnumValueBuilder:
+        if name not in self.__values:
+            raise AttributeError(f"Value {name} not found.")
+        return self.__bldr.value(name)
+
+    
+    
+
+
+class PersonnelRoleAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.enum("PersonnelRole")
+        self._values: typing.Set[str] = set([  ])
+        self._vals = PersonnelRoleValues(self._bldr, self._values)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def values(self) -> "PersonnelRoleValues":
+        return self._vals
+
+
+class PersonnelRoleBuilder(PersonnelRoleAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_values(self) -> typing.List[typing.Tuple[str, baml_py.EnumValueBuilder]]:
+        return [(name, self._bldr.value(name)) for name in self._values]
+
+    def add_value(self, name: str) -> baml_py.EnumValueBuilder:
+        if name in self._values:
+            raise ValueError(f"Value {name} already exists.")
+        return self._bldr.value(name)
+    
+
+class PersonnelRoleValues:
+    def __init__(self, enum_bldr: baml_py.EnumBuilder, values: typing.Set[str]):
+        self.__bldr = enum_bldr
+        self.__values = values # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    def __getattr__(self, name: str) -> baml_py.EnumValueBuilder:
+        if name not in self.__values:
+            raise AttributeError(f"Value {name} not found.")
+        return self.__bldr.value(name)
+
+    
+    
+
+
+class ProcessCategoryAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.enum("ProcessCategory")
+        self._values: typing.Set[str] = set([  ])
+        self._vals = ProcessCategoryValues(self._bldr, self._values)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def values(self) -> "ProcessCategoryValues":
+        return self._vals
+
+
+class ProcessCategoryBuilder(ProcessCategoryAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_values(self) -> typing.List[typing.Tuple[str, baml_py.EnumValueBuilder]]:
+        return [(name, self._bldr.value(name)) for name in self._values]
+
+    def add_value(self, name: str) -> baml_py.EnumValueBuilder:
+        if name in self._values:
+            raise ValueError(f"Value {name} already exists.")
+        return self._bldr.value(name)
+    
+
+class ProcessCategoryValues:
+    def __init__(self, enum_bldr: baml_py.EnumBuilder, values: typing.Set[str]):
+        self.__bldr = enum_bldr
+        self.__values = values # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    def __getattr__(self, name: str) -> baml_py.EnumValueBuilder:
+        if name not in self.__values:
+            raise AttributeError(f"Value {name} not found.")
+        return self.__bldr.value(name)
+
+    
+    
+
 
 
 # #########################################################################

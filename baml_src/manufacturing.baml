@@ -1,3 +1,15 @@
+enum ProcessCategory {
+  @@dynamic
+}
+
+enum HazardClass {
+  @@dynamic
+}
+
+enum PersonnelRole {
+  @@dynamic
+}
+
 class ManufacturingStep {
   procedure_id string @description("The parent procedure this step belongs to")
   step_id string @description("The specific step identifier")
@@ -5,12 +17,12 @@ class ManufacturingStep {
   action_verb string @description("The concrete action to take, e.g. 'Tighten bolt'")
   tooling string[] @description("List of tools required, e.g. ['Wrench', 'Torque'] If missing, empty list.")
   consumables string[] @description("Consumable materials, e.g. ['Sealant MIL-S-81733']. If missing, empty list.")
-  hazard_class string? @description("Explosives Safety Hazard. If none, leave null.")
-  required_cert string? @description("Quality/Personnel requirement. If none, leave null.")
+  hazard_class HazardClass? @description("Explosives Safety Hazard. If none, leave null.")
+  required_cert PersonnelRole? @description("Quality/Personnel requirement. If none, leave null.")
   standard_ref string? @description("e.g. 'ISO-9001'. If none, leave null.")
   is_value_added bool @description("True ONLY if the step physically transforms the product (e.g., machining, curing, applying sealant). False if it is an inspection, movement, or waiting.")
   is_safety_critical bool @description("CRITICAL: True if the step involves static grounding, explosive hazard mitigation (Class 1.1, 1.3), environmental safety, or regulatory sign-offs. False otherwise.")
-  process_category string @description("The functional category of the manufacturing process.")
+  process_category ProcessCategory @description("The functional category of the manufacturing process.")
   justification string @description("A 1-sentence explanation of why the value-added and safety-critical flags were chosen.")
   estimated_duration_minutes int? @description("Extract any mentioned time constraints, cure times, or labor durations. If none, leave null.")
   
@@ -34,7 +46,7 @@ class MatAugmentation {
   assessment StrategicAssessment
 }
 
-function ExtractWorkInstructions(text: string, procedure_id_format: string, step_id_format: string, valid_personnel_roles: string, valid_hazard_classes: string, valid_process_categories: string) -> MatAugmentation {
+function ExtractWorkInstructions(text: string, procedure_id_format: string, step_id_format: string) -> MatAugmentation {
   client Ollama
   prompt #"
     Analyze the following munitions assembly text and extract each discrete manufacturing step.
@@ -62,11 +74,11 @@ function ExtractWorkInstructions(text: string, procedure_id_format: string, step
     - The `instruction_text` (the full verbatim text exactly as it appears in the document).
     - The `action_verb` (the core task being performed).
     - Any `tooling` and `consumables` (materials like sealants, epoxies).
-    - Any safety `hazard_class` designations. This MUST be exactly one of the following strings if present: {{ valid_hazard_classes }}. If none apply, leave null.
-    - Any `required_cert` (Personnel authorizations). This MUST be exactly one of the following strings if present: {{ valid_personnel_roles }}. If none apply, leave null.
+    - Any safety `hazard_class` designations. If none apply, leave null.
+    - Any `required_cert` (Personnel authorizations). If none apply, leave null.
     - Compliance `standard_ref` (e.g. ISO-9001, MIL-STD).
     - Whether it `is_value_added` and `is_safety_critical` based on the strict limits above.
-    - The `process_category` of the fundamental physics. This MUST be exactly one of the following strings: {{ valid_process_categories }}.
+    - The `process_category` of the fundamental physics.
     - The chain-of-thought `justification`.
     - Any `estimated_duration_minutes` (e.g., cure times, labor time).
 

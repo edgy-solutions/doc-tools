@@ -20,3 +20,13 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   3. Create `doc_tools/plugins/{domain}.py` extending `AugmentationPlugin`.
   4. Register the new plugin in the Dispatcher switch inside `doc_tools/assets/semantic_assets.py`.
 - To configure external services, subclass `ConfigurableResource` inside `doc_tools/utils/dagster_resources.py`.
+
+- **S1000D Semantic Parsing**: 
+  1. Use `doc_tools.parsers.s1000d_rdf.S1000dGraphBuilder` for XML-to-RDF mapping.
+  2. Maintain `lxml` for XPath speed and `rdflib` for formal graph construction.
+  3. Map DMC attributes to unique URIs in the `http://edgy-solutions.com/ontology/s1000d#` namespace.
+
+- **Hybrid Graph Synchronization**:
+  1. **Jena First**: Always push raw `.ttl` to Apache Jena via `httpx` first to allow the semantic engine to perform reasoner-based inference.
+  2. **Inferred Fetch**: Trigger Neo4j `n10s` (Neosemantics) using a SPARQL `CONSTRUCT` query against the Jena `/query` endpoint. This ensures the logically deduced graph (not just raw data) is synced into the Property Graph.
+  3. **Idempotency**: Always wrap `n10s.graphconfig.init` in a try/except to avoid "config already exists" errors.

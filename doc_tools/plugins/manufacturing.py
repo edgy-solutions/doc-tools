@@ -42,14 +42,23 @@ class ManufacturingPlugin(AugmentationPlugin):
             from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import MatAugmentation as BamlMatAugmentation
             
+            # Populate Dynamic Enums for strict Rust validation
+            from doc_tools.baml_client import b as baml_rt
+            
+            # Extract lists from config or defaults
+            roles = [r.strip() for r in getattr(config, "valid_personnel_roles", "QC Inspector, Journeyman, Safety Officer").split(",")]
+            hazards = [h.strip() for h in getattr(config, "valid_hazard_classes", "1.1D, 1.3C, Hazmat 3, Biohazard").split(",")]
+            categories = [c.strip() for c in getattr(config, "valid_process_categories", "Transformation, Inspection, Movement, Rework, Critical Safety Hold").split(",")]
+            
+            baml_rt.PersonnelRole.add_values(roles)
+            baml_rt.HazardClass.add_values(hazards)
+            baml_rt.ProcessCategory.add_values(categories)
+
             # Execute BAML LLM inference
             baml_response: BamlMatAugmentation = b.ExtractWorkInstructions(
                 text=section.content,
-                procedure_id_format=getattr(config, "procedure_id_format", "PROC-01"),
-                step_id_format=getattr(config, "step_id_format", "1.2.3"),
-                valid_personnel_roles=getattr(config, "valid_personnel_roles", "QC Inspector, Journeyman, Safety Officer"),
-                valid_hazard_classes=getattr(config, "valid_hazard_classes", "1.1D, 1.3C, Hazmat 3, Biohazard"),
-                valid_process_categories=getattr(config, "valid_process_categories", "Transformation, Inspection, Movement, Rework, Critical Safety Hold")
+                procedure_id_format=getattr(config, "procedure_id_format", "^\\d{4}$"),
+                step_id_format=getattr(config, "step_id_format", "^\\d+(?:\\.\\d+)*$")
             )
             
             steps = []
@@ -61,12 +70,12 @@ class ManufacturingPlugin(AugmentationPlugin):
                     action_verb=s.action_verb,
                     tooling=s.tooling,
                     consumables=s.consumables,
-                    hazard_class=s.hazard_class,
-                    required_cert=s.required_cert,
+                    hazard_class=s.hazard_class.value if s.hazard_class else None,
+                    required_cert=s.required_cert.value if s.required_cert else None,
                     standard_ref=s.standard_ref,
                     is_value_added=s.is_value_added,
                     is_safety_critical=s.is_safety_critical,
-                    process_category=s.process_category,
+                    process_category=s.process_category.value,
                     justification=s.justification,
                     estimated_duration_minutes=s.estimated_duration_minutes,
                     military_and_industry_standards=s.military_and_industry_standards,
@@ -167,6 +176,21 @@ class ManufacturingPlugin(AugmentationPlugin):
                     material_and_hardware_slang: $material_and_hardware_slang
                 }})
                 MERGE (proc)-[:CONTAINS_STEP]->(s)
+                
+                WITH s
+                UNWIND $standards AS std_name
+                MERGE (std:Standard {id: "std_" + std_name, name: std_name})
+                MERGE (s)-[:GOVERNED_BY]->(std)
+                
+                WITH s
+                UNWIND $parts AS pn
+                MERGE (part:Part {id: "part_" + pn, part_number: pn})
+                MERGE (s)-[:REQUIRES_PART]->(part)
+                
+                WITH s
+                UNWIND $slang AS term
+                MERGE (st:SlangTerm {id: "slang_" + term, term: term})
+                MERGE (s)-[:USABLE_SLANG]->(st)
                 """
                 
                 # Append conditional nodes for Hazards and Certifications
@@ -199,9 +223,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                         "process_category": step.process_category,
                         "justification": step.justification,
                         "duration": step.estimated_duration_minutes if step.estimated_duration_minutes is not None else -1,
-                        "military_and_industry_standards": step.military_and_industry_standards,
-                        "internal_part_numbers": step.internal_part_numbers,
-                        "material_and_hardware_slang": step.material_and_hardware_slang,
+                        "standards": step.military_and_industry_standards,
+                        "parts": step.internal_part_numbers,
+                        "slang": step.material_and_hardware_slang,
                         "hazard_id": f"hazard_{step.hazard_class}" if step.hazard_class else "",
                         "hazard": step.hazard_class or "",
                         "cert_id": f"cert_{step.required_cert}" if step.required_cert else "",

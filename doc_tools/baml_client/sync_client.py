@@ -136,18 +136,18 @@ class BamlSyncClient:
                 "document_text": document_text,
             })
             return typing.cast(types.Outline, __result__.cast_to(types, types, stream_types, False, __runtime__))
-    def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,valid_personnel_roles: str,valid_hazard_classes: str,valid_process_categories: str,
+    def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,
         baml_options: BamlCallOptions = {},
     ) -> types.MatAugmentation:
         # Check if on_tick is provided
         if 'on_tick' in baml_options:
-            __stream__ = self.stream.ExtractWorkInstructions(text=text,procedure_id_format=procedure_id_format,step_id_format=step_id_format,valid_personnel_roles=valid_personnel_roles,valid_hazard_classes=valid_hazard_classes,valid_process_categories=valid_process_categories,
+            __stream__ = self.stream.ExtractWorkInstructions(text=text,procedure_id_format=procedure_id_format,step_id_format=step_id_format,
                 baml_options=baml_options)
             return __stream__.get_final_response()
         else:
             # Original non-streaming code
             __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="ExtractWorkInstructions", args={
-                "text": text,"procedure_id_format": procedure_id_format,"step_id_format": step_id_format,"valid_personnel_roles": valid_personnel_roles,"valid_hazard_classes": valid_hazard_classes,"valid_process_categories": valid_process_categories,
+                "text": text,"procedure_id_format": procedure_id_format,"step_id_format": step_id_format,
             })
             return typing.cast(types.MatAugmentation, __result__.cast_to(types, types, stream_types, False, __runtime__))
     
@@ -195,11 +195,11 @@ class BamlStreamClient:
           lambda x: typing.cast(types.Outline, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
-    def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,valid_personnel_roles: str,valid_hazard_classes: str,valid_process_categories: str,
+    def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[stream_types.MatAugmentation, types.MatAugmentation]:
         __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="ExtractWorkInstructions", args={
-            "text": text,"procedure_id_format": procedure_id_format,"step_id_format": step_id_format,"valid_personnel_roles": valid_personnel_roles,"valid_hazard_classes": valid_hazard_classes,"valid_process_categories": valid_process_categories,
+            "text": text,"procedure_id_format": procedure_id_format,"step_id_format": step_id_format,
         })
         return baml_py.BamlSyncStream[stream_types.MatAugmentation, types.MatAugmentation](
           __result__,
@@ -236,11 +236,11 @@ class BamlHttpRequestClient:
             "document_text": document_text,
         }, mode="request")
         return __result__
-    def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,valid_personnel_roles: str,valid_hazard_classes: str,valid_process_categories: str,
+    def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractWorkInstructions", args={
-            "text": text,"procedure_id_format": procedure_id_format,"step_id_format": step_id_format,"valid_personnel_roles": valid_personnel_roles,"valid_hazard_classes": valid_hazard_classes,"valid_process_categories": valid_process_categories,
+            "text": text,"procedure_id_format": procedure_id_format,"step_id_format": step_id_format,
         }, mode="request")
         return __result__
     
@@ -272,11 +272,11 @@ class BamlHttpStreamRequestClient:
             "document_text": document_text,
         }, mode="stream")
         return __result__
-    def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,valid_personnel_roles: str,valid_hazard_classes: str,valid_process_categories: str,
+    def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractWorkInstructions", args={
-            "text": text,"procedure_id_format": procedure_id_format,"step_id_format": step_id_format,"valid_personnel_roles": valid_personnel_roles,"valid_hazard_classes": valid_hazard_classes,"valid_process_categories": valid_process_categories,
+            "text": text,"procedure_id_format": procedure_id_format,"step_id_format": step_id_format,
         }, mode="stream")
         return __result__
     

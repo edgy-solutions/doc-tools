@@ -2,6 +2,7 @@ from dagster import define_asset_job, Definitions, load_assets_from_modules, Ass
 
 from doc_tools.assets import ingestion_assets
 from doc_tools.assets import semantic_assets
+from doc_tools.assets import hybrid_graph_assets
 from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.sensors import build_document_sensor
 import yaml
@@ -18,7 +19,7 @@ for path in config_paths:
 SENSOR_CONFIGS = default_config.get("sensors", [])
 sensors = [build_document_sensor(c["bucket"], c["directory"], c.get("config", {})) for c in SENSOR_CONFIGS]
 
-all_assets = load_assets_from_modules([ingestion_assets, semantic_assets])
+all_assets = load_assets_from_modules([ingestion_assets, semantic_assets, hybrid_graph_assets])
 
 # Fallback config for manual UI executions (e.g. defaulting to training)
 import copy

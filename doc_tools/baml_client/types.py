@@ -37,8 +37,17 @@ def get_checks(checks: typing.Dict[CheckName, Check]) -> typing.List[Check]:
 def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
     return all(check.status == "succeeded" for check in get_checks(checks))
 # #########################################################################
-# Generated enums (0)
+# Generated enums (3)
 # #########################################################################
+
+class HazardClass(str, Enum):
+    pass
+
+class PersonnelRole(str, Enum):
+    pass
+
+class ProcessCategory(str, Enum):
+    pass
 
 # #########################################################################
 # Generated classes (10)
@@ -70,12 +79,12 @@ class ManufacturingStep(BaseModel):
     action_verb: str = Field(description='The concrete action to take, e.g. \'Tighten bolt\'')
     tooling: typing.List[str] = Field(description='List of tools required, e.g. [\'Wrench\', \'Torque\'] If missing, empty list.')
     consumables: typing.List[str] = Field(description='Consumable materials, e.g. [\'Sealant MIL-S-81733\']. If missing, empty list.')
-    hazard_class: typing.Optional[str] = Field(default=None, description='Explosives Safety Hazard. If none, leave null.')
-    required_cert: typing.Optional[str] = Field(default=None, description='Quality/Personnel requirement. If none, leave null.')
+    hazard_class: typing.Optional[typing.Union[HazardClass, str]] = Field(default=None, description='Explosives Safety Hazard. If none, leave null.')
+    required_cert: typing.Optional[typing.Union[PersonnelRole, str]] = Field(default=None, description='Quality/Personnel requirement. If none, leave null.')
     standard_ref: typing.Optional[str] = Field(default=None, description='e.g. \'ISO-9001\'. If none, leave null.')
     is_value_added: bool = Field(description='True ONLY if the step physically transforms the product (e.g., machining, curing, applying sealant). False if it is an inspection, movement, or waiting.')
     is_safety_critical: bool = Field(description='CRITICAL: True if the step involves static grounding, explosive hazard mitigation (Class 1.1, 1.3), environmental safety, or regulatory sign-offs. False otherwise.')
-    process_category: str = Field(description='The functional category of the manufacturing process.')
+    process_category: typing.Union[ProcessCategory, str] = Field(description='The functional category of the manufacturing process.')
     justification: str = Field(description='A 1-sentence explanation of why the value-added and safety-critical flags were chosen.')
     estimated_duration_minutes: typing.Optional[int] = Field(default=None, description='Extract any mentioned time constraints, cure times, or labor durations. If none, leave null.')
     military_and_industry_standards: typing.List[str] = Field(description='Extract formal standards: Military (MIL-, MS, AN*, NAS*, AS*), Joint Industry (J-STD-*), Electronics (IPC-*), Testing (ASTM-, SAE-, ANSI-, ISO-), Process (NADCAP*). Normalize to use a single hyphen between prefix and number (e.g., \'J STD 001\', \'JSTD001\' -> \'J-STD-001\', \'MIL PRF 81733\' -> \'MIL-PRF-81733\'). Return empty array if none.')
