@@ -135,6 +135,40 @@ Instead of dumping document-centric XML tags into a database, our parsers map al
 
 The system provides an end-to-end, Kubernetes-native orchestration pipeline (`xml_graph_sync_job`) for bridging deep semantic reasoning with high-speed property graphs:
 
+```mermaid
+graph LR
+    %% Define Styles
+    classDef storage fill:#f97316,stroke:#333,stroke-width:1px,color:#fff
+    classDef memory fill:#0ea5e9,stroke:#333,stroke-width:1px,color:#fff
+    classDef logic fill:#22c55e,stroke:#333,stroke-width:1px,color:#fff
+    classDef sync fill:#6366f1,stroke:#333,stroke-width:1px,color:#fff
+    classDef brain fill:#a855f7,stroke:#333,stroke-width:1px,color:#fff
+
+    subgraph "Phase 1: In-Memory Ingestion"
+        A[(MinIO / S3 <br> XML Tech Manuals)]:::storage -->|Stream Bytes| B(Directory Router <br> doc_tools.assets.xml_ingestion):::memory
+        B -->|s1000d/| C1(S1000dGraphBuilder):::logic
+        B -->|dita/| C2(DitaGraphBuilder):::logic
+        B -->|iads/| C3(IadsGraphBuilder):::logic
+    end
+
+    subgraph "Phase 2: Semantic Unification"
+        C1 --> D{MIL Ontology <br> mil#}:::brain
+        C2 --> D
+        C3 --> D
+        D -->|Serialized RDF String| E(In-Memory Passing):::memory
+    end
+
+    subgraph "Phase 3: Deep Reasoning"
+        E -->|HTTP POST| F[(Apache Jena <br> Fuseki Engine)]:::brain
+        F -->|OWL/RDFS Reasoning| G(Graph Deduction <br> Inferred Triples):::brain
+    end
+
+    subgraph "Phase 4: High-Speed Sync"
+        G -->|SPARQL CONSTRUCT| H(n10s Sync <br> doc_tools.assets.semantic_assets):::sync
+        H -->|Cypher Import| I[(Neo4j <br> Production Graph)]:::sync
+    end
+```
+
 1. **`extract_rdf_from_xml` (The Router):** A universal extractor that pulls XML files directly from MinIO into memory (Zero disk I/O). It reads the S3 directory prefix (e.g., `s1000d/` or `iads/`), dynamically routes the bytes to the correct parser, and passes the translated RDF Turtle string to the next asset in-memory.
 2. **`upload_to_jena` (The Brain):** Pushes the raw RDF data to Apache Jena via HTTP. Jena applies our military ontologies and runs its semantic reasoner to deduce hidden logical connections (e.g., *Tool X requires Safety Goggles*).
 3. **`init_neo4j_n10s` (The Config):** Idempotently prepares Neo4j's Neosemantics plugin to receive external RDF data.
