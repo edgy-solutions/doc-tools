@@ -3,7 +3,7 @@
 This repository provides a generalized, domain-agnostic document data ingestion pipeline built with Dagster.
 
 ## Core Purpose
-Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and embedded images. Build a robust knowledge graph in Neo4j representing the semantic layout, vectorize the content into Weaviate for Retrieval-Augmented Generation (RAG), and emit domain-specific RDF triples to Apache Jena. Specialized support is included for S1000D XML Data Modules, converting them to formal RDF Knowledge Graphs.
+Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and embedded images. Build a robust knowledge graph in Neo4j representing the semantic layout, vectorize the content into Weaviate for Retrieval-Augmented Generation (RAG), and emit domain-specific RDF triples to Apache Jena. Specialized support is included for MIL-spec standards (S1000D, DITA, IADS), converting them to formal RDF Knowledge Graphs using a unified MIL ontology.
 
 ## Architecture
 - **Dependency Management**: `uv` powers all dependency resolution securely via `pyproject.toml`.
@@ -17,8 +17,8 @@ Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and 
 - `baml_src/`: LLM prompt definitions mapped to structural schemas with strictly enforced Chain-of-Thought Guardrails. Compiles via `baml-py` into Pydantic models natively inside the Dagster workspace at `doc_tools/baml_client`.
 - `doc_tools/sensors.py`: Factory definitions routing Event-driven workflow hooks.
 - `doc_tools/assets/semantic_assets.py`: Cypher logic for Neo4j Knowledge Graphs, semantic vectorization into Weaviate, and generic Hybrid Graph synchronization (Jena/Neo4j). High-performance in-memory RDF passing.
-- `doc_tools/assets/xml_ingestion.py`: Universal XML extractor using MinioResource, routing to specialized parsers based on directory prefixes.
-- `doc_tools/parsers/s1000d_rdf.py`: Semantic graph builder for S1000D XML modules.
+- `doc_tools/assets/xml_ingestion.py`: Universal XML extractor using MinioResource, routing to specialized parsers (S1000D, DITA, IADS) based on directory prefixes.
+- `doc_tools/parsers/`: Specialized builders for MIL-spec standards (`s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`).
 - `doc_tools/definitions.py`: Entrypoint for Dagster binding assets, jobs (`process_documents_job`, `xml_graph_sync_job`), generated sensor arrays, and context resources.
 - `setup/setup_env.py`: Crucial pre-flight script that initializes Weaviate schemas, Neo4j constraints, and downloads the IOF/ISA95 ontologies to Apache Jena. Do not modify databases manually.
 - `pyproject.toml`: The root configuration of Python parameters.

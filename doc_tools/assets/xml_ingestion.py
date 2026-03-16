@@ -2,15 +2,8 @@ import os
 import boto3
 from dagster import asset, Config, MaterializeResult
 from doc_tools.parsers.s1000d_rdf import S1000dGraphBuilder
-
-# Placeholder for other parsers
-class IadsGraphBuilder:
-    def __init__(self):
-        self.graph = []
-    def parse_data_module(self, data):
-        return "mock:iads:uri"
-    def serialize(self, format="turtle"):
-        return "# Mock IADS Turtle Output"
+from doc_tools.parsers.dita_rdf import DitaGraphBuilder
+from doc_tools.parsers.iads_rdf import IadsGraphBuilder
 
 class XmlIngestConfig(Config):
     s3_bucket: str
@@ -49,7 +42,8 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, minio: MinioResource)
     
     PARSERS = {
         's1000d': S1000dGraphBuilder,
-        'iads': IadsGraphBuilder
+        'iads': IadsGraphBuilder,
+        'dita': DitaGraphBuilder
     }
 
     if doc_type not in PARSERS:

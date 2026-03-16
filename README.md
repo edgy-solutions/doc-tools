@@ -55,8 +55,8 @@ graph TD
 - `doc_tools/`: The main Dagster application codebase.
   - `doc_tools/assets/ingestion_assets.py`: Core ingestion logic for unstructured/PPTX files.
   - `doc_tools/assets/semantic_assets.py`: Cypher logic for Neo4j Knowledge Graphs and generic Hybrid Graph synchronization (Jena/Neo4j).
-  - `doc_tools/assets/xml_ingestion.py`: Universal XML extractor routing to specialized parsers based on MinIO directory prefixes.
-  - `doc_tools/parsers/`: Specialized parsers for structured standards, featuring the `s1000d_rdf.py` graph builder.
+  - `doc_tools/assets/xml_ingestion.py`: Universal XML extractor routing to specialized parsers (S1000D, DITA, IADS) based on MinIO directory prefixes.
+  - `doc_tools/parsers/`: Specialized builders for MIL-spec standards including `s1000d_rdf.py`, `dita_rdf.py`, and `iads_rdf.py`.
   - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests based on mapped S3 directory prefixes.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
   - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration that binds dependencies, resources, sensors, and configurations.
@@ -123,46 +123,45 @@ For the semantic XML pipeline, execute the `xml_graph_sync_job`. This job is opt
 
 ---
 
-## 🧩 S1000D Semantic Parsing (Experimental)
+## 🧩 The Unified Military Graph (S1000D, DITA, IADS)
 
-For aerospace and defense applications handling S1000D XML Data Modules, `doc-tools` provides a formal RDF builder to map complex documents to industrial ontologies.
+For aerospace and defense applications, technical manuals come in wildly different formats (S1000D, IADS, DITA). `doc-tools` solves this by acting as a **Semantic Translator**. 
 
-### Dagster Integration Example
+Instead of dumping document-centric XML tags into a database, our parsers map all structural elements (Data Module Codes, Prerequisites, Tools, Hazards) into a single, unified **MIL Ontology**. 
 
-Lower-level engineers can integrate the `S1000dGraphBuilder` inside a modular Dagster `@asset` to build unified RDF graphs:
+**Why this matters:** Your AI Agents do not need to know how to read S1000D or IADS. They simply query the graph for `(Procedure)-[:requiresTool]->(Tool)`, and the graph effortlessly traverses across your entire fleet's documentation regardless of the original XML standard.
+
+### The Hybrid "Reason-Then-Serve" Architecture
+
+The system provides an end-to-end, Kubernetes-native orchestration pipeline (`xml_graph_sync_job`) for bridging deep semantic reasoning with high-speed property graphs:
+
+1. **`extract_rdf_from_xml` (The Router):** A universal extractor that pulls XML files directly from MinIO into memory (Zero disk I/O). It reads the S3 directory prefix (e.g., `s1000d/` or `iads/`), dynamically routes the bytes to the correct parser, and passes the translated RDF Turtle string to the next asset in-memory.
+2. **`upload_to_jena` (The Brain):** Pushes the raw RDF data to Apache Jena via HTTP. Jena applies our military ontologies and runs its semantic reasoner to deduce hidden logical connections (e.g., *Tool X requires Safety Goggles*).
+3. **`init_neo4j_n10s` (The Config):** Idempotently prepares Neo4j's Neosemantics plugin to receive external RDF data.
+4. **`sync_jena_to_neo4j` (The Muscle):** Uses a SPARQL `CONSTRUCT` query against Jena's `/query` endpoint to pull the **fully inferred knowledge graph** and sync it natively into Neo4j for millisecond AI Agent traversal.
+
+### Event-Driven Ingestion Example
+
+Because the pipeline is completely decoupled, adding new military manuals is as simple as dropping them into your object storage. The Dagster S3 sensor handles the rest.
 
 ```python
-from dagster import asset, Output
-from doc_tools.parsers.s1000d_rdf import S1000dGraphBuilder
-import os
+# The internal routing logic gracefully handles the heavy lifting in-memory:
+doc_type = config.s3_key.split('/')[0].lower()
 
-@asset
-def s1000d_knowledge_graph_asset():
-    builder = S1000dGraphBuilder()
-    xml_dir = "data/s1000d_modules"
-    
-    for filename in os.listdir(xml_dir):
-        if filename.endswith(".xml"):
-            path = os.path.join(xml_dir, filename)
-            with open(path, "rb") as f:
-                dmc_uri = builder.parse_data_module(f.read())
-                print(f"Ingested DM: {dmc_uri}")
-    
-    # Serialize to Turtle for Graph DB ingestion
-    rdf_data = builder.serialize(format="turtle")
-    with open("output/unified_s1000d.ttl", "w") as f:
-        f.write(rdf_data)
-        
-    return Output(value=rdf_data, metadata={"triples": len(builder.graph)})
+PARSERS = {
+    's1000d': S1000dGraphBuilder,
+    'iads': IadsGraphBuilder,
+    'dita': DitaGraphBuilder
+}
 
-### Hybrid Graph Synchronization
+# Dynamically instantiate the correct parser
+builder = PARSERS[doc_type]()
 
-The system provides an end-to-end orchestration for bridging semantic reasoning with property graphs via the `xml_graph_sync_job`:
+# Parse the in-memory bytes streamed directly from MinIO
+builder.parse_data_module(xml_bytes)
 
-1. **`extract_rdf_from_xml`**: Universal extractor in `xml_ingestion.py` that pulls files from MinIO into memory using `MinioResource` and routes them to the correct parser (e.g., S1000D) based on directory. **Passes the serialized RDF string in-memory.**
-2. **`upload_to_jena`**: Pushes the raw Turtle string (no disk I/O) to the Jena Fuseki endpoint via `httpx`.
-3. **`init_neo4j_n10s`**: Idempotently prepares Neo4j for RDF ingestion.
-4. **`sync_jena_to_neo4j`**: Uses a SPARQL `CONSTRUCT` query against the Jena `/query` endpoint to pull the **fully inferred knowledge graph** and syncs it into Neo4j.
+# Return the unified RDF string directly to Dagster memory for the Jena upload
+return builder.serialize(format="turtle")
 ```
 
 ---

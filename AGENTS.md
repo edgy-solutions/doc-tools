@@ -21,10 +21,11 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   4. Register the new plugin in the Dispatcher switch inside `doc_tools/assets/semantic_assets.py`.
 - To configure external services, subclass `ConfigurableResource` inside `doc_tools/utils/dagster_resources.py`.
 
-- **S1000D Semantic Parsing**: 
-  1. Use `doc_tools.parsers.s1000d_rdf.S1000dGraphBuilder` for XML-to-RDF mapping.
-  2. Implement extraction logic in `doc_tools/assets/xml_ingestion.py` using the directory routing pattern.
-  3. **High-Performance Passing**: Always return the serialized RDF string (as a string, not a file path) to ensure compatibility with isolated Dagster K8s pods.
+- **Multi-Standard Semantic Parsing**: 
+  1. Use `doc_tools.parsers` for standard-specific logic (`S1000dGraphBuilder`, `DitaGraphBuilder`, `IadsGraphBuilder`).
+  2. Maintain a unified `MIL` namespace: `http://edgy-solutions.com/ontology/mil#`.
+  3. Implement extraction logic in `doc_tools/assets/xml_ingestion.py` using the directory routing pattern.
+  4. **High-Performance Passing**: Always return the serialized RDF string (as a string, not a file path) to ensure compatibility with isolated Dagster K8s pods.
 
 - **Hybrid Graph Synchronization**:
   1. **Jena First**: Always push raw `.ttl` to Apache Jena via `httpx` (implemented in `semantic_assets.py`) first.
