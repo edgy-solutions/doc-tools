@@ -1,4 +1,5 @@
 import os
+import json
 import httpx
 import urllib.parse
 from typing import Any, Dict
@@ -110,12 +111,9 @@ def build_knowledge_graph(
         
     # Initialize appropriate Plugin based on run tags
     try:
-        domain_type = context.run_tags.get("domain_type")
+        domain_type = context.run.tags.get("domain_type")
     except AttributeError:
-        try:
-             domain_type = context.run.tags.get("domain_type")
-        except AttributeError:
-             domain_type = manifest.get("metadata", {}).get("project", "Training")
+        domain_type = manifest.get("metadata", {}).get("project", "Training")
              
     if domain_type == "manufacturing":
         plugin = ManufacturingPlugin()

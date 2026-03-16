@@ -42,23 +42,25 @@ class ManufacturingPlugin(AugmentationPlugin):
             from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import MatAugmentation as BamlMatAugmentation
             
-            # Populate Dynamic Enums for strict Rust validation
-            from doc_tools.baml_client import b as baml_rt
+            # Populate Dynamic Enums for strict Rust validation via TypeBuilder
+            from doc_tools.baml_client.type_builder import TypeBuilder
+            tb = TypeBuilder()
             
             # Extract lists from config or defaults
             roles = [r.strip() for r in getattr(config, "valid_personnel_roles", "QC Inspector, Journeyman, Safety Officer").split(",")]
             hazards = [h.strip() for h in getattr(config, "valid_hazard_classes", "1.1D, 1.3C, Hazmat 3, Biohazard").split(",")]
             categories = [c.strip() for c in getattr(config, "valid_process_categories", "Transformation, Inspection, Movement, Rework, Critical Safety Hold").split(",")]
             
-            baml_rt.PersonnelRole.add_values(roles)
-            baml_rt.HazardClass.add_values(hazards)
-            baml_rt.ProcessCategory.add_values(categories)
+            for r in roles: tb.PersonnelRole.add_value(r)
+            for h in hazards: tb.HazardClass.add_value(h)
+            for c in categories: tb.ProcessCategory.add_value(c)
 
             # Execute BAML LLM inference
             baml_response: BamlMatAugmentation = b.ExtractWorkInstructions(
                 text=section.content,
                 procedure_id_format=getattr(config, "procedure_id_format", "^\\d{4}$"),
-                step_id_format=getattr(config, "step_id_format", "^\\d+(?:\\.\\d+)*$")
+                step_id_format=getattr(config, "step_id_format", "^\\d+(?:\\.\\d+)*$"),
+                baml_options={"tb": tb}
             )
             
             steps = []
