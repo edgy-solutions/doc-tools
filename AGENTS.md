@@ -22,7 +22,7 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
 - To configure external services, subclass `ConfigurableResource` inside `doc_tools/utils/dagster_resources.py`.
 
 - **Multi-Standard Semantic Parsing**: 
-  1. Use `doc_tools.parsers` for standard-specific logic (`S1000dGraphBuilder`, `DitaGraphBuilder`, `IadsGraphBuilder`).
+  1. Use `doc_tools.parsers` for standard-specific logic (`S1000dGraphBuilder`, `DitaGraphBuilder`, `IadsGraphBuilder`, `MilStd40051GraphBuilder`).
   2. Maintain a unified `MIL` namespace: `http://edgy-solutions.com/ontology/mil#`.
   3. Implement extraction logic in `doc_tools/assets/xml_ingestion.py` using the directory routing pattern.
   4. **High-Performance Passing**: Always return the serialized RDF string (as a string, not a file path) to ensure compatibility with isolated Dagster K8s pods.

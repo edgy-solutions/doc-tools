@@ -21,11 +21,12 @@
   - Domain-specific logic (e.g. Training concepts versus Manufacturing steps versus Compliance regulations) is handled ONLY by extending `doc_tools.plugins.base.AugmentationPlugin` and dynamically routing using context run tags.
   - All LLM interactions are handled via strictly-typed **BAML** (`baml_src/`) incorporating strict safety classifications and Chain-of-thought validations. Do not write raw litellm or langchain extraction loops.
   - When you add a new plugin domain, you must write the native schema in `.baml`, compile via `baml-cli generate` (which outputs to `doc_tools/baml_client`), and implement the `augment` mapping inside a new `doc_tools/plugins/{domain}.py` file.
+  - **Dynamic Enums**: For `@@dynamic` enums in BAML, you MUST use the `TypeBuilder` pattern (`tb = TypeBuilder()`, `tb.enum("Name").add_value("Value")`) and pass it via `baml_options={"tb": tb}`.
 - **Cypher Queries**: Parameterize node labels carefully in Python using f-strings before passing to Neo4j. Neo4j python drivers do not support parameterizing node labels directly.
 - **Multi-Standard & Hybrid Graph Strategy**:
-  - Use `doc_tools.parsers` builders (`s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`) for XML-to-RDF mapping.
+  - Use `doc_tools.parsers` builders (`s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, `mil_std_40051_rdf.py`) for XML-to-RDF mapping.
   - **Namespace**: Use the unified `MIL` namespace (`http://edgy-solutions.com/ontology/mil#`) for all MIL-spec related entities.
-  - **Universal Routing**: Ingest XML via `doc_tools.assets.xml_ingestion.extract_rdf_from_xml`.
+  - **Universal Routing**: Ingest XML via `doc_tools.assets.xml_ingestion.extract_rdf_from_xml`. Supported keys: `s1000d`, `iads`, `dita`, `40051`.
   - **K8s Persistence**: Always return RDF as a string between assets; do not use the local disk as pods are isolated.
   - **Hybrid Sync**: Always push raw `.ttl` to Apache Jena via `httpx` (implemented in `semantic_assets.py`) first. Trigger Neo4j `n10s` (Neosemantics) using a SPARQL `CONSTRUCT` query against the Jena `/query` endpoint to ensure the logically deduced (inferred) graph is synced.
 - **Imports**: Ensure all project imports use absolute paths relative to the project root (`doc_tools.xyz`). No relative imports going up the tree.

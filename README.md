@@ -56,7 +56,7 @@ graph TD
   - `doc_tools/assets/ingestion_assets.py`: Core ingestion logic for unstructured/PPTX files.
   - `doc_tools/assets/semantic_assets.py`: Cypher logic for Neo4j Knowledge Graphs and generic Hybrid Graph synchronization (Jena/Neo4j).
   - `doc_tools/assets/xml_ingestion.py`: Universal XML extractor routing to specialized parsers (S1000D, DITA, IADS) based on MinIO directory prefixes.
-  - `doc_tools/parsers/`: Specialized builders for MIL-spec standards including `s1000d_rdf.py`, `dita_rdf.py`, and `iads_rdf.py`.
+  - `doc_tools/parsers/`: Specialized builders for MIL-spec standards including `s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, and `mil_std_40051_rdf.py`.
   - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests based on mapped S3 directory prefixes.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
   - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration that binds dependencies, resources, sensors, and configurations.
@@ -123,13 +123,13 @@ For the semantic XML pipeline, execute the `xml_graph_sync_job`. This job is opt
 
 ---
 
-## 🧩 The Unified Military Graph (S1000D, DITA, IADS)
+## 🧩 The Unified Military Graph (S1000D, DITA, IADS, 40051)
 
-For aerospace and defense applications, technical manuals come in wildly different formats (S1000D, IADS, DITA). `doc-tools` solves this by acting as a **Semantic Translator**. 
+For aerospace and defense applications, technical manuals come in wildly different formats (S1000D, IADS, DITA, and the US Army MIL-STD-40051). `doc-tools` solves this by acting as a **Semantic Translator**. 
 
 Instead of dumping document-centric XML tags into a database, our parsers map all structural elements (Data Module Codes, Prerequisites, Tools, Hazards) into a single, unified **MIL Ontology**. 
 
-**Why this matters:** Your AI Agents do not need to know how to read S1000D or IADS. They simply query the graph for `(Procedure)-[:requiresTool]->(Tool)`, and the graph effortlessly traverses across your entire fleet's documentation regardless of the original XML standard.
+**Why this matters:** Your AI Agents do not need to know how to read S1000D, IADS, or Army Work Packages. They simply query the graph for `(Procedure)-[:requiresTool]->(Tool)`, and the graph effortlessly traverses across your entire fleet's documentation regardless of the original XML standard.
 
 ### The Hybrid "Reason-Then-Serve" Architecture
 
@@ -149,12 +149,14 @@ graph LR
         B -->|s1000d/| C1(S1000dGraphBuilder):::logic
         B -->|dita/| C2(DitaGraphBuilder):::logic
         B -->|iads/| C3(IadsGraphBuilder):::logic
+        B -->|40051/| C4(MilStd40051GraphBuilder):::logic
     end
 
     subgraph "Phase 2: Semantic Unification"
         C1 --> D{MIL Ontology <br> mil#}:::brain
         C2 --> D
         C3 --> D
+        C4 --> D
         D -->|Serialized RDF String| E(In-Memory Passing):::memory
     end
 
@@ -169,7 +171,7 @@ graph LR
     end
 ```
 
-1. **`extract_rdf_from_xml` (The Router):** A universal extractor that pulls XML files directly from MinIO into memory (Zero disk I/O). It reads the S3 directory prefix (e.g., `s1000d/` or `iads/`), dynamically routes the bytes to the correct parser, and passes the translated RDF Turtle string to the next asset in-memory.
+1. **`extract_rdf_from_xml` (The Router):** A universal extractor that pulls XML files directly from MinIO into memory (Zero disk I/O). It reads the S3 directory prefix (e.g., `s1000d/`, `iads/`, or `40051/`), dynamically routes the bytes to the correct parser, and passes the translated RDF Turtle string to the next asset in-memory.
 2. **`upload_to_jena` (The Brain):** Pushes the raw RDF data to Apache Jena via HTTP. Jena applies our military ontologies and runs its semantic reasoner to deduce hidden logical connections (e.g., *Tool X requires Safety Goggles*).
 3. **`init_neo4j_n10s` (The Config):** Idempotently prepares Neo4j's Neosemantics plugin to receive external RDF data.
 4. **`sync_jena_to_neo4j` (The Muscle):** Uses a SPARQL `CONSTRUCT` query against Jena's `/query` endpoint to pull the **fully inferred knowledge graph** and sync it natively into Neo4j for millisecond AI Agent traversal.
@@ -185,7 +187,8 @@ doc_type = config.s3_key.split('/')[0].lower()
 PARSERS = {
     's1000d': S1000dGraphBuilder,
     'iads': IadsGraphBuilder,
-    'dita': DitaGraphBuilder
+    'dita': DitaGraphBuilder,
+    '40051': MilStd40051GraphBuilder
 }
 
 # Dynamically instantiate the correct parser
