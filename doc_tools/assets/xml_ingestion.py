@@ -13,7 +13,7 @@ class XmlIngestConfig(Config):
 from doc_tools.utils.dagster_resources import MinioResource
 
 @asset
-def extract_rdf_from_xml(context, config: XmlIngestConfig, minio: MinioResource) -> str:
+def extract_rdf_from_xml(context, config: XmlIngestConfig, minio: MinioResource) -> dict:
     """
     Universal XML to RDF extractor. Routes to specific parsers based on the 
     S3 directory prefix and processes files entirely in-memory.
@@ -55,11 +55,15 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, minio: MinioResource)
     context.log.info(f"Routing to {PARSERS[doc_type].__name__} for doc_type: {doc_type}")
     builder = PARSERS[doc_type]()
     
-    # Parse the in-memory bytes
-    builder.parse_data_module(xml_bytes)
+    # Parse the in-memory bytes and capture the root URI
+    root_uri = builder.parse_data_module(xml_bytes)
     
     # Return the serialized RDF string directly for in-memory passing (K8s safe)
     rdf_string = builder.serialize(format="turtle")
-    context.log.info("RDF serialized to string successfully.")
+    context.log.info(f"RDF serialized to string successfully. Root URI: {root_uri}")
     
-    return rdf_string
+    return {
+        "rdf_string": rdf_string,
+        "root_uri": root_uri,
+        "s3_key": config.s3_key
+    }

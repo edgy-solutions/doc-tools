@@ -27,8 +27,9 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   3. Implement extraction logic in `doc_tools/assets/xml_ingestion.py` using the directory routing pattern.
   4. **High-Performance Passing**: Always return the serialized RDF string (as a string, not a file path) to ensure compatibility with isolated Dagster K8s pods.
 
-- **Hybrid Graph Synchronization**:
-  1. **Jena First**: Always push raw `.ttl` to Apache Jena via `httpx` (implemented in `semantic_assets.py`) first.
-  2. **In-Memory Triples**: Pass raw Turtle data between assets as strings; do not use the local filesystem as it is not persistent between Dagster K8s steps.
-  3. **Inferred Fetch**: Trigger Neo4j `n10s` (Neosemantics) using a SPARQL `CONSTRUCT` query against the Jena `/query` endpoint.
-  4. **Idempotency**: Always wrap `n10s.graphconfig.init` in a try/except to avoid "config already exists" errors.
+- **Hybrid Graph Synchronization & Revisioning**:
+  1. **Named Graphs**: Every document MUST be isolated in its own Jena Named Graph using its identifier (e.g., `urn:doc:{s3_key}`).
+  2. **Jena PUT First**: Use `httpx.put` to push Turtle data to the Named Graph. This ensures the old revision is completely replaced in the reasoning engine.
+  3. **Neo4j Wipe**: Before importing the new revision, execute `MATCH (n:Resource {uri: $uri}) DETACH DELETE n` on the root node URI to clear the old graph structure.
+  4. **Targeted Fetch**: Use a SPARQL `CONSTRUCT` query restricted to the document's `GRAPH <uri>` to fetch and sync only the latest version through `n10s`.
+  5. **In-Memory Triples**: Pass raw Turtle data and root URIs between assets as dictionaries; do not use the local filesystem.
