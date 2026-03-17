@@ -142,7 +142,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                 continue
                 
             # --- NEO4J CYPHER: (Page)-[:REQUIRES_PROCEDURE]->(Procedure) ---
-            part_id = sec.node_id or f"part_{sec.page_start}_{sec.title}"
+            # Strip spaces and quotes out of the title so it is a safe URI for SPARQL
+            safe_title = sec.title.replace(" ", "_").replace("'", "").replace('"', "")
+            part_id = sec.node_id or f"part_{sec.page_start}_{safe_title}"
             cypher_queries.append({
                 "query": f"""
                 MERGE (p:{config.graph_child_label} {{id: $part_id}})
@@ -183,17 +185,17 @@ class ManufacturingPlugin(AugmentationPlugin):
                 
                 WITH s
                 UNWIND $standards AS std_name
-                MERGE (std:Standard {id: "std_" + std_name, name: std_name})
+                MERGE (std:Standard {{id: "std_" + std_name, name: std_name}})
                 MERGE (s)-[:GOVERNED_BY]->(std)
                 
                 WITH s
                 UNWIND $parts AS pn
-                MERGE (part:Part {id: "part_" + pn, part_number: pn})
+                MERGE (part:Part {{id: "part_" + pn, part_number: pn}})
                 MERGE (s)-[:REQUIRES_PART]->(part)
                 
                 WITH s
                 UNWIND $slang AS term
-                MERGE (st:SlangTerm {id: "slang_" + term, term: term})
+                MERGE (st:SlangTerm {{id: "slang_" + term, term: term}})
                 MERGE (s)-[:USABLE_SLANG]->(st)
                 """
                 
@@ -249,8 +251,10 @@ class ManufacturingPlugin(AugmentationPlugin):
                 """
                 
                 if step.standard_ref:
+                    # Sanitize standard_ref for Jena compatibility
+                    safe_std = step.standard_ref.replace("-", "").replace(" ", "_")
                     sparql += f"""
-                        mfg:{step_node_id} mfg:governedBy iof:{step.standard_ref.replace("-", "")}_Standard .
+                        mfg:{step_node_id} mfg:governedBy iof:{safe_std}_Standard .
                     """
                 
                 if step.tooling:
