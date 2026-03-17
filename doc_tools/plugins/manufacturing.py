@@ -165,37 +165,41 @@ class ManufacturingPlugin(AugmentationPlugin):
                 # Create Procedure Node & link Part -> Procedure -> Step
                 edge_cypher = f"""
                 MERGE (p:{config.graph_child_label} {{id: $part_id}})
-                MERGE (proc:Procedure {{id: $proc_node_id, procedure_id: $proc_id}})
+                MERGE (proc:Procedure {{id: $proc_node_id}})
+                SET proc.procedure_id = $proc_id
                 MERGE (p)-[:REQUIRES_PROCEDURE]->(proc)
-                MERGE (s:ManufacturingStep {{
-                    id: $step_node_id, 
-                    step_id: $step_id, 
-                    raw_text: $instruction_text,
-                    action: $action,
-                    is_value_added: $is_value_added,
-                    is_safety_critical: $is_safety_critical,
-                    process_category: $process_category,
-                    justification: $justification,
-                    estimated_duration_minutes: $duration,
-                    military_and_industry_standards: $standards,
-                    internal_part_numbers: $parts,
-                    material_and_hardware_slang: $slang
-                }})
+                
+                MERGE (s:ManufacturingStep {{id: $step_node_id}})
+                SET s.step_id = $step_id, 
+                    s.raw_text = $instruction_text,
+                    s.action = $action,
+                    s.is_value_added = $is_value_added,
+                    s.is_safety_critical = $is_safety_critical,
+                    s.process_category = $process_category,
+                    s.justification = $justification,
+                    s.estimated_duration_minutes = $duration,
+                    s.military_and_industry_standards = $standards,
+                    s.internal_part_numbers = $parts,
+                    s.material_and_hardware_slang = $slang
+                
                 MERGE (proc)-[:CONTAINS_STEP]->(s)
                 
                 WITH s
                 UNWIND $standards AS std_name
-                MERGE (std:Standard {{id: "std_" + std_name, name: std_name}})
+                MERGE (std:Standard {{id: "std_" + std_name}})
+                SET std.name = std_name
                 MERGE (s)-[:GOVERNED_BY]->(std)
                 
                 WITH s
                 UNWIND $parts AS pn
-                MERGE (part:Part {{id: "part_" + pn, part_number: pn}})
+                MERGE (part:Part {{id: "part_" + pn}})
+                SET part.part_number = pn
                 MERGE (s)-[:REQUIRES_PART]->(part)
                 
                 WITH s
                 UNWIND $slang AS term
-                MERGE (st:SlangTerm {{id: "slang_" + term, term: term}})
+                MERGE (st:SlangTerm {{id: "slang_" + term}})
+                SET st.term = term
                 MERGE (s)-[:USABLE_SLANG]->(st)
                 """
                 
@@ -203,14 +207,16 @@ class ManufacturingPlugin(AugmentationPlugin):
                 if step.hazard_class:
                     hazard_id = f"hazard_{step.hazard_class}"
                     edge_cypher += f"""
-                    MERGE (h:Hazard {{id: $hazard_id, class: $hazard}})
+                    MERGE (h:Hazard {{id: $hazard_id}})
+                    SET h.class = $hazard
                     MERGE (s)-[:HAS_HAZARD]->(h)
                     """
                     
                 if step.required_cert:
                     cert_id = f"cert_{step.required_cert}"
                     edge_cypher += f"""
-                    MERGE (c:Certification {{id: $cert_id, certification: $cert}})
+                    MERGE (c:Certification {{id: $cert_id}})
+                    SET c.certification = $cert
                     MERGE (s)-[:REQUIRES_CERT]->(c)
                     """
                     
