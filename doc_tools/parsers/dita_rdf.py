@@ -1,6 +1,7 @@
 from lxml import etree
 from rdflib import Graph, Namespace, Literal, URIRef
 from rdflib.namespace import RDF, RDFS
+import re
 
 class DitaGraphBuilder:
     """
@@ -50,7 +51,8 @@ class DitaGraphBuilder:
             if text:
                 # Simple heuristic: if it looks like a part number or tool name
                 # For this implementation, we map them as generic tools/parts
-                item_uri = self.MIL[f"item-{text.replace(' ', '_')}"]
+                clean_text = re.sub(r'[^a-zA-Z0-9_]', '', text.replace(' ', '_'))
+                item_uri = self.MIL[f"item-{clean_text}"]
                 self.graph.add((node_uri, self.REQUIRES_TOOL, item_uri))
                 self.graph.add((item_uri, RDFS.label, Literal(text)))
 

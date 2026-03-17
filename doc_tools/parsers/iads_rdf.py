@@ -1,6 +1,7 @@
 from lxml import etree
 from rdflib import Graph, Namespace, Literal, URIRef
 from rdflib.namespace import RDF, RDFS
+import re
 
 class IadsGraphBuilder:
     """
@@ -48,7 +49,8 @@ class IadsGraphBuilder:
         for t in tools:
             name = "".join(t.itertext()).strip()
             if name:
-                tool_uri = self.MIL[f"tool-{name.replace(' ', '_')}"]
+                clean_name = re.sub(r'[^a-zA-Z0-9_]', '', name.replace(' ', '_'))
+                tool_uri = self.MIL[f"tool-{clean_name}"]
                 self.graph.add((node_uri, self.REQUIRES_TOOL, tool_uri))
                 self.graph.add((tool_uri, RDFS.label, Literal(name)))
 
@@ -57,7 +59,8 @@ class IadsGraphBuilder:
         for p in parts:
             name = "".join(p.itertext()).strip()
             if name:
-                part_uri = self.MIL[f"part-{name.replace(' ', '_')}"]
+                clean_name = re.sub(r'[^a-zA-Z0-9_]', '', name.replace(' ', '_'))
+                part_uri = self.MIL[f"part-{clean_name}"]
                 self.graph.add((node_uri, self.HAS_PART, part_uri))
                 self.graph.add((part_uri, RDFS.label, Literal(name)))
 

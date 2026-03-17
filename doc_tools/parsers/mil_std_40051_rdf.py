@@ -1,6 +1,7 @@
 import lxml.etree as etree
 from rdflib import Graph, Namespace, Literal, URIRef
 from rdflib.namespace import RDF, RDFS
+import re
 
 class MilStd40051GraphBuilder:
     """
@@ -45,7 +46,8 @@ class MilStd40051GraphBuilder:
         for tool in set(tools):
             tool_name = str(tool).strip()
             if tool_name:
-                tool_uri = URIRef(self.MIL[f"tool-{tool_name.replace(' ', '_')}"])
+                clean_tool_name = re.sub(r'[^a-zA-Z0-9_]', '', tool_name.replace(' ', '_'))
+                tool_uri = URIRef(self.MIL[f"tool-{clean_tool_name}"])
                 self.graph.add((tool_uri, RDF.type, self.MIL.Tool))
                 self.graph.add((tool_uri, RDFS.label, Literal(tool_name)))
                 self.graph.add((node_uri, self.MIL.requiresTool, tool_uri))
@@ -56,7 +58,8 @@ class MilStd40051GraphBuilder:
         for part in set(parts):
             part_name = str(part).strip()
             if part_name:
-                part_uri = URIRef(self.MIL[f"part-{part_name.replace(' ', '_')}"])
+                clean_part_name = re.sub(r'[^a-zA-Z0-9_]', '', part_name.replace(' ', '_'))
+                part_uri = URIRef(self.MIL[f"part-{clean_part_name}"])
                 self.graph.add((part_uri, RDF.type, self.MIL.Part))
                 self.graph.add((part_uri, RDFS.label, Literal(part_name)))
                 self.graph.add((node_uri, self.MIL.hasPart, part_uri))
