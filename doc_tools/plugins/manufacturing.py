@@ -177,9 +177,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                     process_category: $process_category,
                     justification: $justification,
                     estimated_duration_minutes: $duration,
-                    military_and_industry_standards: $military_and_industry_standards,
-                    internal_part_numbers: $internal_part_numbers,
-                    material_and_hardware_slang: $material_and_hardware_slang
+                    military_and_industry_standards: $standards,
+                    internal_part_numbers: $parts,
+                    material_and_hardware_slang: $slang
                 }})
                 MERGE (proc)-[:CONTAINS_STEP]->(s)
                 
