@@ -88,47 +88,66 @@ def prime_jena():
         print(f"  [ERROR] Connection failed: {e}")
         return
 
-    # 2. LOAD ONTOLOGIES
+    # 2. UPLOAD ONTOLOGIES TO MINIO (Mediated Ingestion)
+    print("--- Uploading Ontologies to MinIO for Automated Ingestion ---")
+    
+    # MinIO Client Init
+    from minio import Minio
+    s3_url = os.environ.get("S3_ENDPOINT_URL", "localhost:9000")
+    if s3_url.startswith("http://"): s3_url = s3_url[len("http://"):]
+    elif s3_url.startswith("https://"): s3_url = s3_url[len("https://"):]
+    
+    minio_client = Minio(
+        s3_url,
+        access_key=os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
+        secret_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
+        secure=os.environ.get("MINIO_SECURE", "false").lower() == "true"
+    )
+    
+    bucket = os.environ.get("ONTOLOGY_BUCKET", "ontologies")
+    if not minio_client.bucket_exists(bucket):
+        minio_client.make_bucket(bucket)
+        print(f"Created bucket: {bucket}")
+
     ontologies = [
         # --- LAYER A: The Foundation ---
-        {"name": "IOF_Core", "path": "https://raw.githubusercontent.com/iofoundry/ontology/master/core/Core.rdf"},
+        {"domain": "foundation", "name": "IOF_Core", "path": "https://raw.githubusercontent.com/iofoundry/ontology/master/core/Core.rdf"},
         
         # --- LAYER B: The Domains (Manufacturing & Sustainment) ---
-        {"name": "DINEN62264", "path": "https://raw.githubusercontent.com/hsu-aut/IndustrialStandard-ODP-DINEN62264-2/v1.4.2/DINEN62264.owl"}, 
-        {"name": "IOF_MRO", "path": "https://raw.githubusercontent.com/iofoundry/ontology/master/maintenance/Maintenance.rdf"}, 
+        {"domain": "manufacturing", "name": "DINEN62264", "path": "https://raw.githubusercontent.com/hsu-aut/IndustrialStandard-ODP-DINEN62264-2/v1.4.2/DINEN62264.owl"}, 
+        {"domain": "maintenance", "name": "IOF_MRO", "path": "https://raw.githubusercontent.com/iofoundry/ontology/master/maintenance/Maintenance.rdf"}, 
         
         # --- LAYER C: The Logistics Standards (S-Series) ---
-        {"name": "S3000L", "path": "https://www.semanticstep.org/sites/default/files/2018-01/s3kl_0.ttl"}, 
+        {"domain": "logistics", "name": "S3000L", "path": "https://www.semanticstep.org/sites/default/files/2018-01/s3kl_0.ttl"}, 
         
         # --- LAYER D: Our Custom App Logic (Local Files in /setup) ---
-        {"name": "MIL_Unified", "path": "setup/mil_ontology.ttl"},
-        {"name": "Munitions", "path": "setup/munitions_ontology.ttl"}
+        {"domain": "apps", "name": "MIL_Unified", "path": "setup/mil_ontology.ttl"},
+        {"domain": "apps", "name": "Munitions", "path": "setup/munitions_ontology.ttl"}
     ]
 
+    import io
     for ont in ontologies:
-        print(f"Loading {ont['name']}...")
+        print(f"Processing {ont['name']} for domain {ont['domain']}...")
         try:
             if ont["path"].startswith("http"):
-                data = requests.get(ont["path"], verify=False, timeout=15).text
+                data = requests.get(ont["path"], verify=False, timeout=15).content
             else:
-                with open(ont["path"], "r") as f: data = f.read()
+                with open(ont["path"], "rb") as f: data = f.read()
             
-            # Content Type Logic
-            c_type = "application/rdf+xml" if ont["path"].endswith((".rdf", ".owl")) else "text/turtle"
+            # Use domain as directory as per requirements
+            file_ext = ".rdf" if ont["path"].endswith((".rdf", ".owl")) else ".ttl"
+            obj_name = f"{ont['domain']}/{ont['name']}{file_ext}"
             
-            # Upload using Graph Store Protocol
-            res = requests.post(
-                f"{host}/{ds_name}/data?default",
-                data=data.encode('utf-8'),
-                headers={"Content-Type": f"{c_type}; charset=utf-8"},
-                auth=auth,
-                verify=False
+            # Put to MinIO
+            minio_client.put_object(
+                bucket,
+                obj_name,
+                io.BytesIO(data),
+                length=len(data),
+                content_type="application/octet-stream"
             )
+            print(f"  [SUCCESS] Uploaded {ont['name']} to s3://{bucket}/{obj_name}")
             
-            if res.status_code in [200, 201, 204]:
-                print(f"  [SUCCESS] Loaded {ont['name']}.")
-            else:
-                print(f"  [FAILED] {ont['name']} Status: {res.status_code}")
         except Exception as e:
             print(f"  [ERROR] {ont['name']}: {e}")
 

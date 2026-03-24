@@ -111,3 +111,54 @@ def build_document_sensor(bucket_name: str, directory: str, run_config: dict = N
         
     return _document_sensor
 
+
+def build_ontology_sensor(bucket_name: str):
+    from dagster import sensor, RunRequest, SensorEvaluationContext, DefaultSensorStatus, StaticPartitionsDefinition
+    from .assets.ontology_assets import ingest_ontology_to_jena
+    
+    # We'll use a dynamic partition for ontologies as well to track file-level state
+    from dagster import DynamicPartitionsDefinition
+    ontology_partitions = DynamicPartitionsDefinition(name="ontology_files")
+    
+    @sensor(name="ontology_ingestion_sensor", job_name="ingest_ontology_job", default_status=_sensor_status)
+    def _ontology_sensor(context: SensorEvaluationContext):
+        client = get_minio_client()
+        
+        if not client.bucket_exists(bucket_name):
+            client.make_bucket(bucket_name)
+            
+        try:
+            objects = client.list_objects(bucket_name, recursive=True)
+        except Exception:
+            objects = []
+            
+        last_processed = context.cursor or ""
+        new_cursor = last_processed
+        
+        valid_objects = []
+        for obj in objects:
+            if obj.is_dir: continue
+            if obj.object_name.endswith((".ttl", ".rdf", ".owl")):
+                valid_objects.append(obj.object_name)
+        
+        valid_objects.sort()
+        
+        new_keys = []
+        for key in valid_objects:
+            if key <= last_processed:
+                continue
+            new_keys.append(key)
+            
+        if new_keys:
+            context.instance.add_dynamic_partitions(ontology_partitions.name, new_keys)
+            for key in new_keys:
+                yield RunRequest(
+                    run_key=key,
+                    partition_key=key
+                )
+                new_cursor = key
+                
+        context.update_cursor(new_cursor)
+        
+    return _ontology_sensor
+

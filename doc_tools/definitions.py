@@ -3,8 +3,9 @@ from dagster import define_asset_job, Definitions, load_assets_from_modules, Ass
 from doc_tools.assets import ingestion_assets
 from doc_tools.assets import semantic_assets
 from doc_tools.assets import xml_ingestion
+from doc_tools.assets import ontology_assets
 from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
-from doc_tools.sensors import build_document_sensor
+from doc_tools.sensors import build_document_sensor, build_ontology_sensor
 import yaml
 import os
 
@@ -19,7 +20,7 @@ for path in config_paths:
 SENSOR_CONFIGS = default_config.get("sensors", [])
 sensors = [build_document_sensor(c["bucket"], c["directory"], c.get("config", {})) for c in SENSOR_CONFIGS]
 
-all_assets = load_assets_from_modules([ingestion_assets, semantic_assets, xml_ingestion])
+all_assets = load_assets_from_modules([ingestion_assets, semantic_assets, xml_ingestion, ontology_assets])
 
 # Fallback config for manual UI executions (e.g. defaulting to training)
 import copy
@@ -66,6 +67,12 @@ xml_graph_sync_job = define_asset_job(
     tags=k8s_tags
 )
 
+ingest_ontology_job = define_asset_job(
+    name="ingest_ontology_job",
+    selection=["ingest_ontology_to_jena"],
+    tags=k8s_tags
+)
+
 # Override the implicit __ASSET_JOB to ensure UI manual materializations get the right resources
 implicit_asset_job = define_asset_job(
     name="__ASSET_JOB",
@@ -75,8 +82,8 @@ implicit_asset_job = define_asset_job(
 
 defs = Definitions(
     assets=all_assets,
-    jobs=[process_documents_job, xml_graph_sync_job, implicit_asset_job],
-    sensors=sensors,
+    jobs=[process_documents_job, xml_graph_sync_job, ingest_ontology_job, implicit_asset_job],
+    sensors=sensors + [build_ontology_sensor(os.getenv("ONTOLOGY_BUCKET", "ontologies"))],
     resources={
         "minio": MinioResource(),
         "neo4j": Neo4jResource(),
