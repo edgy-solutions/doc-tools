@@ -1,42 +1,50 @@
-from dagster import define_asset_job, Definitions, load_assets_from_modules, AssetSelection, AssetKey
+from dagster import Definitions, load_assets_from_modules, AssetSelection, define_asset_job, EnvVar
+from dag_tools import S3SensorComponent, S3ToFileComponent
 
-from doc_tools.assets import ingestion_assets
-from doc_tools.assets import semantic_assets
-from doc_tools.assets import xml_ingestion
-from doc_tools.assets import ontology_assets
+from doc_tools.assets import ingestion_assets, semantic_assets, xml_ingestion, ontology_assets
 from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
-from doc_tools.sensors import build_document_sensor, build_ontology_sensor
-import yaml
 import os
 
-default_config = {}
-config_paths = ["/app/config/config.yaml", "config.yaml"]
-for path in config_paths:
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            default_config = yaml.safe_load(f)
-        break
+# 1. Instantiate Ingestion Components (declarative replaces config.yaml)
+pdf_ingest = S3ToFileComponent(
+    name="process_document_artifact",
+    partition_name="pdf_files",
+    config={
+        "graph_node_label": "WorkInstruction",
+        "graph_child_label": "Page",
+        "vector_collection_name": "ManufacturingDocumentChunk",
+        "procedure_id_format": r"^\d{4}$",
+        "step_id_format": r"^\d+(?:\.\d+)*$",
+        "valid_personnel_roles": "QC Inspector, Journeyman, Safety Officer",
+        "valid_hazard_classes": "1.1D, 1.3C, Hazmat 3, Biohazard",
+        "valid_process_categories": "Transformation, Inspection, Movement, Rework, Critical Safety Hold",
+        "bucket": "processing-artifacts"
+    } 
+)
 
-SENSOR_CONFIGS = default_config.get("sensors", [])
-sensors = [build_document_sensor(c["bucket"], c["directory"], c.get("config", {})) for c in SENSOR_CONFIGS]
+# 2. Instantiate Sensors (decoupled from assets)
+pdf_sensor = S3SensorComponent(
+    bucket="processing-artifacts",
+    prefix="manufacturing/IID/",
+    partition_name="pdf_files",
+    target_job=pdf_ingest.job_name,
+    target_op=pdf_ingest.op_name,
+    filter_patterns=["archive/", "metadata.json"]
+)
 
-all_assets = load_assets_from_modules([ingestion_assets, semantic_assets, xml_ingestion, ontology_assets])
+# Added value: migrated the recently added ontology sensor to the new component model
+ontology_sensor = S3SensorComponent(
+    bucket=os.getenv("ONTOLOGY_BUCKET", "ontologies"),
+    prefix="",
+    partition_name="ontology_files",
+    target_job="ingest_ontology_job",
+    target_op="ingest_ontology_to_jena",
+    filter_patterns=[]
+)
 
-# Fallback config for manual UI executions (e.g. defaulting to training)
-import copy
-fallback_config = {}
-for c in SENSOR_CONFIGS:
-    if c["directory"] == "manufacturing":
-        fallback_config = copy.deepcopy(c.get("config", {}))
-        if "ops" not in fallback_config:
-            fallback_config["ops"] = {}
-        for op in ["process_document_artifact", "build_knowledge_graph"]:
-            if op not in fallback_config["ops"]:
-                fallback_config["ops"][op] = {}
-            if "config" not in fallback_config["ops"][op]:
-                fallback_config["ops"][op]["config"] = {}
-            fallback_config["ops"][op]["config"]["bucket"] = c.get("bucket", "processing-artifacts")
-        break
+# 3. Assets & Jobs
+# We exclude ingestion_assets.process_document_artifact to avoid name collision with the component's asset
+all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets])
 
 k8s_tags = {
     "dagster-k8s/config": {
@@ -49,21 +57,9 @@ k8s_tags = {
     }
 }
 
-process_documents_job = define_asset_job(
-    name="process_documents_job",
-    selection=["process_document_artifact", "build_knowledge_graph"],
-    config=fallback_config,
-    tags=k8s_tags
-)
-
 xml_graph_sync_job = define_asset_job(
     name="xml_graph_sync_job",
-    selection=[
-        "extract_rdf_from_xml",
-        "upload_to_jena",
-        "init_neo4j_n10s",
-        "sync_jena_to_neo4j"
-    ],
+    selection=["extract_rdf_from_xml", "upload_to_jena", "init_neo4j_n10s", "sync_jena_to_neo4j"],
     tags=k8s_tags
 )
 
@@ -73,22 +69,30 @@ ingest_ontology_job = define_asset_job(
     tags=k8s_tags
 )
 
-# Override the implicit __ASSET_JOB to ensure UI manual materializations get the right resources
-implicit_asset_job = define_asset_job(
-    name="__ASSET_JOB",
-    selection=AssetSelection.all(),
-    tags=k8s_tags
-)
-
 defs = Definitions(
-    assets=all_assets,
-    jobs=[process_documents_job, xml_graph_sync_job, ingest_ontology_job, implicit_asset_job],
-    sensors=sensors + [build_ontology_sensor(os.getenv("ONTOLOGY_BUCKET", "ontologies"))],
+    assets=pdf_ingest.assets + all_assets,
+    jobs=[pdf_ingest.job, xml_graph_sync_job, ingest_ontology_job],
+    sensors=[pdf_sensor.sensor, ontology_sensor.sensor],
     resources={
-        "minio": MinioResource(),
-        "neo4j": Neo4jResource(),
-        "weaviate": WeaviateResource(),
+        "minio": MinioResource(
+            endpoint_url=EnvVar("S3_ENDPOINT_URL"),
+            access_key=EnvVar("AWS_ACCESS_KEY_ID"),
+            secret_key=EnvVar("AWS_SECRET_ACCESS_KEY"),
+            secure=os.getenv("MINIO_SECURE", "false").lower() == "true"
+        ),
+        "neo4j": Neo4jResource(
+            uri=EnvVar("NEO4J_URI"),
+            username=EnvVar("NEO4J_USERNAME"),
+            password=EnvVar("NEO4J_PASSWORD")
+        ),
+        "weaviate": WeaviateResource(
+            url=EnvVar("WEAVIATE_URL")
+        ),
         "llm": LLMExtractorResource(),
-        "jena": JenaResource()
+        "jena": JenaResource(
+            url=EnvVar("JENA_URL"),
+            username=EnvVar("JENA_USERNAME"),
+            password=EnvVar("JENA_PASSWORD")
+        )
     },
 )

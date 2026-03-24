@@ -31,10 +31,12 @@ def build_knowledge_graph(
     doc_id = manifest["doc_id"]
     text_location = manifest["text_location"]
     
-    # Configuration Labels
-    node_label = config.graph_node_label
-    child_label = config.graph_child_label
-    collection_name = config.vector_collection_name
+    # Configuration Labels (Prefer manifest metadata if present, fallback to config)
+    # The new S3ToFileComponent merges its config into the manifest metadata
+    metadata = manifest.get("metadata", {})
+    node_label = metadata.get("graph_node_label", config.graph_node_label)
+    child_label = metadata.get("graph_child_label", config.graph_child_label)
+    collection_name = metadata.get("vector_collection_name", config.vector_collection_name)
     
     context.log.info(f"Building Graph for doc: {doc_id} using labels '{node_label}' and '{child_label}'")
     
@@ -257,6 +259,201 @@ def build_knowledge_graph(
 
     # --- PASS 2: LINK & ROLL-UP (Domain-Specific) ---
     try:
+        
+        # Using configured labels in Cypher queries requires f-strings or manual substitution
+        # as Neo4j drivers cannot parameterize labels.
+        neo4j_client.execute_query(
+            f"""
+            MERGE (n:{node_label} {{id: $id}}) 
+            SET n.title = $title
+            """,
+            {
+                "id": doc_id, 
+                "title": title
+            }
+        )
+    except Exception as e:
+        context.log.error(f"Parent Node creation failed: {e}")
+
+    # Process Pages/Chunks (Content Extraction)
+    from collections import defaultdict
+    from doc_tools.utils.layout_detector import detect_layout
+    
+    pages = defaultdict(list)
+    page_elements = defaultdict(list)
+    
+    current_chunk_page = 1
+    current_chunk_size = 0
+    CHUNK_LIMIT = 1500
+    
+    for el in text_elements:
+        metadata = el.get("metadata", {})
+        text = el.get("text", "")
+        
+        type_ = el.get("type", "Text")
+        formatted_text = f"[{type_}] {text}"
+        
+        if "page_number" in metadata:
+            page_num = metadata["page_number"]
+            pages[page_num].append(formatted_text)
+            page_elements[page_num].append(el)
+        else:
+            pages[current_chunk_page].append(formatted_text)
+            page_elements[current_chunk_page].append(el)
+            
+            current_chunk_size += len(text)
+            if current_chunk_size > CHUNK_LIMIT:
+                current_chunk_page += 1
+                current_chunk_size = 0
+        
+    # Initialize appropriate Plugin based on run tags
+    try:
+        domain_type = context.run.tags.get("domain_type")
+    except AttributeError:
+        domain_type = manifest.get("metadata", {}).get("project", "Training")
+             
+    if domain_type == "manufacturing":
+        plugin = ManufacturingPlugin()
+    elif domain_type == "compliance":
+        try:
+            from doc_tools.plugins.compliance import CompliancePlugin
+            plugin = CompliancePlugin()
+        except ImportError:
+            context.log.warning("CompliancePlugin not found, falling back to TrainingPlugin")
+            plugin = TrainingPlugin()
+    else:
+        plugin = TrainingPlugin()
+        
+    context.log.info(f"Initialized {type(plugin).__name__} for domain: {domain_type}")
+
+    # Ensure Weaviate Class exists with dynamic collection name
+    try:
+        weaviate_client.ensure_class({
+            "class": collection_name,
+            "vectorizer": "text2vec-transformers",
+            "moduleConfig": {
+                "text2vec-transformers": {
+                    "vectorizeClassName": False
+                }
+            },
+            "properties": [
+                {"name": "text", "dataType": ["text"], "moduleConfig": {"text2vec-transformers": {"skip": False, "vectorizePropertyName": False}}},
+                {"name": "doc_id", "dataType": ["string"], "moduleConfig": {"text2vec-transformers": {"skip": True}}},
+                {"name": "chunk_id", "dataType": ["string"], "moduleConfig": {"text2vec-transformers": {"skip": True}}},
+            ]
+        })
+    except Exception as e:
+        context.log.error(f"Weaviate Class creation failed: {e}")
+
+    # Reconstruct full text for optional Global Plugin Pass
+    full_text_parts = []
+    current_page = -1
+    for el in text_elements:
+        text = el.get("text", "")
+        if not text:
+            continue
+        page_num = el.get("metadata", {}).get("page_number")
+        if page_num is not None and page_num != current_page:
+            full_text_parts.append(f"\n--- Page {page_num} ---\n")
+            current_page = page_num
+        type_ = el.get("type", "Text")
+        full_text_parts.append(f"[{type_}] {text}")
+        
+    full_text = "\n".join(full_text_parts)
+
+    # Allow plugins an optional full-document processing pass (e.g. Outlines)
+    document_nodes = []
+    try:
+        context.log.info(f"Executing global full-text pass for {type(plugin).__name__}...")
+        global_nodes = plugin.process_fulltext(full_text, doc_id, manifest.get("metadata", {}))
+        if global_nodes:
+            document_nodes.extend(global_nodes)
+    except Exception as e:
+        context.log.error(f"Global plugin extraction failed: {e}")
+
+    # Process each page/chunk through the Plugin architecture
+    for page_num, texts in pages.items():
+        chunk_text = "\n".join(texts)
+        if not chunk_text.strip():
+            continue
+            
+        chunk_id = f"{doc_id}_p{page_num}"
+        elements = page_elements.get(page_num, [])
+        layout_style = detect_layout(elements)
+        
+        filename = manifest.get("filename", "")
+        file_ext = os.path.splitext(filename)[1].upper().replace('.', '') if filename else "Unknown"
+        asset_type = file_ext
+        
+        # 1. Instantiate Base Section
+        section = BaseSection(
+            title=f"Page {page_num}",
+            level=1,
+            page_start=page_num,
+            content=chunk_text,
+            node_id=chunk_id
+        )
+        
+        # 2. Augment via Domain Plugin
+        try:
+            node = plugin.augment(section, config)
+            document_nodes.append(node)
+        except Exception as e:
+            context.log.error(f"Plugin augmentation failed for chunk {chunk_id}: {e}")
+
+        # Baseline Child Node still maintained for full structural map
+        try:
+            neo4j_client.execute_query(
+                f"""
+                MATCH (parent:{node_label} {{id: $parent_id}})
+                MERGE (child:{child_label} {{id: $id}})
+                SET child.number = $page_num, 
+                    child.text = $text,
+                    child.asset_type = $asset_type,
+                    child.layout_style = $layout_style,
+                    child.elements = $elements_json
+                MERGE (parent)-[:HAS_CHILD]->(child)
+                """,
+                {"parent_id": doc_id, "id": chunk_id, "page_num": page_num, "text": chunk_text[:500], "asset_type": asset_type, "layout_style": layout_style, "elements_json": json.dumps(elements)}
+            )
+        except Exception as e:
+            context.log.error(f"Neo4j baseline chunk creation failed: {e}")
+
+    # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
+    context.log.info(f"Generating domain graph queries from {len(document_nodes)} augmented nodes...")
+    cypher_queries, sparql_queries = plugin.to_graph_queries(document_nodes, config)
+    
+    # Execute Cypher
+    for idx, c_query in enumerate(cypher_queries):
+        try:
+            neo4j_client.execute_query(c_query["query"], c_query.get("params", {}))
+        except Exception as e:
+            context.log.error(f"Failed executing domain cypher query {idx}: {e}")
+            
+    # Execute SPARQL sink update
+    if sparql_queries:
+        context.log.info(f"SPARQL Queries to emit to Jena: {len(sparql_queries)}")
+        for idx, s_query in enumerate(sparql_queries):
+            try:
+                jena_client.execute_update(s_query)
+            except Exception as e:
+                context.log.error(f"Failed executing domain SPARQL query {idx}: {e}")
+
+        # Vector Indexing
+        try:
+            weaviate_client.add_object(
+                data_object={
+                    "text": chunk_text,
+                    "doc_id": doc_id,
+                    "chunk_id": chunk_id
+                },
+                class_name=collection_name
+            )
+        except Exception as e:
+            context.log.error(f"Vector indexing failed for chunk {chunk_id}: {e}")
+
+    # --- PASS 2: LINK & ROLL-UP (Domain-Specific) ---
+    try:
         context.log.info(f"Executing Pass 2 Roll-up for {type(plugin).__name__}...")
         plugin.execute_pass2_rollup(neo4j_client, doc_id, config)
     except Exception as e:
@@ -269,15 +466,15 @@ def build_knowledge_graph(
         
     return {"doc_id": doc_id, "status": "processed", "node_label": node_label, "collection": collection_name}
 
-@asset
-def upload_to_jena(context, extract_rdf_from_xml: dict) -> dict:
+@asset(deps=[upload_to_jena])
+def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, jena: JenaResource) -> dict:
     """
     Uploads the generic RDF Turtle string to a specific Named Graph in Apache Jena.
     Uses PUT to ensure idempotency (overwrites previous revisions of this file).
     """
-    jena_url = os.environ.get("JENA_URL", "http://localhost:3030/ds/data")
-    user = os.environ.get("JENA_USERNAME", "admin")
-    pw = os.environ.get("JENA_PASSWORD", "password")
+    jena_url = f"{jena.url.rstrip('/')}/data"
+    user = jena.username
+    pw = jena.password
     
     s3_key = extract_rdf_from_xml["s3_key"]
     # Construct Named Graph URI from S3 key
@@ -304,13 +501,13 @@ def upload_to_jena(context, extract_rdf_from_xml: dict) -> dict:
         raise e
 
 @asset(deps=[upload_to_jena])
-def init_neo4j_n10s(context) -> MaterializeResult:
+def init_neo4j_n10s(context: AssetExecutionContext, neo4j: Neo4jResource) -> MaterializeResult:
     """
     Idempotently initializes Neosemantics (n10s) config in Neo4j.
     """
-    uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-    user = os.environ.get("NEO4J_USERNAME", "neo4j")
-    pw = os.environ.get("NEO4J_PASSWORD", "password")
+    uri = neo4j.uri
+    user = neo4j.username
+    pw = neo4j.password
     
     driver = GraphDatabase.driver(uri, auth=(user, pw))
     
@@ -380,7 +577,7 @@ def sync_jena_to_neo4j(context: AssetExecutionContext, upload_to_jena: dict, jen
     sparql_construct = f"CONSTRUCT {{ ?s ?p ?o }} WHERE {{ GRAPH <{graph_uri}> {{ ?s ?p ?o }} }}"
     
     # Construct the fetch URL (Fuseki /query endpoint with ?query=...)
-    jena_base = os.getenv("JENA_URL", "http://jena-fuseki:3030/ds").rstrip('/')
+    jena_base = jena.url.rstrip('/')
     encoded_query = urllib.parse.quote(sparql_construct)
     fetch_url = f"{jena_base}/query?query={encoded_query}"
     

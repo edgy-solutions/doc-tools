@@ -5,41 +5,50 @@ from dagster import ConfigurableResource
 # For doc-tools, we can use these simple wrappers around the clients.
 
 class MinioResource(ConfigurableResource):
+    endpoint_url: str
+    access_key: str
+    secret_key: str
+    secure: bool
+
     def get_client(self):
         from minio import Minio
         
-        ep = os.getenv("S3_ENDPOINT_URL", "localhost:9000")
-        secure = False
+        ep = self.endpoint_url
         if ep.startswith("http://"):
             ep = ep[len("http://"):]
         elif ep.startswith("https://"):
             ep = ep[len("https://"):]
-            secure = True
             
         if "/" in ep:
             ep = ep.split("/")[0]
 
-        # Return a simple minio client or mock for now as configuration wasn't fully specified
         return Minio(
             endpoint=ep,
-            access_key=os.getenv("AWS_ACCESS_KEY_ID", "minioadmin"),
-            secret_key=os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin"),
-            secure=secure
+            access_key=self.access_key,
+            secret_key=self.secret_key,
+            secure=self.secure
         )
     
     @property
     def endpoint(self):
-        return os.getenv("S3_ENDPOINT_URL", "localhost:9000")
+        return self.endpoint_url
 
 class Neo4jResource(ConfigurableResource):
+    uri: str 
+    username: str 
+    password: str 
+
     def get_client(self):
+        # In a real system, this would return a driver or a wrapper
         from .neo4j_client import Neo4jClient
-        return Neo4jClient()
+        return Neo4jClient(uri=self.uri, user=self.username, password=self.password)
 
 class WeaviateResource(ConfigurableResource):
+    url: str 
+
     def get_client(self):
         from .weaviate_client import WeaviateClient
-        return WeaviateClient()
+        return WeaviateClient(url=self.url)
 
 class LLMExtractorResource(ConfigurableResource):
     def get_client(self):
@@ -56,7 +65,11 @@ class LLMExtractorResource(ConfigurableResource):
         return StubExtractor()
 
 class JenaResource(ConfigurableResource):
+    url: str 
+    username: str 
+    password: str 
+
     def get_client(self):
         from .jena_client import JenaClient
-        return JenaClient()
+        return JenaClient(base_url=self.url, username=self.username, password=self.password)
 
