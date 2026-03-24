@@ -54,6 +54,7 @@ readinessProbe:
 # --- Custom App Configuration ---
 
 # Secrets for the application (Neo4j, Weaviate, MinIO credentials)
+# These are mapped via templates/secret.yaml and injected via envFrom in deployment.yaml
 secrets:
   AWS_ACCESS_KEY_ID: "minioadmin"
   AWS_SECRET_ACCESS_KEY: "minioadmin"
@@ -67,39 +68,30 @@ secrets:
   JENA_PASSWORD: "password"
 
 # Non-sensitive environment variables
+# These are injected via env in deployment.yaml
 env:
   S3_ENDPOINT_URL: "minio:9000"
+  # JENA_URL: "http://jena-fuseki:3030/ds" # Optional override
 
-# Dagster Run Configuration (config.yaml)
-runConfig:
-  sensors:
-    - bucket: "processing-artifacts"
-      directory: "manufacturing"
-      config:
-        ops:
-          build_knowledge_graph:
-            config:
-              graph_node_label: "WorkInstruction"
-              graph_child_label: "Page"
-              vector_collection_name: "ManufacturingDocumentChunk"
-    - bucket: "processing-artifacts"
-      directory: "compliance"
-      config:
-        ops:
-          build_knowledge_graph:
-            config:
-              graph_node_label: "RegulationDocument"
-              graph_child_label: "Page"
-              vector_collection_name: "ComplianceDocumentChunk"
-    - bucket: "processing-artifacts"
-      directory: "training"
-      config:
-        ops:
-          build_knowledge_graph:
-            config:
-              graph_node_label: "Course"
-              graph_child_label: "Slide"
-              vector_collection_name: "TrainingDocumentChunk"
+# Additional environment variables from external Secrets or ConfigMaps
+# Example block for required variables for the infrastructure team:
+# extraEnvFrom:
+#   - secretRef:
+#       name: external-app-secrets
+#   - configMapRef:
+#       name: external-app-config
+
+# Required Environment Variables for doc-tools (Run-time evaluation):
+# - S3_ENDPOINT_URL
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+# - NEO4J_URI
+# - NEO4J_USERNAME
+# - NEO4J_PASSWORD
+# - WEAVIATE_URL
+# - JENA_URL
+# - JENA_USERNAME
+# - JENA_PASSWORD
 
 autoscaling:
   enabled: false
