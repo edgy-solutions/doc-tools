@@ -6,12 +6,12 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
 0. **Pre-flight Environment**: Ensure the environment is primed via `setup/setup_env.py` otherwise Dagster sink adapters will fail against unindexed databases. The Helm chart does this automatically.
 1. **Understanding the Pipeline**: Configured sensors polling MinIO bucket/directory targets dynamically inject a `domain_type` workflow tag string. The pipeline processes documents (PDFs via `unstructured`, PPTXs via `python-pptx`), dynamically dispatches the extracted structure to the correct Plugin mapping, and orchestrates them into Neo4j, Weaviate, and Apache Jena using SPARQL.
 2. **Adding Assets**: Any new step in the ingestion pipeline should be represented as a modular Dagster `@asset`.
-3. **Configuration**: New assets requiring domain-specific targeting MUST accept parameters dynamically via `IngestionConfig`. Do not pollute the backend logic with specific client schemas.
+3. **Configuration**: Use **Declarative Components** (`S3ToFileComponent`, `S3SensorComponent`) in `doc_tools/definitions.py` to instantiate jobs and sensors. These components encapsulate `IngestionConfig` (labels, collections) and replace the legacy `config.yaml`. Do not pollute the backend logic with specific client schemas.
 4. **Environment Generation**: When adding new libraries, leverage `uv add <package>` and update `pyproject.toml`. Do not use pip.
 
 ## Safety Guardrails
 - **Dynamic Queries**: Be extremely careful with Cypher query string formatting for dynamic labels to avoid injection vulnerability or syntax errors. Only use bounded f-strings against `config.graph_node_label` etc, and parameterize everything else natively.
-- **Containerization**: Do not write vanilla `Dockerfiles`. This project uses CNCF Buildpacks. System-level packages belong in `Aptfile`. Start commands belong in `project.toml`.
+- **Containerization**: This project uses standard **Dockerfiles** managed in `.github/workflows/build-container.yml`. System-level packages belong in the `apt-get install` block within the Dockerfile generator step.
 
 ## Extension Patterns
 - **Adding a New Domain**: Do not write raw litellm or langchain logic in the assets. 

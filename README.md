@@ -46,6 +46,7 @@ graph TD
 6. **Configurability:** Fully configurable domains! Easily override GraphQL / Graph target labels and Vector DB collections via Dagster run configs.
 7. **Event-Driven Ingestion:** Dynamic Dagster sensors monitor configurable S3 bucket/directory prefixes, instantaneously injecting `domain_type` routing tags (`manufacturing`, `compliance`) into the pipeline.
 8. **10x Factory Extraction:** Maps deep-physics logic by rigorously isolating `is_value_added` from `is_safety_critical` steps into Neo4j for exact bottleneck and critical path analysis.
+9. **Declarative Component Architecture:** Leverages `dag-tools` for a modular, reusable, and zero-config orchestration layer. Components like `S3SensorComponent` and `S3ToFileComponent` enable rapid fanning-out of pipelines across new domains.
 
 ---
 
@@ -59,7 +60,7 @@ graph TD
   - `doc_tools/parsers/`: Specialized builders for MIL-spec standards including `s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, and `mil_std_40051_rdf.py`.
   - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests based on mapped S3 directory prefixes.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
-  - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration that binds dependencies, resources, sensors, and configurations.
+  - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration. It uses a **declarative component model** via `dag-tools` to instantiate sensors and ingestion jobs, completely replacing the legacy `config.yaml` with typed, validated `IngestionConfig` objects.
 - `setup/`: Contains `setup_env.py` and local ontologies for priming the Neo4j, Weaviate, and Apache Jena databases before pipeline execution.
 - `pyproject.toml`: The root Python project configuration and exact dependencies managed via [uv](https://docs.astral.sh/uv/).
 
@@ -120,6 +121,18 @@ uv run dagster job execute -m doc_tools.definitions -j process_documents_job -c 
 ```
 
 For the semantic XML pipeline, execute the `xml_graph_sync_job`. This job is optimized for K8s, passing RDF data in-memory between assets.
+
+---
+
+### 🧩 Component-Based Orchestration (`dag-tools`)
+
+The core of `doc-tools` now utilizes a **Declarative Component Architecture** powered by the `dag-tools` library. This shift allows for more modular, testable, and reusable pipeline definitions.
+
+#### Key Components:
+1.  **`S3ToFileComponent`**: A high-level component that abstracts the ingestion of documents from S3. It manages the underlying assets, jobs, and configurations (e.g., graph labels, vector collections) in a single, typed object.
+2.  **`S3SensorComponent`**: A decoupled sensor component that monitors S3 buckets/prefixes and automatically triggers the appropriate ingestion jobs when new files are detected.
+
+This architecture eliminates the need for external `config.yaml` files, moving all metadata-driven logic into the `definitions.py` file where it can be version-controlled and validated natively by Python.
 
 ---
 

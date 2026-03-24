@@ -10,10 +10,10 @@
   - Weaviate (Vector DB)
   - Apache Jena (SPARQL Semantic Graph DB)
 - **Containerization**: 
-  - Managed via Cloud Native Buildpacks (CNB) and Paketo.
-  - See `project.toml` and `Aptfile` for system and build-level configurations.
+  - Managed via standard **Dockerfiles** in `.github/workflows/build-container.yml`.
+  - System-level packages are installed via `apt-get` in the Dockerfile.
 - **Configuration & Resources**: 
-  - Use `dagster.Config` for providing runtime configuration like graph node labels and vector collection names.
+  - Use **Declarative Components** (`S3ToFileComponent`, `S3SensorComponent`) in `doc_tools/definitions.py` to instantiate jobs and sensors. These components encapsulate `IngestionConfig` (labels, collections) and replace the legacy `config.yaml`.
   - Databases and object storage are configured via `ConfigurableResource` (e.g., `MinioResource`, `Neo4jResource`, `JenaResource`).
   - **Database Schemas**: Never manually create collections or graph constraints; update and re-run `setup/setup_env.py`.
 - **Domain-Agnostic Core with Plugin Layers**:
