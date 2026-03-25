@@ -9,7 +9,7 @@ import os
 pdf_ingest = S3ToFileComponent(
     name="process_document_artifact",
     partition_name="pdf_files",
-    config={
+    op_config={
         "graph_node_label": "WorkInstruction",
         "graph_child_label": "Page",
         "vector_collection_name": "ManufacturingDocumentChunk",
@@ -21,16 +21,19 @@ pdf_ingest = S3ToFileComponent(
         "bucket": "processing-artifacts"
     } 
 )
+pdf_ingest_defs = pdf_ingest.build_defs(None)
 
 # 2. Instantiate Sensors (decoupled from assets)
+# We use the generated job/op names from the component
 pdf_sensor = S3SensorComponent(
     bucket="processing-artifacts",
     prefix="manufacturing/IID/",
     partition_name="pdf_files",
-    target_job=pdf_ingest.job_name,
-    target_op=pdf_ingest.op_name,
+    target_job=f"ingest_files_{pdf_ingest.name}",
+    target_op=pdf_ingest.name,
     filter_patterns=["archive/", "metadata.json"]
 )
+pdf_sensor_defs = pdf_sensor.build_defs(None)
 
 # Added value: migrated the recently added ontology sensor to the new component model
 ontology_sensor = S3SensorComponent(
@@ -41,6 +44,7 @@ ontology_sensor = S3SensorComponent(
     target_op="ingest_ontology_to_jena",
     filter_patterns=[]
 )
+ontology_sensor_defs = ontology_sensor.build_defs(None)
 
 # 3. Assets & Jobs
 # We exclude ingestion_assets.process_document_artifact to avoid name collision with the component's asset
@@ -70,9 +74,9 @@ ingest_ontology_job = define_asset_job(
 )
 
 defs = Definitions(
-    assets=pdf_ingest.assets + all_assets,
-    jobs=[pdf_ingest.job, xml_graph_sync_job, ingest_ontology_job],
-    sensors=[pdf_sensor.sensor, ontology_sensor.sensor],
+    assets=list(pdf_ingest_defs.assets) + all_assets,
+    jobs=list(pdf_ingest_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job],
+    sensors=list(pdf_sensor_defs.sensors) + list(ontology_sensor_defs.sensors),
     resources={
         "minio": MinioResource(
             endpoint_url=EnvVar("S3_ENDPOINT_URL"),

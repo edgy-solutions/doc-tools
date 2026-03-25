@@ -837,7 +837,7 @@ wheels = [
 [[package]]
 name = "dag-tools"
 version = "0.1.0"
-source = { git = "https://github.com/edgy-solutions/dag-tools.git?branch=master#3d6601d10060e21bf06708cada74fbd3767e0793" }
+source = { git = "https://github.com/edgy-solutions/dag-tools.git?rev=master#45c4fef6159705e8075e63fbc9df9234437646e0" }
 dependencies = [
     { name = "httpx" },
     { name = "oracledb" },
@@ -1031,7 +1031,7 @@ dev = [
 requires-dist = [
     { name = "baml-py", specifier = ">=0.20.0" },
     { name = "boto3", specifier = ">=1.42.68" },
-    { name = "dag-tools", git = "https://github.com/edgy-solutions/dag-tools.git?branch=master" },
+    { name = "dag-tools", git = "https://github.com/edgy-solutions/dag-tools.git?rev=master" },
     { name = "dagster" },
     { name = "dagster-postgres" },
     { name = "dagster-webserver" },
