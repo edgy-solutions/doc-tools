@@ -466,7 +466,7 @@ def build_knowledge_graph(
         
     return {"doc_id": doc_id, "status": "processed", "node_label": node_label, "collection": collection_name}
 
-@asset(deps=[upload_to_jena])
+@asset
 def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, jena: JenaResource) -> dict:
     """
     Uploads the generic RDF Turtle string to a specific Named Graph in Apache Jena.
