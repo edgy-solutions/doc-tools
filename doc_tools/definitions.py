@@ -31,7 +31,14 @@ pdf_sensor = S3SensorComponent(
     partition_name="pdf_files",
     target_job=f"ingest_files_{pdf_ingest.name}",
     target_op=pdf_ingest.name,
-    filter_patterns=["archive/", "metadata.json"]
+    filter_patterns=["archive/", "metadata.json"],
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
 )
 pdf_sensor_defs = pdf_sensor.build_defs(None)
 
@@ -42,7 +49,14 @@ ontology_sensor = S3SensorComponent(
     partition_name="ontology_files",
     target_job="ingest_ontology_job",
     target_op="ingest_ontology_to_jena",
-    filter_patterns=[]
+    filter_patterns=[],
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
 )
 ontology_sensor_defs = ontology_sensor.build_defs(None)
 
