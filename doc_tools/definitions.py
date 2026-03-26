@@ -97,6 +97,8 @@ defs = Definitions(
             url=EnvVar("JENA_URL"),
             username=EnvVar("JENA_USERNAME"),
             password=EnvVar("JENA_PASSWORD")
-        )
+        ),
+        **pdf_sensor_defs.resources,
+        **ontology_sensor_defs.resources,
     },
 )
