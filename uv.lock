@@ -837,7 +837,7 @@ wheels = [
 [[package]]
 name = "dag-tools"
 version = "0.1.0"
-source = { git = "https://github.com/edgy-solutions/dag-tools.git?rev=master#45c4fef6159705e8075e63fbc9df9234437646e0" }
+source = { git = "https://github.com/edgy-solutions/dag-tools.git?rev=master#6abf0e61a878f75d7a930a98cb0c1f73b22b8094" }
 dependencies = [
     { name = "httpx" },
     { name = "oracledb" },
