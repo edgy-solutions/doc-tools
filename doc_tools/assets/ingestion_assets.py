@@ -8,7 +8,7 @@ from doc_tools.config import ProcessConfig
 from doc_tools.utils.dagster_resources import MinioResource
 from doc_tools.utils.extraction import extract_text_and_metadata
 
-document_files_partition = DynamicPartitionsDefinition(name="document_files")
+document_files_partition = DynamicPartitionsDefinition(name="pdf_files")
 
 @asset(partitions_def=document_files_partition)
 def process_document_artifact(context: AssetExecutionContext, config: ProcessConfig, minio: MinioResource) -> Dict[str, Any]:

@@ -3,7 +3,7 @@ import json
 import httpx
 import urllib.parse
 from typing import Any, Dict
-from dagster import asset, AssetExecutionContext, MaterializeResult
+from dagster import asset, AssetExecutionContext, MaterializeResult, AutomationCondition
 from neo4j import GraphDatabase
 from doc_tools.config import IngestionConfig
 from doc_tools.assets.ingestion_assets import document_files_partition
@@ -12,7 +12,7 @@ from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
 
-@asset(partitions_def=document_files_partition)
+@asset(partitions_def=document_files_partition, automation_condition=AutomationCondition.eager())
 def build_knowledge_graph(
     context: AssetExecutionContext,
     config: IngestionConfig,
