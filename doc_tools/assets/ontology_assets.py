@@ -1,10 +1,12 @@
 import os
 import httpx
 import rdflib
-from dagster import asset, AssetExecutionContext, MaterializeResult
+from dagster import asset, AssetExecutionContext, MaterializeResult, DynamicPartitionsDefinition
 from doc_tools.utils.dagster_resources import MinioResource, JenaResource
 
-@asset
+ontology_partitions = DynamicPartitionsDefinition(name="ontology_files")
+
+@asset(partitions_def=ontology_partitions)
 def ingest_ontology_to_jena(context: AssetExecutionContext, minio: MinioResource, jena: JenaResource) -> MaterializeResult:
     """
     Detects RDF files in MinIO (via sensor partition) and pushes them to Jena Named Graphs.

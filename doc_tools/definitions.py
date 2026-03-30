@@ -2,6 +2,7 @@ from dagster import Definitions, load_assets_from_modules, AssetSelection, defin
 from dag_tools import S3SensorComponent, S3ToFileComponent
 
 from doc_tools.assets import ingestion_assets, semantic_assets, xml_ingestion, ontology_assets
+from doc_tools.assets.ontology_assets import ontology_partitions
 from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 import os
 
@@ -84,6 +85,7 @@ xml_graph_sync_job = define_asset_job(
 ingest_ontology_job = define_asset_job(
     name="ingest_ontology_job",
     selection=["ingest_ontology_to_jena"],
+    partitions_def=ontology_partitions,
     tags=k8s_tags
 )
 
