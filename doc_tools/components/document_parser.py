@@ -41,16 +41,28 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 bucket = self.config.get("bucket", "processing-artifacts")
                 source_object_key = context.partition_key
             
+            # Parse domain and doc_id from S3 key (e.g. manufacturing/IID/test.pdf)
             parts = source_object_key.split('/')
-            doc_id = parts[0] if len(parts) >= 2 else "unknown_doc"
             
-            # If doc_id is something like 'manufacturing/IID', take the last part
-            if '/' in doc_id:
-                doc_id = doc_id.split('/')[-1]
+            # Robust extraction: 
+            # 1. domain/doc_id/filename -> domain=parts[0], doc_id=parts[1]
+            # 2. domain/filename -> domain=parts[0], doc_id=parts[1].split('.')[0]
+            # 3. filename -> domain=unknown, doc_id=parts[0].split('.')[0]
             
-            filename = parts[-1] if len(parts) >= 1 else source_object_key
+            if len(parts) >= 3:
+                domain = parts[0]
+                doc_id = parts[1]
+                filename = parts[-1]
+            elif len(parts) == 2:
+                domain = parts[0]
+                doc_id = parts[1].split('.')[0]
+                filename = parts[1]
+            else:
+                domain = "unknown"
+                filename = parts[0]
+                doc_id = filename.split('.')[0]
             
-            context.log.info(f"Processing artifact: {source_object_key} (Bucket: {bucket}, Doc ID: {doc_id})")
+            context.log.info(f"Processing artifact: {source_object_key} (Bucket: {bucket}, Domain: {domain}, Doc ID: {doc_id})")
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 file_path = os.path.join(temp_dir, filename)
@@ -137,7 +149,11 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     context.log.error(f"Failed extraction process: {e}")
 
                 # Create Manifest (Merge component config with file metadata)
-                manifest_metadata = {**self.config, **doc_metadata}
+                manifest_metadata = {
+                    "domain_type": domain,  # Explicitly preserve domain
+                    **self.config, 
+                    **doc_metadata
+                }
                 manifest = {
                     "doc_id": doc_id,
                     "filename": filename,

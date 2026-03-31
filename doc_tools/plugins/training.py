@@ -30,7 +30,7 @@ class TrainingPlugin(AugmentationPlugin):
     """
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
-            from doc_tools.baml_client import b
+            from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import SlideAugmentation as BamlSlideAugmentation
             
             # Execute BAML LLM inference
@@ -134,7 +134,7 @@ class TrainingPlugin(AugmentationPlugin):
         if metadata is None:
             metadata = {}
         try:
-            from doc_tools.baml_client import b
+            from doc_tools.baml_client.sync_client import b
             # Token estimation constants
             import os
             context_size = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
@@ -145,7 +145,7 @@ class TrainingPlugin(AugmentationPlugin):
             
             if len(full_text) <= max_chars:
                 print(f"[TrainingPlugin] Document fits in context ({len(full_text)} chars)")
-                baml_response = b.ExtractOutline(text=full_text)
+                baml_response = b.ExtractOutline(document_text=full_text)
                 final_sections = self._merge_outlines([baml_response])
             else:
                 print(f"[TrainingPlugin] Document too large ({len(full_text)} chars), chunking...")
@@ -155,7 +155,7 @@ class TrainingPlugin(AugmentationPlugin):
                 for i, (chunk_text, start_pos) in enumerate(chunks):
                     print(f"[TrainingPlugin] Processing chunk {i+1}/{len(chunks)}")
                     try:
-                        partial = b.ExtractOutline(text=chunk_text)
+                        partial = b.ExtractOutline(document_text=chunk_text)
                         partial_outlines.append(partial)
                     except Exception as e:
                         print(f"[TrainingPlugin] Chunk {i+1} failed: {e}")
