@@ -2,11 +2,11 @@ import os
 from SPARQLWrapper import SPARQLWrapper, POST, BASIC, JSON
 
 class JenaClient:
-    def __init__(self):
-        # Default to a base URL, but we will append /query or /update as needed
-        self.base_url = os.getenv("JENA_URL", "http://jena-fuseki:3030/ds").rstrip('/')
-        self.username = os.getenv("JENA_USERNAME", "admin")
-        self.password = os.getenv("JENA_PASSWORD", "password")
+    def __init__(self, url: str = None, username: str = None, password: str = None):
+        # Prefer passed parameters, fall back to environment variables
+        self.base_url = (url or os.getenv("JENA_URL", "http://jena-fuseki:3030/ds")).rstrip('/')
+        self.username = username or os.getenv("JENA_USERNAME", "admin")
+        self.password = password or os.getenv("JENA_PASSWORD", "password")
         
     def _get_wrapper(self, endpoint_suffix: str):
         url = f"{self.base_url}/{endpoint_suffix}"

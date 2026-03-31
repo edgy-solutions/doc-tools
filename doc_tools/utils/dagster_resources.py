@@ -42,5 +42,5 @@ class JenaResource(ConfigurableResource):
 
     def get_client(self):
         from .jena_client import JenaClient
-        return JenaClient(base_url=self.url, username=self.username, password=self.password)
+        return JenaClient(url=self.url, username=self.username, password=self.password)
 
