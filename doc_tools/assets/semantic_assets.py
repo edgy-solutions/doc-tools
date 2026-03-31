@@ -6,18 +6,22 @@ from typing import Any, Dict
 from dagster import asset, AssetExecutionContext, MaterializeResult, AutomationCondition
 from neo4j import GraphDatabase
 from doc_tools.config import IngestionConfig
-from doc_tools.assets.ingestion_assets import document_files_partition
-from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
+from dagster_aws.s3 import S3Resource
+from doc_tools.partitions import pdf_files_partition
+from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
 
-@asset(partitions_def=document_files_partition, automation_condition=AutomationCondition.eager())
+@asset(
+    partitions_def=pdf_files_partition,
+    automation_condition=AutomationCondition.on_missing() | AutomationCondition.any_deps_updated()
+)
 def build_knowledge_graph(
     context: AssetExecutionContext,
     config: IngestionConfig,
     process_document_artifact: Dict[str, Any],
-    minio: MinioResource,
+    s3: S3Resource,
     neo4j: Neo4jResource,
     weaviate: WeaviateResource,
     llm: LLMExtractorResource,
@@ -40,7 +44,7 @@ def build_knowledge_graph(
     
     context.log.info(f"Building Graph for doc: {doc_id} using labels '{node_label}' and '{child_label}'")
     
-    minio_client = minio.get_client()
+    s3_client = s3.get_client()
     neo4j_client = neo4j.get_client()
     weaviate_client = weaviate.get_client()
     llm_client = llm.get_client()
@@ -51,7 +55,7 @@ def build_knowledge_graph(
     text_elements = []
     try:
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            minio_client.fget_object(config.bucket, text_location, tmp.name)
+            s3_client.download_file(Bucket=config.bucket, Key=text_location, Filename=tmp.name)
             with open(tmp.name, 'r', encoding='utf-8') as f:
                 text_elements = json.load(f)
     except Exception as e:

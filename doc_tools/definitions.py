@@ -1,16 +1,17 @@
 from dagster import Definitions, load_assets_from_modules, AssetSelection, define_asset_job, EnvVar
-from dag_tools import S3SensorComponent, S3ToFileComponent
-
-from doc_tools.assets import ingestion_assets, semantic_assets, xml_ingestion, ontology_assets
-from doc_tools.assets.ontology_assets import ontology_partitions
-from doc_tools.utils.dagster_resources import MinioResource, Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
+from dagster_aws.s3 import S3Resource
+from dag_tools import S3SensorComponent
+from doc_tools.components.document_parser import DocumentParserComponent
+from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets
+from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
+from doc_tools.partitions import ontology_partitions
 import os
 
-# 1. Instantiate Ingestion Components (declarative replaces config.yaml)
-pdf_ingest = S3ToFileComponent(
+# 1. Instantiate the Custom Parser Component
+document_parser = DocumentParserComponent(
     name="process_document_artifact",
     partition_name="pdf_files",
-    op_config={
+    config={
         "graph_node_label": "WorkInstruction",
         "graph_child_label": "Page",
         "vector_collection_name": "ManufacturingDocumentChunk",
@@ -20,18 +21,17 @@ pdf_ingest = S3ToFileComponent(
         "valid_hazard_classes": "1.1D, 1.3C, Hazmat 3, Biohazard",
         "valid_process_categories": "Transformation, Inspection, Movement, Rework, Critical Safety Hold",
         "bucket": "processing-artifacts"
-    } 
+    }
 )
-pdf_ingest_defs = pdf_ingest.build_defs(None)
+document_parser_defs = document_parser.build_defs(None)
 
 # 2. Instantiate Sensors (decoupled from assets)
-# We use the generated job/op names from the component
 pdf_sensor = S3SensorComponent(
     bucket="processing-artifacts",
     prefix="manufacturing/IID/",
     partition_name="pdf_files",
-    target_job=f"ingest_files_{pdf_ingest.name}",
-    target_op=pdf_ingest.name,
+    target_job=f"{document_parser.name}_job",
+    target_op=document_parser.name,
     filter_patterns=["archive/", "metadata.json"],
     s3_resource={
         "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
@@ -43,7 +43,6 @@ pdf_sensor = S3SensorComponent(
 )
 pdf_sensor_defs = pdf_sensor.build_defs(None)
 
-# Added value: migrated the recently added ontology sensor to the new component model
 ontology_sensor = S3SensorComponent(
     bucket=os.getenv("ONTOLOGY_BUCKET", "ontologies"),
     prefix="",
@@ -62,7 +61,6 @@ ontology_sensor = S3SensorComponent(
 ontology_sensor_defs = ontology_sensor.build_defs(None)
 
 # 3. Assets & Jobs
-# We exclude ingestion_assets.process_document_artifact to avoid name collision with the component's asset
 all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets])
 
 k8s_tags = {
@@ -90,15 +88,14 @@ ingest_ontology_job = define_asset_job(
 )
 
 defs = Definitions(
-    assets=list(pdf_ingest_defs.assets) + all_assets,
-    jobs=list(pdf_ingest_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job],
+    assets=list(document_parser_defs.assets) + all_assets,
+    jobs=list(document_parser_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job],
     sensors=list(pdf_sensor_defs.sensors) + list(ontology_sensor_defs.sensors),
     resources={
-        "minio": MinioResource(
+        "s3": S3Resource(
             endpoint_url=EnvVar("S3_ENDPOINT_URL"),
-            access_key=EnvVar("AWS_ACCESS_KEY_ID"),
-            secret_key=EnvVar("AWS_SECRET_ACCESS_KEY"),
-            secure=os.getenv("MINIO_SECURE", "false").lower() == "true"
+            aws_access_key_id=EnvVar("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=EnvVar("AWS_SECRET_ACCESS_KEY"),
         ),
         "neo4j": Neo4jResource(
             uri=EnvVar("NEO4J_URI"),

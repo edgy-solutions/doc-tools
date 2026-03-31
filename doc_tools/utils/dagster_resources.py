@@ -4,35 +4,6 @@ from dagster import ConfigurableResource
 # We will need some stubs for the resources that the assets depend on.
 # For doc-tools, we can use these simple wrappers around the clients.
 
-class MinioResource(ConfigurableResource):
-    endpoint_url: str
-    access_key: str
-    secret_key: str
-    secure: bool
-
-    def get_client(self):
-        from minio import Minio
-        
-        ep = self.endpoint_url
-        if ep.startswith("http://"):
-            ep = ep[len("http://"):]
-        elif ep.startswith("https://"):
-            ep = ep[len("https://"):]
-            
-        if "/" in ep:
-            ep = ep.split("/")[0]
-
-        return Minio(
-            endpoint=ep,
-            access_key=self.access_key,
-            secret_key=self.secret_key,
-            secure=self.secure
-        )
-    
-    @property
-    def endpoint(self):
-        return self.endpoint_url
-
 class Neo4jResource(ConfigurableResource):
     uri: str 
     username: str 

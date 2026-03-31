@@ -1,13 +1,13 @@
 import os
 import httpx
 import rdflib
-from dagster import asset, AssetExecutionContext, MaterializeResult, DynamicPartitionsDefinition
-from doc_tools.utils.dagster_resources import MinioResource, JenaResource
-
-ontology_partitions = DynamicPartitionsDefinition(name="ontology_files")
+from dagster import asset, AssetExecutionContext, MaterializeResult
+from dagster_aws.s3 import S3Resource
+from doc_tools.utils.dagster_resources import JenaResource
+from doc_tools.partitions import ontology_partitions
 
 @asset(partitions_def=ontology_partitions)
-def ingest_ontology_to_jena(context: AssetExecutionContext, minio: MinioResource, jena: JenaResource) -> MaterializeResult:
+def ingest_ontology_to_jena(context: AssetExecutionContext, s3: S3Resource, jena: JenaResource) -> MaterializeResult:
     """
     Detects RDF files in MinIO (via sensor partition) and pushes them to Jena Named Graphs.
     s3://ontologies/{domain}/{file} -> http://internal/{domain}
@@ -25,17 +25,15 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, minio: MinioResource
     # Derive Named Graph URI
     graph_uri = f"http://internal/{domain}"
     
-    minio_client = minio.get_client()
+    s3_client = s3.get_client()
     context.log.info(f"Ingesting ontology '{filename}' for domain '{domain}' into graph <{graph_uri}>")
     
     # 1. Download from MinIO
     # We'll assume the 'ontologies' bucket as per instructions
     bucket = os.getenv("ONTOLOGY_BUCKET", "ontologies")
     try:
-        response = minio_client.get_object(bucket, partition_key)
-        rdf_content = response.read()
-        response.close()
-        response.release_conn()
+        response = s3_client.get_object(Bucket=bucket, Key=partition_key)
+        rdf_content = response['Body'].read()
     except Exception as e:
         context.log.error(f"Failed to fetch ontology from MinIO: {e}")
         raise e
