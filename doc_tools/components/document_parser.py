@@ -4,13 +4,14 @@ import io
 import tempfile
 from typing import Dict, Any
 from pydantic import Field
-from dagster import Definitions, asset, define_asset_job, AssetExecutionContext, AutomationCondition
+from dagster import Definitions, asset, define_asset_job, AssetExecutionContext, AutomationCondition, Config
 from dagster.components import Component, ComponentLoadContext
 from dagster.components.resolved.base import Resolvable
 from dagster.components.resolved.model import Model
 from dagster_aws.s3 import S3Resource
 from doc_tools.partitions import pdf_files_partition
 from doc_tools.utils.extraction import extract_text_and_metadata
+from dag_tools.components.s3_sensor.file_component import S3FileConfig
 
 class DocumentParserComponent(Component, Resolvable, Model):
     """A specialized component that downloads, parses, and extracts metadata/images from documents via S3."""
@@ -26,16 +27,30 @@ class DocumentParserComponent(Component, Resolvable, Model):
             partitions_def=parts_def,
             automation_condition=AutomationCondition.on_missing()
         )
-        def process_document_artifact(context: AssetExecutionContext, s3: S3Resource) -> Dict[str, Any]:
+        def process_document_artifact(context: AssetExecutionContext, config: S3FileConfig, s3: S3Resource) -> Dict[str, Any]:
             s3_client = s3.get_client()
-            bucket = self.config.get("bucket", "processing-artifacts")
-            source_object_key = context.partition_key
+            
+            # Parse s3://bucket/key from file_url
+            file_url = config.file_url
+            if file_url.startswith("s3://"):
+                url_parts = file_url[5:].split("/", 1)
+                bucket = url_parts[0]
+                source_object_key = url_parts[1]
+            else:
+                # Fallback to partition_key and component config
+                bucket = self.config.get("bucket", "processing-artifacts")
+                source_object_key = context.partition_key
             
             parts = source_object_key.split('/')
             doc_id = parts[0] if len(parts) >= 2 else "unknown_doc"
-            filename = parts[-1] if len(parts) >= 2 else source_object_key
             
-            context.log.info(f"Processing artifact: {source_object_key} (Doc ID: {doc_id})")
+            # If doc_id is something like 'manufacturing/IID', take the last part
+            if '/' in doc_id:
+                doc_id = doc_id.split('/')[-1]
+            
+            filename = parts[-1] if len(parts) >= 1 else source_object_key
+            
+            context.log.info(f"Processing artifact: {source_object_key} (Bucket: {bucket}, Doc ID: {doc_id})")
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 file_path = os.path.join(temp_dir, filename)
