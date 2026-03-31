@@ -232,7 +232,7 @@ def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, j
     Uploads the generic RDF Turtle string to a specific Named Graph in Apache Jena.
     Uses PUT to ensure idempotency (overwrites previous revisions of this file).
     """
-    jena_url = f"{jena.url.rstrip('/')}/data"
+    jena_url = f"{jena.url.rstrip('/')}/{jena.dataset}/data"
     user = jena.username
     pw = jena.password
     
@@ -336,10 +336,11 @@ def sync_jena_to_neo4j(context: AssetExecutionContext, upload_to_jena: dict, jen
     # n10s fetch requires a URL that returns RDF. We point it back to our Jena query endpoint.
     sparql_construct = f"CONSTRUCT {{ ?s ?p ?o }} WHERE {{ GRAPH <{graph_uri}> {{ ?s ?p ?o }} }}"
     
-    # Construct the fetch URL (Fuseki /query endpoint with ?query=...)
+    # Construct the fetch URL (Fuseki /{dataset}/query endpoint with ?query=...)
     jena_base = jena.url.rstrip('/')
+    jena_ds = jena.dataset
     encoded_query = urllib.parse.quote(sparql_construct)
-    fetch_url = f"{jena_base}/query?query={encoded_query}"
+    fetch_url = f"{jena_base}/{jena_ds}/query?query={encoded_query}"
     
     try:
         # Pass headers to ensure we get Turtle back for n10s

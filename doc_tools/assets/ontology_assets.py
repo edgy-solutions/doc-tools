@@ -56,11 +56,13 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, s3: S3Resource, jena
 
     # 3. Push to Jena using Graph Store Protocol (PUT)
     # Using PUT ensures we overwrite the previous revision of this domain's ontology
-    jena_url = os.getenv("JENA_GSP_ENDPOINT", "http://fuseki:3030/ds/data")
-    user = os.getenv("JENA_USERNAME", "admin")
-    pw = os.getenv("JENA_PASSWORD", "password")
+    jena_base = jena.url.rstrip('/')
+    jena_ds = jena.dataset
+    user = jena.username
+    pw = jena.password
     
-    target_url = f"{jena_url}?graph={graph_uri}"
+    # GSP endpoint: {host}/{dataset}/data
+    target_url = f"{jena_base}/{jena_ds}/data?graph={graph_uri}"
     
     try:
         with httpx.Client(auth=(user, pw), verify=False) as client:

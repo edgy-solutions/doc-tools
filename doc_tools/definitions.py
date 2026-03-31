@@ -108,6 +108,7 @@ defs = Definitions(
         "llm": LLMExtractorResource(),
         "jena": JenaResource(
             url=EnvVar("JENA_URL"),
+            dataset=EnvVar("JENA_DS"),
             username=EnvVar("JENA_USERNAME"),
             password=EnvVar("JENA_PASSWORD")
         ),

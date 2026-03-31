@@ -37,10 +37,11 @@ class LLMExtractorResource(ConfigurableResource):
 
 class JenaResource(ConfigurableResource):
     url: str 
+    dataset: str
     username: str 
     password: str 
 
     def get_client(self):
         from .jena_client import JenaClient
-        return JenaClient(url=self.url, username=self.username, password=self.password)
+        return JenaClient(url=self.url, dataset=self.dataset, username=self.username, password=self.password)
 
