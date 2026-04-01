@@ -9,6 +9,17 @@ class AugmentationPlugin(ABC):
     the persistence mapping to emit Cypher/SPARQL statements.
     """
     
+    def __init__(self, domain_type: str):
+        self.domain_type = domain_type
+
+    @property
+    def domain_label(self) -> str:
+        """
+        Sanitizes and returns the uppercase domain label for Neo4j.
+        Example: 'manufacturing' -> 'MANUFACTURING'
+        """
+        return self.domain_type.upper().replace(" ", "_").replace("-", "_")
+
     @abstractmethod
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         """

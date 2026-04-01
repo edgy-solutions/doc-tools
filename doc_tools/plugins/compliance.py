@@ -74,7 +74,7 @@ class CompliancePlugin(AugmentationPlugin):
             section_id = sec.node_id or f"section_{sec.page_start}_{sec.title}"
             cypher_queries.append({
                 "query": f"""
-                MERGE (p:{config.graph_child_label} {{id: $section_id}})
+                MERGE (p:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
                 SET p.title = $title
                 """,
                 "params": {
@@ -90,8 +90,8 @@ class CompliancePlugin(AugmentationPlugin):
                 
                 # --- NEO4J CYPHER: (Section)-[:GOVERNED_BY]->(ComplianceRule) ---
                 edge_cypher = f"""
-                MERGE (p:{config.graph_child_label} {{id: $section_id}})
-                MERGE (r:ComplianceRule {{
+                MERGE (p:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
+                MERGE (r:ComplianceRule:{self.domain_label} {{
                     id: $rule_node_id, 
                     manual_reference: $ref, 
                     rule_type: $type,
@@ -105,7 +105,7 @@ class CompliancePlugin(AugmentationPlugin):
                 if rule.applicable_hazard_class:
                     hazard_id = f"hazard_{rule.applicable_hazard_class}"
                     edge_cypher += f"""
-                    MERGE (h:Hazard {{id: $hazard_id, class: $hazard}})
+                    MERGE (h:Hazard:{self.domain_label} {{id: $hazard_id, class: $hazard}})
                     MERGE (r)-[:APPLIES_TO_HAZARD]->(h)
                     """
                     

@@ -199,7 +199,7 @@ class TrainingPlugin(AugmentationPlugin):
                 # Append the course metadata update (legacy code)
                 # Note: Because the generic pipeline creates the root Course node, we just MATCH and SET
                 course_meta_cypher = f"""
-                MATCH (c:{config.graph_node_label} {{id: $id}})
+                MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $id}})
                 SET c.business_unit = $business_unit,
                     c.version = $version,
                     c.delivery_method = $delivery,
@@ -228,13 +228,13 @@ class TrainingPlugin(AugmentationPlugin):
                         sec_id = f"{parent_id}_s{i}"
                         
                         cypher = f"""
-                        MERGE (s:Section {{id: $id}})
+                        MERGE (s:Section:{self.domain_label} {{id: $id}})
                         SET s.title = $title,
                             s.level = $level,
                             s.start_page = $start_page,
                             s.end_page = $end_page
                         WITH s
-                        MATCH (p {{id: $parent_id}})
+                        MATCH (p:{self.domain_label} {{id: $parent_id}})
                         MERGE (p)-[:HAS_SECTION]->(s)
                         """
                         cypher_queries.append({
@@ -261,7 +261,7 @@ class TrainingPlugin(AugmentationPlugin):
             section_id = sec.node_id or f"section_{sec.page_start}_{sec.title}"
             # WARNING: String parameterization used per instructions because neo4j drivers cannot param labels
             cypher = f"""
-            MERGE (s:{config.graph_child_label} {{id: $section_id}})
+            MERGE (s:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
             SET s.title = $title, s.content = $content, s.page_start = $page_start
             """
             # Store just the query string (the DAGSTER execution layer will bind the parameters securely)
@@ -282,8 +282,8 @@ class TrainingPlugin(AugmentationPlugin):
             for raw_concept in aug.concepts:
                 concept_id = f"concept_{raw_concept.name.replace(' ', '_')}"
                 edge_cypher = f"""
-                MERGE (s:{config.graph_child_label} {{id: $section_id}})
-                MERGE (c:Concept {{id: $concept_id, name: $c_name, salience: $c_salience}})
+                MERGE (s:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
+                MERGE (c:Concept:{self.domain_label} {{id: $concept_id, name: $c_name, salience: $c_salience}})
                 MERGE (s)-[:TEACHES]->(c)
                 """
                 cypher_queries.append({
@@ -306,8 +306,8 @@ class TrainingPlugin(AugmentationPlugin):
         try:
             # 1. Link Slides (Pages) to Sections based on Page Numbers
             link_query = f"""
-            MATCH (c:{config.graph_node_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section)
-            MATCH (c)-[:HAS_CHILD]->(s:{config.graph_child_label})
+            MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section:{self.domain_label})
+            MATCH (c)-[:HAS_CHILD]->(s:{config.graph_child_label}:{self.domain_label})
             WHERE s.number >= sec.start_page 
               AND (sec.end_page = 0 OR s.number <= sec.end_page)
             MERGE (sec)-[:HAS_CHILD]->(s)
@@ -316,8 +316,8 @@ class TrainingPlugin(AugmentationPlugin):
 
             # 2. Roll-up Concepts to Sections (COVERS Relationship)
             rollup_query = f"""
-            MATCH (c:{config.graph_node_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section)
-            MATCH (sec)-[:HAS_CHILD]->(s:{config.graph_child_label})-[t:TEACHES]->(con:Concept)
+            MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section:{self.domain_label})
+            MATCH (sec)-[:HAS_CHILD]->(s:{config.graph_child_label}:{self.domain_label})-[t:TEACHES]->(con:Concept:{self.domain_label})
             WITH sec, con, avg(t.salience) as avg_score, count(s) as frequency
             MERGE (sec)-[r:COVERS]->(con)
             SET r.score = avg_score, r.frequency = frequency
@@ -326,8 +326,8 @@ class TrainingPlugin(AugmentationPlugin):
 
             # 3. Create Lightweight Summaries
             summary_query = f"""
-            MATCH (c:{config.graph_node_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section)
-            OPTIONAL MATCH (sec)-[r:COVERS]->(con:Concept)
+            MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section:{self.domain_label})
+            OPTIONAL MATCH (sec)-[r:COVERS]->(con:Concept:{self.domain_label})
             WITH sec, con, r.score as score
             ORDER BY score DESC
             WITH sec, collect(con.name) as concepts

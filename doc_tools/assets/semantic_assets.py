@@ -35,13 +35,18 @@ def build_knowledge_graph(
     doc_id = manifest["doc_id"]
     text_location = manifest["text_location"]
     
-    # Configuration Labels (Prefer manifest metadata if present, fallback to config)
-    metadata = manifest.get("metadata", {})
-    node_label = metadata.get("graph_node_label", config.graph_node_label)
-    child_label = metadata.get("graph_child_label", config.graph_child_label)
-    collection_name = metadata.get("vector_collection_name", config.vector_collection_name)
-    
     context.log.info(f"Building Graph for doc: {doc_id} using labels '{node_label}' and '{child_label}'")
+    
+    # Domain Label for Neo4j Segregation
+    metadata = manifest.get("metadata", {})
+    domain_type = metadata.get("domain_type")
+    if not domain_type:
+        try:
+            domain_type = context.run.tags.get("domain_type")
+        except AttributeError:
+            domain_type = metadata.get("project", "Training")
+    
+    domain_label = domain_type.upper().replace(" ", "_").replace("-", "_")
     
     s3_client = s3.get_client()
     neo4j_client = neo4j.get_client()
@@ -67,7 +72,7 @@ def build_knowledge_graph(
     try:
         title = manifest.get("filename", doc_id)
         neo4j_client.execute_query(
-            f"MERGE (n:{node_label} {{id: $id}}) SET n.title = $title",
+            f"MERGE (n:{node_label}:{domain_label} {{id: $id}}) SET n.title = $title",
             {"id": doc_id, "title": title}
         )
     except Exception as e:
@@ -90,24 +95,17 @@ def build_knowledge_graph(
         page_elements[page_num].append(el)
             
     # Initialize appropriate Plugin
-    domain_type = metadata.get("domain_type")
-    if not domain_type:
-        try:
-            domain_type = context.run.tags.get("domain_type")
-        except AttributeError:
-            domain_type = metadata.get("project", "Training")
-             
     if domain_type == "manufacturing":
-        plugin = ManufacturingPlugin()
+        plugin = ManufacturingPlugin(domain_type)
     elif domain_type == "compliance":
         try:
             from doc_tools.plugins.compliance import CompliancePlugin
-            plugin = CompliancePlugin()
+            plugin = CompliancePlugin(domain_type)
         except ImportError:
             context.log.warning("CompliancePlugin not found, falling back to TrainingPlugin")
-            plugin = TrainingPlugin()
+            plugin = TrainingPlugin(domain_type)
     else:
-        plugin = TrainingPlugin()
+        plugin = TrainingPlugin(domain_type)
         
     context.log.info(f"Initialized {type(plugin).__name__} for domain: {domain_type}")
 
@@ -174,8 +172,8 @@ def build_knowledge_graph(
         try:
             neo4j_client.execute_query(
                 f"""
-                MATCH (parent:{node_label} {{id: $parent_id}})
-                MERGE (child:{child_label} {{id: $id}})
+                MATCH (parent:{node_label}:{domain_label} {{id: $parent_id}})
+                MERGE (child:{child_label}:{domain_label} {{id: $id}})
                 SET child.number = $page_num, child.text = $text, child.asset_type = $asset_type,
                     child.layout_style = $layout_style, child.elements = $elements_json
                 MERGE (parent)-[:HAS_CHILD]->(child)
@@ -322,6 +320,7 @@ def sync_jena_to_neo4j(context: AssetExecutionContext, upload_to_jena: dict, jen
     if uri_list:
         context.log.info(f"Wiping {len(uri_list)} Nodes from Neo4j (Deep Detach/Delete)...")
         try:
+            # We don't need the domain label for deletion because the URI is unique across the DB
             neo4j_client.execute_query(
                 "UNWIND $uri_list AS deleted_uri MATCH (n {uri: deleted_uri}) DETACH DELETE n",
                 {"uri_list": uri_list}

@@ -147,7 +147,7 @@ class ManufacturingPlugin(AugmentationPlugin):
             part_id = sec.node_id or f"part_{sec.page_start}_{safe_title}"
             cypher_queries.append({
                 "query": f"""
-                MERGE (p:{config.graph_child_label} {{id: $part_id}})
+                MERGE (p:{config.graph_child_label}:{self.domain_label} {{id: $part_id}})
                 SET p.title = $title, p.proprietary_score = $score, p.outsourceable = $out
                 """,
                 "params": {
@@ -164,12 +164,12 @@ class ManufacturingPlugin(AugmentationPlugin):
                 
                 # Create Procedure Node & link Part -> Procedure -> Step
                 edge_cypher = f"""
-                MERGE (p:{config.graph_child_label} {{id: $part_id}})
-                MERGE (proc:Procedure {{id: $proc_node_id}})
+                MERGE (p:{config.graph_child_label}:{self.domain_label} {{id: $part_id}})
+                MERGE (proc:Procedure:{self.domain_label} {{id: $proc_node_id}})
                 SET proc.procedure_id = $proc_id
                 MERGE (p)-[:REQUIRES_PROCEDURE]->(proc)
                 
-                MERGE (s:ManufacturingStep {{id: $step_node_id}})
+                MERGE (s:ManufacturingStep:{self.domain_label} {{id: $step_node_id}})
                 SET s.step_id = $step_id, 
                     s.raw_text = $instruction_text,
                     s.action = $action,
@@ -186,19 +186,19 @@ class ManufacturingPlugin(AugmentationPlugin):
                 
                 WITH s
                 UNWIND $standards AS std_name
-                MERGE (std:Standard {{id: "std_" + std_name}})
+                MERGE (std:Standard:{self.domain_label} {{id: "std_" + std_name}})
                 SET std.name = std_name
                 MERGE (s)-[:GOVERNED_BY]->(std)
                 
                 WITH s
                 UNWIND $parts AS pn
-                MERGE (part:Part {{id: "part_" + pn}})
+                MERGE (part:Part:{self.domain_label} {{id: "part_" + pn}})
                 SET part.part_number = pn
                 MERGE (s)-[:REQUIRES_PART]->(part)
                 
                 WITH s
                 UNWIND $slang AS term
-                MERGE (st:SlangTerm {{id: "slang_" + term}})
+                MERGE (st:SlangTerm:{self.domain_label} {{id: "slang_" + term}})
                 SET st.term = term
                 MERGE (s)-[:USABLE_SLANG]->(st)
                 """
@@ -207,7 +207,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                 if step.hazard_class:
                     hazard_id = f"hazard_{step.hazard_class}"
                     edge_cypher += f"""
-                    MERGE (h:Hazard {{id: $hazard_id}})
+                    MERGE (h:Hazard:{self.domain_label} {{id: $hazard_id}})
                     SET h.class = $hazard
                     MERGE (s)-[:HAS_HAZARD]->(h)
                     """
@@ -215,7 +215,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                 if step.required_cert:
                     cert_id = f"cert_{step.required_cert}"
                     edge_cypher += f"""
-                    MERGE (c:Certification {{id: $cert_id}})
+                    MERGE (c:Certification:{self.domain_label} {{id: $cert_id}})
                     SET c.certification = $cert
                     MERGE (s)-[:REQUIRES_CERT]->(c)
                     """
