@@ -119,6 +119,7 @@ def build_knowledge_graph(
                 {"name": "text", "dataType": ["text"]},
                 {"name": "doc_id", "dataType": ["string"]},
                 {"name": "chunk_id", "dataType": ["string"]},
+                {"name": "domain", "dataType": ["text"]}
             ]
         })
     except Exception as e:
@@ -186,7 +187,7 @@ def build_knowledge_graph(
         # Vector Indexing (Per Chunk)
         try:
             weaviate_client.add_object(
-                data_object={"text": chunk_text, "doc_id": doc_id, "chunk_id": chunk_id},
+                data_object={"text": chunk_text, "doc_id": doc_id, "chunk_id": chunk_id, "domain": domain_label},
                 class_name=collection_name
             )
         except Exception as e:
