@@ -14,7 +14,7 @@ document_parser = DocumentParserComponent(
     config={
         "graph_node_label": "WorkInstruction",
         "graph_child_label": "Page",
-        "vector_collection_name": "ManufacturingDocumentChunk",
+        "vector_collection_name": "DocumentChunk",
         "procedure_id_format": r"^\d{4}$",
         "step_id_format": r"^\d+(?:\.\d+)*$",
         "valid_personnel_roles": "QC Inspector, Journeyman, Safety Officer",
