@@ -15,6 +15,7 @@ graph TD
 
     A[(MinIO / S3 <br> Raw Documents)]:::storage -->|doc_tools/sensors.py| B(Dagster Sensors <br> S3 Prefix Monitoring):::dagster
     B -->|RunRequest + domain_type| C(Ingestion Assets <br> unstructured & python-pptx):::dagster
+    B -->|RunRequest + domain_type| C(Ingestion Assets <br> unstructured & python-pptx):::dagster
     C -->|DocumentPackage| D{Domain Dispatcher <br> semantic_assets.py}:::dagster
     
     D -->|tag: manufacturing| E1(Manufacturing Plugin <br> 10x Physics Layer):::plugin
@@ -43,6 +44,37 @@ graph TD
 3. **Graph Knowledge Representation:** Maps processed documents into a highly-linked **Neo4j** Knowledge Graph for traversing document relationships, concepts, and metadata.
 4. **Vector Embeddings for RAG:** Embeds text chunks directly into **Weaviate** for immediate semantic search availability.
 5. **Semantic Web Triples:** Emits standard OWL/RDF Triples representing structural schemas into **Apache Jena / Fuseki** via SPARQL.
+
+---
+
+## 🔒 Data Isolation & Domain Segregation
+
+The pipeline implements a "Holy Trinity" of data segregation to ensure strict isolation between different business domains (e.g., `manufacturing`, `compliance`) sharing the same infrastructure.
+
+### 1. Neo4j (Graph Knowledge)
+Every node created by the pipeline carries a secondary label corresponding to its domain.
+*   **Format**: `(:Label:DOMAIN_NAME)`
+*   **Example**: `(:Procedure:MANUFACTURING)`
+*   **Benefit**: Upstream consumers can perform `MATCH (n:Procedure:MANUFACTURING)` to guarantee zero cross-domain data leakage.
+
+### 2. Weaviate (Vector Retrieval)
+Every text chunk includes a `domain` metadata property.
+*   **Usage**: Downstream RAG agents can apply a metadata filter: `filter={"path": ["domain"], "operator": "Equal", "valueText": "MANUFACTURING"}`.
+*   **Benefit**: Ensures the LLM only "sees" context relevant to the specific domain during retrieval.
+
+### 3. Apache Jena (Deep Reasoning)
+Strict isolation is maintained via **Named Graphs**:
+*   **Documents**: Isolated in `urn:doc:{s3_key}`.
+*   **Domain Ontologies**: Isolated in `http://internal/{domain}`.
+
+### 🏷️ Domain Label Normalization
+Input strings are automatically sanitized and normalized by the pipeline:
+*   `manufacturing` -> `MANUFACTURING`
+*   `maintenance-ops` -> `MAINTENANCE_OPS`
+*   `Compliance 2024` -> `COMPLIANCE_2024`
+
+---
+
 6. **Configurability:** Fully configurable domains! Easily override GraphQL / Graph target labels and Vector DB collections via Dagster run configs.
 7. **Event-Driven Ingestion:** Dynamic Dagster sensors monitor configurable S3 bucket/directory prefixes, instantaneously injecting `domain_type` routing tags (`manufacturing`, `compliance`) into the pipeline.
 8. **10x Factory Extraction:** Maps deep-physics logic by rigorously isolating `is_value_added` from `is_safety_critical` steps into Neo4j for exact bottleneck and critical path analysis.
