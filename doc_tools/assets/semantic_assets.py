@@ -35,6 +35,11 @@ def build_knowledge_graph(
     doc_id = manifest["doc_id"]
     text_location = manifest["text_location"]
     
+    # Map Configuration Variables to Local Context
+    node_label = config.graph_node_label
+    child_label = config.graph_child_label
+    collection_name = config.vector_collection_name
+    
     context.log.info(f"Building Graph for doc: {doc_id} using labels '{node_label}' and '{child_label}'")
     
     # Domain Label for Neo4j Segregation
