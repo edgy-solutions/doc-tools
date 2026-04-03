@@ -9,11 +9,13 @@ class MilStd40051GraphBuilder:
     Maps Army Work Packages to a unified military ontology.
     """
     
-    def __init__(self):
+    def __init__(self, bucket: str = "", doc_id: str = ""):
         self.graph = Graph()
         self.MIL = Namespace("http://edgy-solutions.com/ontology/mil#")
         self.graph.bind("mil", self.MIL)
         self.root_node = None
+        self.bucket = bucket
+        self.doc_id = doc_id
 
     def parse_data_module(self, xml_content: bytes) -> str:
         """
@@ -80,6 +82,51 @@ class MilStd40051GraphBuilder:
             text = str(step).strip()
             if text:
                 self.graph.add((node_uri, self.MIL.hasInstructionText, Literal(text)))
+
+        # 6. Extract Figures & Graphics
+        # 40051 uses <graphic boardno="..."> and <figure> tags
+        seen_figs = set()
+        
+        # Primary: <graphic boardno="..."> elements
+        graphic_elements = tree.xpath("//graphic[@boardno]")
+        for g in graphic_elements:
+            boardno = g.get("boardno", "").strip()
+            if boardno and boardno not in seen_figs:
+                seen_figs.add(boardno)
+                clean_boardno = re.sub(r'[^a-zA-Z0-9_-]', '', boardno.replace(' ', '_'))
+                figure_uri = URIRef(self.MIL[f"fig-{clean_boardno}"])
+                self.graph.add((figure_uri, RDF.type, self.MIL.Figure))
+                self.graph.add((figure_uri, RDFS.label, Literal(boardno)))
+                if self.bucket and self.doc_id:
+                    full_s3_url = f"s3://{self.bucket}/{self.doc_id}/generated/images/{boardno}.png"
+                    self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
+                else:
+                    self.graph.add((figure_uri, self.MIL.hasURL, Literal(boardno)))
+                self.graph.add((node_uri, self.MIL.hasFigure, figure_uri))
+
+        # Fallback: <figure> tags
+        figure_elements = tree.xpath("//figure")
+        for idx, fig_el in enumerate(figure_elements):
+            fig_id = fig_el.get("id", f"fig_{idx}")
+            if fig_id not in seen_figs:
+                seen_figs.add(fig_id)
+                title_el = fig_el.find(".//title")
+                title = title_el.text.strip() if title_el is not None and title_el.text else fig_id
+                clean_id = re.sub(r'[^a-zA-Z0-9_-]', '', fig_id.replace(' ', '_'))
+                figure_uri = URIRef(self.MIL[f"fig-{clean_id}"])
+                self.graph.add((figure_uri, RDF.type, self.MIL.Figure))
+                self.graph.add((figure_uri, RDFS.label, Literal(title)))
+                # Check for nested graphic
+                nested_graphic = fig_el.find(".//graphic")
+                if nested_graphic is not None:
+                    info_entity = nested_graphic.get("boardno", "") or nested_graphic.get("infoEntityIdent", "")
+                    if info_entity:
+                        if self.bucket and self.doc_id:
+                            full_s3_url = f"s3://{self.bucket}/{self.doc_id}/generated/images/{info_entity}.png"
+                            self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
+                        else:
+                            self.graph.add((figure_uri, self.MIL.hasURL, Literal(info_entity)))
+                self.graph.add((node_uri, self.MIL.hasFigure, figure_uri))
 
         return str(node_uri)
 

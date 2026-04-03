@@ -49,13 +49,14 @@ graph TD
 
 ## 🔒 Data Isolation & Domain Segregation
 
-The pipeline implements a "Holy Trinity" of data segregation to ensure strict isolation between different business domains (e.g., `manufacturing`, `compliance`) sharing the same infrastructure.
+The pipeline implements a "Holy Trinity" of data segregation to ensure strict isolation between different business domains (e.g., `manufacturing`, `maintenance`, `compliance`) sharing the same infrastructure.
 
 ### 1. Neo4j (Graph Knowledge)
 Every node created by the pipeline carries a secondary label corresponding to its domain.
 *   **Format**: `(:Label:DOMAIN_NAME)`
-*   **Example**: `(:Procedure:MANUFACTURING)`
+*   **Example**: `(:Procedure:MANUFACTURING)`, `(:Figure:MAINTENANCE)`
 *   **Benefit**: Upstream consumers can perform `MATCH (n:Procedure:MANUFACTURING)` to guarantee zero cross-domain data leakage.
+*   **Figure Nodes**: Steps that reference diagrams create `(:Figure:DOMAIN)` nodes linked via `[:REFERENCES_FIGURE]` relationships. XML-parsed tech manuals receive the `:MAINTENANCE` label via post-sync Cypher labeling after n10s import.
 
 ### 2. Weaviate (Vector Retrieval)
 Every text chunk includes a `domain` metadata property.
@@ -89,7 +90,7 @@ Input strings are automatically sanitized and normalized by the pipeline:
   - `doc_tools/assets/ingestion_assets.py`: Core ingestion logic for unstructured/PPTX files.
   - `doc_tools/assets/semantic_assets.py`: Cypher logic for Neo4j Knowledge Graphs and generic Hybrid Graph synchronization (Jena/Neo4j).
   - `doc_tools/assets/xml_ingestion.py`: Universal XML extractor routing to specialized parsers (S1000D, DITA, IADS) based on MinIO directory prefixes.
-  - `doc_tools/parsers/`: Specialized builders for MIL-spec standards including `s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, and `mil_std_40051_rdf.py`.
+  - `doc_tools/parsers/`: Specialized builders for MIL-spec standards including `s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, and `mil_std_40051_rdf.py`. All parsers extract `mil:Figure` triples from format-specific tags (`<figure>`, `<graphic boardno>`, `<graphic infoEntityIdent>`, `<fig>`, `<image>`).
   - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests based on mapped S3 directory prefixes.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
   - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration. It uses a **declarative component model** via `dag-tools` to instantiate sensors and ingestion jobs, completely replacing the legacy `config.yaml` with typed, validated `IngestionConfig` objects.

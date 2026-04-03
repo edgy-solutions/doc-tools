@@ -34,6 +34,9 @@ class ManufacturingStep {
 
   // Hook 3: The Semantic Fallback (For Weaviate)
   material_and_hardware_slang string[] @description("Extract generic nouns for consumables/hardware lacking a specific part number (e.g., 'RTV Silicone', 'Loctite', 'Hex Nut', 'Epoxy'). Used for downstream vector similarity searches against a materials index.")
+
+  // Hook 4: Figure/Image References for Neo4j Figure Nodes
+  figure_references string[] @description("Extract ONLY explicit figure, image, graphic, or drawing identifiers referenced in this step. Valid examples: 'Figure 3', 'Fig. 12A', 'Graphic 7', 'Drawing 101-B'. Extract the identifier only (e.g., '3', '12A', '7', '101-B'). Do NOT extract vague references like 'see the diagram below' or 'as illustrated'. Return empty array if no explicit figure ID is present.")
 }
 
 class StrategicAssessment {
@@ -80,6 +83,7 @@ function ExtractWorkInstructions(text: string, procedure_id_format: string, step
     - Whether it `is_value_added` and `is_safety_critical` based on the strict limits above.
     - The `process_category` of the fundamental physics.
     - The chain-of-thought `justification`.
+    - Any explicit `figure_references` (e.g., 'Figure 3', 'Fig. 12A'). Only extract resolvable identifiers, never vague references.
     - Any `estimated_duration_minutes` (e.g., cure times, labor time).
 
     Also, generate a strategic assessment assigning a proprietary_score (0 to 1.0) and determination of outsourceability.

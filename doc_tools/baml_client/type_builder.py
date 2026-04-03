@@ -20,18 +20,26 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["ComplianceAugmentation","ComplianceRule","Concept","LearningObjective","ManufacturingStep","MatAugmentation","Outline","Section","SlideAugmentation","StrategicAssessment",]
+          ["ComplianceAugmentation","ComplianceRule","Concept","LearningObjective","MaintenanceStep","ManufacturingStep","MatAugmentation","MroAugmentation","Outline","Section","SlideAugmentation","StrategicAssessment",]
         ), enums=set(
-          ["HazardClass","PersonnelRole","ProcessCategory",]
+          ["HazardClass","InspectionType","MaintenanceLevel","PersonnelRole","ProcessCategory",]
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
 
     # #########################################################################
-    # Generated enums 3
+    # Generated enums 5
     # #########################################################################
 
     @property
     def HazardClass(self) -> "HazardClassBuilder":
         return HazardClassBuilder(self)
+
+    @property
+    def InspectionType(self) -> "InspectionTypeBuilder":
+        return InspectionTypeBuilder(self)
+
+    @property
+    def MaintenanceLevel(self) -> "MaintenanceLevelBuilder":
+        return MaintenanceLevelBuilder(self)
 
     @property
     def PersonnelRole(self) -> "PersonnelRoleBuilder":
@@ -43,7 +51,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 10
+    # Generated classes 12
     # #########################################################################
 
     @property
@@ -63,12 +71,20 @@ class TypeBuilder(type_builder.TypeBuilder):
         return LearningObjectiveViewer(self)
 
     @property
+    def MaintenanceStep(self) -> "MaintenanceStepViewer":
+        return MaintenanceStepViewer(self)
+
+    @property
     def ManufacturingStep(self) -> "ManufacturingStepViewer":
         return ManufacturingStepViewer(self)
 
     @property
     def MatAugmentation(self) -> "MatAugmentationViewer":
         return MatAugmentationViewer(self)
+
+    @property
+    def MroAugmentation(self) -> "MroAugmentationViewer":
+        return MroAugmentationViewer(self)
 
     @property
     def Outline(self) -> "OutlineViewer":
@@ -89,7 +105,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
 # #########################################################################
-# Generated enums 3
+# Generated enums 5
 # #########################################################################
 
 class HazardClassAst:
@@ -122,6 +138,94 @@ class HazardClassBuilder(HazardClassAst):
     
 
 class HazardClassValues:
+    def __init__(self, enum_bldr: baml_py.EnumBuilder, values: typing.Set[str]):
+        self.__bldr = enum_bldr
+        self.__values = values # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    def __getattr__(self, name: str) -> baml_py.EnumValueBuilder:
+        if name not in self.__values:
+            raise AttributeError(f"Value {name} not found.")
+        return self.__bldr.value(name)
+
+    
+    
+
+
+class InspectionTypeAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.enum("InspectionType")
+        self._values: typing.Set[str] = set([  ])
+        self._vals = InspectionTypeValues(self._bldr, self._values)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def values(self) -> "InspectionTypeValues":
+        return self._vals
+
+
+class InspectionTypeBuilder(InspectionTypeAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_values(self) -> typing.List[typing.Tuple[str, baml_py.EnumValueBuilder]]:
+        return [(name, self._bldr.value(name)) for name in self._values]
+
+    def add_value(self, name: str) -> baml_py.EnumValueBuilder:
+        if name in self._values:
+            raise ValueError(f"Value {name} already exists.")
+        return self._bldr.value(name)
+    
+
+class InspectionTypeValues:
+    def __init__(self, enum_bldr: baml_py.EnumBuilder, values: typing.Set[str]):
+        self.__bldr = enum_bldr
+        self.__values = values # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    def __getattr__(self, name: str) -> baml_py.EnumValueBuilder:
+        if name not in self.__values:
+            raise AttributeError(f"Value {name} not found.")
+        return self.__bldr.value(name)
+
+    
+    
+
+
+class MaintenanceLevelAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.enum("MaintenanceLevel")
+        self._values: typing.Set[str] = set([  ])
+        self._vals = MaintenanceLevelValues(self._bldr, self._values)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def values(self) -> "MaintenanceLevelValues":
+        return self._vals
+
+
+class MaintenanceLevelBuilder(MaintenanceLevelAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_values(self) -> typing.List[typing.Tuple[str, baml_py.EnumValueBuilder]]:
+        return [(name, self._bldr.value(name)) for name in self._values]
+
+    def add_value(self, name: str) -> baml_py.EnumValueBuilder:
+        if name in self._values:
+            raise ValueError(f"Value {name} already exists.")
+        return self._bldr.value(name)
+    
+
+class MaintenanceLevelValues:
     def __init__(self, enum_bldr: baml_py.EnumBuilder, values: typing.Set[str]):
         self.__bldr = enum_bldr
         self.__values = values # type: ignore (we know how to use this private attribute) # noqa: F821
@@ -226,7 +330,7 @@ class ProcessCategoryValues:
 
 
 # #########################################################################
-# Generated classes 10
+# Generated classes 12
 # #########################################################################
 
 class ComplianceAugmentationAst:
@@ -413,11 +517,118 @@ class LearningObjectiveProperties:
     
 
 
+class MaintenanceStepAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("MaintenanceStep")
+        self._properties: typing.Set[str] = set([  "procedure_id",  "step_id",  "instruction_text",  "action_verb",  "tooling",  "consumables",  "hazard_class",  "required_cert",  "standard_ref",  "inspection_type",  "maintenance_level",  "is_safety_critical",  "torque_spec",  "justification",  "estimated_duration_minutes",  "military_and_industry_standards",  "internal_part_numbers",  "figure_references",  ])
+        self._props = MaintenanceStepProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "MaintenanceStepProperties":
+        return self._props
+
+
+class MaintenanceStepViewer(MaintenanceStepAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class MaintenanceStepProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def procedure_id(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("procedure_id"))
+    
+    @property
+    def step_id(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("step_id"))
+    
+    @property
+    def instruction_text(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("instruction_text"))
+    
+    @property
+    def action_verb(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("action_verb"))
+    
+    @property
+    def tooling(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("tooling"))
+    
+    @property
+    def consumables(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("consumables"))
+    
+    @property
+    def hazard_class(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("hazard_class"))
+    
+    @property
+    def required_cert(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("required_cert"))
+    
+    @property
+    def standard_ref(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("standard_ref"))
+    
+    @property
+    def inspection_type(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("inspection_type"))
+    
+    @property
+    def maintenance_level(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("maintenance_level"))
+    
+    @property
+    def is_safety_critical(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("is_safety_critical"))
+    
+    @property
+    def torque_spec(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("torque_spec"))
+    
+    @property
+    def justification(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("justification"))
+    
+    @property
+    def estimated_duration_minutes(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("estimated_duration_minutes"))
+    
+    @property
+    def military_and_industry_standards(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("military_and_industry_standards"))
+    
+    @property
+    def internal_part_numbers(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("internal_part_numbers"))
+    
+    @property
+    def figure_references(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("figure_references"))
+    
+    
+
+
 class ManufacturingStepAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("ManufacturingStep")
-        self._properties: typing.Set[str] = set([  "procedure_id",  "step_id",  "instruction_text",  "action_verb",  "tooling",  "consumables",  "hazard_class",  "required_cert",  "standard_ref",  "is_value_added",  "is_safety_critical",  "process_category",  "justification",  "estimated_duration_minutes",  "military_and_industry_standards",  "internal_part_numbers",  "material_and_hardware_slang",  ])
+        self._properties: typing.Set[str] = set([  "procedure_id",  "step_id",  "instruction_text",  "action_verb",  "tooling",  "consumables",  "hazard_class",  "required_cert",  "standard_ref",  "is_value_added",  "is_safety_critical",  "process_category",  "justification",  "estimated_duration_minutes",  "military_and_industry_standards",  "internal_part_numbers",  "material_and_hardware_slang",  "figure_references",  ])
         self._props = ManufacturingStepProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -513,6 +724,10 @@ class ManufacturingStepProperties:
     def material_and_hardware_slang(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("material_and_hardware_slang"))
     
+    @property
+    def figure_references(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("figure_references"))
+    
     
 
 
@@ -555,6 +770,45 @@ class MatAugmentationProperties:
     @property
     def assessment(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("assessment"))
+    
+    
+
+
+class MroAugmentationAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("MroAugmentation")
+        self._properties: typing.Set[str] = set([  "steps",  ])
+        self._props = MroAugmentationProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "MroAugmentationProperties":
+        return self._props
+
+
+class MroAugmentationViewer(MroAugmentationAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class MroAugmentationProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def steps(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("steps"))
     
     
 

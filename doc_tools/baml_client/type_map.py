@@ -28,11 +28,17 @@ type_map = {
     "types.LearningObjective": types.LearningObjective,
     "stream_types.LearningObjective": stream_types.LearningObjective,
 
+    "types.MaintenanceStep": types.MaintenanceStep,
+    "stream_types.MaintenanceStep": stream_types.MaintenanceStep,
+
     "types.ManufacturingStep": types.ManufacturingStep,
     "stream_types.ManufacturingStep": stream_types.ManufacturingStep,
 
     "types.MatAugmentation": types.MatAugmentation,
     "stream_types.MatAugmentation": stream_types.MatAugmentation,
+
+    "types.MroAugmentation": types.MroAugmentation,
+    "stream_types.MroAugmentation": stream_types.MroAugmentation,
 
     "types.Outline": types.Outline,
     "stream_types.Outline": stream_types.Outline,
@@ -48,6 +54,10 @@ type_map = {
 
 
     "types.HazardClass": types.HazardClass,
+
+    "types.InspectionType": types.InspectionType,
+
+    "types.MaintenanceLevel": types.MaintenanceLevel,
 
     "types.PersonnelRole": types.PersonnelRole,
 

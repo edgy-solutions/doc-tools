@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (10)
+# Generated classes (12)
 # #########################################################################
 
 class ComplianceAugmentation(BaseModel):
@@ -45,6 +45,26 @@ class Concept(BaseModel):
 class LearningObjective(BaseModel):
     description: typing.Optional[str] = None
 
+class MaintenanceStep(BaseModel):
+    procedure_id: typing.Optional[str] = Field(default=None, description='The parent maintenance procedure this step belongs to')
+    step_id: typing.Optional[str] = Field(default=None, description='The specific step identifier')
+    instruction_text: typing.Optional[str] = Field(default=None, description='The full, verbatim raw text of the step from the document.')
+    action_verb: typing.Optional[str] = Field(default=None, description='The concrete maintenance action, e.g. \'Remove\', \'Install\', \'Inspect\', \'Lubricate\', \'Torque\'')
+    tooling: typing.List[str] = Field(description='List of tools required, e.g. [\'Torque Wrench\', \'Multimeter\']. If missing, empty list.')
+    consumables: typing.List[str] = Field(description='Consumable materials, e.g. [\'MIL-PRF-81322 Grease\', \'Loctite 242\']. If missing, empty list.')
+    hazard_class: typing.Optional[str] = Field(default=None, description='Safety hazard classification. If none, leave null.')
+    required_cert: typing.Optional[str] = Field(default=None, description='Personnel certification requirement. If none, leave null.')
+    standard_ref: typing.Optional[str] = Field(default=None, description='e.g. \'TM 9-1005-317-23\'. If none, leave null.')
+    inspection_type: typing.Optional[typing.Union[types.InspectionType, str]] = Field(default=None, description='Type of inspection if this is an inspection step. If not an inspection, leave null.')
+    maintenance_level: typing.Optional[typing.Union[types.MaintenanceLevel, str]] = Field(default=None, description='Organizational, Direct Support, or Depot level. If unclear, leave null.')
+    is_safety_critical: typing.Optional[bool] = Field(default=None, description='True if the step involves high-voltage, explosive ordnance, load-bearing components, or flight-critical systems.')
+    torque_spec: typing.Optional[str] = Field(default=None, description='Extract any torque specifications mentioned (e.g., \'15 ft-lbs\', \'20 Nm\'). If none, leave null.')
+    justification: typing.Optional[str] = Field(default=None, description='A 1-sentence explanation of why the safety-critical flag was chosen.')
+    estimated_duration_minutes: typing.Optional[int] = Field(default=None, description='Extract any mentioned time constraints or labor durations. If none, leave null.')
+    military_and_industry_standards: typing.List[str] = Field(description='Extract formal standards: Military (MIL-, TM-, TM 9-*, FM-), Industry (SAE-, ANSI-, ISO-). Normalize to use a single hyphen between prefix and number. Return empty array if none.')
+    internal_part_numbers: typing.List[str] = Field(description='Extract internal part numbers, NSNs, or drawing numbers explicitly mentioned. Strip prefixes; return the alphanumeric identifier.')
+    figure_references: typing.List[str] = Field(description='Extract ONLY explicit figure, image, graphic, or drawing identifiers referenced in this step. Valid examples: \'Figure 3\', \'Fig. 12A\', \'Graphic 7\'. Extract the identifier only (e.g., \'3\', \'12A\', \'7\'). Do NOT extract vague references. Return empty array if no explicit figure ID is present.')
+
 class ManufacturingStep(BaseModel):
     procedure_id: typing.Optional[str] = Field(default=None, description='The parent procedure this step belongs to')
     step_id: typing.Optional[str] = Field(default=None, description='The specific step identifier')
@@ -63,10 +83,14 @@ class ManufacturingStep(BaseModel):
     military_and_industry_standards: typing.List[str] = Field(description='Extract formal standards: Military (MIL-, MS, AN*, NAS*, AS*), Joint Industry (J-STD-*), Electronics (IPC-*), Testing (ASTM-, SAE-, ANSI-, ISO-), Process (NADCAP*). Normalize to use a single hyphen between prefix and number (e.g., \'J STD 001\', \'JSTD001\' -> \'J-STD-001\', \'MIL PRF 81733\' -> \'MIL-PRF-81733\'). Return empty array if none.')
     internal_part_numbers: typing.List[str] = Field(description='Extract internal proprietary part numbers, assembly numbers, or drawing numbers explicitly mentioned (e.g., \'PN 99-812\', \'Assy 104-B\'). Strip the \'PN\' prefix; return the alphanumeric identifier.')
     material_and_hardware_slang: typing.List[str] = Field(description='Extract generic nouns for consumables/hardware lacking a specific part number (e.g., \'RTV Silicone\', \'Loctite\', \'Hex Nut\', \'Epoxy\'). Used for downstream vector similarity searches against a materials index.')
+    figure_references: typing.List[str] = Field(description='Extract ONLY explicit figure, image, graphic, or drawing identifiers referenced in this step. Valid examples: \'Figure 3\', \'Fig. 12A\', \'Graphic 7\', \'Drawing 101-B\'. Extract the identifier only (e.g., \'3\', \'12A\', \'7\', \'101-B\'). Do NOT extract vague references like \'see the diagram below\' or \'as illustrated\'. Return empty array if no explicit figure ID is present.')
 
 class MatAugmentation(BaseModel):
     steps: typing.List["ManufacturingStep"]
     assessment: typing.Optional["StrategicAssessment"] = None
+
+class MroAugmentation(BaseModel):
+    steps: typing.List["MaintenanceStep"]
 
 class Outline(BaseModel):
     sections: typing.List["Section"]

@@ -43,8 +43,10 @@ def prime_neo4j():
         "CREATE CONSTRAINT part_id_unique IF NOT EXISTS FOR (p:Part) REQUIRE p.id IS UNIQUE;",
         "CREATE CONSTRAINT proc_id_unique IF NOT EXISTS FOR (p:Procedure) REQUIRE p.id IS UNIQUE;",
         "CREATE CONSTRAINT step_id_unique IF NOT EXISTS FOR (s:ManufacturingStep) REQUIRE s.id IS UNIQUE;",
-        "CREATE INDEX hazard_index IF NOT EXISTS FOR (h:Hazard) ON (h.class);"
+        "CREATE INDEX hazard_index IF NOT EXISTS FOR (h:Hazard) ON (h.class);",
+        "CREATE CONSTRAINT figure_id_unique IF NOT EXISTS FOR (f:Figure) REQUIRE f.id IS UNIQUE;"
     ]
+
     
     try:
         driver = GraphDatabase.driver(uri, auth=(user, password))

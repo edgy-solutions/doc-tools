@@ -184,7 +184,7 @@ class TrainingPlugin(AugmentationPlugin):
         global_section = BaseSection(title="Course Outline", level=0, page_start=0, content="", node_id=doc_id)
         return [DocumentNode(base_extraction=global_section, domain_augmentation=augmentation)]
 
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any) -> Tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "") -> Tuple[List[str], List[str]]:
         cypher_queries = []
         sparql_queries = []
         

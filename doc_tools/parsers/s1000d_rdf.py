@@ -9,8 +9,10 @@ class S1000dGraphBuilder:
     into a formal RDF Knowledge Graph using a unified MIL ontology.
     """
     
-    def __init__(self):
+    def __init__(self, bucket: str = "", doc_id: str = ""):
         self.graph = Graph()
+        self.bucket = bucket
+        self.doc_id = doc_id
         # Define the unified MIL namespace (shared with DITA and IADS)
         self.MIL = Namespace('http://edgy-solutions.com/ontology/mil#')
         
@@ -24,6 +26,7 @@ class S1000dGraphBuilder:
         self.HAS_PART = self.MIL.hasPart
         self.HAS_INFO_CODE = self.MIL.hasInfoCode
         self.HAS_SNS = self.MIL.hasSNS
+        self.HAS_FIGURE = self.MIL.hasFigure
 
     def parse_data_module(self, xml_content: bytes) -> str:
         """
@@ -87,6 +90,29 @@ class S1000dGraphBuilder:
                 part_uri = self.MIL[f"part-{pn}"]
                 self.graph.add((part_uri, RDF.type, self.MIL.Part))
                 self.graph.add((dmc_uri, self.HAS_PART, part_uri))
+
+        # 5. Extract Figures
+        figure_elements = root.xpath("//figure")
+        for idx, fig_el in enumerate(figure_elements):
+            fig_id = fig_el.get("id", f"fig_{idx}")
+            title_el = fig_el.find(".//title")
+            title = title_el.text.strip() if title_el is not None and title_el.text else fig_id
+            
+            # Get graphic filename: try infoEntityIdent first (S1000D), then boardno (IADS-style)
+            graphic_el = fig_el.find(".//graphic")
+            info_entity = ""
+            if graphic_el is not None:
+                info_entity = graphic_el.get("infoEntityIdent", "") or graphic_el.get("boardno", "")
+            
+            figure_uri = self.MIL[f"fig-{fig_id}"]
+            self.graph.add((figure_uri, RDF.type, self.MIL.Figure))
+            self.graph.add((figure_uri, RDFS.label, Literal(title)))
+            if info_entity and self.bucket and self.doc_id:
+                full_s3_url = f"s3://{self.bucket}/{self.doc_id}/generated/images/{info_entity}.png"
+                self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
+            elif info_entity:
+                self.graph.add((figure_uri, self.MIL.hasURL, Literal(info_entity)))
+            self.graph.add((dmc_uri, self.HAS_FIGURE, figure_uri))
 
         return str(dmc_uri)
 

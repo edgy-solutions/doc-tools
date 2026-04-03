@@ -51,7 +51,12 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
         raise ValueError(f"Unsupported doc_type: {doc_type}")
 
     context.log.info(f"Routing to {PARSERS[doc_type].__name__} for doc_type: {doc_type}")
-    builder = PARSERS[doc_type]()
+    
+    # Derive doc_id from s3_key (e.g., "s1000d/manual_v2.xml" -> "manual_v2")
+    import os
+    doc_id = os.path.splitext(os.path.basename(config.s3_key))[0]
+    
+    builder = PARSERS[doc_type](bucket=config.s3_bucket, doc_id=doc_id)
     
     # Parse the in-memory bytes and capture the root URI
     root_uri = builder.parse_data_module(xml_bytes)
@@ -59,6 +64,7 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
     # Return the serialized RDF string directly for in-memory passing (K8s safe)
     rdf_string = builder.serialize(format="turtle")
     context.log.info(f"RDF serialized to string successfully. Root URI: {root_uri}")
+
     
     return {
         "rdf_string": rdf_string,

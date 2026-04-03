@@ -122,6 +122,20 @@ class BamlSyncClient:
                 "slide_text": slide_text,
             })
             return typing.cast(types.SlideAugmentation, __result__.cast_to(types, types, stream_types, False, __runtime__))
+    def ExtractMaintenanceProcedures(self, text: str,
+        baml_options: BamlCallOptions = {},
+    ) -> types.MroAugmentation:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            __stream__ = self.stream.ExtractMaintenanceProcedures(text=text,
+                baml_options=baml_options)
+            return __stream__.get_final_response()
+        else:
+            # Original non-streaming code
+            __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="ExtractMaintenanceProcedures", args={
+                "text": text,
+            })
+            return typing.cast(types.MroAugmentation, __result__.cast_to(types, types, stream_types, False, __runtime__))
     def ExtractOutline(self, document_text: str,
         baml_options: BamlCallOptions = {},
     ) -> types.Outline:
@@ -183,6 +197,18 @@ class BamlStreamClient:
           lambda x: typing.cast(types.SlideAugmentation, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
+    def ExtractMaintenanceProcedures(self, text: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlSyncStream[stream_types.MroAugmentation, types.MroAugmentation]:
+        __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="ExtractMaintenanceProcedures", args={
+            "text": text,
+        })
+        return baml_py.BamlSyncStream[stream_types.MroAugmentation, types.MroAugmentation](
+          __result__,
+          lambda x: typing.cast(stream_types.MroAugmentation, x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(types.MroAugmentation, x.cast_to(types, types, stream_types, False, __runtime__)),
+          __ctx__,
+        )
     def ExtractOutline(self, document_text: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[stream_types.Outline, types.Outline]:
@@ -229,6 +255,13 @@ class BamlHttpRequestClient:
             "slide_text": slide_text,
         }, mode="request")
         return __result__
+    def ExtractMaintenanceProcedures(self, text: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractMaintenanceProcedures", args={
+            "text": text,
+        }, mode="request")
+        return __result__
     def ExtractOutline(self, document_text: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -263,6 +296,13 @@ class BamlHttpStreamRequestClient:
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractConcepts", args={
             "slide_text": slide_text,
+        }, mode="stream")
+        return __result__
+    def ExtractMaintenanceProcedures(self, text: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractMaintenanceProcedures", args={
+            "text": text,
         }, mode="stream")
         return __result__
     def ExtractOutline(self, document_text: str,

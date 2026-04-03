@@ -102,6 +102,9 @@ def build_knowledge_graph(
     # Initialize appropriate Plugin
     if domain_type == "manufacturing":
         plugin = ManufacturingPlugin(domain_type)
+    elif domain_type == "maintenance":
+        from doc_tools.plugins.maintenance import MaintenancePlugin
+        plugin = MaintenancePlugin(domain_type)
     elif domain_type == "compliance":
         try:
             from doc_tools.plugins.compliance import CompliancePlugin
@@ -200,7 +203,7 @@ def build_knowledge_graph(
 
     # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
     context.log.info(f"Generating domain graph queries from {len(document_nodes)} augmented nodes...")
-    cypher_queries, sparql_queries = plugin.to_graph_queries(document_nodes, config)
+    cypher_queries, sparql_queries = plugin.to_graph_queries(document_nodes, config, doc_id=doc_id)
     
     for idx, c_query in enumerate(cypher_queries):
         try:
@@ -358,6 +361,11 @@ def sync_jena_to_neo4j(context: AssetExecutionContext, upload_to_jena: dict, jen
     except Exception as e:
         context.log.error(f"n10s fetch failed: {e}")
         triples_imported = 0
+
+    # 4. Post-Sync: Apply MAINTENANCE domain label to all imported nodes
+    # XML tech manuals (S1000D, IADS, DITA, 40051) are maintenance/MRO content
+    _apply_post_sync_domain_labels(neo4j_client, uri_list, "MAINTENANCE", context)
+
         
     return MaterializeResult(
         metadata={
@@ -367,3 +375,22 @@ def sync_jena_to_neo4j(context: AssetExecutionContext, upload_to_jena: dict, jen
             "jena_named_graph": graph_uri
         }
     )
+
+
+def _apply_post_sync_domain_labels(neo4j_client, uri_list, domain_label: str, context):
+    """
+    After n10s imports RDF nodes as :Resource nodes, apply the domain segregation
+    label so downstream agents can filter by domain in Cypher.
+    """
+    if not uri_list:
+        return
+    
+    context.log.info(f"Applying :{domain_label} label to {len(uri_list)} imported Resource nodes...")
+    try:
+        neo4j_client.execute_query(
+            f"UNWIND $uri_list AS u MATCH (n:Resource {{uri: u}}) SET n:{domain_label}",
+            {"uri_list": uri_list}
+        )
+        context.log.info(f"Successfully applied :{domain_label} to all synced nodes.")
+    except Exception as e:
+        context.log.error(f"Failed to apply domain labels: {e}")

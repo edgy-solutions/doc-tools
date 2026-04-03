@@ -8,8 +8,10 @@ class DitaGraphBuilder:
     Parser for DITA XML files, extracting tasks and topics into an RDF Knowledge Graph.
     """
     
-    def __init__(self):
+    def __init__(self, bucket: str = "", doc_id: str = ""):
         self.graph = Graph()
+        self.bucket = bucket
+        self.doc_id = doc_id
         # Define the unified MIL namespace
         self.MIL = Namespace('http://edgy-solutions.com/ontology/mil#')
         
@@ -22,6 +24,7 @@ class DitaGraphBuilder:
         self.REQUIRES_TOOL = self.MIL.requiresTool
         self.HAS_PART = self.MIL.hasPart
         self.HAS_INSTRUCTION = self.MIL.hasInstructionText
+        self.HAS_FIGURE = self.MIL.hasFigure
 
     def parse_data_module(self, xml_content: bytes) -> str:
         """
@@ -63,6 +66,27 @@ class DitaGraphBuilder:
             instruction_text = "".join(s.itertext()).strip()
             if instruction_text:
                 self.graph.add((node_uri, self.HAS_INSTRUCTION, Literal(instruction_text)))
+
+        # 4. Extract Figures (DITA uses <fig> with <image href="...">)
+        fig_elements = root.xpath("//fig")
+        for idx, fig_el in enumerate(fig_elements):
+            fig_id = fig_el.get("id", f"fig_{idx}")
+            title_el = fig_el.find(".//title")
+            title = title_el.text.strip() if title_el is not None and title_el.text else fig_id
+            
+            # Get image href
+            image_el = fig_el.find(".//image")
+            href = image_el.get("href", "") if image_el is not None else ""
+            
+            figure_uri = self.MIL[f"fig-{fig_id}"]
+            self.graph.add((figure_uri, RDF.type, self.MIL.Figure))
+            self.graph.add((figure_uri, RDFS.label, Literal(title)))
+            if href and self.bucket and self.doc_id:
+                full_s3_url = f"s3://{self.bucket}/{self.doc_id}/generated/images/{href}.png"
+                self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
+            elif href:
+                self.graph.add((figure_uri, self.MIL.hasURL, Literal(href)))
+            self.graph.add((node_uri, self.HAS_FIGURE, figure_uri))
 
         return str(node_uri)
 

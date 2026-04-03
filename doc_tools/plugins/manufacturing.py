@@ -22,6 +22,7 @@ class ManufacturingStep(BaseModel):
     military_and_industry_standards: List[str] = Field(default_factory=list)
     internal_part_numbers: List[str] = Field(default_factory=list)
     material_and_hardware_slang: List[str] = Field(default_factory=list)
+    figure_references: List[str] = Field(default_factory=list, description="Explicit figure/image IDs referenced by this step")
 
 class StrategicAssessment(BaseModel):
     proprietary_score: float = Field(ge=0.0, le=1.0, description="0.0 (Common) to 1.0 (Secret Sauce)")
@@ -84,7 +85,8 @@ class ManufacturingPlugin(AugmentationPlugin):
                     estimated_duration_minutes=s.estimated_duration_minutes,
                     military_and_industry_standards=s.military_and_industry_standards,
                     internal_part_numbers=s.internal_part_numbers,
-                    material_and_hardware_slang=s.material_and_hardware_slang
+                    material_and_hardware_slang=s.material_and_hardware_slang,
+                    figure_references=getattr(s, 'figure_references', []) or []
                 ))
                 
             augmentation = MatAugmentation(
@@ -116,7 +118,8 @@ class ManufacturingPlugin(AugmentationPlugin):
                         estimated_duration_minutes=15,
                         military_and_industry_standards=["MIL-PRF-81733"],
                         internal_part_numbers=["99-812"],
-                        material_and_hardware_slang=["Epoxy"]
+                        material_and_hardware_slang=["Epoxy"],
+                        figure_references=["Fig1"]
                     )
                 ],
                 assessment=StrategicAssessment(
@@ -130,7 +133,7 @@ class ManufacturingPlugin(AugmentationPlugin):
             domain_augmentation=augmentation
         )
 
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any) -> Tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "") -> Tuple[List[str], List[str]]:
         cypher_queries = []
         sparql_queries = []
         
@@ -219,6 +222,15 @@ class ManufacturingPlugin(AugmentationPlugin):
                     SET c.certification = $cert
                     MERGE (s)-[:REQUIRES_CERT]->(c)
                     """
+
+                if step.figure_references:
+                    edge_cypher += f"""
+                    WITH s
+                    UNWIND $figures AS fig_ref
+                    MERGE (f:Figure:{self.domain_label} {{id: "fig_" + fig_ref}})
+                    ON CREATE SET f.url = "s3://" + $bucket + "/" + $doc_id + "/generated/images/" + fig_ref + ".png", f.title = fig_ref
+                    MERGE (s)-[:REFERENCES_FIGURE]->(f)
+                    """
                     
                 cypher_queries.append({
                     "query": edge_cypher,
@@ -241,7 +253,10 @@ class ManufacturingPlugin(AugmentationPlugin):
                         "hazard_id": f"hazard_{step.hazard_class}" if step.hazard_class else "",
                         "hazard": step.hazard_class or "",
                         "cert_id": f"cert_{step.required_cert}" if step.required_cert else "",
-                        "cert": step.required_cert or ""
+                        "cert": step.required_cert or "",
+                        "figures": step.figure_references,
+                        "bucket": config.bucket,
+                        "doc_id": doc_id
                     }
                 })
                 
@@ -284,6 +299,14 @@ class ManufacturingPlugin(AugmentationPlugin):
                     sparql += f"""
                         mfg:{step_node_id} mfg:requiresCertification "{step.required_cert}" .
                     """
+
+                if step.figure_references:
+                    for fig in step.figure_references:
+                        safe_fig = fig.replace(" ", "_").replace('"', '')
+                        sparql += f"""
+                            mfg:{step_node_id} mfg:referencesFigure mfg:fig_{safe_fig} .
+                            mfg:fig_{safe_fig} a mfg:Figure .
+                        """
                     
                 sparql += "}"
                 

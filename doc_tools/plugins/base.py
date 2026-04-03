@@ -29,13 +29,14 @@ class AugmentationPlugin(ABC):
         pass
 
     @abstractmethod
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any) -> tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "") -> tuple[List[str], List[str]]:
         """
         Generates the database insertion statements.
         Returns a tuple of (List[Cypher Queries], List[SPARQL Queries]).
         If a database is unused by the domain, return an empty list.
         """
         pass
+
         
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None) -> List[DocumentNode]:
         """

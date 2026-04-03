@@ -35,6 +35,12 @@ class LlmResponseParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractConcepts", llm_response=llm_response, mode="request")
         return typing.cast(types.SlideAugmentation, __result__)
 
+    def ExtractMaintenanceProcedures(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> types.MroAugmentation:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractMaintenanceProcedures", llm_response=llm_response, mode="request")
+        return typing.cast(types.MroAugmentation, __result__)
+
     def ExtractOutline(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> types.Outline:
@@ -66,6 +72,12 @@ class LlmStreamParser:
     ) -> stream_types.SlideAugmentation:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractConcepts", llm_response=llm_response, mode="stream")
         return typing.cast(stream_types.SlideAugmentation, __result__)
+
+    def ExtractMaintenanceProcedures(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> stream_types.MroAugmentation:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractMaintenanceProcedures", llm_response=llm_response, mode="stream")
+        return typing.cast(stream_types.MroAugmentation, __result__)
 
     def ExtractOutline(
         self, llm_response: str, baml_options: BamlCallOptions = {},

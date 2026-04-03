@@ -19,7 +19,13 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   2. Run `baml-cli generate`. This drops the compiled models directly natively into `doc_tools/baml_client` to bypass Dagster's isolated import space issues.
   3. Create `doc_tools/plugins/{domain}.py` extending `AugmentationPlugin`.
   4. Register the new plugin in the Dispatcher switch inside `doc_tools/assets/semantic_assets.py`.
+  5. **Existing Domains**: `manufacturing.py` (MANUFACTURING), `maintenance.py` (MAINTENANCE), `training.py` (TRAINING), `compliance.py` (COMPLIANCE).
 - To configure external services, subclass `ConfigurableResource` inside `doc_tools/utils/dagster_resources.py`.
+
+- **Figure/Image Nodes**:
+  1. All BAML schemas should include `figure_references string[]` to extract explicit figure IDs.
+  2. Plugin `to_graph_queries()` must emit `MERGE (f:Figure:{domain_label})` with `[:REFERENCES_FIGURE]` edges. Domain labels go on nodes only, NEVER on relationships.
+  3. XML parsers extract `mil:Figure` triples using `mil:hasFigure` predicate.
 
 - **Multi-Standard Semantic Parsing**: 
   1. Use `doc_tools.parsers` for standard-specific logic (`S1000dGraphBuilder`, `DitaGraphBuilder`, `IadsGraphBuilder`, `MilStd40051GraphBuilder`).
@@ -32,4 +38,5 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   2. **Jena PUT First**: Use `httpx.put` to push Turtle data to the Named Graph. This ensures the old revision is completely replaced in the reasoning engine.
   3. **Neo4j Wipe**: Before importing the new revision, execute `MATCH (n:Resource {uri: $uri}) DETACH DELETE n` on the root node URI to clear the old graph structure.
   4. **Targeted Fetch**: Use a SPARQL `CONSTRUCT` query restricted to the document's `GRAPH <uri>` to fetch and sync only the latest version through `n10s`.
-  5. **In-Memory Triples**: Pass raw Turtle data and root URIs between assets as dictionaries; do not use the local filesystem.
+  5. **Post-Sync Domain Labeling**: After n10s import, apply `:MAINTENANCE` label to all imported Resource nodes via `_apply_post_sync_domain_labels()`. This ensures XML tech manuals are visible to downstream agents that filter by Neo4j domain labels.
+  6. **In-Memory Triples**: Pass raw Turtle data and root URIs between assets as dictionaries; do not use the local filesystem.
