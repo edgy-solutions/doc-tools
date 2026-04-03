@@ -911,7 +911,7 @@ class SlideAugmentationAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("SlideAugmentation")
-        self._properties: typing.Set[str] = set([  "concepts",  "objectives",  "summary",  ])
+        self._properties: typing.Set[str] = set([  "concepts",  "objectives",  "summary",  "figure_references",  ])
         self._props = SlideAugmentationProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -950,6 +950,10 @@ class SlideAugmentationProperties:
     @property
     def summary(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("summary"))
+    
+    @property
+    def figure_references(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("figure_references"))
     
     
 

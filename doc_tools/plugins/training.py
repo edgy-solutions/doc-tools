@@ -11,6 +11,7 @@ class Concept(BaseModel):
 class SlideAugmentation(BaseModel):
     concepts: List[Concept]
     objectives: List[str]
+    figure_references: List[str] = Field(default_factory=list, description="Explicit figure/image IDs referenced in the slide")
 
 class CourseSection(BaseModel):
     title: str
@@ -43,7 +44,8 @@ class TrainingPlugin(AugmentationPlugin):
                 
             augmentation = SlideAugmentation(
                 concepts=concepts,
-                objectives=baml_response.objectives
+                objectives=baml_response.objectives,
+                figure_references=getattr(baml_response, 'figure_references', []) or []
             )
             
         except ImportError:
@@ -52,7 +54,8 @@ class TrainingPlugin(AugmentationPlugin):
                 concepts=[
                     Concept(name=f"Key Concept from {section.title}", salience=0.8)
                 ],
-                objectives=["Understand the fundamentals."]
+                objectives=["Understand the fundamentals."],
+                figure_references=[]
             )
         
         return DocumentNode(
@@ -293,6 +296,26 @@ class TrainingPlugin(AugmentationPlugin):
                         "concept_id": concept_id,
                         "c_name": raw_concept.name,
                         "c_salience": raw_concept.salience
+                    }
+                })
+
+            # Map Figure References -> (Slide)-[:REFERENCES_FIGURE]->(Figure)
+            if aug.figure_references:
+                fig_cypher = f"""
+                MERGE (s:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
+                WITH s
+                UNWIND $figures AS fig_ref
+                MERGE (f:Figure:{self.domain_label} {{id: "fig_" + fig_ref}})
+                ON CREATE SET f.url = "s3://" + $bucket + "/" + $doc_id + "/generated/images/" + fig_ref + ".png", f.title = fig_ref
+                MERGE (s)-[:REFERENCES_FIGURE]->(f)
+                """
+                cypher_queries.append({
+                    "query": fig_cypher,
+                    "params": {
+                        "section_id": section_id,
+                        "figures": aug.figure_references,
+                        "bucket": config.bucket,
+                        "doc_id": doc_id
                     }
                 })
                 

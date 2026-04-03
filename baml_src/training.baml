@@ -13,6 +13,7 @@ class SlideAugmentation {
   concepts Concept[]
   objectives LearningObjective[]
   summary string
+  figure_references string[] @description("Extract explicit figure, diagram, or graphic identifiers referenced in the slide text (e.g., 'Figure 4', 'ICN-12345', 'Diagram 2A'). Do NOT extract vague references like 'see the image below'. Return empty array if none.")
 }
 
 function ExtractConcepts(slide_text: string) -> SlideAugmentation {
@@ -30,6 +31,7 @@ function ExtractConcepts(slide_text: string) -> SlideAugmentation {
     - 0.1 = Appears in footer, header, sidebar, or not directly relevant to the content
     
     Focus on the actual slide content, not headers/footers. Generic terms like "Safety" in a footer should get low salience.
+    Also extract any explicit figure, diagram, or graphic references (e.g., 'Figure 4', 'Diagram 2A'). Only extract resolvable identifiers, never vague references.
 
     Slide Text:
     {{ slide_text }}

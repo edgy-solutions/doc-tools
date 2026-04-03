@@ -139,6 +139,7 @@ class SlideAugmentation(BaseModel):
     concepts: typing.List["Concept"]
     objectives: typing.List["LearningObjective"]
     summary: str
+    figure_references: typing.List[str] = Field(description='Extract explicit figure, diagram, or graphic identifiers referenced in the slide text (e.g., \'Figure 4\', \'ICN-12345\', \'Diagram 2A\'). Do NOT extract vague references like \'see the image below\'. Return empty array if none.')
 
 class StrategicAssessment(BaseModel):
     proprietary_score: float = Field(description='0.0 (Common) to 1.0 (Secret Sauce). Score based on how specific/complex the process is.')
