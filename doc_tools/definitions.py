@@ -1,5 +1,5 @@
 from dagster import Definitions, load_assets_from_modules, AssetSelection, define_asset_job, EnvVar
-from dagster_aws.s3 import S3Resource
+from dagster_aws.s3 import S3Resource, s3_pickle_io_manager
 from dag_tools import S3SensorComponent
 from doc_tools.components.document_parser import DocumentParserComponent
 from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets
@@ -87,11 +87,17 @@ ingest_ontology_job = define_asset_job(
     tags=k8s_tags
 )
 
+s3_io_manager = s3_pickle_io_manager.configured({
+    "s3_bucket": os.getenv("DAGSTER_STORAGE_BUCKET", "processing-artifacts"),
+    "s3_prefix": "dagster-artifacts"
+})
+
 defs = Definitions(
     assets=list(document_parser_defs.assets) + all_assets,
     jobs=list(document_parser_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job],
     sensors=list(pdf_sensor_defs.sensors) + list(ontology_sensor_defs.sensors),
     resources={
+        "io_manager": s3_io_manager,
         "s3": S3Resource(
             endpoint_url=EnvVar("S3_ENDPOINT_URL"),
             aws_access_key_id=EnvVar("AWS_ACCESS_KEY_ID"),
