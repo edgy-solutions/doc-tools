@@ -2,6 +2,8 @@ from dagster import Definitions, load_assets_from_modules, AssetSelection, defin
 from dagster_aws.s3 import S3Resource, s3_pickle_io_manager
 from dag_tools import S3SensorComponent
 from doc_tools.components.document_parser import DocumentParserComponent
+from doc_tools.components.sqlserver_extractor import SqlServerExtractorComponent
+from doc_tools.components.oracle_extractor import OracleExtractorComponent
 from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions
@@ -63,6 +65,30 @@ ontology_sensor_defs = ontology_sensor.build_defs(None)
 # 3. Assets & Jobs
 all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets])
 
+sqlserver_extractor = SqlServerExtractorComponent(
+    name="extract_sqlserver_metadata",
+    domain="DATA_ENGINEERING",
+    host=os.getenv("SQLSERVER_HOST", "localhost"),
+    port=int(os.getenv("SQLSERVER_PORT", "1433")),
+    database=os.getenv("SQLSERVER_DATABASE", "master"),
+    username=os.getenv("SQLSERVER_USERNAME", "sa"),
+    password=os.getenv("SQLSERVER_PASSWORD", "password"),
+    driver=os.getenv("SQLSERVER_DRIVER", "ODBC Driver 18 for SQL Server"),
+    trust_server_certificate=os.getenv("SQLSERVER_TRUST_CERT", "true").lower() == "true"
+)
+sqlserver_extractor_defs = sqlserver_extractor.build_defs(None)
+
+oracle_extractor = OracleExtractorComponent(
+    name="extract_oracle_metadata",
+    domain="DATA_ENGINEERING",
+    host=os.getenv("ORACLE_HOST", "localhost"),
+    port=int(os.getenv("ORACLE_PORT", "1521")),
+    service_name=os.getenv("ORACLE_SERVICE_NAME", "ORCL"),
+    username=os.getenv("ORACLE_USERNAME", "system"),
+    password=os.getenv("ORACLE_PASSWORD", "password")
+)
+oracle_extractor_defs = oracle_extractor.build_defs(None)
+
 k8s_tags = {
     "dagster-k8s/config": {
         "container_config": {
@@ -93,7 +119,7 @@ s3_io_manager = s3_pickle_io_manager.configured({
 })
 
 defs = Definitions(
-    assets=list(document_parser_defs.assets) + all_assets,
+    assets=list(document_parser_defs.assets) + list(sqlserver_extractor_defs.assets) + list(oracle_extractor_defs.assets) + all_assets,
     jobs=list(document_parser_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job],
     sensors=list(pdf_sensor_defs.sensors) + list(ontology_sensor_defs.sensors),
     resources={
