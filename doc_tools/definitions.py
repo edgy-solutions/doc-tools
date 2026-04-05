@@ -5,7 +5,8 @@ from doc_tools.components.document_parser import DocumentParserComponent
 from doc_tools.components.sqlserver_extractor import SqlServerExtractorComponent
 from doc_tools.components.oracle_extractor import OracleExtractorComponent
 from doc_tools.components.design_parser import DesignParserComponent
-from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets
+from doc_tools.components.datahub_sensor import DataHubSensorComponent
+from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions, design_files_partition
 import os
@@ -85,8 +86,15 @@ design_parser = DesignParserComponent(
 )
 design_parser_defs = design_parser.build_defs(None)
 
+datahub_sensor = DataHubSensorComponent(
+    name="datahub_approval_sensor",
+    datahub_gms_url=os.getenv("DATAHUB_GMS_URL", "http://datahub-gms:8080/api/graphql"),
+    datahub_token=os.getenv("DATAHUB_TOKEN", "")
+)
+datahub_sensor_defs = datahub_sensor.build_defs(None)
+
 # 3. Assets & Jobs
-all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets])
+all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker])
 
 sqlserver_extractor = SqlServerExtractorComponent(
     name="extract_sqlserver_metadata",
@@ -149,9 +157,9 @@ s3_io_manager = s3_pickle_io_manager.configured({
 })
 
 defs = Definitions(
-    assets=list(document_parser_defs.assets) + list(sqlserver_extractor_defs.assets) + list(oracle_extractor_defs.assets) + list(design_parser_defs.assets) + all_assets,
-    jobs=list(document_parser_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
-    sensors=list(pdf_sensor_defs.sensors) + list(ontology_sensor_defs.sensors) + list(design_sensor_defs.sensors),
+    assets=list(document_parser_defs.assets) + list(sqlserver_extractor_defs.assets) + list(oracle_extractor_defs.assets) + list(design_parser_defs.assets) + list(datahub_sensor_defs.assets) + all_assets,
+    jobs=list(document_parser_defs.jobs) + list(datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
+    sensors=list(pdf_sensor_defs.sensors) + list(ontology_sensor_defs.sensors) + list(design_sensor_defs.sensors) + list(datahub_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
