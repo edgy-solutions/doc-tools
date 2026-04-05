@@ -40,5 +40,8 @@ dev = [
     "pytest",
 ]
 
+[tool.setuptools.packages.find]
+include = ["doc_tools*"]
+
 [tool.dagster]
 module_name = "doc_tools.definitions"
