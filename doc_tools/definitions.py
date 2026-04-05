@@ -4,9 +4,10 @@ from dag_tools import S3SensorComponent
 from doc_tools.components.document_parser import DocumentParserComponent
 from doc_tools.components.sqlserver_extractor import SqlServerExtractorComponent
 from doc_tools.components.oracle_extractor import OracleExtractorComponent
+from doc_tools.components.design_parser import DesignParserComponent
 from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
-from doc_tools.partitions import ontology_partitions
+from doc_tools.partitions import ontology_partitions, design_files_partition
 import os
 
 # 1. Instantiate the Custom Parser Component
@@ -62,6 +63,28 @@ ontology_sensor = S3SensorComponent(
 )
 ontology_sensor_defs = ontology_sensor.build_defs(None)
 
+design_sensor = S3SensorComponent(
+    bucket=os.getenv("DESIGN_BUCKET", "design-artifacts"),
+    prefix="",
+    partition_name="design_files",
+    target_job="parse_design_metadata_job",
+    target_op="parse_design_metadata",
+    filter_patterns=[],
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
+)
+design_sensor_defs = design_sensor.build_defs(None)
+
+design_parser = DesignParserComponent(
+    name="parse_design_metadata"
+)
+design_parser_defs = design_parser.build_defs(None)
+
 # 3. Assets & Jobs
 all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets])
 
@@ -113,15 +136,22 @@ ingest_ontology_job = define_asset_job(
     tags=k8s_tags
 )
 
+design_metadata_job = define_asset_job(
+    name="parse_design_metadata_job",
+    selection=["parse_design_metadata"],
+    partitions_def=design_files_partition,
+    tags=k8s_tags
+)
+
 s3_io_manager = s3_pickle_io_manager.configured({
     "s3_bucket": os.getenv("DAGSTER_STORAGE_BUCKET", "processing-artifacts"),
     "s3_prefix": "dagster-artifacts"
 })
 
 defs = Definitions(
-    assets=list(document_parser_defs.assets) + list(sqlserver_extractor_defs.assets) + list(oracle_extractor_defs.assets) + all_assets,
-    jobs=list(document_parser_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job],
-    sensors=list(pdf_sensor_defs.sensors) + list(ontology_sensor_defs.sensors),
+    assets=list(document_parser_defs.assets) + list(sqlserver_extractor_defs.assets) + list(oracle_extractor_defs.assets) + list(design_parser_defs.assets) + all_assets,
+    jobs=list(document_parser_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
+    sensors=list(pdf_sensor_defs.sensors) + list(ontology_sensor_defs.sensors) + list(design_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -146,5 +176,6 @@ defs = Definitions(
         ),
         **pdf_sensor_defs.resources,
         **ontology_sensor_defs.resources,
+        **design_sensor_defs.resources,
     },
 )
