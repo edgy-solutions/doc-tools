@@ -27,7 +27,7 @@ document_parser = DocumentParserComponent(
         "bucket": "processing-artifacts"
     }
 )
-document_parser_defs = document_parser.build_defs(None)
+_document_parser_defs = document_parser.build_defs(None)
 
 # 2. Instantiate Sensors (decoupled from assets)
 pdf_sensor = S3SensorComponent(
@@ -45,9 +45,10 @@ pdf_sensor = S3SensorComponent(
         "verify": False
     }
 )
-pdf_sensor_defs = pdf_sensor.build_defs(None)
+_pdf_sensor_defs = pdf_sensor.build_defs(None)
 
 ontology_sensor = S3SensorComponent(
+    name="ontology_sensor",
     bucket=os.getenv("ONTOLOGY_BUCKET", "ontologies"),
     prefix="",
     partition_name="ontology_files",
@@ -62,9 +63,10 @@ ontology_sensor = S3SensorComponent(
         "verify": False
     }
 )
-ontology_sensor_defs = ontology_sensor.build_defs(None)
+_ontology_sensor_defs = ontology_sensor.build_defs(None)
 
 design_sensor = S3SensorComponent(
+    name="design_sensor",
     bucket=os.getenv("DESIGN_BUCKET", "design-artifacts"),
     prefix="",
     partition_name="design_files",
@@ -79,19 +81,19 @@ design_sensor = S3SensorComponent(
         "verify": False
     }
 )
-design_sensor_defs = design_sensor.build_defs(None)
+_design_sensor_defs = design_sensor.build_defs(None)
 
 design_parser = DesignParserComponent(
     name="parse_design_metadata"
 )
-design_parser_defs = design_parser.build_defs(None)
+_design_parser_defs = design_parser.build_defs(None)
 
 datahub_sensor = DataHubSensorComponent(
     name="datahub_approval_sensor",
     datahub_gms_url=os.getenv("DATAHUB_GMS_URL", "http://datahub-gms:8080/api/graphql"),
     datahub_token=os.getenv("DATAHUB_TOKEN", "")
 )
-datahub_sensor_defs = datahub_sensor.build_defs(None)
+_datahub_sensor_defs = datahub_sensor.build_defs(None)
 
 # 3. Assets & Jobs
 all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker])
@@ -107,7 +109,7 @@ sqlserver_extractor = SqlServerExtractorComponent(
     driver=os.getenv("SQLSERVER_DRIVER", "ODBC Driver 18 for SQL Server"),
     trust_server_certificate=os.getenv("SQLSERVER_TRUST_CERT", "true").lower() == "true"
 )
-sqlserver_extractor_defs = sqlserver_extractor.build_defs(None)
+_sqlserver_extractor_defs = sqlserver_extractor.build_defs(None)
 
 oracle_extractor = OracleExtractorComponent(
     name="extract_oracle_metadata",
@@ -118,7 +120,7 @@ oracle_extractor = OracleExtractorComponent(
     username=os.getenv("ORACLE_USERNAME", "system"),
     password=os.getenv("ORACLE_PASSWORD", "password")
 )
-oracle_extractor_defs = oracle_extractor.build_defs(None)
+_oracle_extractor_defs = oracle_extractor.build_defs(None)
 
 k8s_tags = {
     "dagster-k8s/config": {
@@ -157,9 +159,9 @@ s3_io_manager = s3_pickle_io_manager.configured({
 })
 
 defs = Definitions(
-    assets=list(document_parser_defs.assets) + list(sqlserver_extractor_defs.assets) + list(oracle_extractor_defs.assets) + list(design_parser_defs.assets) + list(datahub_sensor_defs.assets) + all_assets,
-    jobs=list(document_parser_defs.jobs) + list(datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
-    sensors=list(pdf_sensor_defs.sensors) + list(ontology_sensor_defs.sensors) + list(design_sensor_defs.sensors) + list(datahub_sensor_defs.sensors),
+    assets=list(_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
+    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
+    sensors=list(_pdf_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -182,8 +184,17 @@ defs = Definitions(
             username=EnvVar("JENA_USERNAME"),
             password=EnvVar("JENA_PASSWORD")
         ),
-        **pdf_sensor_defs.resources,
-        **ontology_sensor_defs.resources,
-        **design_sensor_defs.resources,
+        **_pdf_sensor_defs.resources,
+        **_ontology_sensor_defs.resources,
+        **_design_sensor_defs.resources,
     },
 )
+
+del _document_parser_defs
+del _pdf_sensor_defs
+del _ontology_sensor_defs
+del _design_sensor_defs
+del _design_parser_defs
+del _datahub_sensor_defs
+del _sqlserver_extractor_defs
+del _oracle_extractor_defs

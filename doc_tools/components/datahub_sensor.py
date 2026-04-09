@@ -69,4 +69,4 @@ class DataHubSensorComponent(Component, Resolvable, Model):
             except Exception as e:
                 sensor_context.log.error(f"Failed to poll DataHub: {e}")
 
-        return Definitions(assets=[sync_approved_tags_to_neo4j], jobs=[sync_job], sensors=[datahub_sensor])
+        return Definitions(assets=[], jobs=[sync_job], sensors=[datahub_sensor])
