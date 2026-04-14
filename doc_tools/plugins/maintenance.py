@@ -175,6 +175,12 @@ class MaintenancePlugin(AugmentationPlugin):
                 MERGE (part:Part:{self.domain_label} {{id: "part_" + pn}})
                 SET part.part_number = pn
                 MERGE (ms)-[:REQUIRES_PART]->(part)
+                
+                WITH ms
+                UNWIND $tools AS t_name
+                MERGE (tool:Tool:{self.domain_label} {{id: "tool_" + t_name}})
+                SET tool.part_number = t_name
+                MERGE (ms)-[:REQUIRES_TOOL]->(tool)
                 """
                 
                 if step.hazard_class:
@@ -220,6 +226,7 @@ class MaintenancePlugin(AugmentationPlugin):
                         "duration": step.estimated_duration_minutes if step.estimated_duration_minutes is not None else -1,
                         "standards": step.military_and_industry_standards,
                         "parts": step.internal_part_numbers,
+                        "tools": step.tooling,
                         "hazard_id": f"hazard_{step.hazard_class}" if step.hazard_class else "",
                         "hazard": step.hazard_class or "",
                         "cert_id": f"cert_{step.required_cert}" if step.required_cert else "",
