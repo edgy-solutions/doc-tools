@@ -112,11 +112,12 @@ class DocumentParserComponent(Component, Resolvable, Model):
                                 elements = [{"type": "Text", "text": "Extracted text content", "metadata": {"page_number": 1}}]
                         
                         # Upload images via Boto3
+                        base_name = filename.replace('.', '_')
                         if os.path.exists(temp_extract_dir):
                             for img_filename in os.listdir(temp_extract_dir):
                                 img_local_path = os.path.join(temp_extract_dir, img_filename)
                                 if os.path.isfile(img_local_path):
-                                    object_name = f"{doc_id}/generated/images/{img_filename}"
+                                    object_name = f"{domain}/generated/{doc_id}/{base_name}/images/{img_filename}"
                                     ext = os.path.splitext(img_filename)[1].lower()
                                     ctype = "image/jpeg" if ext in [".jpg", ".jpeg"] else "image/png"
                                     try:
@@ -136,7 +137,8 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         extraction_metadata = {k: v for k, v in first_meta.items() if k not in ["coordinates", "page_number", "image_path"]}
                     
                     # Store text.json via Boto3
-                    text_object_name = f"{doc_id}/generated/text.json"
+                    base_name = filename.replace('.', '_')
+                    text_object_name = f"{domain}/generated/{doc_id}/{base_name}/text.json"
                     text_json = json.dumps(elements, indent=2)
                     s3_client.put_object(
                         Bucket=bucket, 
@@ -154,17 +156,18 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     **self.config, 
                     **doc_metadata
                 }
+                base_name = filename.replace('.', '_')
                 manifest = {
                     "doc_id": doc_id,
                     "filename": filename,
                     "metadata": manifest_metadata,
                     "extraction_metadata": extraction_metadata,
                     "embedded_images": embedded_images_map,
-                    "text_location": f"{doc_id}/generated/text.json"
+                    "text_location": f"{domain}/generated/{doc_id}/{base_name}/text.json"
                 }
                 
                 # Store manifest.json via Boto3
-                manifest_object_name = f"{doc_id}/generated/manifest.json"
+                manifest_object_name = f"{domain}/generated/{doc_id}/{base_name}/manifest.json"
                 manifest_json = json.dumps(manifest, indent=2)
                 s3_client.put_object(
                     Bucket=bucket, 
