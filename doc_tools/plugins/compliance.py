@@ -59,7 +59,7 @@ class CompliancePlugin(AugmentationPlugin):
             domain_augmentation=augmentation
         )
 
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "") -> Tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:
         cypher_queries = []
         sparql_queries = []
         

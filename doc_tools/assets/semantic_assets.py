@@ -201,9 +201,16 @@ def build_knowledge_graph(
         except Exception as e:
             context.log.error(f"Vector indexing failed for chunk {chunk_id}: {e}")
 
+    # Derive image_prefix from text_location
+    # e.g. text_location: "manufacturing/IID/generated/test_pdf/text.json"
+    # base_dir: "manufacturing/IID/generated/test_pdf"
+    import os
+    base_dir = os.path.dirname(text_location)
+    image_prefix = f"s3://{config.bucket}/{base_dir}/images/"
+    
     # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
     context.log.info(f"Generating domain graph queries from {len(document_nodes)} augmented nodes...")
-    cypher_queries, sparql_queries = plugin.to_graph_queries(document_nodes, config, doc_id=doc_id)
+    cypher_queries, sparql_queries = plugin.to_graph_queries(document_nodes, config, doc_id=doc_id, image_prefix=image_prefix)
     
     for idx, c_query in enumerate(cypher_queries):
         try:

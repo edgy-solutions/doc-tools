@@ -8,10 +8,11 @@ class DitaGraphBuilder:
     Parser for DITA XML files, extracting tasks and topics into an RDF Knowledge Graph.
     """
     
-    def __init__(self, bucket: str = "", doc_id: str = ""):
+    def __init__(self, bucket: str = "", doc_id: str = "", image_prefix: str = ""):
         self.graph = Graph()
         self.bucket = bucket
         self.doc_id = doc_id
+        self.image_prefix = image_prefix
         # Define the unified MIL namespace
         self.MIL = Namespace('http://edgy-solutions.com/ontology/mil#')
         
@@ -81,8 +82,8 @@ class DitaGraphBuilder:
             figure_uri = self.MIL[f"fig-{fig_id}"]
             self.graph.add((figure_uri, RDF.type, self.MIL.Figure))
             self.graph.add((figure_uri, RDFS.label, Literal(title)))
-            if href and self.bucket and self.doc_id:
-                full_s3_url = f"s3://{self.bucket}/{self.doc_id}/generated/images/{href}.png"
+            if href and self.image_prefix:
+                full_s3_url = f"{self.image_prefix}{href}.png"
                 self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
             elif href:
                 self.graph.add((figure_uri, self.MIL.hasURL, Literal(href)))

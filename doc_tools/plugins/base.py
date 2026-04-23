@@ -29,7 +29,7 @@ class AugmentationPlugin(ABC):
         pass
 
     @abstractmethod
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "") -> tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> tuple[List[str], List[str]]:
         """
         Generates the database insertion statements.
         Returns a tuple of (List[Cypher Queries], List[SPARQL Queries]).

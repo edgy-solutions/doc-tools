@@ -9,13 +9,14 @@ class MilStd40051GraphBuilder:
     Maps Army Work Packages to a unified military ontology.
     """
     
-    def __init__(self, bucket: str = "", doc_id: str = ""):
+    def __init__(self, bucket: str = "", doc_id: str = "", image_prefix: str = ""):
         self.graph = Graph()
         self.MIL = Namespace("http://edgy-solutions.com/ontology/mil#")
         self.graph.bind("mil", self.MIL)
         self.root_node = None
         self.bucket = bucket
         self.doc_id = doc_id
+        self.image_prefix = image_prefix
 
     def parse_data_module(self, xml_content: bytes) -> str:
         """
@@ -97,8 +98,8 @@ class MilStd40051GraphBuilder:
                 figure_uri = URIRef(self.MIL[f"fig-{clean_boardno}"])
                 self.graph.add((figure_uri, RDF.type, self.MIL.Figure))
                 self.graph.add((figure_uri, RDFS.label, Literal(boardno)))
-                if self.bucket and self.doc_id:
-                    full_s3_url = f"s3://{self.bucket}/{self.doc_id}/generated/images/{boardno}.png"
+                if self.image_prefix:
+                    full_s3_url = f"{self.image_prefix}{boardno}.png"
                     self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
                 else:
                     self.graph.add((figure_uri, self.MIL.hasURL, Literal(boardno)))
@@ -121,8 +122,8 @@ class MilStd40051GraphBuilder:
                 if nested_graphic is not None:
                     info_entity = nested_graphic.get("boardno", "") or nested_graphic.get("infoEntityIdent", "")
                     if info_entity:
-                        if self.bucket and self.doc_id:
-                            full_s3_url = f"s3://{self.bucket}/{self.doc_id}/generated/images/{info_entity}.png"
+                        if self.image_prefix:
+                            full_s3_url = f"{self.image_prefix}{info_entity}.png"
                             self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
                         else:
                             self.graph.add((figure_uri, self.MIL.hasURL, Literal(info_entity)))

@@ -113,7 +113,7 @@ class MaintenancePlugin(AugmentationPlugin):
             domain_augmentation=augmentation
         )
 
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "") -> Tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:
         cypher_queries = []
         sparql_queries = []
         
@@ -204,7 +204,7 @@ class MaintenancePlugin(AugmentationPlugin):
                     WITH ms
                     UNWIND $figures AS fig_ref
                     MERGE (f:Figure:{self.domain_label} {{id: "fig_" + fig_ref}})
-                    ON CREATE SET f.url = "s3://" + $bucket + "/" + $doc_id + "/generated/images/" + fig_ref + ".png", f.title = fig_ref
+                    ON CREATE SET f.url = $image_prefix + fig_ref + ".png", f.title = fig_ref
                     MERGE (ms)-[:REFERENCES_FIGURE]->(f)
                     """
                     
@@ -232,8 +232,7 @@ class MaintenancePlugin(AugmentationPlugin):
                         "cert_id": f"cert_{step.required_cert}" if step.required_cert else "",
                         "cert": step.required_cert or "",
                         "figures": step.figure_references,
-                        "bucket": config.bucket,
-                        "doc_id": doc_id
+                        "image_prefix": image_prefix
                     }
                 })
                 

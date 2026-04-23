@@ -54,9 +54,13 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
     
     # Derive doc_id from s3_key (e.g., "s1000d/manual_v2.xml" -> "manual_v2")
     import os
-    doc_id = os.path.splitext(os.path.basename(config.s3_key))[0]
+    filename = os.path.basename(config.s3_key)
+    doc_id = os.path.splitext(filename)[0]
+    base_dir = os.path.dirname(config.s3_key) or "unknown"
+    base_name = filename.replace('.', '_')
+    image_prefix = f"s3://{config.s3_bucket}/{base_dir}/generated/{base_name}/images/"
     
-    builder = PARSERS[doc_type](bucket=config.s3_bucket, doc_id=doc_id)
+    builder = PARSERS[doc_type](bucket=config.s3_bucket, doc_id=doc_id, image_prefix=image_prefix)
     
     # Parse the in-memory bytes and capture the root URI
     root_uri = builder.parse_data_module(xml_bytes)
