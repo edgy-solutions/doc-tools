@@ -43,26 +43,23 @@ class DocumentParserComponent(Component, Resolvable, Model):
             
             # Parse domain and doc_id from S3 key (e.g. manufacturing/IID/test.pdf)
             parts = source_object_key.split('/')
+            filename = parts[-1]
             
-            # Robust extraction: 
-            # 1. domain/doc_id/filename -> domain=parts[0], doc_id=parts[1]
-            # 2. domain/filename -> domain=parts[0], doc_id=parts[1].split('.')[0]
-            # 3. filename -> domain=unknown, doc_id=parts[0].split('.')[0]
+            base_dir = os.path.dirname(source_object_key)
+            if not base_dir:
+                base_dir = "unknown"
             
-            if len(parts) >= 3:
+            if len(parts) >= 2:
                 domain = parts[0]
-                doc_id = parts[1]
-                filename = parts[-1]
-            elif len(parts) == 2:
-                domain = parts[0]
-                doc_id = parts[1].split('.')[0]
-                filename = parts[1]
+                if len(parts) > 2:
+                    doc_id = "/".join(parts[1:-1])
+                else:
+                    doc_id = filename.split('.')[0]
             else:
                 domain = "unknown"
-                filename = parts[0]
                 doc_id = filename.split('.')[0]
             
-            context.log.info(f"Processing artifact: {source_object_key} (Bucket: {bucket}, Domain: {domain}, Doc ID: {doc_id})")
+            context.log.info(f"Processing artifact: {source_object_key} (Bucket: {bucket}, Domain: {domain}, Doc ID: {doc_id}, Base Dir: {base_dir})")
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 file_path = os.path.join(temp_dir, filename)
@@ -80,7 +77,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 doc_metadata = {}
                 try:
                     metadata_path = os.path.join(temp_dir, "metadata.json")
-                    s3_client.download_file(Bucket=bucket, Key=f"{doc_id}/metadata.json", Filename=metadata_path)
+                    s3_client.download_file(Bucket=bucket, Key=f"{base_dir}/metadata.json", Filename=metadata_path)
                     with open(metadata_path, 'r', encoding='utf-8') as f:
                         doc_metadata = json.load(f)
                 except Exception:
@@ -117,7 +114,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             for img_filename in os.listdir(temp_extract_dir):
                                 img_local_path = os.path.join(temp_extract_dir, img_filename)
                                 if os.path.isfile(img_local_path):
-                                    object_name = f"{domain}/generated/{doc_id}/{base_name}/images/{img_filename}"
+                                    object_name = f"{base_dir}/generated/{base_name}/images/{img_filename}"
                                     ext = os.path.splitext(img_filename)[1].lower()
                                     ctype = "image/jpeg" if ext in [".jpg", ".jpeg"] else "image/png"
                                     try:
@@ -138,7 +135,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     
                     # Store text.json via Boto3
                     base_name = filename.replace('.', '_')
-                    text_object_name = f"{domain}/generated/{doc_id}/{base_name}/text.json"
+                    text_object_name = f"{base_dir}/generated/{base_name}/text.json"
                     text_json = json.dumps(elements, indent=2)
                     s3_client.put_object(
                         Bucket=bucket, 
@@ -163,11 +160,11 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     "metadata": manifest_metadata,
                     "extraction_metadata": extraction_metadata,
                     "embedded_images": embedded_images_map,
-                    "text_location": f"{domain}/generated/{doc_id}/{base_name}/text.json"
+                    "text_location": f"{base_dir}/generated/{base_name}/text.json"
                 }
                 
                 # Store manifest.json via Boto3
-                manifest_object_name = f"{domain}/generated/{doc_id}/{base_name}/manifest.json"
+                manifest_object_name = f"{base_dir}/generated/{base_name}/manifest.json"
                 manifest_json = json.dumps(manifest, indent=2)
                 s3_client.put_object(
                     Bucket=bucket, 
