@@ -30,6 +30,7 @@ dependencies = [
     "sqlalchemy",
     "pyodbc",
     "oracledb",
+    "idl-parser",
     "dag-tools[orchestrator] @ git+https://github.com/edgy-solutions/dag-tools.git@master",
 ]
 
