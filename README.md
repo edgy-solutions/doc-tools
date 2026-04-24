@@ -249,6 +249,38 @@ return builder.serialize(format="turtle")
 
 ---
 
+## 📡 DataHub Schema Ingestion & Lineage (DDS & RabbitMQ)
+
+`doc-tools` acts as the metadata bridge for your edge-to-enterprise architecture, ensuring that AI Agents can programmatically traverse your data plane from edge sensors to enterprise message brokers.
+
+We support ingesting both **OMG DDS (.idl)** and **RabbitMQ JSON Schema (.json)** files directly into DataHub, while automatically drawing the lineage graph across your Redpanda/Kafka execution engine.
+
+### The Lineage Graph
+By ingesting these schemas, DataHub builds the complete end-to-end story:
+`dds:RotorTelemetry` (Rich IDL Metadata) ➔ `kafka:openddil.sensor.data` (Redpanda Backbone) ➔ `rabbitmq:rotor_status` (Rich JSON Schema Metadata)
+
+### 1. DDS IDL Ingestion
+- **Parser**: A robust AST parser (`idl-parser`) traverses nested IDL modules and complex sequence types, extracting rich block and inline comments.
+- **Asset**: `ingest_dds_idl_schemas`
+- **Lineage**: Emits an `UpstreamLineage` edge from the DDS schema to the configured raw Kafka topic.
+
+### 2. RabbitMQ JSON Schema Ingestion
+- **Parser**: A recursive JSON Schema parser that flattens deeply nested properties and arrays into dot-notation (e.g., `telemetry.rotors[].rpm`) and extracts descriptions and enums.
+- **Asset**: `ingest_rabbitmq_schemas`
+- **Lineage**: Emits an `UpstreamLineage` edge from the raw Kafka topic to the RabbitMQ schema.
+
+### 🗂️ Where to put the JSON / IDL files (Git vs MinIO)
+By default, the Dagster assets are configured to scan local directories:
+- **DDS IDL**: `./idl_schemas/`
+- **RabbitMQ JSON**: `./rabbitmq_schemas/`
+
+**If you are storing these schemas in MinIO/S3:**
+Unlike the event-driven PDF and XML pipelines which use `S3SensorComponent` to stream bytes directly from MinIO into memory, the schema parsers expect local files (often pulled from a Git repository). To use MinIO, you have two options:
+1. **Volume Mount (Recommended)**: Mount your MinIO bucket directly to the `/idl_schemas` and `/rabbitmq_schemas` paths inside the Dagster Kubernetes pod using an S3 CSI driver.
+2. **Init Container / Sync**: Use an init container or sidecar to sync the MinIO bucket (or Git repository) to a shared local volume before the Dagster asset runs.
+
+---
+
 ## 🌩️ Deployment via Helm
 
 A packaged Helm chart `/charts/doc-tools` is dynamically wired to receive credentials, mount configurations, and pull the latest GHCR Cloud Native Buildpack containers dynamically.
