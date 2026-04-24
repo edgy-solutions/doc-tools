@@ -6,7 +6,7 @@ from doc_tools.components.sqlserver_extractor import SqlServerExtractorComponent
 from doc_tools.components.oracle_extractor import OracleExtractorComponent
 from doc_tools.components.design_parser import DesignParserComponent
 from doc_tools.components.datahub_sensor import DataHubSensorComponent
-from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker
+from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions, design_files_partition
 import os
@@ -96,7 +96,7 @@ datahub_sensor = DataHubSensorComponent(
 _datahub_sensor_defs = datahub_sensor.build_defs(None)
 
 # 3. Assets & Jobs
-all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker])
+all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion])
 
 sqlserver_extractor = SqlServerExtractorComponent(
     name="extract_sqlserver_metadata",
