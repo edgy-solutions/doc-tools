@@ -269,15 +269,16 @@ By ingesting these schemas, DataHub builds the complete end-to-end story:
 - **Asset**: `ingest_rabbitmq_schemas`
 - **Lineage**: Emits an `UpstreamLineage` edge from the raw Kafka topic to the RabbitMQ schema.
 
-### 🗂️ Where to put the JSON / IDL files (Git vs MinIO)
-By default, the Dagster assets are configured to scan local directories:
-- **DDS IDL**: `./idl_schemas/`
-- **RabbitMQ JSON**: `./rabbitmq_schemas/`
+### 🗂️ Git-Native Schema Ingestion
+Unlike the event-driven PDF and XML pipelines which use `S3SensorComponent` to stream bytes directly from MinIO into memory, the schema parsers are designed for ephemeral Kubernetes pods and dynamically clone Git repositories at runtime.
 
-**If you are storing these schemas in MinIO/S3:**
-Unlike the event-driven PDF and XML pipelines which use `S3SensorComponent` to stream bytes directly from MinIO into memory, the schema parsers expect local files (often pulled from a Git repository). To use MinIO, you have two options:
-1. **Volume Mount (Recommended)**: Mount your MinIO bucket directly to the `/idl_schemas` and `/rabbitmq_schemas` paths inside the Dagster Kubernetes pod using an S3 CSI driver.
-2. **Init Container / Sync**: Use an init container or sidecar to sync the MinIO bucket (or Git repository) to a shared local volume before the Dagster asset runs.
+To configure the ingestion assets (`ingest_dds_idl_schemas` and `ingest_rabbitmq_schemas`), you must provide the following parameters in your Dagster Run Config:
+- `git_repo_url`: The HTTPS URL of the Git repository containing your schemas.
+- `git_branch`: The branch to clone (defaults to `"main"`).
+- `git_token`: (Optional) A Personal Access Token (PAT) for private repositories. The asset securely injects this into the HTTPS URL (`https://<token>@github.com/...`).
+- `schema_path_in_repo`: The relative path inside the repository where the schemas are located (defaults to `"schemas/dds"` or `"schemas/rabbitmq"`).
+
+The assets use Python's `tempfile.TemporaryDirectory()` and `subprocess` to clone the repository, parse the schemas, and then automatically wipe the cloned repository from the pod's disk upon completion, guaranteeing no state bleed between runs.
 
 ---
 
