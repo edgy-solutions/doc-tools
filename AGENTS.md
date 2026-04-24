@@ -33,6 +33,11 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   3. Implement extraction logic in `doc_tools/assets/xml_ingestion.py` using the directory routing pattern.
   4. **High-Performance Passing**: Always return the serialized RDF string (as a string, not a file path) to ensure compatibility with isolated Dagster K8s pods.
 
+- **DataHub Schema Ingestion & Lineage**:
+  1. DataHub schema ingestion assets (`ingest_dds_idl_schemas` and `ingest_rabbitmq_schemas`) are designed for ephemeral Kubernetes pods.
+  2. They use Python's `tempfile` and `subprocess` to dynamically clone Git repositories (supporting authentication tokens) at runtime.
+  3. The schemas are parsed from the temporary directory and emitted to DataHub, with the cloned repository wiped automatically after execution.
+
 - **Hybrid Graph Synchronization & Revisioning**:
   1. **Named Graphs**: Every document MUST be isolated in its own Jena Named Graph using its identifier (e.g., `urn:doc:{s3_key}`).
   2. **Jena PUT First**: Use `httpx.put` to push Turtle data to the Named Graph. This ensures the old revision is completely replaced in the reasoning engine.
