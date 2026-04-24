@@ -8,13 +8,13 @@ from doc_tools.ingestion.json_schema_parser import JSONSchemaParser
 from doc_tools.ingestion.datahub_emitter import DDSToDataHubEmitter
 
 class RabbitMQIngestionConfig(Config):
-    git_repo_url: str
-    git_branch: str = "main"
-    git_token: str = ""
-    schema_path_in_repo: str = "schemas/rabbitmq"
-    datahub_gms_url: str = "http://localhost:8080"
-    datahub_token: str = ""
-    raw_kafka_topic: str = "openddil.sensor.data"
+    git_repo_url: str = os.getenv("RABBITMQ_GIT_REPO_URL", "")
+    git_branch: str = os.getenv("RABBITMQ_GIT_BRANCH", "main")
+    git_token: str = os.getenv("GIT_TOKEN", "")
+    schema_path_in_repo: str = os.getenv("RABBITMQ_SCHEMA_PATH", "schemas/rabbitmq")
+    datahub_gms_url: str = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
+    datahub_token: str = os.getenv("DATAHUB_TOKEN", "")
+    raw_kafka_topic: str = os.getenv("RAW_KAFKA_TOPIC", "openddil.sensor.data")
 
 @asset(group_name="metadata_ingestion")
 def ingest_rabbitmq_schemas(config: RabbitMQIngestionConfig):

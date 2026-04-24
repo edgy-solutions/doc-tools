@@ -67,11 +67,21 @@ secrets:
   JENA_DS: "ds"
   JENA_USERNAME: "admin"
   JENA_PASSWORD: "password"
+  DATAHUB_TOKEN: ""
+  GIT_TOKEN: ""
 
 # Non-sensitive environment variables
 # These are injected via env in deployment.yaml
 env:
   S3_ENDPOINT_URL: "minio:9000"
+  DATAHUB_GMS_URL: "http://datahub-gms:8080/api/graphql"
+  RAW_KAFKA_TOPIC: "openddil.sensor.data"
+  DDS_GIT_REPO_URL: ""
+  DDS_GIT_BRANCH: "main"
+  DDS_SCHEMA_PATH: "schemas/dds"
+  RABBITMQ_GIT_REPO_URL: ""
+  RABBITMQ_GIT_BRANCH: "main"
+  RABBITMQ_SCHEMA_PATH: "schemas/rabbitmq"
   # JENA_URL: "http://jena-fuseki:3030/ds" # Optional override
 
 # Additional environment variables from external Secrets or ConfigMaps
