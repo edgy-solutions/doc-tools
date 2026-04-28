@@ -43,6 +43,9 @@ type_map = {
     "types.Outline": types.Outline,
     "stream_types.Outline": stream_types.Outline,
 
+    "types.PartImpact": types.PartImpact,
+    "stream_types.PartImpact": stream_types.PartImpact,
+
     "types.Section": types.Section,
     "stream_types.Section": stream_types.Section,
 
@@ -52,6 +55,11 @@ type_map = {
     "types.StrategicAssessment": types.StrategicAssessment,
     "stream_types.StrategicAssessment": stream_types.StrategicAssessment,
 
+    "types.SustainmentNotice": types.SustainmentNotice,
+    "stream_types.SustainmentNotice": stream_types.SustainmentNotice,
+
+
+    "types.ChangeCategory": types.ChangeCategory,
 
     "types.HazardClass": types.HazardClass,
 

@@ -37,8 +37,16 @@ def get_checks(checks: typing.Dict[CheckName, Check]) -> typing.List[Check]:
 def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
     return all(check.status == "succeeded" for check in get_checks(checks))
 # #########################################################################
-# Generated enums (5)
+# Generated enums (6)
 # #########################################################################
+
+class ChangeCategory(str, Enum):
+    Material = "Material"
+    Process = "Process"
+    Location = "Location"
+    Discontinuation = "Discontinuation"
+    Packaging = "Packaging"
+    Testing = "Testing"
 
 class HazardClass(str, Enum):
     pass
@@ -56,7 +64,7 @@ class ProcessCategory(str, Enum):
     pass
 
 # #########################################################################
-# Generated classes (12)
+# Generated classes (14)
 # #########################################################################
 
 class ComplianceAugmentation(BaseModel):
@@ -128,6 +136,11 @@ class MroAugmentation(BaseModel):
 class Outline(BaseModel):
     sections: typing.List["Section"]
 
+class PartImpact(BaseModel):
+    affected_mpn: str
+    replacement_mpn: typing.Optional[str] = None
+    ltb_date: typing.Optional[str] = Field(default=None, description='Last Time Buy Date in ISO 8601 (YYYY-MM-DD)')
+
 class Section(BaseModel):
     title: str
     level: int
@@ -144,6 +157,15 @@ class SlideAugmentation(BaseModel):
 class StrategicAssessment(BaseModel):
     proprietary_score: float = Field(description='0.0 (Common) to 1.0 (Secret Sauce). Score based on how specific/complex the process is.')
     outsourceable: bool = Field(description='If it requires secret sauce or highly sensitive MAT, true. Default to false if unclear.')
+
+class SustainmentNotice(BaseModel):
+    doc_id: str
+    doc_type: str = Field(description='Either \'PCN\' or \'PDN\'')
+    pub_date: str
+    mfr: str
+    categories: typing.List[ChangeCategory]
+    summary: str = Field(description='High-level impact summary (1-2 sentences)')
+    impacted_parts: typing.List["PartImpact"]
 
 # #########################################################################
 # Generated type aliases (0)

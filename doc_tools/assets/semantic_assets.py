@@ -12,6 +12,7 @@ from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, L
 from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
+from doc_tools.plugins.sustainment import SustainmentPlugin
 
 @asset(
     partitions_def=pdf_files_partition,
@@ -112,6 +113,8 @@ def build_knowledge_graph(
         except ImportError:
             context.log.warning("CompliancePlugin not found, falling back to TrainingPlugin")
             plugin = TrainingPlugin(domain_type)
+    elif domain_type == "sustainment":
+        plugin = SustainmentPlugin(domain_type)
     else:
         plugin = TrainingPlugin(domain_type)
         

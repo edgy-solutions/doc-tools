@@ -47,6 +47,24 @@ pdf_sensor = S3SensorComponent(
 )
 _pdf_sensor_defs = pdf_sensor.build_defs(None)
 
+sustainment_sensor = S3SensorComponent(
+    name="sustainment_sensor",
+    bucket="processing-artifacts",
+    prefix="sustainment/inbound/",
+    partition_name="pdf_files",
+    target_job=f"{document_parser.name}_job",
+    target_op=document_parser.name,
+    filter_patterns=["archive/", "metadata.json"],
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
+)
+_sustainment_sensor_defs = sustainment_sensor.build_defs(None)
+
 ontology_sensor = S3SensorComponent(
     name="ontology_sensor",
     bucket=os.getenv("ONTOLOGY_BUCKET", "ontologies"),
@@ -161,7 +179,7 @@ s3_io_manager = s3_pickle_io_manager.configured({
 defs = Definitions(
     assets=list(_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
     jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors),
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -185,6 +203,7 @@ defs = Definitions(
             password=EnvVar("JENA_PASSWORD")
         ),
         **_pdf_sensor_defs.resources,
+        **_sustainment_sensor_defs.resources,
         **_ontology_sensor_defs.resources,
         **_design_sensor_defs.resources,
     },
@@ -192,6 +211,7 @@ defs = Definitions(
 
 del _document_parser_defs
 del _pdf_sensor_defs
+del _sustainment_sensor_defs
 del _ontology_sensor_defs
 del _design_sensor_defs
 del _design_parser_defs

@@ -150,6 +150,20 @@ class BamlSyncClient:
                 "document_text": document_text,
             })
             return typing.cast(types.Outline, __result__.cast_to(types, types, stream_types, False, __runtime__))
+    def ExtractSustainment(self, doc: str,
+        baml_options: BamlCallOptions = {},
+    ) -> types.SustainmentNotice:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            __stream__ = self.stream.ExtractSustainment(doc=doc,
+                baml_options=baml_options)
+            return __stream__.get_final_response()
+        else:
+            # Original non-streaming code
+            __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="ExtractSustainment", args={
+                "doc": doc,
+            })
+            return typing.cast(types.SustainmentNotice, __result__.cast_to(types, types, stream_types, False, __runtime__))
     def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,
         baml_options: BamlCallOptions = {},
     ) -> types.MatAugmentation:
@@ -221,6 +235,18 @@ class BamlStreamClient:
           lambda x: typing.cast(types.Outline, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
+    def ExtractSustainment(self, doc: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlSyncStream[stream_types.SustainmentNotice, types.SustainmentNotice]:
+        __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="ExtractSustainment", args={
+            "doc": doc,
+        })
+        return baml_py.BamlSyncStream[stream_types.SustainmentNotice, types.SustainmentNotice](
+          __result__,
+          lambda x: typing.cast(stream_types.SustainmentNotice, x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(types.SustainmentNotice, x.cast_to(types, types, stream_types, False, __runtime__)),
+          __ctx__,
+        )
     def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[stream_types.MatAugmentation, types.MatAugmentation]:
@@ -269,6 +295,13 @@ class BamlHttpRequestClient:
             "document_text": document_text,
         }, mode="request")
         return __result__
+    def ExtractSustainment(self, doc: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractSustainment", args={
+            "doc": doc,
+        }, mode="request")
+        return __result__
     def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -312,6 +345,13 @@ class BamlHttpStreamRequestClient:
             "document_text": document_text,
         }, mode="stream")
         return __result__
+    def ExtractSustainment(self, doc: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractSustainment", args={
+            "doc": doc,
+        }, mode="stream")
+        return __result__
     def ExtractWorkInstructions(self, text: str,procedure_id_format: str,step_id_format: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -321,4 +361,4 @@ class BamlHttpStreamRequestClient:
         return __result__
     
 
-b = BamlSyncClient(DoNotUseDirectlyCallManager({}))
+b = BamlSyncClient(DoNotUseDirectlyCallManager({}))

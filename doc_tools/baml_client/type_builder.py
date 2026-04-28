@@ -20,14 +20,18 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["ComplianceAugmentation","ComplianceRule","Concept","LearningObjective","MaintenanceStep","ManufacturingStep","MatAugmentation","MroAugmentation","Outline","Section","SlideAugmentation","StrategicAssessment",]
+          ["ComplianceAugmentation","ComplianceRule","Concept","LearningObjective","MaintenanceStep","ManufacturingStep","MatAugmentation","MroAugmentation","Outline","PartImpact","Section","SlideAugmentation","StrategicAssessment","SustainmentNotice",]
         ), enums=set(
-          ["HazardClass","InspectionType","MaintenanceLevel","PersonnelRole","ProcessCategory",]
+          ["ChangeCategory","HazardClass","InspectionType","MaintenanceLevel","PersonnelRole","ProcessCategory",]
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
 
     # #########################################################################
-    # Generated enums 5
+    # Generated enums 6
     # #########################################################################
+
+    @property
+    def ChangeCategory(self) -> "ChangeCategoryViewer":
+        return ChangeCategoryViewer(self)
 
     @property
     def HazardClass(self) -> "HazardClassBuilder":
@@ -51,7 +55,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 12
+    # Generated classes 14
     # #########################################################################
 
     @property
@@ -91,6 +95,10 @@ class TypeBuilder(type_builder.TypeBuilder):
         return OutlineViewer(self)
 
     @property
+    def PartImpact(self) -> "PartImpactViewer":
+        return PartImpactViewer(self)
+
+    @property
     def Section(self) -> "SectionViewer":
         return SectionViewer(self)
 
@@ -102,11 +110,73 @@ class TypeBuilder(type_builder.TypeBuilder):
     def StrategicAssessment(self) -> "StrategicAssessmentViewer":
         return StrategicAssessmentViewer(self)
 
+    @property
+    def SustainmentNotice(self) -> "SustainmentNoticeViewer":
+        return SustainmentNoticeViewer(self)
+
 
 
 # #########################################################################
-# Generated enums 5
+# Generated enums 6
 # #########################################################################
+
+class ChangeCategoryAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.enum("ChangeCategory")
+        self._values: typing.Set[str] = set([  "Material",  "Process",  "Location",  "Discontinuation",  "Packaging",  "Testing",  ])
+        self._vals = ChangeCategoryValues(self._bldr, self._values)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def values(self) -> "ChangeCategoryValues":
+        return self._vals
+
+
+class ChangeCategoryViewer(ChangeCategoryAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_values(self) -> typing.List[typing.Tuple[str, type_builder.EnumValueViewer]]:
+        return [(name, type_builder.EnumValueViewer(self._bldr.value(name))) for name in self._values]
+    
+
+class ChangeCategoryValues:
+    def __init__(self, enum_bldr: baml_py.EnumBuilder, values: typing.Set[str]):
+        self.__bldr = enum_bldr
+        self.__values = values # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def Material(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("Material"))
+    
+    @property
+    def Process(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("Process"))
+    
+    @property
+    def Location(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("Location"))
+    
+    @property
+    def Discontinuation(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("Discontinuation"))
+    
+    @property
+    def Packaging(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("Packaging"))
+    
+    @property
+    def Testing(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("Testing"))
+    
+    
+
 
 class HazardClassAst:
     def __init__(self, tb: type_builder.TypeBuilder):
@@ -330,7 +400,7 @@ class ProcessCategoryValues:
 
 
 # #########################################################################
-# Generated classes 12
+# Generated classes 14
 # #########################################################################
 
 class ComplianceAugmentationAst:
@@ -852,6 +922,53 @@ class OutlineProperties:
     
 
 
+class PartImpactAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("PartImpact")
+        self._properties: typing.Set[str] = set([  "affected_mpn",  "replacement_mpn",  "ltb_date",  ])
+        self._props = PartImpactProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "PartImpactProperties":
+        return self._props
+
+
+class PartImpactViewer(PartImpactAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class PartImpactProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def affected_mpn(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("affected_mpn"))
+    
+    @property
+    def replacement_mpn(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("replacement_mpn"))
+    
+    @property
+    def ltb_date(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("ltb_date"))
+    
+    
+
+
 class SectionAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
@@ -1000,4 +1117,66 @@ class StrategicAssessmentProperties:
     
     
 
-
+
+class SustainmentNoticeAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("SustainmentNotice")
+        self._properties: typing.Set[str] = set([  "doc_id",  "doc_type",  "pub_date",  "mfr",  "categories",  "summary",  "impacted_parts",  ])
+        self._props = SustainmentNoticeProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "SustainmentNoticeProperties":
+        return self._props
+
+
+class SustainmentNoticeViewer(SustainmentNoticeAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class SustainmentNoticeProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def doc_id(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("doc_id"))
+    
+    @property
+    def doc_type(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("doc_type"))
+    
+    @property
+    def pub_date(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("pub_date"))
+    
+    @property
+    def mfr(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("mfr"))
+    
+    @property
+    def categories(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("categories"))
+    
+    @property
+    def summary(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("summary"))
+    
+    @property
+    def impacted_parts(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("impacted_parts"))
+    
+    
+

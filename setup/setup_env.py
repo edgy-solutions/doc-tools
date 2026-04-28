@@ -104,6 +104,7 @@ def prime_ontologies():
         
         # Specific Logistics Ontologies
         {"domain": "sustainment", "name": "S3000L", "path": "https://www.semanticstep.org/sites/default/files/2018-01/s3kl_0.ttl"}, 
+        {"domain": "sustainment", "name": "PCN_PDN_Extension", "path": "setup/sustainment_extension.ttl"}, 
         
         # =================================================================
         # LAYER 3: DATA ENGINEERING (Engine O maps to http://internal/idp)

@@ -19,7 +19,7 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   2. Run `baml-cli generate`. This drops the compiled models directly natively into `doc_tools/baml_client` to bypass Dagster's isolated import space issues.
   3. Create `doc_tools/plugins/{domain}.py` extending `AugmentationPlugin`.
   4. Register the new plugin in the Dispatcher switch inside `doc_tools/assets/semantic_assets.py`.
-  5. **Existing Domains**: `manufacturing.py` (MANUFACTURING), `maintenance.py` (MAINTENANCE), `training.py` (TRAINING), `compliance.py` (COMPLIANCE).
+  5. **Existing Domains**: `manufacturing.py` (MANUFACTURING), `maintenance.py` (MAINTENANCE), `training.py` (TRAINING), `compliance.py` (COMPLIANCE), `sustainment.py` (SUSTAINMENT).
 - To configure external services, subclass `ConfigurableResource` inside `doc_tools/utils/dagster_resources.py`.
 
 - **Figure/Image Nodes**:

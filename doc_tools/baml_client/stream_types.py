@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (12)
+# Generated classes (14)
 # #########################################################################
 
 class ComplianceAugmentation(BaseModel):
@@ -95,6 +95,11 @@ class MroAugmentation(BaseModel):
 class Outline(BaseModel):
     sections: typing.List["Section"]
 
+class PartImpact(BaseModel):
+    affected_mpn: typing.Optional[str] = None
+    replacement_mpn: typing.Optional[str] = None
+    ltb_date: typing.Optional[str] = Field(default=None, description='Last Time Buy Date in ISO 8601 (YYYY-MM-DD)')
+
 class Section(BaseModel):
     title: typing.Optional[str] = None
     level: typing.Optional[int] = None
@@ -111,6 +116,15 @@ class SlideAugmentation(BaseModel):
 class StrategicAssessment(BaseModel):
     proprietary_score: typing.Optional[float] = Field(default=None, description='0.0 (Common) to 1.0 (Secret Sauce). Score based on how specific/complex the process is.')
     outsourceable: typing.Optional[bool] = Field(default=None, description='If it requires secret sauce or highly sensitive MAT, true. Default to false if unclear.')
+
+class SustainmentNotice(BaseModel):
+    doc_id: typing.Optional[str] = None
+    doc_type: typing.Optional[str] = Field(default=None, description='Either \'PCN\' or \'PDN\'')
+    pub_date: typing.Optional[str] = None
+    mfr: typing.Optional[str] = None
+    categories: typing.List[types.ChangeCategory]
+    summary: typing.Optional[str] = Field(default=None, description='High-level impact summary (1-2 sentences)')
+    impacted_parts: typing.List["PartImpact"]
 
 # #########################################################################
 # Generated type aliases (0)

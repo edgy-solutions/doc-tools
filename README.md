@@ -21,16 +21,19 @@ graph TD
     D -->|tag: manufacturing| E1(Manufacturing Plugin <br> 10x Physics Layer):::plugin
     D -->|tag: compliance| E2(Compliance Plugin <br> DAFMAN Rules):::plugin
     D -->|tag: training| E3(Training Plugin <br> Course Modules):::plugin
+    D -->|tag: sustainment| E4(Sustainment Plugin <br> PCN/PDN Notices):::plugin
     
     E1 -->|baml_src/| F(BAML Client <br> LLM Chain-of-Thought):::llm
     E2 -->|baml_src/| F
     E3 -->|baml_src/| F
+    E4 -->|baml_src/| F
     
     F -->|Validated Pydantic| G(Graph & Semantic <br> Adapters):::plugin
     
     E1 -.-> G
     E2 -.-> G
     E3 -.-> G
+    E4 -.-> G
 
     G -->|Cypher| H1[(Neo4j <br> Knowledge Graph)]:::db
     G -->|SPARQL| H2[(Apache Jena <br> RDF Triples)]:::db
@@ -49,7 +52,7 @@ graph TD
 
 ## 🔒 Data Isolation & Domain Segregation
 
-The pipeline implements a "Holy Trinity" of data segregation to ensure strict isolation between different business domains (e.g., `manufacturing`, `maintenance`, `compliance`) sharing the same infrastructure.
+The pipeline implements a "Holy Trinity" of data segregation to ensure strict isolation between different business domains (e.g., `manufacturing`, `maintenance`, `compliance`, `sustainment`) sharing the same infrastructure.
 
 ### 1. Neo4j (Graph Knowledge)
 Every node created by the pipeline carries a secondary label corresponding to its domain.
@@ -77,7 +80,7 @@ Input strings are automatically sanitized and normalized by the pipeline:
 ---
 
 6. **Configurability:** Fully configurable domains! Easily override GraphQL / Graph target labels and Vector DB collections via Dagster run configs.
-7. **Event-Driven Ingestion:** Dynamic Dagster sensors monitor configurable S3 bucket/directory prefixes, instantaneously injecting `domain_type` routing tags (`manufacturing`, `compliance`) into the pipeline.
+7. **Event-Driven Ingestion:** Dynamic Dagster sensors monitor configurable S3 bucket/directory prefixes, instantaneously injecting `domain_type` routing tags (`manufacturing`, `compliance`, `sustainment`) into the pipeline.
 8. **10x Factory Extraction:** Maps deep-physics logic by rigorously isolating `is_value_added` from `is_safety_critical` steps into Neo4j for exact bottleneck and critical path analysis.
 9. **Declarative Component Architecture:** Leverages `dag-tools` for a modular, reusable, and zero-config orchestration layer. Components like `S3SensorComponent` and `S3ToFileComponent` enable rapid fanning-out of pipelines across new domains.
 
