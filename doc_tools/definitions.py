@@ -36,7 +36,7 @@ pdf_sensor = S3SensorComponent(
     partition_name="pdf_files",
     target_job=f"{document_parser.name}_job",
     target_op=document_parser.name,
-    filter_patterns=["archive/", "metadata.json"],
+    filter_patterns=["archive/", "metadata.json", "generated/"],
     s3_resource={
         "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
         "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
@@ -54,7 +54,7 @@ sustainment_sensor = S3SensorComponent(
     partition_name="pdf_files",
     target_job=f"{document_parser.name}_job",
     target_op=document_parser.name,
-    filter_patterns=["archive/", "metadata.json"],
+    filter_patterns=["archive/", "metadata.json", "generated/"],
     s3_resource={
         "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
         "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
