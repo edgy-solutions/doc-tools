@@ -39,7 +39,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
             else:
                 # Fallback to partition_key and component config
                 bucket = self.config.get("bucket", "processing-artifacts")
-                source_object_key = context.partition_key
+                source_object_key = context.partition_key.replace("__", "/")
             
             # Parse domain and doc_id from S3 key (e.g. manufacturing/IID/test.pdf)
             parts = source_object_key.split('/')

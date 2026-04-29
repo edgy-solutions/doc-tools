@@ -4,23 +4,35 @@ import rdflib
 from dagster import asset, AssetExecutionContext, MaterializeResult
 from dagster_aws.s3 import S3Resource
 from doc_tools.utils.dagster_resources import JenaResource
+from dag_tools.components.s3_sensor.file_component import S3FileConfig
 from doc_tools.partitions import ontology_partitions
 
 @asset(partitions_def=ontology_partitions)
-def ingest_ontology_to_jena(context: AssetExecutionContext, s3: S3Resource, jena: JenaResource) -> MaterializeResult:
+def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig, s3: S3Resource, jena: JenaResource) -> MaterializeResult:
     """
     Detects RDF files in MinIO (via sensor partition) and pushes them to Jena Named Graphs.
     s3://ontologies/{domain}/{file} -> http://internal/{domain}
     """
-    # The partition key is the full object path: {domain}/{filename}
-    partition_key = context.partition_key
-    parts = partition_key.split('/')
+    file_url = config.file_url
+    if file_url.startswith("s3://"):
+        url_parts = file_url[5:].split("/", 1)
+        bucket = url_parts[0]
+        obj_key = url_parts[1]
+    else:
+        # Get the exact S3 key from the run tags injected by the sensor
+        obj_key = context.run.tags.get("s3_key")
+        if not obj_key:
+            # Fallback to partition key replacing double underscores
+            partition_key = context.partition_key
+            obj_key = partition_key.replace("__", "/")
+        
+    parts = obj_key.split('/')
     
     if len(parts) < 2:
-        raise Exception(f"Invalid ontology path: {partition_key}. Expected '{{domain}}/{{filename}}'")
+        raise Exception(f"Invalid ontology path: {obj_key}. Expected '{{domain}}/{{filename}}'")
     
     domain = parts[0]
-    filename = parts[1]
+    filename = parts[-1]
     
     # Derive Named Graph URI
     graph_uri = f"http://internal/{domain}"
@@ -32,7 +44,7 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, s3: S3Resource, jena
     # We'll assume the 'ontologies' bucket as per instructions
     bucket = os.getenv("ONTOLOGY_BUCKET", "ontologies")
     try:
-        response = s3_client.get_object(Bucket=bucket, Key=partition_key)
+        response = s3_client.get_object(Bucket=bucket, Key=obj_key)
         rdf_content = response['Body'].read()
     except Exception as e:
         context.log.error(f"Failed to fetch ontology from MinIO: {e}")

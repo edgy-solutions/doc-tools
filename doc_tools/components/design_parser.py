@@ -34,7 +34,7 @@ class DesignParserComponent(Component, Resolvable, Model):
             else:
                 # Fallback if not an s3:// URL
                 s3_bucket = "processing-artifacts"
-                s3_key = context.partition_key
+                s3_key = context.partition_key.replace("__", "/")
                 
             # Infer domain from s3_key (e.g. domain/design_files/file.edmx)
             parts = s3_key.split('/')
