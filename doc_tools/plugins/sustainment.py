@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
@@ -27,36 +27,95 @@ class SustainmentPlugin(AugmentationPlugin):
     Sustainment (PCN/PDN) extraction logic.
     """
     
-    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
+    def _chunk_text(self, document_text: str, max_chars: int = 15000, overlap_chars: int = 1500) -> List[Tuple[str, int]]:
+        """
+        Split document into overlapping chunks.
+        Returns list of (chunk_text, start_char_position).
+        """
+        if len(document_text) <= max_chars:
+            return [(document_text, 0)]
+        
+        chunks = []
+        start = 0
+        
+        while start < len(document_text):
+            end = start + max_chars
+            chunk = document_text[start:end]
+            chunks.append((chunk, start))
+            
+            start = end - overlap_chars
+            if start <= chunks[-1][1]:
+                break
+                
+        return chunks
+
+    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None) -> List[DocumentNode]:
+        """
+        Parse the entire document text to extract the sustainment notice.
+        """
+        if metadata is None:
+            metadata = {}
+            
         try:
             from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import SustainmentNotice as BamlSustainmentNotice
+            import os
             
-            # Execute BAML LLM inference
-            baml_response: BamlSustainmentNotice = b.ExtractSustainment(doc=section.content)
+            context_size = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
+            reserved_tokens = 4000
+            chars_per_token = 3
+            max_chars = (context_size - reserved_tokens) * chars_per_token
+            overlap_chars = max(1000, max_chars // 10)
             
-            parts = []
-            for p in baml_response.impacted_parts:
-                parts.append(PartImpact(
-                    affected_mpn=p.affected_mpn,
-                    replacement_mpn=p.replacement_mpn,
-                    ltb_date=p.ltb_date
-                ))
+            baml_responses = []
+            
+            if len(full_text) <= max_chars:
+                print(f"[SustainmentPlugin] Document fits in context ({len(full_text)} chars)")
+                baml_response = b.ExtractSustainment(doc=full_text)
+                baml_responses.append(baml_response)
+            else:
+                print(f"[SustainmentPlugin] Document too large ({len(full_text)} chars), chunking...")
+                chunks = self._chunk_text(full_text, max_chars, overlap_chars)
                 
-            notice = SustainmentNotice(
-                doc_id=baml_response.doc_id,
-                doc_type=baml_response.doc_type,
-                pub_date=baml_response.pub_date,
-                mfr=baml_response.mfr,
-                categories=[getattr(c, 'value', c) for c in baml_response.categories],
-                summary=baml_response.summary,
-                impacted_parts=parts
-            )
-                
-            augmentation = SustainmentAugmentation(notice=notice)
+                for i, (chunk_text, start_pos) in enumerate(chunks):
+                    print(f"[SustainmentPlugin] Processing chunk {i+1}/{len(chunks)}")
+                    try:
+                        partial = b.ExtractSustainment(doc=chunk_text)
+                        baml_responses.append(partial)
+                    except Exception as e:
+                        print(f"[SustainmentPlugin] Chunk {i+1} failed: {e}")
+                        
+            all_parts = []
+            merged_notice = None
             
-        except ImportError:
-            # Fallback mock for testing environments
+            for resp in baml_responses:
+                if merged_notice is None:
+                    merged_notice = resp
+                
+                for p in resp.impacted_parts:
+                    if not any(existing.affected_mpn == p.affected_mpn for existing in all_parts):
+                        all_parts.append(PartImpact(
+                            affected_mpn=p.affected_mpn,
+                            replacement_mpn=p.replacement_mpn,
+                            ltb_date=p.ltb_date
+                        ))
+            
+            if merged_notice:
+                notice = SustainmentNotice(
+                    doc_id=merged_notice.doc_id,
+                    doc_type=merged_notice.doc_type,
+                    pub_date=merged_notice.pub_date,
+                    mfr=merged_notice.mfr,
+                    categories=[getattr(c, 'value', c) for c in merged_notice.categories],
+                    summary=merged_notice.summary,
+                    impacted_parts=all_parts
+                )
+                augmentation = SustainmentAugmentation(notice=notice)
+            else:
+                raise Exception("No sustainment notice could be extracted")
+                
+        except Exception as e:
+            print(f"[SustainmentPlugin] Extraction failed: {e}")
             augmentation = SustainmentAugmentation(
                 notice=SustainmentNotice(
                     doc_id="MOCK-PDN-123",
@@ -74,10 +133,15 @@ class SustainmentPlugin(AugmentationPlugin):
                     ]
                 )
             )
-        
+            
+        global_section = BaseSection(title="Sustainment Notice", level=0, page_start=0, content="", node_id=doc_id)
+        return [DocumentNode(base_extraction=global_section, domain_augmentation=augmentation)]
+
+    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
+        # We process sustainment notices globally via process_fulltext, so per-chunk augmentation is a no-op
         return DocumentNode(
             base_extraction=section,
-            domain_augmentation=augmentation
+            domain_augmentation=None
         )
 
     def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:
@@ -96,10 +160,10 @@ class SustainmentPlugin(AugmentationPlugin):
             # Use unified hardware ID linking Graph to Vector DB
             section_id = sec.node_id or f"section_{sec.page_start}_{sec.title}"
             
-            # Create Section node
+            # Create Section node (which in this global context is the Document node)
             cypher_queries.append({
                 "query": f"""
-                MERGE (p:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
+                MERGE (p:{config.graph_node_label}:{self.domain_label} {{id: $section_id}})
                 SET p.title = $title
                 """,
                 "params": {
@@ -110,7 +174,7 @@ class SustainmentPlugin(AugmentationPlugin):
             
             # --- NEO4J CYPHER ---
             edge_cypher = f"""
-            MERGE (p:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
+            MERGE (p:{config.graph_node_label}:{self.domain_label} {{id: $section_id}})
             MERGE (n:SustainmentNotice:{self.domain_label} {{id: $notice_id}})
             SET n.pub_date = $pub_date, n.mfr = $mfr, n.type = $doc_type
             MERGE (p)-[:GOVERNED_BY]->(n)

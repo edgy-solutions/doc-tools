@@ -118,10 +118,10 @@ class StrategicAssessment(BaseModel):
     outsourceable: typing.Optional[bool] = Field(default=None, description='If it requires secret sauce or highly sensitive MAT, true. Default to false if unclear.')
 
 class SustainmentNotice(BaseModel):
-    doc_id: typing.Optional[str] = None
-    doc_type: typing.Optional[str] = Field(default=None, description='Either \'PCN\' or \'PDN\'')
-    pub_date: typing.Optional[str] = None
-    mfr: typing.Optional[str] = None
+    doc_id: typing.Optional[str] = Field(default=None, description='The PCN/PDN number, e.g., 23-002')
+    doc_type: typing.Optional[str] = Field(default=None, description='PCN or PDN')
+    pub_date: typing.Optional[str] = Field(default=None, description='The notification date')
+    mfr: typing.Optional[str] = Field(default=None, description='The manufacturer, e.g., Mini-Circuits')
     categories: typing.List[types.ChangeCategory]
     summary: typing.Optional[str] = Field(default=None, description='High-level impact summary (1-2 sentences)')
     impacted_parts: typing.List["PartImpact"]

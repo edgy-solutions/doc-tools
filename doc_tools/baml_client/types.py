@@ -159,10 +159,10 @@ class StrategicAssessment(BaseModel):
     outsourceable: bool = Field(description='If it requires secret sauce or highly sensitive MAT, true. Default to false if unclear.')
 
 class SustainmentNotice(BaseModel):
-    doc_id: str
-    doc_type: str = Field(description='Either \'PCN\' or \'PDN\'')
-    pub_date: str
-    mfr: str
+    doc_id: str = Field(description='The PCN/PDN number, e.g., 23-002')
+    doc_type: str = Field(description='PCN or PDN')
+    pub_date: str = Field(description='The notification date')
+    mfr: str = Field(description='The manufacturer, e.g., Mini-Circuits')
     categories: typing.List[ChangeCategory]
     summary: str = Field(description='High-level impact summary (1-2 sentences)')
     impacted_parts: typing.List["PartImpact"]
