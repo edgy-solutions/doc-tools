@@ -32,7 +32,7 @@ _document_parser_defs = document_parser.build_defs(None)
 # 2. Instantiate Sensors (decoupled from assets)
 pdf_sensor = S3SensorComponent(
     bucket="processing-artifacts",
-    prefix="manufacturing/IID/",
+    prefix="manufacturing/inbound/",
     partition_name="pdf_files",
     target_job=f"{document_parser.name}_job",
     target_op=document_parser.name,
