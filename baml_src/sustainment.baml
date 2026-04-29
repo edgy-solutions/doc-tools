@@ -32,5 +32,6 @@ function ExtractSustainment(doc: string) -> SustainmentNotice {
     {{ doc }}
 
     JSON Response:
+    {{ ctx.output_format }}
   "#
 }
