@@ -207,7 +207,6 @@ def build_knowledge_graph(
     # Derive image_prefix from text_location
     # e.g. text_location: "manufacturing/IID/generated/test_pdf/text.json"
     # base_dir: "manufacturing/IID/generated/test_pdf"
-    import os
     base_dir = os.path.dirname(text_location)
     image_prefix = f"s3://{config.bucket}/{base_dir}/images/"
     
