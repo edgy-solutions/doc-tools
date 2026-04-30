@@ -15,7 +15,10 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     UpstreamClass,
     DatasetLineageTypeClass,
-    AuditStampClass
+    AuditStampClass,
+    DatasetPropertiesClass,
+    BrowsePathsV2Class,
+    BrowsePathEntryClass
 )
 
 class DDSToDataHubEmitter:
@@ -68,6 +71,33 @@ class DDSToDataHubEmitter:
         )
         
         self.emitter.emit(mcp)
+        
+        struct_name = topic_name.split(".")[-1]
+        properties = DatasetPropertiesClass(
+            name=struct_name,
+            description=f"IDL Schema for {struct_name} in the DDS {topic_name} topic."
+        )
+        properties_mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType="UPSERT",
+            entityUrn=dataset_urn,
+            aspectName="datasetProperties",
+            aspect=properties
+        )
+        self.emitter.emit(properties_mcp)
+        
+        path_parts = topic_name.split(".")[:-1]
+        browse_paths = BrowsePathsV2Class(
+            path=[BrowsePathEntryClass(id=p) for p in path_parts]
+        )
+        browse_paths_mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType="UPSERT",
+            entityUrn=dataset_urn,
+            aspectName="browsePathsV2",
+            aspect=browse_paths
+        )
+        self.emitter.emit(browse_paths_mcp)
         
     def emit_kafka_lineage(self, dds_topic_name: str, kafka_topic_name: str):
         upstream_urn = f"urn:li:dataset:(urn:li:dataPlatform:dds,{dds_topic_name},PROD)"
@@ -130,6 +160,33 @@ class DDSToDataHubEmitter:
         )
         
         self.emitter.emit(mcp)
+        
+        struct_name = topic_name.split(".")[-1]
+        properties = DatasetPropertiesClass(
+            name=struct_name,
+            description=f"JSON Schema for {struct_name} in the RabbitMQ {topic_name} exchange."
+        )
+        properties_mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType="UPSERT",
+            entityUrn=dataset_urn,
+            aspectName="datasetProperties",
+            aspect=properties
+        )
+        self.emitter.emit(properties_mcp)
+        
+        path_parts = topic_name.split(".")[:-1]
+        browse_paths = BrowsePathsV2Class(
+            path=[BrowsePathEntryClass(id=p) for p in path_parts]
+        )
+        browse_paths_mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType="UPSERT",
+            entityUrn=dataset_urn,
+            aspectName="browsePathsV2",
+            aspect=browse_paths
+        )
+        self.emitter.emit(browse_paths_mcp)
 
     def emit_rabbitmq_lineage(self, kafka_topic_name: str, rabbitmq_topic_name: str):
         upstream_urn = f"urn:li:dataset:(urn:li:dataPlatform:kafka,{kafka_topic_name},PROD)"
