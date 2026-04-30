@@ -80,8 +80,8 @@ def ingest_rabbitmq_schemas(config: RabbitMQIngestionConfig):
                 
     return MaterializeResult(
         asset_key="ingest_rabbitmq_schemas",
-        description="Ingested RabbitMQ JSON schemas and mapped lineage from Kafka",
         metadata={
+            "run_info": "Ingested RabbitMQ JSON schemas and mapped lineage from Kafka",
             "total_schemas_ingested": total_schemas,
             "total_lineage_edges_created": total_lineage_edges,
             "files_scanned": files_scanned

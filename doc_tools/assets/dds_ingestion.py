@@ -79,8 +79,8 @@ def ingest_dds_idl_schemas(config: DDSIngestionConfig):
                 
     return MaterializeResult(
         asset_key="ingest_dds_idl_schemas",
-        description="Ingested DDS IDL schemas and mapped lineage to Kafka",
         metadata={
+            "run_info": "Ingested DDS IDL schemas and mapped lineage to Kafka",
             "total_structs_ingested": total_structs,
             "total_lineage_edges_created": total_lineage_edges,
             "files_scanned": files_scanned
