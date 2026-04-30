@@ -1,38 +1,44 @@
 import os
-import re
+import subprocess
+import tempfile
 import io
+import ast
 from typing import Dict, List, Any
-from idl_parser import parser
 from pcpp import Preprocessor
 from dagster import get_dagster_logger
 
+
+
 logger = get_dagster_logger()
 
-# DataHub type mappings
-IDL_TO_DATAHUB_TYPE_MAP = {
-    "short": "NumberTypeClass",
-    "long": "NumberTypeClass",
-    "long long": "NumberTypeClass",
-    "unsigned short": "NumberTypeClass",
-    "unsigned long": "NumberTypeClass",
-    "unsigned long long": "NumberTypeClass",
+# DataHub type mappings based on cyclonedds python types
+PYTHON_TYPE_TO_DATAHUB_MAP = {
+    "int8": "NumberTypeClass",
+    "int16": "NumberTypeClass",
+    "int32": "NumberTypeClass",
+    "int64": "NumberTypeClass",
+    "uint8": "NumberTypeClass",
+    "uint16": "NumberTypeClass",
+    "uint32": "NumberTypeClass",
+    "uint64": "NumberTypeClass",
+    "float32": "NumberTypeClass",
+    "float64": "NumberTypeClass",
     "float": "NumberTypeClass",
-    "double": "NumberTypeClass",
-    "long double": "NumberTypeClass",
+    "int": "NumberTypeClass",
+    "str": "StringTypeClass",
     "char": "StringTypeClass",
     "wchar": "StringTypeClass",
-    "string": "StringTypeClass",
-    "wstring": "StringTypeClass",
-    "boolean": "BooleanTypeClass",
-    "octet": "BytesTypeClass",
+    "bool": "BooleanTypeClass",
+    "bytes": "BytesTypeClass",
 }
 
 class IDLParser:
     def __init__(self):
-        self.parser = parser.IDLParser()
+        pass
 
     def _extract_comments(self, content: str) -> Dict[str, Dict[str, str]]:
-        # Heuristic to extract comments since idl-parser AST drops them
+        # Heuristic to extract comments
+        import re
         comments = {}
         current_struct = None
         
@@ -57,43 +63,91 @@ class IDLParser:
                         comments[current_struct][field_name] = comment
         return comments
 
-    def _traverse_modules(self, node, prefix="") -> List[Dict[str, Any]]:
+    def _parse_python_files(self, directory: str) -> List[Dict[str, Any]]:
+        import sys
+        import importlib.util
+        import inspect
+        from typing import get_args, get_origin
+        from cyclonedds.idl import IdlStruct
+
         structs = []
-        
-        if hasattr(node, "is_struct") and node.is_struct:
-            struct_name = f"{prefix}{node.name}"
-            fields = []
-            for m in node.members:
-                is_seq = getattr(m.type, "is_sequence", False)
-                idl_type = getattr(m.type, "name", "string").replace(" ", "")
-                
-                if is_seq:
-                    datahub_type = "ArrayTypeClass"
-                else:
-                    datahub_type = IDL_TO_DATAHUB_TYPE_MAP.get(idl_type, "StringTypeClass")
-                
-                fields.append({
-                    "name": m.name,
-                    "idl_type": idl_type,
-                    "datahub_type": datahub_type,
-                    "struct_name": node.name
-                })
-                
-            structs.append({
-                "struct_name": struct_name,
-                "fields": fields
-            })
-            
-        if hasattr(node, "modules"):
-            for m in node.modules:
-                node_name = getattr(node, "name", "")
-                new_prefix = f"{m.name}::" if node_name == "__global__" else f"{prefix}{m.name}::"
-                structs.extend(self._traverse_modules(m, new_prefix))
-                
-        if hasattr(node, "structs"):
-            for s in node.structs:
-                structs.extend(self._traverse_modules(s, prefix))
-                
+        # Add directory to sys.path for relative imports within the generated files
+        sys.path.insert(0, directory)
+        try:
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    if not file.endswith('.py') or file == '__init__.py':
+                        continue
+                    
+                    filepath = os.path.join(root, file)
+                    module_name = file[:-3]
+                    
+                    spec = importlib.util.spec_from_file_location(module_name, filepath)
+                    if spec is None or spec.loader is None:
+                        continue
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[module_name] = module
+                    
+                    try:
+                        spec.loader.exec_module(module)
+                    except Exception as e:
+                        logger.error(f"Failed to import {module_name}: {e}")
+                        continue
+                    
+                    # Determine prefix from directory structure
+                    rel_path = os.path.relpath(filepath, directory)
+                    module_parts = os.path.dirname(rel_path).split(os.sep)
+                    prefix = "::".join(p for p in module_parts if p)
+                    if prefix:
+                        prefix += "::"
+                    
+                    for name, obj in inspect.getmembers(module, inspect.isclass):
+                        if issubclass(obj, IdlStruct) and obj is not IdlStruct:
+                            typename = getattr(obj, '__idl_typename__', obj.__name__)
+                            if "::" in typename or "." in typename:
+                                struct_name = typename.replace(".", "::")
+                            else:
+                                struct_name = f"{prefix}{typename}"
+                            fields = []
+                            
+                            for field_name, field_type in getattr(obj, "__annotations__", {}).items():
+                                origin = get_origin(field_type)
+                                args = get_args(field_type)
+                                
+                                idl_type = "str"
+                                datahub_type = "StringTypeClass"
+                                
+                                if origin is getattr(sys.modules.get('typing'), 'Annotated', type(None)):
+                                    if args and len(args) > 1:
+                                        idl_type = str(args[1])
+                                elif origin is list or field_type is list or origin is getattr(sys.modules.get('typing'), 'Sequence', type(None)):
+                                    idl_type = "sequence"
+                                    datahub_type = "ArrayTypeClass"
+                                elif hasattr(field_type, "__name__"):
+                                    idl_type = field_type.__name__
+                                    
+                                # Basic datahub mapping
+                                if datahub_type != "ArrayTypeClass":
+                                    if "int" in idl_type or "float" in idl_type or "double" in idl_type:
+                                        datahub_type = "NumberTypeClass"
+                                    elif "bool" in idl_type:
+                                        datahub_type = "BooleanTypeClass"
+                                    elif "byte" in idl_type or "octet" in idl_type:
+                                        datahub_type = "BytesTypeClass"
+                                
+                                fields.append({
+                                    "name": field_name,
+                                    "idl_type": idl_type,
+                                    "datahub_type": datahub_type,
+                                    "struct_name": obj.__name__
+                                })
+                                
+                            structs.append({
+                                "struct_name": struct_name,
+                                "fields": fields
+                            })
+        finally:
+            sys.path.pop(0)
         return structs
 
     def parse(self, file_path: str, include_dirs: List[str] = None) -> List[Dict[str, Any]]:
@@ -114,19 +168,42 @@ class IDLParser:
             
         comments_map = self._extract_comments(content)
         
-        try:
-            global_module = self.parser.load(flattened_content)
-        except IndexError as e:
-            logger.error(f"Failed parsing IDL file: {file_path}")
-            logger.error("Dumping the first 500 characters of flattened_content to verify includes worked:")
-            logger.error(flattened_content[:500])
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Write flattened content to a temp file
+            temp_idl_path = os.path.join(tmpdir, "temp.idl")
+            with open(temp_idl_path, 'w', encoding='utf-8') as f:
+                f.write(flattened_content)
+                
+            # Run cyclonedds idlc
+            import cyclonedds.tools.wheel_idlc as w
+            idlc_path = w.idlc
             
-            # If you want to see the exact type it tripped on, 
-            # we can try to inspect the parser's current state, but 
-            # simply seeing the file name will usually give away the missing dependency.
-            raise Exception(f"Failed to parse {file_path}. A required type definition is missing.") from e
-            
-        structs = self._traverse_modules(global_module, "")
+            # Set LD_LIBRARY_PATH for idlc
+            env = os.environ.copy()
+            try:
+                from cyclonedds.__library__ import library_path
+                lib_dir = str(library_path.parent)
+                env['LD_LIBRARY_PATH'] = lib_dir + (':' + env['LD_LIBRARY_PATH'] if 'LD_LIBRARY_PATH' in env else '')
+            except ImportError:
+                pass
+
+            try:
+                subprocess.run(
+                    [idlc_path, "-l", "py", "-d", tmpdir, temp_idl_path],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=env
+                )
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed parsing IDL file with cyclonedds idlc: {file_path}")
+                logger.error(f"idlc stderr: {e.stderr}")
+                logger.error("Dumping the first 500 characters of flattened_content to verify includes worked:")
+                logger.error(flattened_content[:500])
+                raise Exception(f"Failed to parse {file_path}. idlc error: {e.stderr}") from e
+                
+            # Parse the generated python files
+            structs = self._parse_python_files(tmpdir)
         
         # Inject comments
         for s in structs:
