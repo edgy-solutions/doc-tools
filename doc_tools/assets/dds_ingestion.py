@@ -37,6 +37,7 @@ def ingest_dds_idl_schemas(config: DDSIngestionConfig):
     
     with tempfile.TemporaryDirectory() as tmpdir:
         clone_url = config.git_repo_url
+        repo_name = clone_url.split("/")[-1].replace(".git", "")
         if config.git_token and clone_url.startswith("https://"):
             clone_url = clone_url.replace("https://", f"https://{config.git_token}@")
             
@@ -56,18 +57,23 @@ def ingest_dds_idl_schemas(config: DDSIngestionConfig):
         files_scanned = len(idl_files)
         
         for idl_file in idl_files:
+            rel_path = os.path.relpath(idl_file, tmpdir)
+            repo_path = os.path.splitext(rel_path)[0].replace("/", ".")
+            
             structs = parser.parse(idl_file, include_dirs=[tmpdir])
             
             for struct in structs:
                 struct_name = struct["struct_name"]
                 fields = struct["fields"]
                 
+                full_topic_name = f"{repo_name}.{repo_path}.{struct_name}"
+                
                 # 1. Emit DDS Schema
-                emitter.emit_dds_schema(topic_name=struct_name, parsed_fields=fields)
+                emitter.emit_dds_schema(topic_name=full_topic_name, parsed_fields=fields)
                 total_structs += 1
                 
                 # 2. Emit Kafka Lineage
-                emitter.emit_kafka_lineage(dds_topic_name=struct_name, kafka_topic_name=config.raw_kafka_topic)
+                emitter.emit_kafka_lineage(dds_topic_name=full_topic_name, kafka_topic_name=config.raw_kafka_topic)
                 total_lineage_edges += 1
                 
     return MaterializeResult(

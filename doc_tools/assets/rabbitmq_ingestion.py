@@ -36,6 +36,7 @@ def ingest_rabbitmq_schemas(config: RabbitMQIngestionConfig):
     
     with tempfile.TemporaryDirectory() as tmpdir:
         clone_url = config.git_repo_url
+        repo_name = clone_url.split("/")[-1].replace(".git", "")
         if config.git_token and clone_url.startswith("https://"):
             clone_url = clone_url.replace("https://", f"https://{config.git_token}@")
             
@@ -55,20 +56,25 @@ def ingest_rabbitmq_schemas(config: RabbitMQIngestionConfig):
         files_scanned = len(schema_files)
         
         for schema_file in schema_files:
+            rel_path = os.path.relpath(schema_file, tmpdir)
+            repo_path = os.path.splitext(rel_path)[0].replace("/", ".")
+            
             schemas = parser.parse(schema_file)
             
             for schema in schemas:
                 struct_name = schema["struct_name"]
                 fields = schema["fields"]
                 
+                full_topic_name = f"{repo_name}.{repo_path}.{struct_name}"
+                
                 # 1. Emit RabbitMQ Schema
-                emitter.emit_rabbitmq_schema(topic_name=struct_name, parsed_fields=fields)
+                emitter.emit_rabbitmq_schema(topic_name=full_topic_name, parsed_fields=fields)
                 total_schemas += 1
                 
                 # 2. Emit Kafka Lineage (Kafka -> RabbitMQ)
                 emitter.emit_rabbitmq_lineage(
                     kafka_topic_name=config.raw_kafka_topic,
-                    rabbitmq_topic_name=struct_name
+                    rabbitmq_topic_name=full_topic_name
                 )
                 total_lineage_edges += 1
                 

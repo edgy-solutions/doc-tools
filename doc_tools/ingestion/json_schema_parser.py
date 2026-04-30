@@ -1,3 +1,4 @@
+import os
 import json
 from typing import Dict, List, Any
 
@@ -53,7 +54,11 @@ class JSONSchemaParser:
         with open(file_path, 'r', encoding='utf-8') as f:
             schema = json.load(f)
             
-        struct_name = schema.get("title", "UnknownSchema")
+        struct_name = schema.get("title")
+        if not struct_name:
+            base_name = os.path.basename(file_path)
+            struct_name = os.path.splitext(base_name)[0]
+            
         properties = schema.get("properties", {})
         
         fields = self._traverse_properties(properties)
