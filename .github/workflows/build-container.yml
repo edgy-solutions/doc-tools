@@ -56,7 +56,7 @@ jobs:
           ENV SCARF_NO_ANALYTICS=true
           ENV HF_HOME=/app/.cache/huggingface
 
-          # Install system dependencies (Tesseract, Poppler, libmagic, LibreOffice for MS docs)
+          # Install system dependencies (Tesseract, Poppler, libmagic, LibreOffice for MS docs, and CycloneDDS)
           RUN apt-get update && apt-get install -y --no-install-recommends \
               git \
               libmagic1 \
@@ -68,6 +68,7 @@ jobs:
               curl \
               gnupg2 \
               apt-transport-https \
+              cyclonedds-tools \
               && rm -rf /var/lib/apt/lists/*
 
           # Install Microsoft ODBC Driver for SQL Server

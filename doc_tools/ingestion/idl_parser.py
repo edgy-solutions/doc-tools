@@ -181,20 +181,10 @@ class IDLParser:
                 target_idl_path = file_path
                 
             # Run cyclonedds idlc
-            import cyclonedds.tools.wheel_idlc as w
-            idlc_path = w.idlc
-            
-            # Set LD_LIBRARY_PATH for idlc
             env = os.environ.copy()
-            try:
-                from cyclonedds.__library__ import library_path
-                lib_dir = str(library_path.parent)
-                env['LD_LIBRARY_PATH'] = lib_dir + (':' + env['LD_LIBRARY_PATH'] if 'LD_LIBRARY_PATH' in env else '')
-            except ImportError:
-                pass
 
             try:
-                cmd = [idlc_path, "-l", "py", "-d", tmpdir]
+                cmd = ["idlc", "-l", "py", "-d", tmpdir]
                 if not use_pcpp:
                     for d in include_dirs:
                         cmd.extend(["-I", d])
