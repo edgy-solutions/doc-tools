@@ -51,7 +51,7 @@ class DDSToDataHubEmitter:
             )
             
         schema_metadata = SchemaMetadataClass(
-            schemaName=topic_name,
+            schemaName=topic_name.split(".")[-1],
             platform="urn:li:dataPlatform:dds",
             version=0,
             hash="",
@@ -113,7 +113,7 @@ class DDSToDataHubEmitter:
             )
             
         schema_metadata = SchemaMetadataClass(
-            schemaName=topic_name,
+            schemaName=topic_name.split(".")[-1],
             platform="urn:li:dataPlatform:rabbitmq",
             version=0,
             hash="",
