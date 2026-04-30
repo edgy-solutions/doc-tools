@@ -4,6 +4,9 @@ import io
 from typing import Dict, List, Any
 from idl_parser import parser
 from pcpp import Preprocessor
+from dagster import get_dagster_logger
+
+logger = get_dagster_logger()
 
 # DataHub type mappings
 IDL_TO_DATAHUB_TYPE_MAP = {
@@ -111,7 +114,18 @@ class IDLParser:
             
         comments_map = self._extract_comments(content)
         
-        global_module = self.parser.load(flattened_content)
+        try:
+            global_module = self.parser.load(flattened_content)
+        except IndexError as e:
+            logger.error(f"Failed parsing IDL file: {file_path}")
+            logger.error("Dumping the first 500 characters of flattened_content to verify includes worked:")
+            logger.error(flattened_content[:500])
+            
+            # If you want to see the exact type it tripped on, 
+            # we can try to inspect the parser's current state, but 
+            # simply seeing the file name will usually give away the missing dependency.
+            raise Exception(f"Failed to parse {file_path}. A required type definition is missing.") from e
+            
         structs = self._traverse_modules(global_module, "")
         
         # Inject comments
