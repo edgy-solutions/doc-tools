@@ -68,7 +68,7 @@ jobs:
               curl \
               gnupg2 \
               apt-transport-https \
-              cyclonedds-tools \
+              libstdc++6 \
               && rm -rf /var/lib/apt/lists/*
 
           # Install Microsoft ODBC Driver for SQL Server

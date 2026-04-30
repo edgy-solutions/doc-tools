@@ -184,7 +184,15 @@ class IDLParser:
             env = os.environ.copy()
 
             try:
-                cmd = ["idlc", "-l", "py", "-d", tmpdir]
+                import cyclonedds
+                from pathlib import Path
+                idlc_path = str(Path(cyclonedds.__file__).resolve().parent / '.libs' / 'idlc')
+                
+                # Add cyclonedds libs to LD_LIBRARY_PATH so idlc can find libddsc.so
+                from cyclonedds.__library__ import library_path
+                env['LD_LIBRARY_PATH'] = str(library_path.parent) + (':' + env.get('LD_LIBRARY_PATH', ''))
+
+                cmd = [idlc_path, "-l", "py", "-d", tmpdir]
                 if not use_pcpp:
                     for d in include_dirs:
                         cmd.extend(["-I", d])
