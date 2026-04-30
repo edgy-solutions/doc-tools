@@ -11,7 +11,8 @@ from doc_tools.ingestion.datahub_emitter import DDSToDataHubEmitter
 class DDSIngestionConfig(Config):
     git_repo_url: str = os.getenv("DDS_GIT_REPO_URL", "")
     git_branch: str = os.getenv("DDS_GIT_BRANCH", "main")
-    git_token: str = os.getenv("GIT_TOKEN", "")
+    git_token: str = os.getenv("DDS_GIT_TOKEN", "")
+    git_ssl_verify: bool = os.getenv("DDS_GIT_SSL_VERIFY", "true").lower() == "true"
     schema_path_in_repo: str = os.getenv("DDS_SCHEMA_PATH", "schemas/dds")
     datahub_gms_url: str = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
     datahub_token: str = os.getenv("DATAHUB_TOKEN", "")
@@ -39,8 +40,13 @@ def ingest_dds_idl_schemas(config: DDSIngestionConfig):
         if config.git_token and clone_url.startswith("https://"):
             clone_url = clone_url.replace("https://", f"https://{config.git_token}@")
             
+        git_cmd = ["git"]
+        if not config.git_ssl_verify:
+            git_cmd.extend(["-c", "http.sslVerify=false"])
+        git_cmd.extend(["clone", "-b", config.git_branch, "--single-branch", clone_url, tmpdir])
+            
         subprocess.run(
-            ["git", "clone", "-b", config.git_branch, "--single-branch", clone_url, tmpdir],
+            git_cmd,
             check=True,
             capture_output=True
         )
