@@ -150,29 +150,35 @@ class IDLParser:
             sys.path.pop(0)
         return structs
 
-    def parse(self, file_path: str, include_dirs: List[str] = None) -> List[Dict[str, Any]]:
+    def parse(self, file_path: str, include_dirs: List[str] = None, use_pcpp: bool = False) -> List[Dict[str, Any]]:
         if include_dirs is None:
             include_dirs = []
-            
-        p = Preprocessor()
-        for d in include_dirs:
-            p.add_path(d)
             
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
             
-        p.parse(content)
-        output = io.StringIO()
-        p.write(output)
-        flattened_content = output.getvalue()
+        if use_pcpp:
+            p = Preprocessor()
+            for d in include_dirs:
+                p.add_path(d)
+                
+            p.parse(content)
+            output = io.StringIO()
+            p.write(output)
+            flattened_content = output.getvalue()
+        else:
+            flattened_content = content
             
         comments_map = self._extract_comments(content)
         
         with tempfile.TemporaryDirectory() as tmpdir:
             # Write flattened content to a temp file
-            temp_idl_path = os.path.join(tmpdir, "temp.idl")
-            with open(temp_idl_path, 'w', encoding='utf-8') as f:
-                f.write(flattened_content)
+            if use_pcpp:
+                target_idl_path = os.path.join(tmpdir, "temp.idl")
+                with open(target_idl_path, 'w', encoding='utf-8') as f:
+                    f.write(flattened_content)
+            else:
+                target_idl_path = file_path
                 
             # Run cyclonedds idlc
             import cyclonedds.tools.wheel_idlc as w
@@ -188,8 +194,14 @@ class IDLParser:
                 pass
 
             try:
+                cmd = [idlc_path, "-l", "py", "-d", tmpdir]
+                if not use_pcpp:
+                    for d in include_dirs:
+                        cmd.extend(["-I", d])
+                cmd.append(target_idl_path)
+                
                 subprocess.run(
-                    [idlc_path, "-l", "py", "-d", tmpdir, temp_idl_path],
+                    cmd,
                     check=True,
                     capture_output=True,
                     text=True,

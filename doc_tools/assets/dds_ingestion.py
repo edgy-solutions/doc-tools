@@ -13,6 +13,7 @@ class DDSIngestionConfig(Config):
     git_branch: str = os.getenv("DDS_GIT_BRANCH", "main")
     git_token: str = os.getenv("DDS_GIT_TOKEN", "")
     git_ssl_verify: bool = os.getenv("DDS_GIT_SSL_VERIFY", "true").lower() == "true"
+    use_pcpp: bool = os.getenv("DDS_USE_PCPP", "false").lower() == "true"
     schema_path_in_repo: str = os.getenv("DDS_SCHEMA_PATH", "schemas/dds")
     datahub_gms_url: str = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
     datahub_token: str = os.getenv("DATAHUB_TOKEN", "")
@@ -60,7 +61,7 @@ def ingest_dds_idl_schemas(config: DDSIngestionConfig):
             rel_path = os.path.relpath(idl_file, tmpdir)
             repo_path = os.path.splitext(rel_path)[0].replace("/", ".")
             
-            structs = parser.parse(idl_file, include_dirs=[tmpdir])
+            structs = parser.parse(idl_file, include_dirs=[tmpdir], use_pcpp=config.use_pcpp)
             
             for struct in structs:
                 struct_name = struct["struct_name"]
