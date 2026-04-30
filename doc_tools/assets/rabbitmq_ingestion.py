@@ -2,7 +2,7 @@ import os
 import glob
 import tempfile
 import subprocess
-from dagster import asset, AssetMaterialization, Config
+from dagster import asset, MaterializeResult, Config
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from doc_tools.ingestion.json_schema_parser import JSONSchemaParser
 from doc_tools.ingestion.datahub_emitter import DDSToDataHubEmitter
@@ -72,7 +72,7 @@ def ingest_rabbitmq_schemas(config: RabbitMQIngestionConfig):
                 )
                 total_lineage_edges += 1
                 
-    yield AssetMaterialization(
+    return MaterializeResult(
         asset_key="ingest_rabbitmq_schemas",
         description="Ingested RabbitMQ JSON schemas and mapped lineage from Kafka",
         metadata={

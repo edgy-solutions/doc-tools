@@ -3,7 +3,7 @@ import glob
 import re
 import tempfile
 import subprocess
-from dagster import asset, AssetMaterialization, Config
+from dagster import asset, MaterializeResult, Config
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from doc_tools.ingestion.idl_parser import IDLParser
 from doc_tools.ingestion.datahub_emitter import DDSToDataHubEmitter
@@ -70,7 +70,7 @@ def ingest_dds_idl_schemas(config: DDSIngestionConfig):
                 emitter.emit_kafka_lineage(dds_topic_name=struct_name, kafka_topic_name=config.raw_kafka_topic)
                 total_lineage_edges += 1
                 
-    yield AssetMaterialization(
+    return MaterializeResult(
         asset_key="ingest_dds_idl_schemas",
         description="Ingested DDS IDL schemas and mapped lineage to Kafka",
         metadata={
