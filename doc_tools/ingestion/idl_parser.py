@@ -1,7 +1,9 @@
 import os
 import re
+import io
 from typing import Dict, List, Any
 from idl_parser import parser
+from pcpp import Preprocessor
 
 # DataHub type mappings
 IDL_TO_DATAHUB_TYPE_MAP = {
@@ -91,13 +93,25 @@ class IDLParser:
                 
         return structs
 
-    def parse(self, file_path: str) -> List[Dict[str, Any]]:
+    def parse(self, file_path: str, include_dirs: List[str] = None) -> List[Dict[str, Any]]:
+        if include_dirs is None:
+            include_dirs = []
+            
+        p = Preprocessor()
+        for d in include_dirs:
+            p.add_path(d)
+            
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
             
+        p.parse(content)
+        output = io.StringIO()
+        p.write(output)
+        flattened_content = output.getvalue()
+            
         comments_map = self._extract_comments(content)
         
-        global_module = self.parser.load(content)
+        global_module = self.parser.load(flattened_content)
         structs = self._traverse_modules(global_module, "")
         
         # Inject comments

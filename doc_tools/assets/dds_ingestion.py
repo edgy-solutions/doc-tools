@@ -56,7 +56,7 @@ def ingest_dds_idl_schemas(config: DDSIngestionConfig):
         files_scanned = len(idl_files)
         
         for idl_file in idl_files:
-            structs = parser.parse(idl_file)
+            structs = parser.parse(idl_file, include_dirs=[tmpdir])
             
             for struct in structs:
                 struct_name = struct["struct_name"]
