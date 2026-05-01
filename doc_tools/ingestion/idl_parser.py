@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import importlib.util
 import xml.etree.ElementTree as ET
-from typing import Annotated, Any, Dict, List, Optional, Sequence, get_args, get_origin
+from typing import Any, Dict, List, Optional, Sequence, get_args, get_origin
 
 from pcpp import Preprocessor
 from dagster import get_dagster_logger
@@ -162,42 +162,93 @@ class IDLParser:
                 sys.modules.pop(name, None)
         return structs
 
+    def _xml_member_doc(self, member_elem) -> str:
+        for ann in member_elem.findall("annotation"):
+            doc = ann.find("documentation")
+            if doc is not None and doc.text:
+                return doc.text.strip()
+        if (doc_attr := member_elem.get("documentation")):
+            return doc_attr.strip()
+        doc = member_elem.find("documentation")
+        if doc is not None and doc.text:
+            return doc.text.strip()
+        return ""
+
     def _parse_rti_xml(self, xml_path: str) -> List[Dict[str, Any]]:
         tree = ET.parse(xml_path)
         root = tree.getroot()
-        
-        structs = []
-        
-        def process_element(elem, prefix=""):
+
+        typedefs: Dict[str, str] = {}
+        enums: set = set()
+
+        def collect(elem, prefix=""):
             for child in elem:
-                if child.tag == "module":
-                    module_name = child.get("name", "")
-                    new_prefix = f"{prefix}{module_name}::" if prefix else f"{module_name}::"
-                    process_element(child, new_prefix)
+                name = child.get("name", "")
+                fq = f"{prefix}{name}" if prefix else name
+                if child.tag in ("types", "dds"):
+                    collect(child, prefix)
+                elif child.tag == "module":
+                    collect(child, f"{fq}::")
+                elif child.tag == "typedef":
+                    target = child.get("type") or child.get("nonBasicTypeName") or "string"
+                    typedefs[fq] = target
+                    typedefs.setdefault(name, target)
+                elif child.tag == "enum":
+                    enums.add(fq)
+                    enums.add(name)
+
+        collect(root)
+
+        def resolve(idl_type: str, seen=None) -> str:
+            seen = seen or set()
+            if idl_type in seen:
+                return idl_type
+            seen.add(idl_type)
+            if idl_type in typedefs:
+                return resolve(typedefs[idl_type], seen)
+            return idl_type
+
+        structs: List[Dict[str, Any]] = []
+
+        def process(elem, prefix=""):
+            for child in elem:
+                if child.tag in ("types", "dds"):
+                    process(child, prefix)
+                elif child.tag == "module":
+                    mod = child.get("name", "")
+                    process(child, f"{prefix}{mod}::" if prefix else f"{mod}::")
                 elif child.tag in ("struct", "valuetype"):
                     struct_name = f"{prefix}{child.get('name', '')}"
                     fields = []
                     for member in child.findall("member"):
-                        name = member.get("name", "")
-                        idl_type = member.get("type")
-                        if not idl_type or idl_type == "nonBasic":
-                            idl_type = member.get("nonBasicTypeName", "string")
-                        
-                        if member.get("sequenceMaxLength") or member.get("arrayDimensions"):
+                        fname = member.get("name", "")
+                        raw_type = member.get("type") or "string"
+                        if raw_type == "nonBasic":
+                            raw_type = member.get("nonBasicTypeName", "string")
+                        resolved = resolve(raw_type)
+
+                        is_array = bool(
+                            member.get("sequenceMaxLength")
+                            or member.get("arrayDimensions")
+                        )
+                        if is_array:
                             datahub_type = "ArrayTypeClass"
+                        elif resolved in enums or raw_type in enums:
+                            datahub_type = "EnumTypeClass"
                         else:
-                            datahub_type = _map_datahub_type(idl_type)
-                            
+                            datahub_type = _map_datahub_type(resolved)
+
                         fields.append({
-                            "name": name,
-                            "idl_type": idl_type,
+                            "name": fname,
+                            "idl_type": raw_type,
+                            "resolved_type": resolved,
                             "datahub_type": datahub_type,
                             "struct_name": struct_name,
-                            "description": ""
+                            "description": self._xml_member_doc(member),
                         })
                     structs.append({"struct_name": struct_name, "fields": fields})
 
-        process_element(root)
+        process(root)
         return structs
 
     def parse(
@@ -209,7 +260,20 @@ class IDLParser:
         base_path = os.path.splitext(file_path)[0]
         xml_path = base_path + ".xml"
         if os.path.exists(xml_path):
-            logger.info(f"Found matching XML file for {file_path}, using {xml_path} instead.")
+            idl_mtime = os.path.getmtime(file_path)
+            xml_mtime = os.path.getmtime(xml_path)
+            if idl_mtime > xml_mtime:
+                logger.warning(
+                    f"XML {xml_path} is older than IDL {file_path} "
+                    f"(IDL mtime={idl_mtime}, XML mtime={xml_mtime}) — proceeding with XML; "
+                    f"regenerate if schemas have diverged."
+                )
+            else:
+                logger.info(f"Using pre-flattened XML {xml_path} for {file_path}")
+            
+            if include_dirs or use_pcpp:
+                logger.info("XML shortcut used: include_dirs and use_pcpp arguments are ignored.")
+            
             return self._parse_rti_xml(xml_path)
 
         include_dirs = include_dirs or []
@@ -242,9 +306,8 @@ class IDLParser:
                 raise RuntimeError("idlc not found on PATH")
 
             cmd = [idlc_bin, "-l", "py"]
-            if not use_pcpp:
-                for d in include_dirs:
-                    cmd.extend(["-I", os.path.abspath(d)])
+            for d in include_dirs:
+                cmd.extend(["-I", os.path.abspath(d)])
             cmd.append(os.path.abspath(target_idl_path))
 
             res = subprocess.run(cmd, cwd=tmpdir, capture_output=True, text=True)

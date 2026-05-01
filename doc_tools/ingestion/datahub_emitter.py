@@ -12,6 +12,7 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     ArrayTypeClass,
     RecordTypeClass,
+    EnumTypeClass,
     UpstreamLineageClass,
     UpstreamClass,
     DatasetLineageTypeClass,
@@ -36,6 +37,8 @@ class DDSToDataHubEmitter:
             return SchemaFieldDataTypeClass(type=ArrayTypeClass())
         elif type_str == "RecordTypeClass":
             return SchemaFieldDataTypeClass(type=RecordTypeClass())
+        elif type_str == "EnumTypeClass":
+            return SchemaFieldDataTypeClass(type=EnumTypeClass())
         else:
             return SchemaFieldDataTypeClass(type=StringTypeClass())
 
