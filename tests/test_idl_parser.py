@@ -47,7 +47,8 @@ class RotorData(IdlStruct, typename="Vehicle.Telemetry.RotorData"):
         return MockResult()
 
     try:
-        with patch('subprocess.run', side_effect=mock_subprocess_run):
+        with patch('subprocess.run', side_effect=mock_subprocess_run), \
+             patch('shutil.which', return_value='/mock/idlc'):
             structs = idl_parser.parse(temp_path)
         
         assert len(structs) == 1

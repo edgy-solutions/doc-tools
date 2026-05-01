@@ -32,20 +32,134 @@ jobs:
         run: |
           # 1. Create the Dockerignore (Keeps context small so build starts instantly)
           cat << 'EOF' > .dockerignore
+          # VCS / CI
           .git
+          .gitignore
+          .gitattributes
           .github
+          
+          # Python envs & caches
           .venv
           venv
+          env
           __pycache__
-          *.pyc
-          data/
-          tests/
+          *.py[cod]
           *.egg-info
+          .eggs
+          dist
+          build
+          .mypy_cache
+          .pytest_cache
+          .ruff_cache
+          .coverage
+          htmlcov
+          .tox
+          
+          # Tool / model caches that must NEVER leak into context
+          .cache
+          .huggingface
+          .hf_cache
+          .nltk_data
+          .spacy
+          
+          # Large binary artifacts
+          *.onnx
+          *.pt
+          *.pth
+          *.safetensors
+          *.bin
+          *.ckpt
+          *.h5
+          *.hdf5
+          *.pkl
+          *.pickle
+          *.parquet
+          *.arrow
+          *.sqlite
+          *.db
+          models/
+          checkpoints/
+          weights/
+          
+          # Data
+          data
+          datasets
+          *.csv
+          *.tsv
+          *.jsonl
+          
+          # Dev artifacts
+          logs
+          *.log
+          tmp
+          .tmp
+          *.tar
+          *.tar.gz
+          *.tgz
+          *.zip
+          
+          # Editors / OS
+          .idea
+          .vscode
+          *.swp
+          .DS_Store
+          Thumbs.db
+          
+          # Node (if any)
+          node_modules
+          
+          # Docker itself
+          Dockerfile*
+          .dockerignore
+          docker-compose*.yml
+          
+          # Tests
+          tests
           EOF
           
-          # 2. Create the Single-Stage Dockerfile
+          # 2. Create the Dockerfile
           cat << 'EOF' > Dockerfile
-          # syntax=docker/dockerfile:1
+          # syntax=docker/dockerfile:1.6
+
+          # ============================================================================
+          # Builder: CycloneDDS C core + Python bindings, both from source at 11.0.1.
+          # Avoids the broken PyPI cp312 wheel entirely by building our own.
+          # ============================================================================
+          FROM python:3.12-slim AS cyclonedds-builder
+
+          RUN apt-get update && apt-get install -y --no-install-recommends \
+                git cmake build-essential bison ca-certificates \
+              && rm -rf /var/lib/apt/lists/*
+
+          ARG CYCLONEDDS_REF=11.0.1
+          ARG CYCLONEDDS_PYTHON_REF=11.0.1
+
+          # --- C core ---------------------------------------------------------------
+          RUN git clone --depth 1 --branch "${CYCLONEDDS_REF}" \
+                https://github.com/eclipse-cyclonedds/cyclonedds.git /src/cdds \
+           && cmake -S /src/cdds -B /build/cdds \
+                -DCMAKE_INSTALL_PREFIX=/opt/cyclonedds \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_IDLC=ON \
+                -DENABLE_SSL=NO -DENABLE_SECURITY=NO -DENABLE_SHM=NO \
+                -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF \
+           && cmake --build /build/cdds --target install -j"$(nproc)" \
+           && rm -rf /src /build
+
+          # --- Python bindings (built against our C core) ---------------------------
+          ENV CYCLONEDDS_HOME=/opt/cyclonedds \
+              CMAKE_PREFIX_PATH=/opt/cyclonedds \
+              PATH=/opt/cyclonedds/bin:$PATH \
+              LD_LIBRARY_PATH=/opt/cyclonedds/lib
+
+          RUN git clone --depth 1 --branch "${CYCLONEDDS_PYTHON_REF}" \
+                https://github.com/eclipse-cyclonedds/cyclonedds-python.git /src/cdp \
+           && pip wheel --no-cache-dir --no-deps --wheel-dir=/wheels /src/cdp \
+           && rm -rf /src
+
+          # ============================================================================
+          # Final image: your existing Python 3.12 env, plus /opt/cyclonedds + wheel.
+          # ============================================================================
           FROM python:3.12-slim
 
           # Set environment variables so Python prints directly to logs
@@ -56,28 +170,39 @@ jobs:
           ENV SCARF_NO_ANALYTICS=true
           ENV HF_HOME=/app/.cache/huggingface
 
-          # Install system dependencies (Tesseract, Poppler, libmagic, LibreOffice for MS docs, and CycloneDDS)
+          # Install system dependencies (Tesseract, Poppler, libmagic, LibreOffice for MS docs, CycloneDDS runtime libs, and MS SQL Driver)
           RUN apt-get update && apt-get install -y --no-install-recommends \
-              git \
-              libmagic1 \
-              libgl1 \
-              tesseract-ocr \
-              tesseract-ocr-eng \
-              poppler-utils \
-              libreoffice \
-              curl \
-              gnupg2 \
-              apt-transport-https \
-              cyclonedds-tools \
-              && rm -rf /var/lib/apt/lists/*
+              git libmagic1 libgl1 tesseract-ocr tesseract-ocr-eng poppler-utils \
+              libreoffice curl gnupg2 apt-transport-https libstdc++6 \
+           && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | \
+              gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
+           && curl -fsSL https://packages.microsoft.com/config/debian/12/prod.list \
+              > /etc/apt/sources.list.d/mssql-release.list \
+           && apt-get update \
+           && ACCEPT_EULA=Y apt-get install -y --no-install-recommends \
+              msodbcsql18 unixodbc-dev \
+           && rm -rf /var/lib/apt/lists/*
 
-          # Install Microsoft ODBC Driver for SQL Server
-          RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg && \
-              curl -fsSL https://packages.microsoft.com/config/debian/12/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
-              apt-get update && ACCEPT_EULA=Y apt-get install -y --no-install-recommends \
-              msodbcsql18 \
-              unixodbc-dev \
-              && rm -rf /var/lib/apt/lists/*
+          COPY --from=cyclonedds-builder /opt/cyclonedds /opt/cyclonedds
+          COPY --from=cyclonedds-builder /wheels /wheels
+
+          ENV CYCLONEDDS_HOME=/opt/cyclonedds \
+              PATH=/opt/cyclonedds/bin:$PATH \
+              LD_LIBRARY_PATH=/opt/cyclonedds/lib
+
+          RUN pip install --no-cache-dir --no-deps /wheels/*.whl \
+           && rm -rf /wheels
+
+          # Build-time smoke test
+          RUN idlc -v \
+           && python3 -c "import cyclonedds; from cyclonedds.idl import IdlStruct, IdlEnum" \
+           && mkdir /tmp/smoke && cd /tmp/smoke \
+           && printf 'module M { enum E { A, B }; struct S { long x; E e; string n; }; };\n' > s.idl \
+           && idlc -l py s.idl \
+           && test -f M/_s.py \
+           && PYTHONPATH=/tmp/smoke python3 -c "from M import S, E; s = S(x=1, e=E.B, n='ok'); print('roundtrip:', s)" \
+           && rm -rf /tmp/smoke \
+           && echo "=== cyclonedds 11.0.1 stack fully verified ==="
 
           # Pull uv binary for blazing-fast dependency installation
           COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -137,6 +262,20 @@ jobs:
           else
             echo "version=latest" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Diagnose context size
+        run: |
+          echo "=== top 20 largest entries in context ==="
+          du -sh ./* ./.[!.]* 2>/dev/null | sort -rh | head -20
+          echo
+          echo "=== total size ==="
+          du -sh .
+          echo
+          echo "=== what .dockerignore would exclude ==="
+          cat .dockerignore
+          echo
+          echo "=== .git size (common culprit) ==="
+          du -sh .git 2>/dev/null || echo "no .git"
 
       - name: Build and Push
         uses: docker/build-push-action@v5
