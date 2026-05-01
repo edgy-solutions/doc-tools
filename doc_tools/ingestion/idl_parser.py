@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import importlib.util
+import xml.etree.ElementTree as ET
 from typing import Annotated, Any, Dict, List, Optional, Sequence, get_args, get_origin
 
 from pcpp import Preprocessor
@@ -33,7 +34,7 @@ def _map_datahub_type(idl_type: str) -> str:
     if idl_type in PYTHON_TYPE_TO_DATAHUB_MAP:
         return PYTHON_TYPE_TO_DATAHUB_MAP[idl_type]
     lower = idl_type.lower()
-    if lower.startswith(("int", "uint", "float", "double")):
+    if lower.startswith(("int", "uint", "float", "double", "long", "short")):
         return "NumberTypeClass"
     if lower.startswith("bool"):
         return "BooleanTypeClass"
@@ -161,12 +162,56 @@ class IDLParser:
                 sys.modules.pop(name, None)
         return structs
 
+    def _parse_rti_xml(self, xml_path: str) -> List[Dict[str, Any]]:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        
+        structs = []
+        
+        def process_element(elem, prefix=""):
+            for child in elem:
+                if child.tag == "module":
+                    module_name = child.get("name", "")
+                    new_prefix = f"{prefix}{module_name}::" if prefix else f"{module_name}::"
+                    process_element(child, new_prefix)
+                elif child.tag in ("struct", "valuetype"):
+                    struct_name = f"{prefix}{child.get('name', '')}"
+                    fields = []
+                    for member in child.findall("member"):
+                        name = member.get("name", "")
+                        idl_type = member.get("type")
+                        if not idl_type or idl_type == "nonBasic":
+                            idl_type = member.get("nonBasicTypeName", "string")
+                        
+                        if member.get("sequenceMaxLength") or member.get("arrayDimensions"):
+                            datahub_type = "ArrayTypeClass"
+                        else:
+                            datahub_type = _map_datahub_type(idl_type)
+                            
+                        fields.append({
+                            "name": name,
+                            "idl_type": idl_type,
+                            "datahub_type": datahub_type,
+                            "struct_name": struct_name,
+                            "description": ""
+                        })
+                    structs.append({"struct_name": struct_name, "fields": fields})
+
+        process_element(root)
+        return structs
+
     def parse(
         self,
         file_path: str,
         include_dirs: Optional[List[str]] = None,
         use_pcpp: bool = False,
     ) -> List[Dict[str, Any]]:
+        base_path = os.path.splitext(file_path)[0]
+        xml_path = base_path + ".xml"
+        if os.path.exists(xml_path):
+            logger.info(f"Found matching XML file for {file_path}, using {xml_path} instead.")
+            return self._parse_rti_xml(xml_path)
+
         include_dirs = include_dirs or []
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()

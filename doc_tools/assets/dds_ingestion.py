@@ -57,11 +57,21 @@ def ingest_dds_idl_schemas(config: DDSIngestionConfig):
         idl_files = glob.glob(os.path.join(search_path, "**/*.idl"), recursive=True)
         files_scanned = len(idl_files)
         
+        env_includes = os.getenv("DDS_INCLUDE_DIRS")
+        if env_includes:
+            include_dirs = [d.strip() for d in env_includes.replace(",", ":").split(":") if d.strip()]
+            include_dirs = [os.path.join(tmpdir, d) if not os.path.isabs(d) else d for d in include_dirs]
+        else:
+            include_dirs = []
+            for root, dirs, files in os.walk(tmpdir):
+                if any(f.endswith('.idl') for f in files):
+                    include_dirs.append(root)
+        
         for idl_file in idl_files:
             rel_path = os.path.relpath(idl_file, tmpdir)
             repo_path = os.path.splitext(rel_path)[0].replace("/", ".")
             
-            structs = parser.parse(idl_file, include_dirs=[tmpdir], use_pcpp=config.use_pcpp)
+            structs = parser.parse(idl_file, include_dirs=include_dirs, use_pcpp=config.use_pcpp)
             
             for struct in structs:
                 struct_name = struct["struct_name"]
