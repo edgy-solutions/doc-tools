@@ -26,8 +26,7 @@ def test_idl_parser_extracts_structs_and_comments(idl_parser):
         temp_path = f.name
         
     def mock_subprocess_run(cmd, **kwargs):
-        # cmd[4] is tmpdir
-        tmpdir = cmd[4]
+        tmpdir = kwargs.get('cwd')
         out_path = os.path.join(tmpdir, "Vehicle", "Telemetry", "RotorData.py")
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         with open(out_path, 'w') as f:
