@@ -38,7 +38,7 @@ class AugmentationPlugin(ABC):
         pass
 
         
-    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None) -> List[DocumentNode]:
+    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None, elements: List[Dict[str, Any]] = None) -> List[DocumentNode]:
         """
         Optional hook for plugins to process the entire document text at once
         (e.g., extracting a hierarchical outline or synthesizing summaries).

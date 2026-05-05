@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
+from doc_tools.utils.formatters import convert_element_to_markdown
 
 # --- BAML-ready Schemas (Domain A: Training) ---
 class Concept(BaseModel):
@@ -129,7 +130,44 @@ class TrainingPlugin(AugmentationPlugin):
         all_sections.sort(key=lambda s: s.start_page or 0)
         return all_sections
 
-    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None) -> List[DocumentNode]:
+    def execute_global_pass(self, all_chunks: List[Dict[str, Any]], max_chars: int) -> List[Any]:
+        """
+        Converts elements to Markdown and chunks them based on token limits.
+        Extracts Course Outline (Sections) from each chunk.
+        """
+        # 1. Convert all elements to Markdown strings
+        md_elements = [convert_element_to_markdown(chunk) for chunk in all_chunks]
+        
+        # 2. Chunk the Markdown strings safely
+        current_chunk = ""
+        safe_chunks = []
+        
+        for el in md_elements:
+            if len(current_chunk) + len(el) < max_chars:
+                current_chunk += f"\n\n{el}" if current_chunk else el
+            else:
+                if current_chunk:
+                    safe_chunks.append(current_chunk)
+                current_chunk = el 
+                
+        if current_chunk:
+            safe_chunks.append(current_chunk)
+
+        # 3. Process each safe chunk through BAML
+        from doc_tools.baml_client.sync_client import b
+        baml_responses = []
+        
+        for i, chunk_text in enumerate(safe_chunks):
+            print(f"[TrainingPlugin] Processing Markdown chunk {i+1}/{len(safe_chunks)}")
+            try:
+                partial = b.ExtractOutline(document_text=chunk_text)
+                baml_responses.append(partial)
+            except Exception as e:
+                print(f"[TrainingPlugin] Outline extraction failed on chunk {i+1}: {e}")
+                
+        return baml_responses
+
+    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None, elements: List[Dict[str, Any]] = None) -> List[DocumentNode]:
         """
         Legacy override: Parse the entire document text using Map-Reduce to hallucinate a 
         Table of Contents (Course -> Section -> Section) before chunking.
@@ -146,24 +184,35 @@ class TrainingPlugin(AugmentationPlugin):
             max_chars = (context_size - reserved_tokens) * chars_per_token
             overlap_chars = max(1000, max_chars // 10)
             
-            if len(full_text) <= max_chars:
-                print(f"[TrainingPlugin] Document fits in context ({len(full_text)} chars)")
-                baml_response = b.ExtractOutline(document_text=full_text)
-                final_sections = self._merge_outlines([baml_response])
-            else:
-                print(f"[TrainingPlugin] Document too large ({len(full_text)} chars), chunking...")
-                chunks = self._chunk_text(full_text, max_chars, overlap_chars)
-                
-                partial_outlines = []
-                for i, (chunk_text, start_pos) in enumerate(chunks):
-                    print(f"[TrainingPlugin] Processing chunk {i+1}/{len(chunks)}")
-                    try:
-                        partial = b.ExtractOutline(document_text=chunk_text)
-                        partial_outlines.append(partial)
-                    except Exception as e:
-                        print(f"[TrainingPlugin] Chunk {i+1} failed: {e}")
-                        
-                final_sections = self._merge_outlines(partial_outlines)
+            
+            if elements:
+                print(f"[TrainingPlugin] Using Markdown pre-processor on {len(elements)} elements")
+                try:
+                    partial_outlines = self.execute_global_pass(elements, max_chars)
+                    final_sections = self._merge_outlines(partial_outlines)
+                except Exception as e:
+                    print(f"[TrainingPlugin] Global pass failed, falling back to raw text chunking: {e}")
+                    elements = None
+
+            if not elements:
+                if len(full_text) <= max_chars:
+                    print(f"[TrainingPlugin] Document fits in context ({len(full_text)} chars)")
+                    baml_response = b.ExtractOutline(document_text=full_text)
+                    final_sections = self._merge_outlines([baml_response])
+                else:
+                    print(f"[TrainingPlugin] Document too large ({len(full_text)} chars), chunking...")
+                    chunks = self._chunk_text(full_text, max_chars, overlap_chars)
+                    
+                    partial_outlines = []
+                    for i, (chunk_text, start_pos) in enumerate(chunks):
+                        print(f"[TrainingPlugin] Processing chunk {i+1}/{len(chunks)}")
+                        try:
+                            partial = b.ExtractOutline(document_text=chunk_text)
+                            partial_outlines.append(partial)
+                        except Exception as e:
+                            print(f"[TrainingPlugin] Chunk {i+1} failed: {e}")
+                            
+                    final_sections = self._merge_outlines(partial_outlines)
                 
             augmentation = OutlineAugmentation(sections=final_sections, metadata=metadata)
             

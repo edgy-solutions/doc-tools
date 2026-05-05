@@ -1,7 +1,7 @@
 generator target {
   output_type "python/pydantic"
   output_dir "../doc_tools"
-  version "0.219.0"
+  version "0.222.0"
 }
 
 // Global Clients

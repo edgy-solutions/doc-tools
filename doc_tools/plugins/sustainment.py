@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
+from doc_tools.utils.formatters import convert_element_to_markdown
 
 # --- BAML-ready Schemas (Domain: Sustainment) ---
 class PartImpact(BaseModel):
@@ -49,7 +50,45 @@ class SustainmentPlugin(AugmentationPlugin):
                 
         return chunks
 
-    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None) -> List[DocumentNode]:
+    def execute_global_pass(self, all_chunks: List[Dict[str, Any]], max_chars: int) -> List[Any]:
+        """
+        Converts elements to Markdown and chunks them based on token limits to prevent LLM crashes.
+        """
+        # 1. Convert all elements to Markdown strings
+        from doc_tools.utils.formatters import convert_element_to_markdown
+        md_elements = [convert_element_to_markdown(chunk) for chunk in all_chunks]
+        
+        # 2. Chunk the Markdown strings safely
+        current_chunk = ""
+        safe_chunks = []
+        
+        for el in md_elements:
+            if len(current_chunk) + len(el) < max_chars:
+                current_chunk += f"\n\n{el}" if current_chunk else el
+            else:
+                if current_chunk:
+                    safe_chunks.append(current_chunk)
+                # If a single element is larger than max_chars, force it in (LLM truncation risk)
+                current_chunk = el 
+                
+        if current_chunk:
+            safe_chunks.append(current_chunk)
+
+        # 3. Process each safe chunk through BAML
+        from doc_tools.baml_client.sync_client import b
+        baml_responses = []
+        
+        for i, chunk_text in enumerate(safe_chunks):
+            print(f"[SustainmentPlugin] Processing Markdown chunk {i+1}/{len(safe_chunks)}")
+            try:
+                structured_data = b.ExtractSustainment(doc=chunk_text)
+                baml_responses.append(structured_data)
+            except Exception as e:
+                print(f"[SustainmentPlugin] Sustainment extraction failed on chunk {i+1}: {e}")
+                
+        return baml_responses
+
+    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None, elements: List[Dict[str, Any]] = None) -> List[DocumentNode]:
         """
         Parse the entire document text to extract the sustainment notice.
         """
@@ -69,21 +108,33 @@ class SustainmentPlugin(AugmentationPlugin):
             
             baml_responses = []
             
-            if len(full_text) <= max_chars:
-                print(f"[SustainmentPlugin] Document fits in context ({len(full_text)} chars)")
-                baml_response = b.ExtractSustainment(doc=full_text)
-                baml_responses.append(baml_response)
-            else:
-                print(f"[SustainmentPlugin] Document too large ({len(full_text)} chars), chunking...")
-                chunks = self._chunk_text(full_text, max_chars, overlap_chars)
-                
-                for i, (chunk_text, start_pos) in enumerate(chunks):
-                    print(f"[SustainmentPlugin] Processing chunk {i+1}/{len(chunks)}")
-                    try:
-                        partial = b.ExtractSustainment(doc=chunk_text)
-                        baml_responses.append(partial)
-                    except Exception as e:
-                        print(f"[SustainmentPlugin] Chunk {i+1} failed: {e}")
+            
+            if elements:
+                print(f"[SustainmentPlugin] Using Markdown pre-processor on {len(elements)} elements")
+                try:
+                    # execute_global_pass now returns a list of responses
+                    baml_responses = self.execute_global_pass(elements, max_chars)
+                except Exception as e:
+                    print(f"[SustainmentPlugin] Global pass failed, falling back to raw text chunking: {e}")
+                    # Fallback to existing chunking logic below
+                    elements = None 
+
+            if not elements:
+                if len(full_text) <= max_chars:
+                    print(f"[SustainmentPlugin] Document fits in context ({len(full_text)} chars)")
+                    baml_response = b.ExtractSustainment(doc=full_text)
+                    baml_responses.append(baml_response)
+                else:
+                    print(f"[SustainmentPlugin] Document too large ({len(full_text)} chars), chunking...")
+                    chunks = self._chunk_text(full_text, max_chars, overlap_chars)
+                    
+                    for i, (chunk_text, start_pos) in enumerate(chunks):
+                        print(f"[SustainmentPlugin] Processing chunk {i+1}/{len(chunks)}")
+                        try:
+                            partial = b.ExtractSustainment(doc=chunk_text)
+                            baml_responses.append(partial)
+                        except Exception as e:
+                            print(f"[SustainmentPlugin] Chunk {i+1} failed: {e}")
                         
             all_parts = []
             merged_notice = None

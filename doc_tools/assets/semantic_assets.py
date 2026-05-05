@@ -152,7 +152,7 @@ def build_knowledge_graph(
     document_nodes = []
     try:
         context.log.info(f"Executing global full-text pass for {type(plugin).__name__}...")
-        global_nodes = plugin.process_fulltext(full_text, doc_id, metadata)
+        global_nodes = plugin.process_fulltext(full_text, doc_id, metadata, elements=text_elements)
         if global_nodes:
             document_nodes.extend(global_nodes)
     except Exception as e:
