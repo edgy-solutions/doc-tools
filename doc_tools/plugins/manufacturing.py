@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Any
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
+from langfuse import Langfuse
 
 # --- BAML-ready Schemas (Domain B: MAT/Manufacturing) ---
 class ManufacturingStep(BaseModel):
@@ -37,6 +38,9 @@ class ManufacturingPlugin(AugmentationPlugin):
     """
     New Munitions Acceleration & Manufacturing (MAT) extraction logic.
     """
+    def __init__(self, domain_type: str):
+        super().__init__(domain_type)
+        self.langfuse = Langfuse()
     
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
@@ -56,11 +60,33 @@ class ManufacturingPlugin(AugmentationPlugin):
             for h in hazards: tb.HazardClass.add_value(h)
             for c in categories: tb.ProcessCategory.add_value(c)
 
+            # Fetch dynamic prompt from Langfuse
+            try:
+                lf_prompt = self.langfuse.get_prompt("manufacturing_instructions", label="production")
+                # Compile variables into the prompt
+                dynamic_instructions = lf_prompt.compile(
+                    procedure_id_format=getattr(config, "procedure_id_format", r"^\d{4}$"),
+                    step_id_format=getattr(config, "step_id_format", r"^\d+(?:\.\d+)*$")
+                )
+            except Exception as e:
+                print(f"[ManufacturingPlugin] Langfuse prompt fetch failed: {e}")
+                # Fallback: manual string replacement
+                try:
+                    with open("prompts/manufacturing_instructions.md", "r", encoding="utf-8") as f:
+                        raw_text = f.read()
+                        dynamic_instructions = raw_text.replace(
+                            "{{ procedure_id_format }}", getattr(config, "procedure_id_format", r"^\d{4}$")
+                        ).replace(
+                            "{{ step_id_format }}", getattr(config, "step_id_format", r"^\d+(?:\.\d+)*$")
+                        )
+                except Exception as fallback_err:
+                    print(f"[ManufacturingPlugin] Fallback failed: {fallback_err}")
+                    raise
+
             # Execute BAML LLM inference
             baml_response: BamlMatAugmentation = b.ExtractWorkInstructions(
                 text=section.content,
-                procedure_id_format=getattr(config, "procedure_id_format", "^\\d{4}$"),
-                step_id_format=getattr(config, "step_id_format", "^\\d+(?:\\.\\d+)*$"),
+                system_instructions=dynamic_instructions,
                 baml_options={"tb": tb}
             )
             

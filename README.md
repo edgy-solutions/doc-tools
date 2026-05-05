@@ -83,23 +83,29 @@ Input strings are automatically sanitized and normalized by the pipeline:
 7. **Event-Driven Ingestion:** Dynamic Dagster sensors monitor configurable S3 bucket/directory prefixes, instantaneously injecting `domain_type` routing tags (`manufacturing`, `compliance`, `sustainment`) into the pipeline.
 8. **10x Factory Extraction:** Maps deep-physics logic by rigorously isolating `is_value_added` from `is_safety_critical` steps into Neo4j for exact bottleneck and critical path analysis.
 9. **Sustainment Lifecycle Analysis:** Processes entire PCN/PDN documents in a single global context (with safe chunking for large files) to accurately aggregate impacted parts, replacements, and Last Time Buy (LTB) dates into the graph.
-10. **Declarative Component Architecture:** Leverages `dag-tools` for a modular, reusable, and zero-config orchestration layer. Components like `S3SensorComponent` and `S3ToFileComponent` enable rapid fanning-out of pipelines across new domains.
+10. **Markdown Table Pre-processing:** Intercepts `unstructured` HTML tables and converts them to Markdown grids before LLM processing, ensuring high-fidelity extraction of complex tabular data.
+11. **Dynamic Prompt Management (Langfuse & GitOps):** Decouples LLM instructions from BAML code. Prompts are managed via Langfuse with a GitOps workflow that includes CI/CD drift detection between local Markdown files and production-tagged prompts.
+12. **Declarative Component Architecture:** Leverages `dag-tools` for a modular, reusable, and zero-config orchestration layer. Components like `S3SensorComponent` and `S3ToFileComponent` enable rapid fanning-out of pipelines across new domains.
 
 ---
 
 ## 🏗️ Project Structure
 - `baml_src/`: LLM prompt definitions mapped to structural schemas. Compiles via `baml-py` into Pydantic models natively in `doc_tools/baml_client`.
+- `prompts/`: Ground-truth Markdown files for LLM instructions. Synced with Langfuse via GitOps.
 - `charts/doc-tools/`: The Helm Chart for deploying the application to Kubernetes, fully supporting ConfigMaps and Secrets.
 - `doc_tools/`: The main Dagster application codebase.
   - `doc_tools/assets/ingestion_assets.py`: Core ingestion logic for unstructured/PPTX files.
   - `doc_tools/assets/semantic_assets.py`: Cypher logic for Neo4j Knowledge Graphs and generic Hybrid Graph synchronization (Jena/Neo4j).
   - `doc_tools/assets/xml_ingestion.py`: Universal XML extractor routing to specialized parsers (S1000D, DITA, IADS) based on MinIO directory prefixes.
-  - `doc_tools/parsers/`: Specialized builders for MIL-spec standards including `s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, and `mil_std_40051_rdf.py`. All parsers extract `mil:Figure` triples from format-specific tags (`<figure>`, `<graphic boardno>`, `<graphic infoEntityIdent>`, `<fig>`, `<image>`).
-  - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests based on mapped S3 directory prefixes.
+  - `doc_tools/parsers/`: Specialized builders for MIL-spec standards.
+  - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests.
   - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
-  - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration. It uses a **declarative component model** via `dag-tools` to instantiate sensors and ingestion jobs, completely replacing the legacy `config.yaml` with typed, validated `IngestionConfig` objects.
-- `setup/`: Contains `setup_env.py` and local ontologies for priming the Neo4j, Weaviate, and Apache Jena databases before pipeline execution.
-- `pyproject.toml`: The root Python project configuration and exact dependencies managed via [uv](https://docs.astral.sh/uv/).
+    - `doc_tools/utils/formatters.py`: Utilities for converting HTML elements (tables) to Markdown.
+  - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration.
+- `scripts/`:
+  - `check_drift.py`: CI/CD script to validate prompt sync between Git and Langfuse.
+- `setup/`: Contains `setup_env.py` and local ontologies for priming the databases.
+- `pyproject.toml`: The root Python project configuration managed via [uv](https://docs.astral.sh/uv/).
 
 ---
 

@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Any
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
+from langfuse import Langfuse
 
 # --- BAML-ready Schemas (Domain D: MRO/Maintenance) ---
 class MaintenanceStep(BaseModel):
@@ -33,6 +34,9 @@ class MaintenancePlugin(AugmentationPlugin):
     Maintenance, Repair, and Overhaul (MRO) extraction logic.
     Handles depot and field-level maintenance procedures.
     """
+    def __init__(self, domain_type: str):
+        super().__init__(domain_type)
+        self.langfuse = Langfuse()
     
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
@@ -50,9 +54,18 @@ class MaintenancePlugin(AugmentationPlugin):
             for it in inspection_types: tb.InspectionType.add_value(it)
             for ml in maintenance_levels: tb.MaintenanceLevel.add_value(ml)
 
+            # Fetch dynamic prompt from Langfuse
+            try:
+                lf_prompt = self.langfuse.get_prompt("maintenance_instructions", label="production")
+                dynamic_instructions = lf_prompt.prompt
+            except Exception as e:
+                print(f"[MaintenancePlugin] Langfuse prompt fetch failed: {e}")
+                raise
+
             # Execute BAML LLM inference
             baml_response: BamlMroAugmentation = b.ExtractMaintenanceProcedures(
                 text=section.content,
+                system_instructions=dynamic_instructions,
                 baml_options={"tb": tb}
             )
             

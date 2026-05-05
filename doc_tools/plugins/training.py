@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
+from langfuse import Langfuse
 
 # --- BAML-ready Schemas (Domain A: Training) ---
 class Concept(BaseModel):
@@ -30,13 +31,28 @@ class TrainingPlugin(AugmentationPlugin):
     """
     Original extraction logic generalized for Training content.
     """
+    def __init__(self, domain_type: str):
+        super().__init__(domain_type)
+        self.langfuse = Langfuse()
+
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
             from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import SlideAugmentation as BamlSlideAugmentation
             
+            # Fetch dynamic prompt from Langfuse
+            try:
+                lf_prompt = self.langfuse.get_prompt("training_instructions", label="production")
+                dynamic_instructions = lf_prompt.prompt
+            except Exception as e:
+                print(f"[TrainingPlugin] Langfuse prompt fetch failed: {e}")
+                raise
+
             # Execute BAML LLM inference
-            baml_response: BamlSlideAugmentation = b.ExtractConcepts(slide_text=section.content)
+            baml_response: BamlSlideAugmentation = b.ExtractConcepts(
+                slide_text=section.content,
+                system_instructions=dynamic_instructions
+            )
             
             # Map BAML response back to Native Python/Pydantic models
             concepts = []
@@ -135,6 +151,14 @@ class TrainingPlugin(AugmentationPlugin):
         Converts elements to Markdown and chunks them based on token limits.
         Extracts Course Outline (Sections) from each chunk.
         """
+        # Fetch dynamic prompt from Langfuse
+        try:
+            lf_prompt = self.langfuse.get_prompt("core_instructions", label="production")
+            dynamic_instructions = lf_prompt.prompt
+        except Exception as e:
+            print(f"[TrainingPlugin] Langfuse prompt fetch failed: {e}")
+            raise
+
         # 1. Convert all elements to Markdown strings
         md_elements = [convert_element_to_markdown(chunk) for chunk in all_chunks]
         
@@ -160,7 +184,11 @@ class TrainingPlugin(AugmentationPlugin):
         for i, chunk_text in enumerate(safe_chunks):
             print(f"[TrainingPlugin] Processing Markdown chunk {i+1}/{len(safe_chunks)}")
             try:
-                partial = b.ExtractOutline(document_text=chunk_text)
+                # FIXED: Now passing both document_text and dynamic instructions
+                partial = b.ExtractOutline(
+                    document_text=chunk_text,
+                    system_instructions=dynamic_instructions
+                )
                 baml_responses.append(partial)
             except Exception as e:
                 print(f"[TrainingPlugin] Outline extraction failed on chunk {i+1}: {e}")
@@ -195,9 +223,20 @@ class TrainingPlugin(AugmentationPlugin):
                     elements = None
 
             if not elements:
+                # Fetch dynamic prompt from Langfuse (for fallback logic)
+                try:
+                    lf_prompt = self.langfuse.get_prompt("core_instructions", label="production")
+                    dynamic_instructions = lf_prompt.prompt
+                except Exception as e:
+                    print(f"[TrainingPlugin] Langfuse prompt fetch failed: {e}")
+                    raise
+
                 if len(full_text) <= max_chars:
                     print(f"[TrainingPlugin] Document fits in context ({len(full_text)} chars)")
-                    baml_response = b.ExtractOutline(document_text=full_text)
+                    baml_response = b.ExtractOutline(
+                        document_text=full_text,
+                        system_instructions=dynamic_instructions
+                    )
                     final_sections = self._merge_outlines([baml_response])
                 else:
                     print(f"[TrainingPlugin] Document too large ({len(full_text)} chars), chunking...")
@@ -207,7 +246,10 @@ class TrainingPlugin(AugmentationPlugin):
                     for i, (chunk_text, start_pos) in enumerate(chunks):
                         print(f"[TrainingPlugin] Processing chunk {i+1}/{len(chunks)}")
                         try:
-                            partial = b.ExtractOutline(document_text=chunk_text)
+                            partial = b.ExtractOutline(
+                                document_text=chunk_text,
+                                system_instructions=dynamic_instructions
+                            )
                             partial_outlines.append(partial)
                         except Exception as e:
                             print(f"[TrainingPlugin] Chunk {i+1} failed: {e}")

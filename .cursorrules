@@ -19,9 +19,19 @@
 - **Domain-Agnostic Core with Plugin Layers**:
   - The core DAG pipeline extracts structure (BaseSection) without domain context.
   - Domain-specific logic (e.g. Training concepts versus Manufacturing steps versus Compliance regulations) is handled ONLY by extending `doc_tools.plugins.base.AugmentationPlugin` and dynamically routing using context run tags.
-  - All LLM interactions are handled via strictly-typed **BAML** (`baml_src/`) incorporating strict safety classifications and Chain-of-thought validations. Do not write raw litellm or langchain extraction loops.
   - When you add a new plugin domain, you must write the native schema in `.baml`, compile via `baml-cli generate` (which outputs to `doc_tools/baml_client`), and implement the `augment` mapping inside a new `doc_tools/plugins/{domain}.py` file.
+  - **BAML Prompt Layout**: To mitigate recency bias in large documents, follow this layout:
+    1. Role/Task Definition
+    2. `### DOCUMENT TEXT ###` (The content)
+    3. `### INSTRUCTIONS ###` (Dynamic `system_instructions` parameter)
+    4. `### OUTPUT FORMAT ###` (`{{ ctx.output_format }}`)
   - **Dynamic Enums**: For `@@dynamic` enums in BAML, you MUST use the `TypeBuilder` pattern (`tb = TypeBuilder()`, `tb.enum("Name").add_value("Value")`) and pass it via `baml_options={"tb": tb}`.
+  - **Langfuse & GitOps**:
+    - Decouple prompt instructions from BAML code.
+    - Store ground-truth prompts in `prompts/*.md`.
+    - Use `Langfuse()` SDK in plugins to fetch prompts dynamically via the `production` label.
+    - Pass dynamic instructions as a `system_instructions` parameter to BAML functions.
+    - Use `scripts/check_drift.py` in CI/CD to validate local prompts against Langfuse `ready-for-prod` tags.
 - **Cypher Queries**: Parameterize node labels carefully in Python using f-strings before passing to Neo4j. Neo4j python drivers do not support parameterizing node labels directly.
 - **Multi-Standard & Hybrid Graph Strategy**:
   - Use `doc_tools.parsers` builders (`s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, `mil_std_40051_rdf.py`) for XML-to-RDF mapping.

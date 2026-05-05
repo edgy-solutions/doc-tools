@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
+from langfuse import Langfuse
 
 # --- BAML-ready Schemas (Domain: Sustainment) ---
 class PartImpact(BaseModel):
@@ -22,12 +23,14 @@ class SustainmentNotice(BaseModel):
 class SustainmentAugmentation(BaseModel):
     notice: SustainmentNotice
 
-# --- Plugin Implementation ---
 class SustainmentPlugin(AugmentationPlugin):
     """
     Sustainment (PCN/PDN) extraction logic.
     """
-    
+    def __init__(self, domain_type: str):
+        super().__init__(domain_type)
+        self.langfuse = Langfuse()
+
     def _chunk_text(self, document_text: str, max_chars: int = 15000, overlap_chars: int = 1500) -> List[Tuple[str, int]]:
         """
         Split document into overlapping chunks.
@@ -54,6 +57,14 @@ class SustainmentPlugin(AugmentationPlugin):
         """
         Converts elements to Markdown and chunks them based on token limits to prevent LLM crashes.
         """
+        # Fetch dynamic prompt from Langfuse
+        try:
+            lf_prompt = self.langfuse.get_prompt("sustainment_instructions", label="production")
+            dynamic_instructions = lf_prompt.prompt
+        except Exception as e:
+            print(f"[SustainmentPlugin] Langfuse prompt fetch failed: {e}")
+            raise
+
         # 1. Convert all elements to Markdown strings
         from doc_tools.utils.formatters import convert_element_to_markdown
         md_elements = [convert_element_to_markdown(chunk) for chunk in all_chunks]
@@ -81,7 +92,11 @@ class SustainmentPlugin(AugmentationPlugin):
         for i, chunk_text in enumerate(safe_chunks):
             print(f"[SustainmentPlugin] Processing Markdown chunk {i+1}/{len(safe_chunks)}")
             try:
-                structured_data = b.ExtractSustainment(doc=chunk_text)
+                # FIXED: Now passing both doc and dynamic instructions
+                structured_data = b.ExtractSustainment(
+                    doc=chunk_text,
+                    system_instructions=dynamic_instructions 
+                )
                 baml_responses.append(structured_data)
             except Exception as e:
                 print(f"[SustainmentPlugin] Sustainment extraction failed on chunk {i+1}: {e}")

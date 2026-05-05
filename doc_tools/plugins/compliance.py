@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Any
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
+from langfuse import Langfuse
 
 # --- BAML-ready Schemas (Domain C: Compliance) ---
 class ComplianceRule(BaseModel):
@@ -19,14 +20,28 @@ class CompliancePlugin(AugmentationPlugin):
     """
     Logistics and Compliance validation logic (e.g. DAFMAN).
     """
+    def __init__(self, domain_type: str):
+        super().__init__(domain_type)
+        self.langfuse = Langfuse()
     
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
             from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import ComplianceAugmentation as BamlComplianceAugmentation
             
+            # Fetch dynamic prompt from Langfuse
+            try:
+                lf_prompt = self.langfuse.get_prompt("compliance_instructions", label="production")
+                dynamic_instructions = lf_prompt.prompt
+            except Exception as e:
+                print(f"[CompliancePlugin] Langfuse prompt fetch failed: {e}")
+                raise
+
             # Execute BAML LLM inference
-            baml_response: BamlComplianceAugmentation = b.ExtractComplianceRules(text=section.content)
+            baml_response: BamlComplianceAugmentation = b.ExtractComplianceRules(
+                text=section.content,
+                system_instructions=dynamic_instructions
+            )
             
             rules = []
             for r in baml_response.rules:

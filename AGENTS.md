@@ -16,11 +16,26 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
 ## Extension Patterns
 - **Adding a New Domain**: Do not write raw litellm or langchain logic in the assets. 
   1. Define the parsing schema in `baml_src/{domain}.baml`.
-  2. Run `baml-cli generate`. This drops the compiled models directly natively into `doc_tools/baml_client` to bypass Dagster's isolated import space issues.
-  3. Create `doc_tools/plugins/{domain}.py` extending `AugmentationPlugin`.
-  4. Register the new plugin in the Dispatcher switch inside `doc_tools/assets/semantic_assets.py`.
-  5. **Existing Domains**: `manufacturing.py` (MANUFACTURING), `maintenance.py` (MAINTENANCE), `training.py` (TRAINING - uses full document context), `compliance.py` (COMPLIANCE), `sustainment.py` (SUSTAINMENT - uses full document context for PCN/PDN aggregation).
+  2. **BAML Prompt Layout**: Always follow the optimal layout to mitigate recency bias:
+     - Role/Task Definition
+     - `### DOCUMENT TEXT ###` (The content)
+     - `### INSTRUCTIONS ###` (Dynamic `system_instructions`)
+     - `### OUTPUT FORMAT ###` (`{{ ctx.output_format }}`)
+  3. Run `baml-cli generate`. This drops the compiled models directly natively into `doc_tools/baml_client`.
+  4. Create `doc_tools/plugins/{domain}.py` extending `AugmentationPlugin`.
+  5. Register the new plugin in the Dispatcher switch inside `doc_tools/assets/semantic_assets.py`.
+  6. **Existing Domains**: `manufacturing.py` (MANUFACTURING), `maintenance.py` (MAINTENANCE), `training.py` (TRAINING - uses full document context), `compliance.py` (COMPLIANCE), `sustainment.py` (SUSTAINMENT - uses full document context for PCN/PDN aggregation).
 - To configure external services, subclass `ConfigurableResource` inside `doc_tools/utils/dagster_resources.py`.
+
+- **Dynamic Prompt Management (Langfuse & GitOps)**:
+  1. All prompts should be decoupled from BAML code.
+  2. Create a ground-truth Markdown file in `prompts/{prompt_name}.md`.
+  3. Use the `Langfuse` SDK in the plugin's `__init__` and `execute_global_pass` to fetch prompts dynamically via the `production` label.
+  4. Integrate `scripts/check_drift.py` into CI/CD to ensure local Markdown files match Langfuse versions tagged as `ready-for-prod`.
+
+- **Table Processing**:
+  1. Documents with tabular data should use `doc_tools.utils.formatters.convert_element_to_markdown` during the global pass.
+  2. This converts `unstructured` HTML tables into Markdown grids to improve LLM extraction accuracy for dense data mapping (e.g., part-to-replacement).
 
 - **Figure/Image Nodes**:
   1. All BAML schemas should include `figure_references string[]` to extract explicit figure IDs.
