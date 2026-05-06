@@ -17,7 +17,7 @@ dependencies = [
     "dagster-aws",
     "python-pptx>=1.0.0",
     "python-docx>=1.0.0",
-    "baml-py>=0.20.0",
+    "baml-py==0.222.0",
     "sparqlwrapper>=2.0.0",
     "dagster-postgres",
     "grpcio!=1.78.1",
