@@ -9,8 +9,38 @@ ONTOLOGY_SVC_URL = os.getenv("ONTOLOGY_SERVICE_URL", "http://ontology-agent-svc.
 DATAHUB_GMS_URL = os.getenv("DATAHUB_GMS_URL", "http://datahub-gms:8080/api/graphql")
 DATAHUB_TOKEN = os.getenv("DATAHUB_TOKEN", "")
 
-def propose_datahub_term(dataset_urn: str, term_urn: str, reason: str):
-    """Submits a Proposed Glossary Term to DataHub for HITL review."""
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import GlossaryTermInfoClass
+
+def get_short_name(uri: str) -> str:
+    """Extracts the short name from an ontology URI (e.g. Pump from .../Pump)."""
+    return uri.split('/')[-1].split('#')[-1]
+
+def propose_datahub_term(dataset_urn: str, ontology_uri: str, reason: str):
+    """
+    Submits a Proposed Glossary Term to DataHub.
+    Also ensures the GlossaryTerm entity exists and has the ontology_uri in customProperties.
+    """
+    short_name = get_short_name(ontology_uri)
+    term_urn = f"urn:li:glossaryTerm:{short_name}"
+    
+    # 1. Ensure the GlossaryTerm entity has the ontology_uri metadata (Phase 7 Standard)
+    emitter = DatahubRestEmitter(gms_server=DATAHUB_GMS_URL.replace("/api/graphql", ""), token=DATAHUB_TOKEN)
+    mcp = MetadataChangeProposalWrapper(
+        entityType="glossaryTerm",
+        changeType="UPSERT",
+        entityUrn=term_urn,
+        aspectName="glossaryTermInfo",
+        aspect=GlossaryTermInfoClass(
+            name=short_name,
+            definition=f"Ontology Class: {ontology_uri}",
+            customProperties={"ontology_uri": ontology_uri}
+        )
+    )
+    emitter.emit(mcp)
+
+    # 2. Submit the proposal for the dataset
     query = """
     mutation proposeTerms($input: ProposeTermsInput!) {
       proposeTerms(input: $input)
@@ -76,14 +106,12 @@ def apply_semantic_tags(
             if resolved_uri and confidence >= 0.85:
                 context.log.info(f"✅ AUTO-TAGGING: {table_name} -> {resolved_uri}")
                 dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:legacy,{table_name},PROD)"
-                term_urn = f"urn:li:glossaryTerm:{resolved_uri}"
-                propose_datahub_term(dataset_urn, term_urn, reasoning) # Even auto-tags go through propose for safety/audit
+                propose_datahub_term(dataset_urn, resolved_uri, reasoning)
                 stats["tagged"] += 1
             elif resolved_uri and confidence >= 0.50:
                 context.log.warning(f"⚠️ HUMAN REVIEW: {table_name} -> {resolved_uri}")
                 dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:legacy,{table_name},PROD)"
-                term_urn = f"urn:li:glossaryTerm:{resolved_uri}"
-                propose_datahub_term(dataset_urn, term_urn, reasoning)
+                propose_datahub_term(dataset_urn, resolved_uri, reasoning)
                 stats["human_review"] += 1
             else:
                 context.log.error(f"❌ REJECTED: {table_name} is unrecognizable. Skipping.")
@@ -110,9 +138,42 @@ def sync_approved_tags_to_neo4j(
     """
     context.log.info(f"Syncing DataHub approval to Neo4j: {config.dataset_urn} -> {config.term_urn}")
     
-    # 1. Clean the DataHub Glossary Term URN to get the pure IOF Ontology URI
-    # Example term_urn: "urn:li:glossaryTerm:http://spec.industrialontologies.org/ontology/construct/Pump"
-    ontology_uri = config.term_urn.replace("urn:li:glossaryTerm:", "")
+    # 1. Fetch the full Ontology URI from the Glossary Term's customProperties (Phase 7 Standard)
+    # We query DataHub GMS to find the 'ontology_uri' key
+    query = """
+    query getTermProperties($urn: String!) {
+      glossaryTerm(urn: $urn) {
+        glossaryTermInfo {
+          customProperties {
+            key
+            value
+          }
+        }
+      }
+    }
+    """
+    variables = {"urn": config.term_urn}
+    headers = {"Authorization": f"Bearer {DATAHUB_TOKEN}", "Content-Type": "application/json"}
+    
+    try:
+        resp = requests.post(DATAHUB_GMS_URL, json={"query": query, "variables": variables}, headers=headers)
+        resp.raise_for_status()
+        term_info = resp.json().get("data", {}).get("glossaryTerm", {}).get("glossaryTermInfo", {})
+        custom_props = term_info.get("customProperties", [])
+        
+        ontology_uri = None
+        for prop in custom_props:
+            if prop["key"] == "ontology_uri":
+                ontology_uri = prop["value"]
+                break
+        
+        if not ontology_uri:
+            # Fallback for backward compatibility or if missing
+            context.log.warning(f"No ontology_uri found in customProperties for {config.term_urn}. Falling back to parsing URN.")
+            ontology_uri = config.term_urn.replace("urn:li:glossaryTerm:", "")
+    except Exception as e:
+        context.log.error(f"Failed to fetch term metadata from DataHub: {e}")
+        raise e
     
     # 2. Define the Cypher Query
     # MERGE creates the node/edge if it doesn't exist, or matches it if it does.

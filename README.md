@@ -47,6 +47,7 @@ graph TD
 3. **Graph Knowledge Representation:** Maps processed documents into a highly-linked **Neo4j** Knowledge Graph for traversing document relationships, concepts, and metadata.
 4. **Vector Embeddings for RAG:** Embeds text chunks directly into **Weaviate** for immediate semantic search availability.
 5. **Semantic Web Triples:** Emits standard OWL/RDF Triples representing structural schemas into **Apache Jena / Fuseki** via SPARQL.
+6. **Semantic Binding Plane (Late Binding):** A universal linking layer that polls DataHub for `ontology_uri` tags, proposes standardized Phase 7 Glossary Terms, and synchronizes approved bindings to Neo4j.
 
 ---
 
@@ -65,6 +66,11 @@ Every node created by the pipeline carries a secondary label corresponding to it
 Every text chunk includes a `domain` metadata property.
 *   **Usage**: Downstream RAG agents can apply a metadata filter: `filter={"path": ["domain"], "operator": "Equal", "valueText": "MANUFACTURING"}`.
 *   **Benefit**: Ensures the LLM only "sees" context relevant to the specific domain during retrieval.
+- **Imports**: Ensure all project imports use absolute paths relative to the project root (`doc_tools.xyz`). No relative imports going up the tree.
+- **Semantic Binding Plane (Late Binding)**:
+  - **Phase 7 URN Standard**: Always use `urn:li:glossaryTerm:{ShortName}` for ontology links. Store the full URI in `customProperties.ontology_uri`.
+  - **DataHub Polling**: Do NOT parse local build artifacts (manifest.json). Consume semantic metadata via `doc_tools.assets.global_semantic_ingestion` by polling DataHub for tagged datasets.
+  - **HITL Integration**: New semantic links must pass through `propose_datahub_term`. Neo4j synchronization (`sync_approved_tags_to_neo4j`) triggers only after HITL approval in DataHub.
 
 ### 3. Apache Jena (Deep Reasoning)
 Strict isolation is maintained via **Named Graphs**:
@@ -95,11 +101,11 @@ Input strings are automatically sanitized and normalized by the pipeline:
 - `charts/doc-tools/`: The Helm Chart for deploying the application to Kubernetes, fully supporting ConfigMaps and Secrets.
 - `doc_tools/`: The main Dagster application codebase.
   - `doc_tools/assets/ingestion_assets.py`: Core ingestion logic for unstructured/PPTX files.
-  - `doc_tools/assets/semantic_assets.py`: Cypher logic for Neo4j Knowledge Graphs and generic Hybrid Graph synchronization (Jena/Neo4j).
-  - `doc_tools/assets/xml_ingestion.py`: Universal XML extractor routing to specialized parsers (S1000D, DITA, IADS) based on MinIO directory prefixes.
-  - `doc_tools/parsers/`: Specialized builders for MIL-spec standards.
-  - `doc_tools/sensors.py`: Factory method for instantiating zero-downtime event-driven run requests.
-  - `doc_tools/utils/`: Extracted domain implementations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
+  - `doc_tools/assets/semantic_assets.py`: Cypher logic for Neo4j Knowledge Graphs and generic Hybrid Graph- `doc_tools/assets/dds_ingestion.py` & `doc_tools/assets/rabbitmq_ingestion.py`: Git-native schema ingestion assets that dynamically clone OMG DDS `.idl` and RabbitMQ `.json` schema repositories into ephemeral temp directories, parse them using AST/recursive strategies, and emit them to DataHub to build end-to-end lineage graphs across the Redpanda/Kafka execution engine.
+- `doc_tools/assets/global_semantic_ingestion.py`: The central authority for the **Semantic Binding Plane**. It implements a "Late Binding" architecture by polling DataHub for any dataset (dbt, legacy, etc.) tagged with an `ontology_uri` custom property and proposing standardized Phase 7 Glossary Terms.
+- `doc_tools/assets/semantic_linker.py`: Standardized workflow for proposing and syncing semantic links. Refined for Phase 7 URNs (`urn:li:glossaryTerm:ShortName`) and dynamic URI resolution via DataHub GMS.
+- `doc_tools/parsers/`: Specialized builders for MIL-spec standards (`s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, `mil_std_40051_rdf.py`). All parsers extract `mil:Figure` triples from format-specific tags (`<figure>`, `<graphic boardno>`, `<graphic infoEntityIdent>`, `<fig>`, `<image>`).
+mentations for text extraction, layout detection, Neo4j mapping, and Weaviate connections.
     - `doc_tools/utils/formatters.py`: Utilities for converting HTML elements (tables) to Markdown.
   - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration.
 - `scripts/`:
@@ -228,13 +234,21 @@ graph LR
 ```
 
 1. **`extract_rdf_from_xml` (The Router):** A universal extractor that pulls XML files directly from MinIO into memory (Zero disk I/O). It reads the S3 directory prefix (e.g., `s1000d/`, `iads/`, or `40051/`), dynamically routes the bytes to the correct parser, and passes the translated RDF Turtle string to the next asset in-memory.
-2. **`upload_to_jena` (The Brain):** Pushes the raw RDF data to Apache Jena via HTTP. Jena applies our military ontologies and runs its semantic reasoner to deduce hidden logical connections (e.g., *Tool X requires Safety Goggles*).
-3. **`init_neo4j_n10s` (The Config):** Idempotently prepares Neo4j's Neosemantics plugin to receive external RDF data.
-4. **`sync_jena_to_neo4j` (The Muscle):** Uses a SPARQL `CONSTRUCT` query against Jena's `/query` endpoint to pull the **fully inferred knowledge graph** and sync it natively into Neo4j for millisecond AI Agent traversal.
+2.- **Hybrid Graph Synchronization & Revisioning**:
+  1. **Named Graphs**: Every document MUST be isolated in its own Jena Named Graph using its identifier (e.g., `urn:doc:{s3_key}`).
+  2. **Jena PUT First**: Use `httpx.put` to push Turtle data to the Named Graph. This ensures the old revision is completely replaced in the reasoning engine.
+  3. **Neo4j Wipe**: Before importing the new revision, execute `MATCH (n:Resource {uri: $uri}) DETACH DELETE n` on the root node URI to clear the old graph structure.
+  4. **Targeted Fetch**: Use a SPARQL `CONSTRUCT` query restricted to the document's `GRAPH <uri>` to fetch and sync only the latest version through `n10s`.
+  5. **Post-Sync Domain Labeling**: After n10s import, apply `:MAINTENANCE` label to all imported Resource nodes via `_apply_post_sync_domain_labels()`. This ensures XML tech manuals are visible to downstream agents that filter by Neo4j domain labels.
+  6. **In-Memory Triples**: Pass raw Turtle data and root URIs between assets as dictionaries; do not use the local filesystem.
 
-### Event-Driven Ingestion Example
-
-Because the pipeline is completely decoupled, adding new military manuals is as simple as dropping them into your object storage. The Dagster S3 sensor handles the rest.
+- **Semantic Binding Plane (Late Binding & URN Standardization)**:
+  1. **Phase 7 URN Standard**: Glossary Term URNs MUST use the Short Name (e.g., `urn:li:glossaryTerm:MaintenanceWorkOrder`).
+  2. **URI Storage**: The full Ontology URI MUST be stored in the `customProperties` aspect of the `GlossaryTerm` entity under the key `ontology_uri`.
+  3. **DataHub Polling (Late Binding)**: Do NOT parse local dbt or metadata files for semantic tags. Use `doc_tools.assets.global_semantic_ingestion` to poll DataHub GMS for any `Dataset` possessing the `ontology_uri` custom property.
+  4. **HITL Workflow**: All semantic linkings must go through the `propose_datahub_term` flow for human-in-the-loop approval before being synced to the Neo4j Knowledge Graph via the `datahub_approval_sensor`.
+  5. **Neo4j Sync**: The `sync_approved_tags_to_neo4j` asset must fetch the full `ontology_uri` from the DataHub entity's `customProperties` at runtime to ensure graph accuracy.
+r S3 sensor handles the rest.
 
 ```python
 # The internal routing logic gracefully handles the heavy lifting in-memory:
