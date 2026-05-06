@@ -7,10 +7,12 @@ CRITICAL RULES:
 2. Proximity Awareness: Standards are often near phrases like 'per', 'IAW', 'in accordance with', or 'ref'.
 3. Safety Critical: True ONLY for steps involving high-voltage, explosive ordnance, load-bearing structural components, or flight-critical systems.
 4. Figure References: Extract ONLY explicit, resolvable identifiers (e.g., 'Figure 3', 'Fig. 12A'). Never extract vague references like 'see diagram below'.
+10. Markdown Tables: The document text may contain Markdown-formatted tables. Interpret these grids carefully to extract parts, tools, and procedural steps mapped to specific rows. Handle empty cells as null or empty strings.
 
 For every step, identify:
-- The `procedure_id` it belongs to.
-- The `step_id`.
+- The `procedure_id` must strictly match this pattern or regular expression: '{{ procedure_id_format }}'.
+- The `step_id` must strictly match this pattern or regular expression: '{{ step_id_format }}'.
+- Markdown Tables: The document text may contain Markdown-formatted tables representing parts lists or sequential operations. Analyze the table structure to extract tool requirements and part numbers from their respective columns.
 - The `instruction_text` (full verbatim text).
 - The `action_verb` (the core maintenance action).
 - Any `tooling` and `consumables`.

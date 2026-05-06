@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Any
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
+from doc_tools.utils.formatters import convert_element_to_markdown
 from langfuse import Langfuse
 
 # --- BAML-ready Schemas (Domain B: MAT/Manufacturing) ---
@@ -41,122 +42,146 @@ class ManufacturingPlugin(AugmentationPlugin):
     def __init__(self, domain_type: str):
         super().__init__(domain_type)
         self.langfuse = Langfuse()
-    
-    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
+
+    def execute_global_pass(self, all_chunks: List[Dict[str, Any]], max_chars: int, config: Any) -> List[Any]:
+        """
+        Converts elements to Markdown and chunks them based on token limits.
+        Extracts Work Instructions from each chunk.
+        """
         try:
-            from doc_tools.baml_client.sync_client import b
-            from doc_tools.baml_client.types import MatAugmentation as BamlMatAugmentation
+            lf_prompt = self.langfuse.get_prompt("manufacturing_instructions", label="production")
+            # Compile variables into the prompt
+            dynamic_instructions = lf_prompt.compile(
+                procedure_id_format=getattr(config, "procedure_id_format", r"^\d{4}$"),
+                step_id_format=getattr(config, "step_id_format", r"^\d+(?:\.\d+)*$")
+            )
+        except Exception as e:
+            print(f"[ManufacturingPlugin] Langfuse prompt fetch failed: {e}")
+            raise
+
+        # 1. Convert all elements to Markdown strings
+        md_elements = [convert_element_to_markdown(chunk) for chunk in all_chunks]
+        
+        # 2. Chunk the Markdown strings safely
+        current_chunk = ""
+        safe_chunks = []
+        
+        for el in md_elements:
+            if len(current_chunk) + len(el) < max_chars:
+                current_chunk += f"\n\n{el}" if current_chunk else el
+            else:
+                if current_chunk:
+                    safe_chunks.append(current_chunk)
+                current_chunk = el 
+                
+        if current_chunk:
+            safe_chunks.append(current_chunk)
+
+        # 3. Process each safe chunk through BAML
+        from doc_tools.baml_client.sync_client import b
+        from doc_tools.baml_client.type_builder import TypeBuilder
+        
+        baml_responses = []
+        for i, chunk_text in enumerate(safe_chunks):
+            print(f"[ManufacturingPlugin] Processing Markdown chunk {i+1}/{len(safe_chunks)}")
             
-            # Populate Dynamic Enums for strict Rust validation via TypeBuilder
-            from doc_tools.baml_client.type_builder import TypeBuilder
             tb = TypeBuilder()
-            
-            # Extract lists from config or defaults
             roles = [r.strip() for r in getattr(config, "valid_personnel_roles", "QC Inspector, Journeyman, Safety Officer").split(",")]
             hazards = [h.strip() for h in getattr(config, "valid_hazard_classes", "1.1D, 1.3C, Hazmat 3, Biohazard").split(",")]
             categories = [c.strip() for c in getattr(config, "valid_process_categories", "Transformation, Inspection, Movement, Rework, Critical Safety Hold").split(",")]
-            
             for r in roles: tb.PersonnelRole.add_value(r)
             for h in hazards: tb.HazardClass.add_value(h)
             for c in categories: tb.ProcessCategory.add_value(c)
 
-            # Fetch dynamic prompt from Langfuse
             try:
-                lf_prompt = self.langfuse.get_prompt("manufacturing_instructions", label="production")
-                # Compile variables into the prompt
-                dynamic_instructions = lf_prompt.compile(
-                    procedure_id_format=getattr(config, "procedure_id_format", r"^\d{4}$"),
-                    step_id_format=getattr(config, "step_id_format", r"^\d+(?:\.\d+)*$")
+                partial = b.ExtractWorkInstructions(
+                    text=chunk_text,
+                    system_instructions=dynamic_instructions,
+                    baml_options={"tb": tb}
                 )
+                baml_responses.append(partial)
             except Exception as e:
-                print(f"[ManufacturingPlugin] Langfuse prompt fetch failed: {e}")
-                # Fallback: manual string replacement
-                try:
-                    with open("prompts/manufacturing_instructions.md", "r", encoding="utf-8") as f:
-                        raw_text = f.read()
-                        dynamic_instructions = raw_text.replace(
-                            "{{ procedure_id_format }}", getattr(config, "procedure_id_format", r"^\d{4}$")
-                        ).replace(
-                            "{{ step_id_format }}", getattr(config, "step_id_format", r"^\d+(?:\.\d+)*$")
-                        )
-                except Exception as fallback_err:
-                    print(f"[ManufacturingPlugin] Fallback failed: {fallback_err}")
-                    raise
-
-            # Execute BAML LLM inference
-            baml_response: BamlMatAugmentation = b.ExtractWorkInstructions(
-                text=section.content,
-                system_instructions=dynamic_instructions,
-                baml_options={"tb": tb}
-            )
-            
-            steps = []
-            for s in baml_response.steps:
-                # BAML Dynamic Enums can return strings or Enum objects depending on registration.
-                # We use getattr to safely extract the value if it's an Enum, otherwise use the string.
-                steps.append(ManufacturingStep(
-                    procedure_id=s.procedure_id,
-                    step_id=s.step_id,
-                    instruction_text=s.instruction_text,
-                    action_verb=s.action_verb,
-                    tooling=s.tooling,
-                    consumables=s.consumables,
-                    hazard_class=getattr(s.hazard_class, 'value', s.hazard_class) if s.hazard_class else None,
-                    required_cert=getattr(s.required_cert, 'value', s.required_cert) if s.required_cert else None,
-                    standard_ref=s.standard_ref,
-                    is_value_added=s.is_value_added,
-                    is_safety_critical=s.is_safety_critical,
-                    process_category=getattr(s.process_category, 'value', s.process_category),
-                    justification=s.justification,
-                    estimated_duration_minutes=s.estimated_duration_minutes,
-                    military_and_industry_standards=s.military_and_industry_standards,
-                    internal_part_numbers=s.internal_part_numbers,
-                    material_and_hardware_slang=s.material_and_hardware_slang,
-                    figure_references=getattr(s, 'figure_references', []) or []
-                ))
+                print(f"[ManufacturingPlugin] Extraction failed on chunk {i+1}: {e}")
                 
-            augmentation = MatAugmentation(
-                steps=steps,
-                assessment=StrategicAssessment(
-                    proprietary_score=baml_response.assessment.proprietary_score,
-                    outsourceable=baml_response.assessment.outsourceable
-                )
-            )
-            
-        except ImportError:
-            # Fallback mock for testing environments
-            augmentation = MatAugmentation(
-                steps=[
-                    ManufacturingStep(
-                        procedure_id="PROC-MOCK",
-                        step_id="3.2.1",
-                        instruction_text="Mock raw text of the procedure step",
-                        action_verb=f"Assemble component derived from {section.title}", 
-                        tooling=["Wrench", "Calipers"],
-                        consumables=["Epoxy #9"],
-                        hazard_class="1.1D",
-                        required_cert="QC Inspector",
-                        standard_ref="ISO-9001",
-                        is_value_added=True,
-                        is_safety_critical=False,
-                        process_category="Transformation",
-                        justification="This step physically builds the component.",
-                        estimated_duration_minutes=15,
-                        military_and_industry_standards=["MIL-PRF-81733"],
-                        internal_part_numbers=["99-812"],
-                        material_and_hardware_slang=["Epoxy"],
-                        figure_references=["Fig1"]
-                    )
-                ],
-                assessment=StrategicAssessment(
-                    proprietary_score=0.95,
-                    outsourceable=False
-                )
-            )
+        return baml_responses
+
+    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None, elements: List[Dict[str, Any]] = None) -> List[DocumentNode]:
+        """
+        Extract instructions from the entire document elements using Markdown pre-processing.
+        """
+        if not elements:
+            return []
+
+        # We need config for regex patterns and dynamic enums
+        # In build_knowledge_graph, we don't easily have 'config' here unless we pass it.
+        # But we can reconstruct it or assume defaults for the global pass.
+        # Actually, let's look at how TrainingPlugin does it.
+        # It doesn't use config in execute_global_pass.
         
+        # For Manufacturing, we'll try to get config from metadata or use defaults.
+        class MockConfig:
+            procedure_id_format = r"^\d{4}$"
+            step_id_format = r"^\d+(?:\.\d+)*$"
+            valid_personnel_roles = "QC Inspector, Journeyman, Safety Officer"
+            valid_hazard_classes = "1.1D, 1.3C, Hazmat 3, Biohazard"
+            valid_process_categories = "Transformation, Inspection, Movement, Rework, Critical Safety Hold"
+        
+        config = MockConfig()
+
+        try:
+            import os
+            context_size = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
+            reserved_tokens = 4000
+            chars_per_token = 3
+            max_chars = (context_size - reserved_tokens) * chars_per_token
+            
+            print(f"[ManufacturingPlugin] Using Markdown pre-processor on {len(elements)} elements")
+            baml_responses = self.execute_global_pass(elements, max_chars, config)
+            
+            all_steps = []
+            final_assessment = StrategicAssessment(proprietary_score=0.0, outsourceable=False)
+            
+            for resp in baml_responses:
+                for s in resp.steps:
+                    all_steps.append(ManufacturingStep(
+                        procedure_id=s.procedure_id,
+                        step_id=s.step_id,
+                        instruction_text=s.instruction_text,
+                        action_verb=s.action_verb,
+                        tooling=s.tooling,
+                        consumables=s.consumables,
+                        hazard_class=getattr(s.hazard_class, 'value', s.hazard_class) if s.hazard_class else None,
+                        required_cert=getattr(s.required_cert, 'value', s.required_cert) if s.required_cert else None,
+                        standard_ref=s.standard_ref,
+                        is_value_added=s.is_value_added,
+                        is_safety_critical=s.is_safety_critical,
+                        process_category=getattr(s.process_category, 'value', s.process_category),
+                        justification=s.justification,
+                        estimated_duration_minutes=s.estimated_duration_minutes,
+                        military_and_industry_standards=s.military_and_industry_standards,
+                        internal_part_numbers=s.internal_part_numbers,
+                        material_and_hardware_slang=s.material_and_hardware_slang,
+                        figure_references=getattr(s, 'figure_references', []) or []
+                    ))
+                # Update assessment (max score)
+                if resp.assessment.proprietary_score > final_assessment.proprietary_score:
+                    final_assessment.proprietary_score = resp.assessment.proprietary_score
+                if resp.assessment.outsourceable:
+                    final_assessment.outsourceable = True
+            
+            augmentation = MatAugmentation(steps=all_steps, assessment=final_assessment)
+            global_section = BaseSection(title="Full Manufacturing Plan", level=0, page_start=0, content="", node_id=doc_id)
+            return [DocumentNode(base_extraction=global_section, domain_augmentation=augmentation)]
+            
+        except Exception as e:
+            print(f"[ManufacturingPlugin] Global pass failed: {e}")
+            return []
+
+    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
+        # We process manufacturing instructions globally via process_fulltext, so per-chunk augmentation is a no-op
         return DocumentNode(
             base_extraction=section,
-            domain_augmentation=augmentation
+            domain_augmentation=None
         )
 
     def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:

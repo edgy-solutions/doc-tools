@@ -24,18 +24,30 @@ class CompliancePlugin(AugmentationPlugin):
         super().__init__(domain_type)
         self.langfuse = Langfuse()
     
+    def _get_dynamic_prompt(self, prompt_name: str, fallback_file: str) -> str:
+        """Fetches from Langfuse. Falls back to local file on failure."""
+        try:
+            lf_prompt = self.langfuse.get_prompt(prompt_name, label="production", cache_ttl_seconds=0)
+            return lf_prompt.prompt
+        except Exception as e:
+            print(f"[CompliancePlugin] Langfuse unreachable, using fallback. Error: {e}")
+            try:
+                with open(fallback_file, 'r') as file:
+                    return file.read().strip()
+            except Exception as file_error:
+                print(f"[CompliancePlugin] Fallback failed. Could not read {fallback_file}: {file_error}")
+                raise
+
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
             from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import ComplianceAugmentation as BamlComplianceAugmentation
             
-            # Fetch dynamic prompt from Langfuse
-            try:
-                lf_prompt = self.langfuse.get_prompt("compliance_instructions", label="production")
-                dynamic_instructions = lf_prompt.prompt
-            except Exception as e:
-                print(f"[CompliancePlugin] Langfuse prompt fetch failed: {e}")
-                raise
+            # Fetch prompt (Exceptions here will be caught by the generic Exception block below)
+            dynamic_instructions = self._get_dynamic_prompt(
+                prompt_name="compliance_instructions",
+                fallback_file="prompts/compliance_instructions.md"
+            )
 
             # Execute BAML LLM inference
             baml_response: BamlComplianceAugmentation = b.ExtractComplianceRules(
@@ -56,7 +68,8 @@ class CompliancePlugin(AugmentationPlugin):
             augmentation = ComplianceAugmentation(rules=rules)
             
         except ImportError:
-            # Fallback mock for testing environments
+            # Fallback mock for testing environments lacking BAML
+            print("[CompliancePlugin] BAML client not found. Using mock fallback.")
             augmentation = ComplianceAugmentation(
                 rules=[
                     ComplianceRule(
@@ -65,6 +78,20 @@ class CompliancePlugin(AugmentationPlugin):
                         applicable_hazard_class="1.1",
                         target_metric="Max 5 Units",
                         rule_description=f"Auto-generated mock compliance rule for {section.title}."
+                    )
+                ]
+            )
+        except Exception as e:
+            # Catch prompt fetching errors, LLM timeouts, or BAML schema errors
+            print(f"[CompliancePlugin] Extraction failed: {e}. Using mock fallback.")
+            augmentation = ComplianceAugmentation(
+                rules=[
+                    ComplianceRule(
+                        manual_reference=f"ERROR-FALLBACK derived from {section.title}",
+                        rule_type="Error",
+                        applicable_hazard_class=None,
+                        target_metric=None,
+                        rule_description=f"Extraction failed due to error: {e}"
                     )
                 ]
             )

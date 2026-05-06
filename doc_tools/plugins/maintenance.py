@@ -1,7 +1,8 @@
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
+from doc_tools.utils.formatters import convert_element_to_markdown
 from langfuse import Langfuse
 
 # --- BAML-ready Schemas (Domain D: MRO/Maintenance) ---
@@ -37,93 +38,143 @@ class MaintenancePlugin(AugmentationPlugin):
     def __init__(self, domain_type: str):
         super().__init__(domain_type)
         self.langfuse = Langfuse()
-    
-    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
+
+    def _get_dynamic_prompt(self, prompt_name: str, fallback_file: str, **compile_kwargs) -> str:
+        """Fetches from Langfuse and compiles variables. Falls back to local file on failure."""
         try:
-            from doc_tools.baml_client.sync_client import b
-            from doc_tools.baml_client.types import MroAugmentation as BamlMroAugmentation
+            lf_prompt = self.langfuse.get_prompt(prompt_name, label="production", cache_ttl_seconds=0)
+            return lf_prompt.compile(**compile_kwargs)
+        except Exception as e:
+            print(f"[MaintenancePlugin] Langfuse unreachable, using fallback. Error: {e}")
+            try:
+                with open(fallback_file, 'r') as file:
+                    raw_text = file.read().strip()
+                    for key, val in compile_kwargs.items():
+                        raw_text = raw_text.replace(f"{{{{ {key} }}}}", str(val))
+                    return raw_text
+            except Exception as file_error:
+                print(f"[MaintenancePlugin] Fallback failed. Could not read {fallback_file}: {file_error}")
+                raise
+
+    def execute_global_pass(self, all_chunks: List[Dict[str, Any]], max_chars: int, proc_fmt: str, step_fmt: str) -> List[Any]:
+        """
+        Converts elements to Markdown and chunks them based on token limits.
+        Extracts Maintenance Procedures from each chunk.
+        """
+        # FIXED: Resilient fetch and compile
+        dynamic_instructions = self._get_dynamic_prompt(
+            prompt_name="maintenance_instructions",
+            fallback_file="prompts/maintenance_instructions.md",
+            procedure_id_format=proc_fmt,
+            step_id_format=step_fmt
+        )
+
+        # 1. Convert all elements to Markdown strings
+        md_elements = [convert_element_to_markdown(chunk) for chunk in all_chunks]
+        
+        # 2. Chunk the Markdown strings safely
+        current_chunk = ""
+        safe_chunks = []
+        
+        for el in md_elements:
+            if len(current_chunk) + len(el) < max_chars:
+                current_chunk += f"\n\n{el}" if current_chunk else el
+            else:
+                if current_chunk:
+                    safe_chunks.append(current_chunk)
+                current_chunk = el 
+                
+        if current_chunk:
+            safe_chunks.append(current_chunk)
+
+        # 3. Process each safe chunk through BAML
+        from doc_tools.baml_client.sync_client import b
+        from doc_tools.baml_client.type_builder import TypeBuilder
+        
+        baml_responses = []
+        for i, chunk_text in enumerate(safe_chunks):
+            print(f"[MaintenancePlugin] Processing Markdown chunk {i+1}/{len(safe_chunks)}")
             
-            # Populate Dynamic Enums via TypeBuilder
-            from doc_tools.baml_client.type_builder import TypeBuilder
             tb = TypeBuilder()
-            
-            # Default inspection types and maintenance levels
             inspection_types = ["Visual", "Dimensional", "NDI", "Functional", "Operational"]
             maintenance_levels = ["Organizational", "Direct Support", "General Support", "Depot"]
-            
             for it in inspection_types: tb.InspectionType.add_value(it)
             for ml in maintenance_levels: tb.MaintenanceLevel.add_value(ml)
 
-            # Fetch dynamic prompt from Langfuse
             try:
-                lf_prompt = self.langfuse.get_prompt("maintenance_instructions", label="production")
-                dynamic_instructions = lf_prompt.prompt
+                partial = b.ExtractMaintenanceProcedures(
+                    text=chunk_text,
+                    system_instructions=dynamic_instructions,
+                    baml_options={"tb": tb}
+                )
+                baml_responses.append(partial)
             except Exception as e:
-                print(f"[MaintenancePlugin] Langfuse prompt fetch failed: {e}")
-                raise
-
-            # Execute BAML LLM inference
-            baml_response: BamlMroAugmentation = b.ExtractMaintenanceProcedures(
-                text=section.content,
-                system_instructions=dynamic_instructions,
-                baml_options={"tb": tb}
-            )
-            
-            steps = []
-            for s in baml_response.steps:
-                steps.append(MaintenanceStep(
-                    procedure_id=s.procedure_id,
-                    step_id=s.step_id,
-                    instruction_text=s.instruction_text,
-                    action_verb=s.action_verb,
-                    tooling=s.tooling,
-                    consumables=s.consumables,
-                    hazard_class=getattr(s.hazard_class, 'value', s.hazard_class) if s.hazard_class else None,
-                    required_cert=getattr(s.required_cert, 'value', s.required_cert) if s.required_cert else None,
-                    standard_ref=s.standard_ref,
-                    inspection_type=getattr(s.inspection_type, 'value', s.inspection_type) if s.inspection_type else None,
-                    maintenance_level=getattr(s.maintenance_level, 'value', s.maintenance_level) if s.maintenance_level else None,
-                    is_safety_critical=s.is_safety_critical,
-                    torque_spec=s.torque_spec,
-                    justification=s.justification,
-                    estimated_duration_minutes=s.estimated_duration_minutes,
-                    military_and_industry_standards=s.military_and_industry_standards,
-                    internal_part_numbers=s.internal_part_numbers,
-                    figure_references=getattr(s, 'figure_references', []) or []
-                ))
+                print(f"[MaintenancePlugin] Extraction failed on chunk {i+1}: {e}")
                 
-            augmentation = MroAugmentation(steps=steps)
+        return baml_responses
+
+    def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None, elements: List[Dict[str, Any]] = None) -> List[DocumentNode]:
+        """
+        Extract procedures from the entire document elements using Markdown pre-processing.
+        """
+        if not elements:
+            return []
+
+        if metadata is None:
+            metadata = {}
+
+        # FIXED: Extract dynamic formats from Dagster metadata
+        proc_fmt = metadata.get("procedure_id_format", r".*")
+        step_fmt = metadata.get("step_id_format", r".*")
+
+        try:
+            import os
+            context_size = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
+            reserved_tokens = 4000
+            chars_per_token = 3
+            max_chars = (context_size - reserved_tokens) * chars_per_token
             
-        except ImportError:
-            # Fallback mock for testing environments
-            augmentation = MroAugmentation(
-                steps=[
-                    MaintenanceStep(
-                        procedure_id="TM-9-MOCK",
-                        step_id="1.1",
-                        instruction_text="Mock: Remove access panel and inspect for corrosion",
-                        action_verb=f"Inspect component from {section.title}",
-                        tooling=["Socket Set", "Flashlight"],
-                        consumables=["CLP"],
-                        hazard_class=None,
-                        required_cert=None,
-                        standard_ref="TM-9-1005-317-23",
-                        inspection_type="Visual",
-                        maintenance_level="Organizational",
-                        is_safety_critical=False,
-                        torque_spec=None,
-                        justification="Standard visual inspection does not involve safety-critical components.",
-                        estimated_duration_minutes=10,
-                        military_and_industry_standards=["TM-9-1005-317-23"],
-                        internal_part_numbers=["5340-01-123-4567"],
-                        figure_references=["Fig1"]
-                    )
-                ]
-            )
-        
+            print(f"[MaintenancePlugin] Using Markdown pre-processor on {len(elements)} elements")
+            # FIXED: Pass formats to the global pass
+            baml_responses = self.execute_global_pass(elements, max_chars, proc_fmt, step_fmt)
+            
+            all_steps = []
+            for resp in baml_responses:
+                for s in resp.steps:
+                    all_steps.append(MaintenanceStep(
+                        procedure_id=s.procedure_id,
+                        step_id=s.step_id,
+                        instruction_text=s.instruction_text,
+                        action_verb=s.action_verb,
+                        tooling=s.tooling,
+                        consumables=s.consumables,
+                        hazard_class=getattr(s.hazard_class, 'value', s.hazard_class) if s.hazard_class else None,
+                        required_cert=getattr(s.required_cert, 'value', s.required_cert) if s.required_cert else None,
+                        standard_ref=s.standard_ref,
+                        inspection_type=getattr(s.inspection_type, 'value', s.inspection_type) if s.inspection_type else None,
+                        maintenance_level=getattr(s.maintenance_level, 'value', s.maintenance_level) if s.maintenance_level else None,
+                        is_safety_critical=s.is_safety_critical,
+                        torque_spec=s.torque_spec,
+                        justification=s.justification,
+                        estimated_duration_minutes=s.estimated_duration_minutes,
+                        military_and_industry_standards=s.military_and_industry_standards,
+                        internal_part_numbers=s.internal_part_numbers,
+                        figure_references=getattr(s, 'figure_references', []) or []
+                    ))
+            
+            augmentation = MroAugmentation(steps=all_steps)
+            global_section = BaseSection(title="Full Procedure Outline", level=0, page_start=0, content="", node_id=doc_id)
+            return [DocumentNode(base_extraction=global_section, domain_augmentation=augmentation)]
+            
+        except Exception as e:
+            print(f"[MaintenancePlugin] Global pass failed: {e}")
+            return []
+    
+    def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
+        # We process maintenance procedures globally via process_fulltext, so per-chunk augmentation is a no-op
         return DocumentNode(
             base_extraction=section,
-            domain_augmentation=augmentation
+            domain_augmentation=None
         )
 
     def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:

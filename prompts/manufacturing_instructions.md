@@ -20,6 +20,7 @@ If a step is an inspection that DOES NOT involve explosive safety or high-voltag
 CRITICAL PATTERN MATCHING:
 - The `procedure_id` must strictly match this pattern or regular expression: '{{ procedure_id_format }}'.
 - The `step_id` must strictly match this pattern or regular expression: '{{ step_id_format }}'.
+- Markdown Tables: The document text may contain Markdown-formatted tables representing parts lists or sequential operations. Analyze the table structure to extract tool requirements and part numbers from their respective columns.
 
 CRITICAL: For every step, identify:
 - The `procedure_id` it belongs to.
