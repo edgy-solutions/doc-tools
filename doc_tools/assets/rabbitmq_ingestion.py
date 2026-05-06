@@ -24,7 +24,7 @@ class RabbitMQIngestionConfig(Config):
     datahub_token: str = os.getenv("DATAHUB_TOKEN", "")
     raw_kafka_topic: str = os.getenv("RAW_KAFKA_TOPIC", "openddil.sensor.data")
 
-@asset(group_name="metadata_ingestion", tags=metadata_k8s_tags)
+@asset(group_name="metadata_ingestion", op_tags=metadata_k8s_tags)
 def ingest_rabbitmq_schemas(config: RabbitMQIngestionConfig):
     """
     Clones a Git repository, scans a directory for .json schema files, parses them, and ingests them into DataHub
