@@ -12,12 +12,14 @@ from dagster_aws.s3 import S3Resource
 from doc_tools.partitions import pdf_files_partition
 from doc_tools.utils.extraction import extract_text_and_metadata
 from dag_tools.components.s3_sensor.file_component import S3FileConfig
+from dag_tools.utils.k8s import resolve_k8s_resource_tags
 
 class DocumentParserComponent(Component, Resolvable, Model):
     """A specialized component that downloads, parses, and extracts metadata/images from documents via S3."""
     name: str = Field(default="process_document_artifact")
     partition_name: str = Field(description="The dynamic partition name to use.")
     config: Dict[str, Any] = Field(default_factory=dict, description="Configuration for labels and extraction rules.")
+    k8s_resource_prefix: str = Field(default="DOC_PARSER", description="Prefix for K8s resource environment variables.")
 
     def build_defs(self, context: ComponentLoadContext) -> Definitions:
         parts_def = pdf_files_partition
@@ -175,11 +177,14 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 
             return manifest
 
-        # Define the pipeline job
+        # Define the pipeline job with dynamic K8s resource tags
+        k8s_tags = resolve_k8s_resource_tags(prefix=self.k8s_resource_prefix, default_cpu="2000m", default_mem="6Gi")
+        
         process_job = define_asset_job(
             name=f"{self.name}_job",
             selection=[self.name, "build_knowledge_graph"],
-            partitions_def=parts_def
+            partitions_def=parts_def,
+            tags=k8s_tags
         )
 
         return Definitions(assets=[process_document_artifact], jobs=[process_job])

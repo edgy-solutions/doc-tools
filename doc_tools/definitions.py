@@ -10,6 +10,7 @@ from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, se
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions, design_files_partition
 import os
+from dag_tools.utils.k8s import resolve_k8s_resource_tags
 
 # 1. Instantiate the Custom Parser Component
 document_parser = DocumentParserComponent(
@@ -140,35 +141,30 @@ oracle_extractor = OracleExtractorComponent(
 )
 _oracle_extractor_defs = oracle_extractor.build_defs(None)
 
-k8s_tags = {
-    "dagster-k8s/config": {
-        "container_config": {
-            "resources": {
-                "requests": {"cpu": "2000m", "memory": "6Gi"},
-                "limits": {"cpu": "4000m", "memory": "12Gi"}
-            }
-        }
-    }
-}
+# 3. Dynamic K8s Resource Management
+# Resolve tags using different prefixes for resource control
+xml_k8s_tags = resolve_k8s_resource_tags(prefix="XML_INGEST", default_cpu="2000m", default_mem="6Gi")
+ontology_k8s_tags = resolve_k8s_resource_tags(prefix="ONTOLOGY_INGEST", default_cpu="1000m", default_mem="2Gi")
+design_k8s_tags = resolve_k8s_resource_tags(prefix="DESIGN_PARSER", default_cpu="1000m", default_mem="2Gi")
 
 xml_graph_sync_job = define_asset_job(
     name="xml_graph_sync_job",
     selection=["extract_rdf_from_xml", "upload_to_jena", "init_neo4j_n10s", "sync_jena_to_neo4j"],
-    tags=k8s_tags
+    tags=xml_k8s_tags
 )
 
 ingest_ontology_job = define_asset_job(
     name="ingest_ontology_job",
     selection=["ingest_ontology_to_jena"],
     partitions_def=ontology_partitions,
-    tags=k8s_tags
+    tags=ontology_k8s_tags
 )
 
 design_metadata_job = define_asset_job(
     name="parse_design_metadata_job",
     selection=["parse_design_metadata"],
     partitions_def=design_files_partition,
-    tags=k8s_tags
+    tags=design_k8s_tags
 )
 
 s3_io_manager = s3_pickle_io_manager.configured({
