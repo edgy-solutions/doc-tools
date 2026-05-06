@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Any, Dict
 from doc_tools.plugins.models import BaseSection, DocumentNode
+import logging
+from langfuse import Langfuse
 
 class AugmentationPlugin(ABC):
     """
@@ -11,6 +13,31 @@ class AugmentationPlugin(ABC):
     
     def __init__(self, domain_type: str):
         self.domain_type = domain_type
+        self.logger = logging.getLogger(self.__class__.__name__)
+        # Centralized Langfuse initialization
+        self.langfuse = Langfuse()
+
+    def _get_dynamic_prompt(self, prompt_name: str, fallback_file: str, **compile_kwargs) -> str:
+        """
+        Centralized method to fetch from Langfuse and compile variables. 
+        Falls back to local file on failure.
+        """
+        try:
+            lf_prompt = self.langfuse.get_prompt(prompt_name, label="production", cache_ttl_seconds=0)
+            if compile_kwargs:
+                return lf_prompt.compile(**compile_kwargs)
+            return lf_prompt.prompt
+        except Exception as e:
+            self.logger.warning(f"Langfuse unreachable, using fallback. Error: {e}")
+            try:
+                with open(fallback_file, 'r') as file:
+                    raw_text = file.read().strip()
+                    for key, val in compile_kwargs.items():
+                        raw_text = raw_text.replace(f"{{{{ {key} }}}}", str(val))
+                    return raw_text
+            except Exception as file_error:
+                self.logger.error(f"Fallback failed. Could not read {fallback_file}: {file_error}")
+                raise
 
     @property
     def domain_label(self) -> str:

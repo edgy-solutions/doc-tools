@@ -3,8 +3,6 @@ from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
-from langfuse import Langfuse
-
 # --- BAML-ready Schemas (Domain A: Training) ---
 class Concept(BaseModel):
     name: str
@@ -31,22 +29,16 @@ class TrainingPlugin(AugmentationPlugin):
     """
     Original extraction logic generalized for Training content.
     """
-    def __init__(self, domain_type: str):
-        super().__init__(domain_type)
-        self.langfuse = Langfuse()
-
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
             from doc_tools.baml_client.sync_client import b
             from doc_tools.baml_client.types import SlideAugmentation as BamlSlideAugmentation
             
-            # Fetch dynamic prompt from Langfuse
-            try:
-                lf_prompt = self.langfuse.get_prompt("training_instructions", label="production")
-                dynamic_instructions = lf_prompt.prompt
-            except Exception as e:
-                print(f"[TrainingPlugin] Langfuse prompt fetch failed: {e}")
-                raise
+            # FIXED: Resilient fetch
+            dynamic_instructions = self._get_dynamic_prompt(
+                prompt_name="training_instructions",
+                fallback_file="prompts/training_instructions.md"
+            )
 
             # Execute BAML LLM inference
             baml_response: BamlSlideAugmentation = b.ExtractConcepts(
@@ -151,13 +143,11 @@ class TrainingPlugin(AugmentationPlugin):
         Converts elements to Markdown and chunks them based on token limits.
         Extracts Course Outline (Sections) from each chunk.
         """
-        # Fetch dynamic prompt from Langfuse
-        try:
-            lf_prompt = self.langfuse.get_prompt("core_instructions", label="production")
-            dynamic_instructions = lf_prompt.prompt
-        except Exception as e:
-            print(f"[TrainingPlugin] Langfuse prompt fetch failed: {e}")
-            raise
+        # FIXED: Resilient fetch
+        dynamic_instructions = self._get_dynamic_prompt(
+            prompt_name="core_instructions",
+            fallback_file="prompts/core_instructions.md"
+        )
 
         # 1. Convert all elements to Markdown strings
         md_elements = [convert_element_to_markdown(chunk) for chunk in all_chunks]
@@ -223,16 +213,15 @@ class TrainingPlugin(AugmentationPlugin):
                     elements = None
 
             if not elements:
-                # Fetch dynamic prompt from Langfuse (for fallback logic)
-                try:
-                    lf_prompt = self.langfuse.get_prompt("core_instructions", label="production")
-                    dynamic_instructions = lf_prompt.prompt
-                except Exception as e:
-                    print(f"[TrainingPlugin] Langfuse prompt fetch failed: {e}")
-                    raise
+                # FIXED: Fetch the instructions before entering the legacy text loops
+                dynamic_instructions = self._get_dynamic_prompt(
+                    prompt_name="core_instructions",
+                    fallback_file="prompts/core_instructions.md"
+                )
 
                 if len(full_text) <= max_chars:
                     print(f"[TrainingPlugin] Document fits in context ({len(full_text)} chars)")
+                    # FIXED: Added system_instructions to BAML call
                     baml_response = b.ExtractOutline(
                         document_text=full_text,
                         system_instructions=dynamic_instructions
@@ -246,6 +235,7 @@ class TrainingPlugin(AugmentationPlugin):
                     for i, (chunk_text, start_pos) in enumerate(chunks):
                         print(f"[TrainingPlugin] Processing chunk {i+1}/{len(chunks)}")
                         try:
+                            # FIXED: Added system_instructions to BAML call
                             partial = b.ExtractOutline(
                                 document_text=chunk_text,
                                 system_instructions=dynamic_instructions

@@ -3,8 +3,6 @@ from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
-from langfuse import Langfuse
-
 # --- BAML-ready Schemas (Domain B: MAT/Manufacturing) ---
 class ManufacturingStep(BaseModel):
     procedure_id: str
@@ -39,25 +37,18 @@ class ManufacturingPlugin(AugmentationPlugin):
     """
     New Munitions Acceleration & Manufacturing (MAT) extraction logic.
     """
-    def __init__(self, domain_type: str):
-        super().__init__(domain_type)
-        self.langfuse = Langfuse()
-
     def execute_global_pass(self, all_chunks: List[Dict[str, Any]], max_chars: int, config: Any) -> List[Any]:
         """
         Converts elements to Markdown and chunks them based on token limits.
         Extracts Work Instructions from each chunk.
         """
-        try:
-            lf_prompt = self.langfuse.get_prompt("manufacturing_instructions", label="production")
-            # Compile variables into the prompt
-            dynamic_instructions = lf_prompt.compile(
-                procedure_id_format=getattr(config, "procedure_id_format", r"^\d{4}$"),
-                step_id_format=getattr(config, "step_id_format", r"^\d+(?:\.\d+)*$")
-            )
-        except Exception as e:
-            print(f"[ManufacturingPlugin] Langfuse prompt fetch failed: {e}")
-            raise
+        # FIXED: Resilient fetch and compile
+        dynamic_instructions = self._get_dynamic_prompt(
+            prompt_name="manufacturing_instructions",
+            fallback_file="prompts/manufacturing_instructions.md",
+            procedure_id_format=getattr(config, "procedure_id_format", r"^\d{4}$"),
+            step_id_format=getattr(config, "step_id_format", r"^\d+(?:\.\d+)*$")
+        )
 
         # 1. Convert all elements to Markdown strings
         md_elements = [convert_element_to_markdown(chunk) for chunk in all_chunks]
@@ -135,8 +126,63 @@ class ManufacturingPlugin(AugmentationPlugin):
             chars_per_token = 3
             max_chars = (context_size - reserved_tokens) * chars_per_token
             
-            print(f"[ManufacturingPlugin] Using Markdown pre-processor on {len(elements)} elements")
-            baml_responses = self.execute_global_pass(elements, max_chars, config)
+            baml_responses = []
+
+            if elements:
+                print(f"[ManufacturingPlugin] Using Markdown pre-processor on {len(elements)} elements")
+                try:
+                    baml_responses = self.execute_global_pass(elements, max_chars, config)
+                except Exception as e:
+                    print(f"[ManufacturingPlugin] Global pass failed, falling back to raw text chunking: {e}")
+                    elements = None
+
+            if not elements:
+                # FIXED: Fetch the instructions before entering the legacy text loops
+                dynamic_instructions = self._get_dynamic_prompt(
+                    prompt_name="manufacturing_instructions",
+                    fallback_file="prompts/manufacturing_instructions.md",
+                    procedure_id_format=config.procedure_id_format,
+                    step_id_format=config.step_id_format
+                )
+
+                from doc_tools.baml_client.sync_client import b
+                from doc_tools.baml_client.type_builder import TypeBuilder
+                
+                def run_baml(txt):
+                    tb = TypeBuilder()
+                    roles = [r.strip() for r in config.valid_personnel_roles.split(",")]
+                    hazards = [h.strip() for h in config.valid_hazard_classes.split(",")]
+                    categories = [c.strip() for c in config.valid_process_categories.split(",")]
+                    for r in roles: tb.PersonnelRole.add_value(r)
+                    for h in hazards: tb.HazardClass.add_value(h)
+                    for c in categories: tb.ProcessCategory.add_value(c)
+                    
+                    return b.ExtractWorkInstructions(
+                        text=txt,
+                        system_instructions=dynamic_instructions,
+                        baml_options={"tb": tb}
+                    )
+
+                if len(full_text) <= max_chars:
+                    print(f"[ManufacturingPlugin] Document fits in context ({len(full_text)} chars)")
+                    baml_responses.append(run_baml(full_text))
+                else:
+                    print(f"[ManufacturingPlugin] Document too large ({len(full_text)} chars), chunking...")
+                    # Note: Using overlap from TrainingPlugin pattern
+                    overlap_chars = max(1000, max_chars // 10)
+                    chunks = []
+                    start = 0
+                    while start < len(full_text):
+                        end = start + max_chars
+                        chunks.append(full_text[start:end])
+                        start = end - overlap_chars
+                    
+                    for i, chunk_text in enumerate(chunks):
+                        print(f"[ManufacturingPlugin] Processing chunk {i+1}/{len(chunks)}")
+                        try:
+                            baml_responses.append(run_baml(chunk_text))
+                        except Exception as e:
+                            print(f"[ManufacturingPlugin] Chunk {i+1} failed: {e}")
             
             all_steps = []
             final_assessment = StrategicAssessment(proprietary_score=0.0, outsourceable=False)

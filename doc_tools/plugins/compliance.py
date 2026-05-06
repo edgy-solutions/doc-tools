@@ -2,7 +2,6 @@ from typing import List, Optional, Tuple, Any
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
-from langfuse import Langfuse
 
 # --- BAML-ready Schemas (Domain C: Compliance) ---
 class ComplianceRule(BaseModel):
@@ -20,24 +19,6 @@ class CompliancePlugin(AugmentationPlugin):
     """
     Logistics and Compliance validation logic (e.g. DAFMAN).
     """
-    def __init__(self, domain_type: str):
-        super().__init__(domain_type)
-        self.langfuse = Langfuse()
-    
-    def _get_dynamic_prompt(self, prompt_name: str, fallback_file: str) -> str:
-        """Fetches from Langfuse. Falls back to local file on failure."""
-        try:
-            lf_prompt = self.langfuse.get_prompt(prompt_name, label="production", cache_ttl_seconds=0)
-            return lf_prompt.prompt
-        except Exception as e:
-            print(f"[CompliancePlugin] Langfuse unreachable, using fallback. Error: {e}")
-            try:
-                with open(fallback_file, 'r') as file:
-                    return file.read().strip()
-            except Exception as file_error:
-                print(f"[CompliancePlugin] Fallback failed. Could not read {fallback_file}: {file_error}")
-                raise
-
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
             from doc_tools.baml_client.sync_client import b

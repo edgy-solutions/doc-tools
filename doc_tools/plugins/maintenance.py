@@ -3,8 +3,6 @@ from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
-from langfuse import Langfuse
-
 # --- BAML-ready Schemas (Domain D: MRO/Maintenance) ---
 class MaintenanceStep(BaseModel):
     procedure_id: str
@@ -35,27 +33,6 @@ class MaintenancePlugin(AugmentationPlugin):
     Maintenance, Repair, and Overhaul (MRO) extraction logic.
     Handles depot and field-level maintenance procedures.
     """
-    def __init__(self, domain_type: str):
-        super().__init__(domain_type)
-        self.langfuse = Langfuse()
-
-    def _get_dynamic_prompt(self, prompt_name: str, fallback_file: str, **compile_kwargs) -> str:
-        """Fetches from Langfuse and compiles variables. Falls back to local file on failure."""
-        try:
-            lf_prompt = self.langfuse.get_prompt(prompt_name, label="production", cache_ttl_seconds=0)
-            return lf_prompt.compile(**compile_kwargs)
-        except Exception as e:
-            print(f"[MaintenancePlugin] Langfuse unreachable, using fallback. Error: {e}")
-            try:
-                with open(fallback_file, 'r') as file:
-                    raw_text = file.read().strip()
-                    for key, val in compile_kwargs.items():
-                        raw_text = raw_text.replace(f"{{{{ {key} }}}}", str(val))
-                    return raw_text
-            except Exception as file_error:
-                print(f"[MaintenancePlugin] Fallback failed. Could not read {fallback_file}: {file_error}")
-                raise
-
     def execute_global_pass(self, all_chunks: List[Dict[str, Any]], max_chars: int, proc_fmt: str, step_fmt: str) -> List[Any]:
         """
         Converts elements to Markdown and chunks them based on token limits.
@@ -117,9 +94,6 @@ class MaintenancePlugin(AugmentationPlugin):
         """
         Extract procedures from the entire document elements using Markdown pre-processing.
         """
-        if not elements:
-            return []
-
         if metadata is None:
             metadata = {}
 
@@ -128,15 +102,63 @@ class MaintenancePlugin(AugmentationPlugin):
         step_fmt = metadata.get("step_id_format", r".*")
 
         try:
+            from doc_tools.baml_client.sync_client import b
             import os
             context_size = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
             reserved_tokens = 4000
             chars_per_token = 3
             max_chars = (context_size - reserved_tokens) * chars_per_token
             
-            print(f"[MaintenancePlugin] Using Markdown pre-processor on {len(elements)} elements")
-            # FIXED: Pass formats to the global pass
-            baml_responses = self.execute_global_pass(elements, max_chars, proc_fmt, step_fmt)
+            baml_responses = []
+
+            if elements:
+                print(f"[MaintenancePlugin] Using Markdown pre-processor on {len(elements)} elements")
+                try:
+                    # FIXED: Pass formats to the global pass
+                    baml_responses = self.execute_global_pass(elements, max_chars, proc_fmt, step_fmt)
+                except Exception as e:
+                    print(f"[MaintenancePlugin] Global pass failed, falling back to raw text chunking: {e}")
+                    elements = None
+
+            if not elements:
+                # FIXED: Fetch the instructions before entering the legacy text loops
+                dynamic_instructions = self._get_dynamic_prompt(
+                    prompt_name="maintenance_instructions",
+                    fallback_file="prompts/maintenance_instructions.md",
+                    procedure_id_format=proc_fmt,
+                    step_id_format=step_fmt
+                )
+
+                if len(full_text) <= max_chars:
+                    print(f"[MaintenancePlugin] Document fits in context ({len(full_text)} chars)")
+                    # FIXED: Added system_instructions to BAML call
+                    baml_response = b.ExtractMaintenanceProcedures(
+                        text=full_text,
+                        system_instructions=dynamic_instructions,
+                    )
+                    baml_responses.append(baml_response)
+                else:
+                    print(f"[MaintenancePlugin] Document too large ({len(full_text)} chars), chunking...")
+                    overlap_chars = max(1000, max_chars // 10)
+                    chunks = []
+                    start = 0
+                    while start < len(full_text):
+                        end = start + max_chars
+                        chunk = full_text[start:end]
+                        chunks.append(chunk)
+                        start = end - overlap_chars
+                    
+                    for i, chunk_text in enumerate(chunks):
+                        print(f"[MaintenancePlugin] Processing chunk {i+1}/{len(chunks)}")
+                        try:
+                            # FIXED: Added system_instructions to BAML call
+                            partial = b.ExtractMaintenanceProcedures(
+                                text=chunk_text,
+                                system_instructions=dynamic_instructions
+                            )
+                            baml_responses.append(partial)
+                        except Exception as e:
+                            print(f"[MaintenancePlugin] Chunk {i+1} failed: {e}")
             
             all_steps = []
             for resp in baml_responses:

@@ -3,8 +3,6 @@ from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
-from langfuse import Langfuse
-
 # --- BAML-ready Schemas (Domain: Sustainment) ---
 class PartImpact(BaseModel):
     affected_mpn: str
@@ -27,10 +25,6 @@ class SustainmentPlugin(AugmentationPlugin):
     """
     Sustainment (PCN/PDN) extraction logic.
     """
-    def __init__(self, domain_type: str):
-        super().__init__(domain_type)
-        self.langfuse = Langfuse()
-
     def _chunk_text(self, document_text: str, max_chars: int = 15000, overlap_chars: int = 1500) -> List[Tuple[str, int]]:
         """
         Split document into overlapping chunks.
@@ -57,13 +51,11 @@ class SustainmentPlugin(AugmentationPlugin):
         """
         Converts elements to Markdown and chunks them based on token limits to prevent LLM crashes.
         """
-        # Fetch dynamic prompt from Langfuse
-        try:
-            lf_prompt = self.langfuse.get_prompt("sustainment_instructions", label="production")
-            dynamic_instructions = lf_prompt.prompt
-        except Exception as e:
-            print(f"[SustainmentPlugin] Langfuse prompt fetch failed: {e}")
-            raise
+        # FIXED: Resilient fetch
+        dynamic_instructions = self._get_dynamic_prompt(
+            prompt_name="sustainment_instructions",
+            fallback_file="prompts/sustainment_instructions.md"
+        )
 
         # 1. Convert all elements to Markdown strings
         from doc_tools.utils.formatters import convert_element_to_markdown
@@ -135,9 +127,19 @@ class SustainmentPlugin(AugmentationPlugin):
                     elements = None 
 
             if not elements:
+                # FIXED: Fetch the instructions before entering the legacy text loops
+                dynamic_instructions = self._get_dynamic_prompt(
+                    prompt_name="sustainment_instructions",
+                    fallback_file="prompts/sustainment_instructions.md"
+                )
+
                 if len(full_text) <= max_chars:
                     print(f"[SustainmentPlugin] Document fits in context ({len(full_text)} chars)")
-                    baml_response = b.ExtractSustainment(doc=full_text)
+                    # FIXED: Added system_instructions to BAML call
+                    baml_response = b.ExtractSustainment(
+                        doc=full_text,
+                        system_instructions=dynamic_instructions
+                    )
                     baml_responses.append(baml_response)
                 else:
                     print(f"[SustainmentPlugin] Document too large ({len(full_text)} chars), chunking...")
@@ -146,7 +148,11 @@ class SustainmentPlugin(AugmentationPlugin):
                     for i, (chunk_text, start_pos) in enumerate(chunks):
                         print(f"[SustainmentPlugin] Processing chunk {i+1}/{len(chunks)}")
                         try:
-                            partial = b.ExtractSustainment(doc=chunk_text)
+                            # FIXED: Added system_instructions to BAML call
+                            partial = b.ExtractSustainment(
+                                doc=chunk_text,
+                                system_instructions=dynamic_instructions
+                            )
                             baml_responses.append(partial)
                         except Exception as e:
                             print(f"[SustainmentPlugin] Chunk {i+1} failed: {e}")
