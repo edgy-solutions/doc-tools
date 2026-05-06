@@ -7,6 +7,9 @@ from dagster import asset, MaterializeResult, Config, get_dagster_logger
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from doc_tools.ingestion.json_schema_parser import JSONSchemaParser
 from doc_tools.ingestion.datahub_emitter import DDSToDataHubEmitter
+from dag_tools.utils.k8s import resolve_k8s_resource_tags
+
+metadata_k8s_tags = resolve_k8s_resource_tags(prefix="METADATA_INGEST", default_cpu="1000m", default_mem="2Gi")
 
 logger = get_dagster_logger()
 
@@ -21,7 +24,7 @@ class RabbitMQIngestionConfig(Config):
     datahub_token: str = os.getenv("DATAHUB_TOKEN", "")
     raw_kafka_topic: str = os.getenv("RAW_KAFKA_TOPIC", "openddil.sensor.data")
 
-@asset(group_name="metadata_ingestion")
+@asset(group_name="metadata_ingestion", tags=metadata_k8s_tags)
 def ingest_rabbitmq_schemas(config: RabbitMQIngestionConfig):
     """
     Clones a Git repository, scans a directory for .json schema files, parses them, and ingests them into DataHub
