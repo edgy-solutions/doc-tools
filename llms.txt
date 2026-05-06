@@ -10,6 +10,7 @@ Process generic documents (PDF, PPTX, DOCX) to extract rich text, metadata, and 
 - **Orchestration**: `Dagster` orchestrates the pipeline, using generic dynamic partitions (`doc_id/filename`). Dynamic sensors map configured S3 prefixes, triggering `RunRequests` stamped with `domain_type` runtime tags to dynamically route document assets.
 - **Config-Driven Domain Mapping**: Uses **Declarative Components** (`S3ToFileComponent`, `S3SensorComponent`) in `doc_tools/definitions.py` to instantiate jobs and sensors. These components encapsulate `IngestionConfig` (labels, collections) and replace the legacy `config.yaml`, keeping the underlying code strictly domain-agnostic.
 - **Deployments**: Containerized CI/CD is managed via standard **Dockerfiles** in `.github/workflows/build-container.yml`. System dependencies for unstructured optical parsing (`libmagic1`, `poppler-utils`, `tesseract-ocr`) are installed via `apt-get` in the Dockerfile.
+- **K8s Resource Control**: Uses `dag_tools.utils.k8s.resolve_k8s_resource_tags` for dynamic pod scaling. Prefixes include `DOC_PARSER`, `XML_INGEST`, `METADATA_INGEST`, `ONTOLOGY_INGEST`, and `DESIGN_PARSER`. Each prefix supports `_CPU_REQUEST`, `_MEM_REQUEST`, `_CPU_LIMIT`, and `_MEM_LIMIT` environment variables.
 
 ## Key Files & Directories
 - `doc_tools/assets/ingestion_assets.py`: Layout detection, unstructuring, and intermediate manifest generation. Custom python-pptx extraction is layered here inside.

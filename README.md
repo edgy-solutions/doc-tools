@@ -306,6 +306,31 @@ The assets use Python's `tempfile.TemporaryDirectory()` and `subprocess` to clon
 
 ---
 
+## ⚙️ Performance Tuning & K8s Resource Control
+
+The pipeline supports dynamic Kubernetes resource allocation via environment variables. This allows DevOps to scale high-compute assets (like PDF parsing) independently from metadata-light tasks.
+
+Every job prefix supports four variables: `_CPU_REQUEST`, `_MEM_REQUEST`, `_CPU_LIMIT`, and `_MEM_LIMIT`.
+
+| Job Prefix | Default (CPU/Mem) | Purpose |
+| :--- | :--- | :--- |
+| `DOC_PARSER` | 2000m / 6Gi | Core Unstructured PDF/PPTX extraction (LLM-heavy) |
+| `XML_INGEST` | 2000m / 6Gi | Universal XML Routing & RDF Extraction |
+| `METADATA_INGEST`| 1000m / 2Gi | DDS IDL and RabbitMQ JSON Schema ingestion |
+| `ONTOLOGY_INGEST`| 1000m / 2Gi | Jena/Fuseki ontology syncing |
+| `DESIGN_PARSER` | 1000m / 2Gi | CAD/Technical design metadata parsing |
+
+**Example usage in K8s manifest:**
+```yaml
+env:
+  - name: DOC_PARSER_CPU_REQUEST
+    value: "4000m"
+  - name: DOC_PARSER_MEM_REQUEST
+    value: "12Gi"
+```
+
+---
+
 ## 🌩️ Deployment via Helm
 
 A packaged Helm chart `/charts/doc-tools` is dynamically wired to receive credentials, mount configurations, and pull the latest GHCR Cloud Native Buildpack containers dynamically.
