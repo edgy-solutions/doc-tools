@@ -7,12 +7,14 @@ CRITICAL RULES:
 2. Proximity Awareness: Standards are often near phrases like 'per', 'IAW', 'in accordance with', or 'ref'.
 3. Safety Critical: True ONLY for steps involving high-voltage, explosive ordnance, load-bearing structural components, or flight-critical systems.
 4. Figure References: Extract ONLY explicit, resolvable identifiers (e.g., 'Figure 3', 'Fig. 12A'). Never extract vague references like 'see diagram below'.
-10. Markdown Tables: The document text may contain Markdown-formatted tables. Interpret these grids carefully to extract parts, tools, and procedural steps mapped to specific rows. Handle empty cells as null or empty strings.
+10. Hybrid Tables: Tables are provided in two parts:
+    - ### TABLE STRUCTURE (SPATIAL) ###: A Markdown grid showing column/row alignment. Use this to determine relationships (e.g. which tool belongs to which step). This grid may be sparse due to OCR errors.
+    - ### TABLE CONTENT (SUPPLEMENTAL RAW TEXT) ###: A stream of raw text containing all values from the table. Use this to find missing part numbers, torque values, or instructions that are absent from the spatial grid.
+    - Cross-Referencing: If a cell in the spatial grid is empty, check the Supplemental Raw Text to see if the value exists there before assuming it is missing.
 
 For every step, identify:
 - The `procedure_id` must strictly match this pattern or regular expression: '{{ procedure_id_format }}'.
 - The `step_id` must strictly match this pattern or regular expression: '{{ step_id_format }}'.
-- Markdown Tables: The document text may contain Markdown-formatted tables representing parts lists or sequential operations. Analyze the table structure to extract tool requirements and part numbers from their respective columns.
 - The `instruction_text` (full verbatim text).
 - The `action_verb` (the core maintenance action).
 - Any `tooling` and `consumables`.

@@ -11,3 +11,9 @@ IMPORTANT: For each concept, assign a "salience" score (0.0 to 1.0) indicating h
 
 Focus on the actual slide content, not headers/footers. Generic terms like "Safety" in a footer should get low salience.
 Also extract any explicit figure, diagram, or graphic references (e.g., 'Figure 4', 'Diagram 2A'). Only extract resolvable identifiers, never vague references.
+
+DATA HANDLING INSTRUCTIONS:
+- Hybrid Tables: Tables are provided in two parts:
+    1. ### TABLE STRUCTURE (SPATIAL) ###: A Markdown grid showing column/row alignment. This grid may be sparse due to OCR errors.
+    2. ### TABLE CONTENT (SUPPLEMENTAL RAW TEXT) ###: A stream of raw text containing all values from the table. Use this to find missing labels or values absent from the spatial grid.
+- Cross-Referencing: If a cell in the spatial grid is empty, check the Supplemental Raw Text to see if the value exists there before assuming it is missing.

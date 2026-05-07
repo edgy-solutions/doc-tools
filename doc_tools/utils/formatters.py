@@ -24,6 +24,7 @@ def convert_element_to_markdown(element: Union[Dict[str, Any], Any]) -> str:
         elif metadata:
             html_str = getattr(metadata, "text_as_html", None)
             
+        md_table = ""
         if html_str:
             try:
                 # Wrap HTML in StringIO to avoid pandas deprecation warnings
@@ -31,10 +32,16 @@ def convert_element_to_markdown(element: Union[Dict[str, Any], Any]) -> str:
                 if dfs:
                     df = dfs[0]
                     df.fillna("", inplace=True) # Replace NaNs with empty strings
-                    return df.to_markdown(index=False)
+                    md_table = df.to_markdown(index=False)
             except Exception as e:
-                logger.warning(f"HTML to Markdown conversion failed: {e}. Falling back to HTML.")
-                return html_str # Fallback 1: Return the raw HTML
+                logger.warning(f"HTML to Markdown conversion failed: {e}")
+                md_table = html_str # Fallback to raw HTML
+        
+        # HYBRID APPROACH: Return both the spatial Markdown grid AND the supplemental raw text.
+        # This helps the LLM if the OCR missed cells in the HTML structure but captured them in raw text.
+        hybrid_output = f"### TABLE STRUCTURE (SPATIAL) ###\n{md_table if md_table else 'Structure unavailable'}\n\n"
+        hybrid_output += f"### TABLE CONTENT (SUPPLEMENTAL RAW TEXT) ###\n{el_text}"
+        return hybrid_output
                 
     # Fallback 2: Return standard text for non-tables or failed extractions
     return el_text

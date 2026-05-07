@@ -20,7 +20,10 @@ If a step is an inspection that DOES NOT involve explosive safety or high-voltag
 CRITICAL PATTERN MATCHING:
 - The `procedure_id` must strictly match this pattern or regular expression: '{{ procedure_id_format }}'.
 - The `step_id` must strictly match this pattern or regular expression: '{{ step_id_format }}'.
-- Markdown Tables: The document text may contain Markdown-formatted tables representing parts lists or sequential operations. Analyze the table structure to extract tool requirements and part numbers from their respective columns.
+- Hybrid Tables: Tables are provided in two parts:
+    - ### TABLE STRUCTURE (SPATIAL) ###: A Markdown grid showing column/row alignment. Use this to determine relationships (e.g. which part number belongs to which step). This grid may be sparse due to OCR errors.
+    - ### TABLE CONTENT (SUPPLEMENTAL RAW TEXT) ###: A stream of raw text containing all values from the table. Use this to find missing part numbers, quantities, or slang terms that are absent from the spatial grid.
+    - Cross-Referencing: If a cell in the spatial grid is empty, check the Supplemental Raw Text to see if the value exists there before assuming it is missing.
 
 CRITICAL: For every step, identify:
 - The `procedure_id` it belongs to.
