@@ -157,11 +157,34 @@ def wipe_databases(wipe_neo4j_weaviate=True, wipe_jena=False):
             print(f"[ERROR] Failed to clear Neo4j: {e}")
 
         # 2. Weaviate Wipe
-        weaviate_url = os.environ.get("WEAVIATE_URL", "http://localhost:8080")
         try:
-            client = weaviate.Client(weaviate_url)
-            client.schema.delete_all()
-            print("[SUCCESS] Weaviate schemas and vectors cleared.")
+            # Inline standard connection logic for setup script isolation
+            http_env = os.getenv("WEAVIATE_HTTP_HOST", "weaviate:8080")
+            grpc_env = os.getenv("WEAVIATE_GRPC_HOST", "weaviate-grpc:50051")
+            
+            def _parse(env_val, default_port):
+                clean = env_val.replace("http://", "").replace("https://", "").replace("grpc://", "")
+                if ":" in clean:
+                    h, p = clean.split(":", 1)
+                    return h, int(p)
+                return clean, default_port
+
+            http_h, http_p = _parse(http_env, 8080)
+            grpc_h, grpc_p = _parse(grpc_env, 50051)
+
+            client = weaviate.connect_to_custom(
+                http_host=http_h,
+                http_port=http_p,
+                grpc_host=grpc_h,
+                grpc_port=grpc_p,
+                http_secure=False,
+                grpc_secure=False
+            )
+            try:
+                client.collections.delete_all()
+                print("[SUCCESS] Weaviate collections and vectors cleared.")
+            finally:
+                client.close()
         except Exception as e:
             print(f"[ERROR] Failed to clear Weaviate: {e}")
 

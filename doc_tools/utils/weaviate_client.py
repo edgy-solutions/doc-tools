@@ -1,24 +1,33 @@
 import os
 import weaviate
 
-class WeaviateClient:
-    def __init__(self, url=None):
-        self.url = url or os.getenv("WEAVIATE_URL", "http://localhost:8081")
-        
-        self.client = weaviate.Client(
-            url=self.url,
-            # Auth can be added here if needed
-        )
+def get_weaviate_client() -> weaviate.WeaviateClient:
+    """
+    Fleet-standard factory for creating a Weaviate v4 client in Dagster.
+    Handles split HTTP/gRPC routing for Kubernetes environments.
+    """
+    raw_http_env = os.getenv("WEAVIATE_HTTP_HOST", "weaviate:8080")
+    raw_grpc_env = os.getenv("WEAVIATE_GRPC_HOST", "weaviate-grpc:50051")
 
-    def ensure_class(self, class_schema):
-        class_name = class_schema["class"]
-        if not self.client.schema.exists(class_name):
-            self.client.schema.create_class(class_schema)
-            print(f"Created Weaviate class: {class_name}")
+    def parse_host_port(env_val: str, default_port: int):
+        clean = env_val.replace("http://", "").replace("https://", "").replace("grpc://", "")
+        if ":" in clean:
+            h, p = clean.split(":", 1)
+            try:
+                return h, int(p)
+            except ValueError:
+                return h, default_port
+        return clean, default_port
 
-    def add_object(self, data_object, class_name, uuid=None):
-        return self.client.data_object.create(
-            data_object=data_object,
-            class_name=class_name,
-            uuid=uuid
-        )
+    http_h, http_p = parse_host_port(raw_http_env, 8080)
+    grpc_h, grpc_p = parse_host_port(raw_grpc_env, 50051)
+
+    client = weaviate.connect_to_custom(
+        http_host=http_h,
+        http_port=http_p,
+        http_secure=False,
+        grpc_host=grpc_h,
+        grpc_port=grpc_p,
+        grpc_secure=False
+    )
+    return client

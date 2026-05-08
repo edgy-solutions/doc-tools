@@ -15,11 +15,9 @@ class Neo4jResource(ConfigurableResource):
         return Neo4jClient(uri=self.uri, user=self.username, password=self.password)
 
 class WeaviateResource(ConfigurableResource):
-    url: str 
-
     def get_client(self):
-        from .weaviate_client import WeaviateClient
-        return WeaviateClient(url=self.url)
+        from .weaviate_client import get_weaviate_client
+        return get_weaviate_client()
 
 class LLMExtractorResource(ConfigurableResource):
     def get_client(self):
