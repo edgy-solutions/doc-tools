@@ -189,9 +189,14 @@ defs = Definitions(
             password=EnvVar("NEO4J_PASSWORD")
         ),
         "weaviate": WeaviateResource(
-            url=EnvVar("WEAVIATE_URL")
+            http_host=EnvVar("WEAVIATE_HTTP_HOST"),
+            grpc_host=EnvVar("WEAVIATE_GRPC_HOST")
         ),
-        "llm": LLMExtractorResource(),
+        "llm": LLMExtractorResource(
+            langfuse_public_key=EnvVar("LANGFUSE_PUBLIC_KEY"),
+            langfuse_secret_key=EnvVar("LANGFUSE_SECRET_KEY"),
+            langfuse_host=EnvVar("LANGFUSE_HOST")
+        ),
         "jena": JenaResource(
             url=EnvVar("JENA_URL"),
             dataset=EnvVar("JENA_DS"),

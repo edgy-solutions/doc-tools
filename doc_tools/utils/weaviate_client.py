@@ -1,13 +1,13 @@
 import os
 import weaviate
 
-def get_weaviate_client() -> weaviate.WeaviateClient:
+def get_weaviate_client(http_host: str = None, grpc_host: str = None) -> weaviate.WeaviateClient:
     """
     Fleet-standard factory for creating a Weaviate v4 client in Dagster.
     Handles split HTTP/gRPC routing for Kubernetes environments.
     """
-    raw_http_env = os.getenv("WEAVIATE_HTTP_HOST", "weaviate:8080")
-    raw_grpc_env = os.getenv("WEAVIATE_GRPC_HOST", "weaviate-grpc:50051")
+    raw_http_env = http_host or os.getenv("WEAVIATE_HTTP_HOST", "weaviate:8080")
+    raw_grpc_env = grpc_host or os.getenv("WEAVIATE_GRPC_HOST", "weaviate-grpc:50051")
 
     def parse_host_port(env_val: str, default_port: int):
         clean = env_val.replace("http://", "").replace("https://", "").replace("grpc://", "")

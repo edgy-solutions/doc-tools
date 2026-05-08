@@ -4,6 +4,8 @@ from dagster import ConfigurableResource
 # We will need some stubs for the resources that the assets depend on.
 # For doc-tools, we can use these simple wrappers around the clients.
 
+from pydantic import Field
+
 class Neo4jResource(ConfigurableResource):
     uri: str 
     username: str 
@@ -15,23 +17,25 @@ class Neo4jResource(ConfigurableResource):
         return Neo4jClient(uri=self.uri, user=self.username, password=self.password)
 
 class WeaviateResource(ConfigurableResource):
+    http_host: str = Field(description="The HTTP REST endpoint for Weaviate (e.g., weaviate:8080)")
+    grpc_host: str = Field(description="The high-speed gRPC endpoint for Weaviate (e.g., weaviate-grpc:50051)")
+
     def get_client(self):
         from .weaviate_client import get_weaviate_client
-        return get_weaviate_client()
+        return get_weaviate_client(http_host=self.http_host, grpc_host=self.grpc_host)
 
 class LLMExtractorResource(ConfigurableResource):
+    langfuse_public_key: str = Field(description="Public key for Langfuse tracing")
+    langfuse_secret_key: str = Field(description="Secret key for Langfuse tracing")
+    langfuse_host: str = Field(description="Langfuse API host (e.g., https://cloud.langfuse.com)")
+
     def get_client(self):
-        # A mock for the LLMExtractor for now as its source was complex BAML usage.
-        class StubExtractor:
-            def extract_outline(self, text):
-                class Outline:
-                    sections = []
-                return Outline()
-            def extract_concepts(self, text):
-                class Content:
-                    concepts = []
-                return Content()
-        return StubExtractor()
+        # This provides a centralized way to access Langfuse config if needed
+        return {
+            "public_key": self.langfuse_public_key,
+            "secret_key": self.langfuse_secret_key,
+            "host": self.langfuse_host
+        }
 
 class JenaResource(ConfigurableResource):
     url: str 
