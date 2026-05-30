@@ -21,6 +21,8 @@ import pytest
 from doc_tools.assets import aitool_linker
 from doc_tools.assets.aitool_linker import (
     _build_relationship_properties,
+    _build_predicate_search_text,
+    _humanize_verb_local,
     get_verb_local_name,
     sync_aitool_predicate_to_neo4j,
     AIToolSyncConfig,
@@ -125,6 +127,70 @@ def test_requires_human_approval_only_true_when_string_is_true():
         assert _build_relationship_properties(
             {"mesh_verb_iri": "x:y", "mesh_requires_human_approval": falsy}
         )["requires_human_approval"] is False, f"failed for {falsy!r}"
+
+
+# ---------------------------------------------------------------------------
+# Predicate-vector-store helpers (iagent ADR-0009 Step F'.6)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "verb_local,expected",
+    [
+        ("queryKnowledgeGraph", "query knowledge graph"),
+        ("applyDiagnostics",     "apply diagnostics"),
+        ("analyzeDataset",       "analyze dataset"),
+        ("retrieveKnowledge",    "retrieve knowledge"),
+        # Already lowercased — no extra spaces inserted
+        ("diagnose",             "diagnose"),
+        # ALLCAPS acronym held together (no space inside)
+        ("URLValidator",         "urlvalidator"),
+        # Empty input is safe
+        ("",                     ""),
+    ],
+)
+def test_humanize_verb_local(verb_local, expected):
+    """The verb's natural-language form is what Weaviate vectorizes; this
+    function has to turn camelCase identifiers into something an embedding
+    model can interpret as English without an LLM round-trip."""
+    assert _humanize_verb_local(verb_local) == expected
+
+
+def test_build_predicate_search_text_combines_all_signals():
+    """The search blob includes the humanized verb, the synonym list, AND
+    the description so BM25 and the vector embedding both have signal."""
+    text = _build_predicate_search_text(
+        verb_iri="mesh:queryKnowledgeGraph",
+        verb_local="queryKnowledgeGraph",
+        synonyms=["query graph", "cypher query", "graph lookup"],
+        description="Runs a smolagents CodeAgent over Neo4j with mem0 memory.",
+    )
+    assert "query knowledge graph" in text
+    assert "query graph" in text
+    assert "cypher query" in text
+    assert "smolagents" in text
+
+
+def test_build_predicate_search_text_omits_empty_synonyms_and_description():
+    """Missing synonyms / description don't leave dangling separators."""
+    text = _build_predicate_search_text(
+        verb_iri="mesh:diagnose",
+        verb_local="diagnose",
+        synonyms=[],
+        description="",
+    )
+    # Just the humanized verb, no trailing ". " or ", "
+    assert text == "diagnose"
+
+
+def test_build_predicate_search_text_skips_blank_synonym_entries():
+    text = _build_predicate_search_text(
+        verb_iri="mesh:diagnose",
+        verb_local="diagnose",
+        synonyms=["", "diagnose vibration", None or ""],  # nosec - explicit blanks
+        description="",
+    )
+    # Empty entries dropped from the joined synonym blob
+    assert "diagnose vibration" in text
+    assert ", ," not in text
 
 
 # ---------------------------------------------------------------------------
