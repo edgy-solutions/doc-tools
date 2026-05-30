@@ -67,3 +67,42 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   3. **DataHub Polling (Late Binding)**: Do NOT parse local dbt or metadata files for semantic tags. Use `doc_tools.assets.global_semantic_ingestion` to poll DataHub GMS for any `Dataset` possessing the `ontology_uri` custom property.
   4. **HITL Workflow**: All semantic linkings must go through the `propose_datahub_term` flow for human-in-the-loop approval before being synced to the Neo4j Knowledge Graph via the `datahub_approval_sensor`.
   5. **Neo4j Sync**: The `sync_approved_tags_to_neo4j` asset must fetch the full `ontology_uri` from the DataHub entity's `customProperties` at runtime to ensure graph accuracy.
+
+- **AITool Binding Plane (Predicate-Graph Routing — iagent ADR-0004)**:
+  Sibling to the Semantic Binding Plane above, for SDK-registered mesh tools
+  rather than Datasets. A mesh tool registered via `iagent-mesh-sdk` lands in
+  DataHub as an `mlModel` entity with `customProperties.mesh_is_registration = "true"`
+  and a full SPO payload (verb IRI, input/output URIs, synonyms, endpoint URL,
+  OpenAPI schema, cost class, owner persona, etc.).
+  1. **Entity Carrier**: Mesh tool registrations are `mlModel` entities on
+     `dataPlatform=mesh`. The marker `mesh_is_registration: "true"` MUST be set
+     by the SDK so we can disambiguate from real ML model registrations.
+  2. **No HITL for Code-Controlled Tools**: Unlike Datasets which need human
+     classification, mesh tool registrations auto-approve. The
+     `aitool_registration_sensor` watches DataHub and fires
+     `sync_aitool_predicate_to_neo4j` runs directly.
+  3. **Predicate Edge Shape**: The sync writes a typed Neo4j relationship via
+     APOC's `apoc.merge.relationship`:
+
+         (s:OntologyClass {uri: $input_uri})
+             -[v:`<verb_local>` {iri, synonyms, endpoint_url, ...}]->
+         (o:OntologyClass {uri: $output_uri})
+
+     where `<verb_local>` is the local part of the namespaced verb IRI
+     (`mro:applyDiagnostics` → relationship type `applyDiagnostics`; the
+     full IRI is preserved as the `iri` property).
+  4. **Type Restoration**: DataHub's `customProperties` are flat strings; the
+     `_build_relationship_properties` helper restores arrays (synonyms) and
+     booleans (`requires_human_approval`) before writing.
+  5. **Backfill**: `ingest_global_aitool_registrations` polls DataHub for every
+     tagged `mlModel` and reports the list — useful for catch-up after a Neo4j
+     replay or sensor downtime.
+
+> **Note on scope** — historically `doc_tools` processed documents (PDFs,
+> ontologies, RDF). Over time it has accreted the "DataHub ↔ Neo4j semantic
+> binding plane" for the iagent mesh as well. The AITool binding does not
+> process any documents; it sits next to the Dataset binding in this repo
+> because it shares the Dagster sensor + DataHub poll + Neo4j write
+> infrastructure. If `doc_tools` is later renamed or split, the three new
+> files (`assets/aitool_linker.py`, `assets/global_aitool_ingestion.py`,
+> `components/aitool_sensor.py`) travel as a unit.

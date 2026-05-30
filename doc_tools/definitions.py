@@ -6,7 +6,8 @@ from doc_tools.components.sqlserver_extractor import SqlServerExtractorComponent
 from doc_tools.components.oracle_extractor import OracleExtractorComponent
 from doc_tools.components.design_parser import DesignParserComponent
 from doc_tools.components.datahub_sensor import DataHubSensorComponent
-from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion
+from doc_tools.components.aitool_sensor import AIToolSensorComponent
+from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions, design_files_partition
 import os
@@ -114,8 +115,18 @@ datahub_sensor = DataHubSensorComponent(
 )
 _datahub_sensor_defs = datahub_sensor.build_defs(None)
 
+# AITool binding plane (ADR-0004 Step B). Mirror of the Dataset sensor for
+# SDK-registered mesh tools -- polls DataHub for mlModel entities tagged with
+# mesh_is_registration=true and syncs their predicate edges into Neo4j.
+aitool_sensor = AIToolSensorComponent(
+    name="aitool_registration_sensor",
+    datahub_gms_url=os.getenv("DATAHUB_GMS_URL", "http://datahub-gms:8080/api/graphql"),
+    datahub_token=os.getenv("DATAHUB_TOKEN", "")
+)
+_aitool_sensor_defs = aitool_sensor.build_defs(None)
+
 # 3. Assets & Jobs
-all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion])
+all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion])
 
 sqlserver_extractor = SqlServerExtractorComponent(
     name="extract_sqlserver_metadata",
@@ -173,9 +184,9 @@ s3_io_manager = s3_pickle_io_manager.configured({
 })
 
 defs = Definitions(
-    assets=list(_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
-    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors),
+    assets=list(_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + list(_aitool_sensor_defs.assets) + all_assets,
+    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + list(_aitool_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_aitool_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -217,5 +228,6 @@ del _ontology_sensor_defs
 del _design_sensor_defs
 del _design_parser_defs
 del _datahub_sensor_defs
+del _aitool_sensor_defs
 del _sqlserver_extractor_defs
 del _oracle_extractor_defs
