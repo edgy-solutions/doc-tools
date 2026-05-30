@@ -246,9 +246,10 @@ def sync_predicate_to_weaviate(
 
     Idempotent: the Weaviate UUID is deterministic from (verb_iri, input_uri),
     so re-syncs upsert the same row. A Weaviate failure is logged and
-    swallowed — Neo4j remains the system of record, so a missed sync only
-    means /search_predicates' vector path misses this verb until the next
-    sync cycle (and the Cypher fallback in Engine O can still serve it).
+    swallowed — Neo4j remains the system of record, but Engine O's
+    /search_predicates needs the Weaviate row to route. A missed sync
+    means this predicate is unroutable until the next successful sync;
+    the sensor's retry policy is what closes that window.
     """
     verb_iri = rel_props["iri"]
     verb_local = get_verb_local_name(verb_iri)
