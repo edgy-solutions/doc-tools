@@ -58,6 +58,7 @@ def test_build_relationship_properties_restores_types():
         "mesh_input_uri":               "mro:Symptom",
         "mesh_output_uri":              "mro:FaultReport",
         "mesh_owner_persona":           "MECHANIC",
+        "mesh_domains":                 json.dumps(["MAINTENANCE", "MANUFACTURING"]),
         "mesh_cost_class":              "medium",
         "mesh_requires_human_approval": "true",
         "mesh_namespace_authority":     "domain",
@@ -73,6 +74,8 @@ def test_build_relationship_properties_restores_types():
     assert props["synonyms"] == ["diagnose", "troubleshoot"]  # restored to list
     assert props["endpoint_url"] == "http://engine-a.mesh.svc:8081/execute"
     assert props["owner_persona"] == "MECHANIC"
+    # Per iagent ADR-0009: domains projected from mesh_domains as a real list
+    assert props["domains"] == ["MAINTENANCE", "MANUFACTURING"]
     assert props["cost_class"] == "medium"
     assert props["requires_human_approval"] is True  # restored to bool
     assert props["namespace_authority"] == "domain"
@@ -90,9 +93,19 @@ def test_build_relationship_properties_defaults():
     assert props["synonyms"] == []
     assert props["endpoint_url"] == ""
     assert props["owner_persona"] == ""
+    # Per iagent ADR-0009: missing mesh_domains defaults to an empty list
+    # (domain-agnostic) — matches the SDK-side default.
+    assert props["domains"] == []
     assert props["cost_class"] == "fast"  # SDK default
     assert props["requires_human_approval"] is False
     assert props["namespace_authority"] == "domain"
+
+
+def test_malformed_domains_json_falls_back_to_empty():
+    """Bad JSON in mesh_domains is treated as empty, never raised."""
+    flat = {"mesh_verb_iri": "mesh:foo", "mesh_domains": "[not valid json"}
+    props = _build_relationship_properties(flat)
+    assert props["domains"] == []
 
 
 def test_build_relationship_properties_malformed_synonyms_json():

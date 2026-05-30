@@ -109,12 +109,22 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     except json.JSONDecodeError:
         synonyms = []
 
+    # Per iagent ADR-0009: `domains` is a scope filter, not a routing key.
+    # Engines self-declare the domains they serve at registration; Engine O
+    # filters /find_tool matches against the caller's entitled_domains.
+    # JSON-decoded back into a Neo4j list property.
+    try:
+        domains: List[str] = json.loads(props.get("mesh_domains", "[]"))
+    except json.JSONDecodeError:
+        domains = []
+
     return {
         "iri": props["mesh_verb_iri"],
         "synonyms": synonyms,
         "endpoint_url": props.get("mesh_endpoint_url", ""),
         "openapi_schema": props.get("mesh_openapi_schema", ""),
         "owner_persona": props.get("mesh_owner_persona", ""),
+        "domains": domains,
         "cost_class": props.get("mesh_cost_class", "fast"),
         "requires_human_approval": props.get("mesh_requires_human_approval", "false") == "true",
         "namespace_authority": props.get("mesh_namespace_authority", "domain"),
