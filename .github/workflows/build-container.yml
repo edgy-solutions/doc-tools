@@ -190,8 +190,11 @@ jobs:
               PATH=/opt/cyclonedds/bin:$PATH \
               LD_LIBRARY_PATH=/opt/cyclonedds/lib
 
-          RUN pip install --no-cache-dir --no-deps /wheels/*.whl \
-           && rm -rf /wheels
+          # KEEP /wheels around — install the cyclonedds wheel into the
+          # iagent venv below via --find-links so uv pip install doesn't
+          # try to rebuild from sdist on arm64 (which fails because gcc
+          # isn't available in this slim runtime image).
+          RUN pip install --no-cache-dir --no-deps /wheels/*.whl
 
           # Build-time smoke test
           RUN idlc -v \
@@ -212,10 +215,15 @@ jobs:
           # Create a standard virtual environment and install dependencies
           RUN uv venv /app/venv
           COPY requirements.txt /app/
-          
+
           # ADD THE INDEX STRATEGY FLAG HERE
+          # --find-links /wheels: makes uv prefer the cyclonedds wheel
+          # we built in the cyclonedds-builder stage over rebuilding from
+          # sdist. Critical on arm64 where PyPI has no prebuilt cyclonedds
+          # wheel and the final runtime image lacks gcc/cmake.
           RUN --mount=type=cache,target=/root/.cache/uv \
-              uv pip install --python /app/venv -r /app/requirements.txt
+              uv pip install --python /app/venv --find-links /wheels -r /app/requirements.txt \
+           && rm -rf /wheels
 
           # Copy the application code
           COPY . /app
