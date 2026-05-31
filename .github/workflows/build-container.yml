@@ -241,6 +241,14 @@ jobs:
           CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "8080", "-m", "doc_tools.definitions"]
           EOF
 
+      # QEMU emulation for cross-arch builds. Required for the arm64
+      # variant on x86_64 GitHub-hosted runners — otherwise build-push-action
+      # silently produces a single-arch amd64 image and arm64 k8s clusters
+      # fail to pull with `no matching manifest for linux/arm64/v8 in
+      # manifest list entries`. Pair with `platforms:` on the build step.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -282,6 +290,11 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
+          # Multi-arch: matches the runtime cluster shapes we deploy to
+          # (linux/amd64 GitHub-hosted CI runners, linux/arm64 k3s clusters).
+          # Build time roughly doubles because the arm64 layer goes through
+          # QEMU emulation; cache-to/from=gha amortizes the cost across runs.
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
             ${{ steps.meta.outputs.image }}:${{ github.sha }}
