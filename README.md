@@ -306,6 +306,40 @@ The assets use Python's `tempfile.TemporaryDirectory()` and `subprocess` to clon
 
 ---
 
+## 🗄️ Legacy Schema & Design Metadata Extraction (Oracle, SQL Server, .NET EDMX, JSON)
+
+Beyond unstructured documents, `doc-tools` can pull structured metadata directly from **legacy databases and data-modelling tool exports**, then route it through the same **Semantic Binding Plane** so that existing tables get classified against the enterprise ontology and surfaced in the Neo4j Knowledge Graph.
+
+Each source is a **Declarative Component** wired in [`doc_tools/definitions.py`](doc_tools/definitions.py). Every extractor emits a uniform, domain-tagged mapping so they can be merged transparently downstream:
+
+```python
+{ "schema.table_name": { "description": "<DBA / model comment>", "domain": "<DOMAIN_TAG>" } }
+```
+
+### Supported Sources
+
+| Source | Component | Asset | What it reads |
+| :--- | :--- | :--- | :--- |
+| **Oracle** (live) | `OracleExtractorComponent` (`components/oracle_extractor.py`) | `extract_oracle_metadata` | Table comments from `ALL_TAB_COMMENTS` via `oracledb`. Connects with `ORACLE_HOST` / `ORACLE_PORT` / `ORACLE_SERVICE_NAME` / `ORACLE_USERNAME` / `ORACLE_PASSWORD`. |
+| **SQL Server** (live) | `SqlServerExtractorComponent` (`components/sqlserver_extractor.py`) | `extract_sqlserver_metadata` | `MS_Description` extended properties from `sys.extended_properties` via SQLAlchemy + `pyodbc` (ODBC Driver 18). |
+| **.NET Entity Framework** (file) | `DesignParserComponent` (`components/design_parser.py`) | `parse_design_metadata` | `.edmx` XML exports — extracts `EntityType` names, `NavigationProperty` relationships, and `Documentation/Summary` descriptions from the ADO conceptual model. |
+| **JSON modelling-tool export** (file) | `DesignParserComponent` (`components/design_parser.py`) | `parse_design_metadata` | `.json` toolchain exports — reads `tables[]` with `name`, `description`, and `relations`. |
+
+> The two **live database** extractors (Oracle, SQL Server) open a connection at run time and are configured via environment variables in `definitions.py`. The two **file-based** formats (`.edmx`, `.json`) are handled by a single `DesignParserComponent`, which is fed by an S3 sensor (`design_sensor`) watching the `DESIGN_BUCKET` (default `design-artifacts`) and triggering the partitioned `parse_design_metadata_job`.
+
+### The Classify-Then-Bind Flow
+
+All four outputs converge in `apply_semantic_tags` ([`doc_tools/assets/semantic_linker.py`](doc_tools/assets/semantic_linker.py)), which:
+
+1. **Merges** the three asset outputs (`extract_sqlserver_metadata`, `extract_oracle_metadata`, `parse_design_metadata`) into one map.
+2. **Classifies** each table by POSTing a "dossier" (table name, columns, DBA comments, ORM class, domain) to the Ontology Service's `/classify_legacy_table` endpoint.
+3. **Auto-tags** any table whose classification confidence is `>= 0.85`, proposing a standardized Phase 7 Glossary Term (`urn:li:glossaryTerm:{ShortName}`) into DataHub via `propose_datahub_term`. Lower-confidence matches are routed to human review.
+4. From there the standard **Semantic Binding Plane** takes over — HITL approval in DataHub, then sync to Neo4j via `sync_approved_tags_to_neo4j`.
+
+> **Domain tagging**: Every extractor injects a `domain` tag (default `DATA_ENGINEERING`) into each record. For the file-based parser the domain is inferred from the S3 key prefix (`domain/design_files/file.edmx`), preserving the same strict domain-segregation guarantees as the document pipeline.
+
+---
+
 ## ⚙️ Performance Tuning & K8s Resource Control
 
 The pipeline supports dynamic Kubernetes resource allocation via environment variables. This allows DevOps to scale high-compute assets (like PDF parsing) independently from metadata-light tasks.

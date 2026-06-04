@@ -47,6 +47,12 @@
 - **DataHub Schema Ingestion & Lineage**:
   - Assets (`dds_ingestion.py`, `rabbitmq_ingestion.py`) must be Git-native, cloning repositories dynamically into `tempfile.TemporaryDirectory()` rather than relying on local static paths.
   - Lineage must correctly connect edge schemas (DDS) to the execution engine (Kafka) and then to the enterprise broker (RabbitMQ).
+- **Legacy Schema & Design Metadata Extraction**:
+  - Pull metadata from legacy databases and modelling-tool exports via **Declarative Components** in `doc_tools/definitions.py`: `OracleExtractorComponent` (`ALL_TAB_COMMENTS`), `SqlServerExtractorComponent` (`MS_Description` extended properties), and `DesignParserComponent` (`.edmx` .NET Entity Framework exports + `.json` toolchain exports).
+  - **Uniform Contract**: Every extractor MUST emit `{"schema.table_name": {"description": ..., "domain": ...}}` and inject a `domain` tag (default `DATA_ENGINEERING`). Do not change this shape — `apply_semantic_tags` merges all three outputs.
+  - **No Hardcoded Credentials**: Live-DB connection params come from env vars / component fields, never inline in assets.
+  - **Classify-Then-Bind**: New tables flow through `apply_semantic_tags` (`semantic_linker.py`) → Ontology Service `/classify_legacy_table` → auto-tag at confidence `>= 0.85` via `propose_datahub_term` → standard Semantic Binding Plane (HITL → Neo4j). Never write these tables straight to Neo4j.
+  - To add a new SQL dialect, create another `*ExtractorComponent` (subclassing `Component, Resolvable, Model`) and register it in `definitions.py`; do not bypass the classify-then-bind flow.
 - **Imports**: Ensure all project imports use absolute paths relative to the project root (`doc_tools.xyz`). No relative imports going up the tree.
 - **Semantic Binding Plane (Late Binding)**:
   - **Phase 7 URN Standard**: Always use `urn:li:glossaryTerm:{ShortName}` for ontology links. Store the full URI in `customProperties.ontology_uri`.

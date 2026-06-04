@@ -53,6 +53,14 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   2. They use Python's `tempfile` and `subprocess` to dynamically clone Git repositories (supporting authentication tokens) at runtime.
   3. The schemas are parsed from the temporary directory and emitted to DataHub, with the cloned repository wiped automatically after execution.
 
+- **Legacy Schema & Design Metadata Extraction (Oracle, SQL Server, .NET EDMX, JSON)**:
+  Pulls structured metadata from legacy databases and data-modelling tool exports, then routes it through the Semantic Binding Plane for ontology classification. Each source is a **Declarative Component** instantiated in `doc_tools/definitions.py`.
+  1. **Uniform Output Contract**: Every extractor MUST emit `{"schema.table_name": {"description": ..., "domain": ...}}` so the outputs merge transparently. Always inject a `domain` tag (default `DATA_ENGINEERING`).
+  2. **Live DB Sources**: `OracleExtractorComponent` (`extract_oracle_metadata`, reads `ALL_TAB_COMMENTS` via `oracledb`) and `SqlServerExtractorComponent` (`extract_sqlserver_metadata`, reads `MS_Description` extended properties via SQLAlchemy/`pyodbc`). Connection params come from env vars (`ORACLE_*`) or component fields — never hardcode credentials in assets.
+  3. **File-Based Sources**: `DesignParserComponent` (`parse_design_metadata`) handles BOTH `.edmx` (.NET Entity Framework conceptual model — `EntityType`/`NavigationProperty`/`Documentation`) and `.json` (modelling-tool exports — `tables[]` with `name`/`description`/`relations`). It is fed by the `design_sensor` S3 component watching `DESIGN_BUCKET` (default `design-artifacts`) and runs the partitioned `parse_design_metadata_job`. Domain is inferred from the S3 key prefix.
+  4. **Classify-Then-Bind**: All three asset outputs converge in `apply_semantic_tags` (`doc_tools/assets/semantic_linker.py`), which POSTs each table dossier to the Ontology Service `/classify_legacy_table`, auto-tags at confidence `>= 0.85` via `propose_datahub_term`, and otherwise routes to human review. Downstream this re-uses the standard Semantic Binding Plane (HITL → `sync_approved_tags_to_neo4j`).
+  5. **Adding a New DB Dialect**: Create a new `*ExtractorComponent` in `doc_tools/components/`, subclass `Component, Resolvable, Model`, emit the uniform contract, and register it in `definitions.py` (instantiate + `build_defs` + add to the `Definitions` asset list). Do not bypass `apply_semantic_tags`.
+
 - **Hybrid Graph Synchronization & Revisioning**:
   1. **Named Graphs**: Every document MUST be isolated in its own Jena Named Graph using its identifier (e.g., `urn:doc:{s3_key}`).
   2. **Jena PUT First**: Use `httpx.put` to push Turtle data to the Named Graph. This ensures the old revision is completely replaced in the reasoning engine.
