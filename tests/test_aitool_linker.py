@@ -17,6 +17,7 @@ from contextlib import contextmanager
 from unittest.mock import MagicMock
 
 import pytest
+from dagster import build_asset_context
 
 from doc_tools.assets import aitool_linker
 from doc_tools.assets.aitool_linker import (
@@ -239,10 +240,14 @@ class _FakeNeo4jResource:
 
 
 def _ctx():
-    """Build a minimal AssetExecutionContext stand-in."""
-    ctx = MagicMock()
-    ctx.log = MagicMock()
-    return ctx
+    """Build a real AssetExecutionContext for direct asset invocation.
+
+    ``sync_aitool_predicate_to_neo4j`` is an ``@asset``; newer Dagster rejects a
+    direct-invocation context that isn't a ``BaseDirectExecutionContext``, so a
+    bare ``MagicMock()`` no longer works. ``build_asset_context()`` is the
+    matching helper for an asset (vs. ``build_op_context`` for an ``@op``).
+    """
+    return build_asset_context()
 
 
 def test_sync_emits_apoc_merge_with_verb_local_name(monkeypatch):
@@ -265,6 +270,11 @@ def test_sync_emits_apoc_merge_with_verb_local_name(monkeypatch):
         "mesh_tool_version":            "0.1.0",
     }
     monkeypatch.setattr(aitool_linker, "_fetch_tool_properties", lambda urn: full_props)
+    # No live services in this unit test: Neo4j is faked via _FakeNeo4jResource
+    # and DataHub via the patch above. The happy path also mirrors the predicate
+    # to Weaviate (ADR-0009 Step F'.6) as a best-effort side effect; stub it so
+    # the test doesn't attempt a real connection to http://weaviate:8080.
+    monkeypatch.setattr(aitool_linker, "sync_predicate_to_weaviate", lambda **kwargs: None)
 
     neo4j = _FakeNeo4jResource()
     result = sync_aitool_predicate_to_neo4j(
