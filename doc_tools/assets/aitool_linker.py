@@ -121,6 +121,18 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     except json.JSONDecodeError:
         synonyms = []
 
+    # Per iagent ADR-0008 follow-up: verb_anti_synonyms are NL phrases that
+    # should REPEL the verb in Engine O's /search_predicates re-rank. The
+    # Engine O side reads this Predicate property and applies a lexical
+    # overlap penalty against the query. Critically: these must NOT be
+    # included in `search_text` (the BM25-indexed blob) — that would
+    # attract the wrong query, not repel it. We surface them as a separate
+    # typed property on the Weaviate row.
+    try:
+        anti_synonyms: List[str] = json.loads(props.get("mesh_verb_anti_synonyms", "[]"))
+    except json.JSONDecodeError:
+        anti_synonyms = []
+
     # Per iagent ADR-0009: `domains` is a scope filter, not a routing key.
     # Engines self-declare the domains they serve at registration; Engine O
     # filters /find_tool matches against the caller's entitled_domains.
@@ -133,6 +145,7 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     return {
         "iri": props["mesh_verb_iri"],
         "synonyms": synonyms,
+        "anti_synonyms": anti_synonyms,
         "endpoint_url": props.get("mesh_endpoint_url", ""),
         "openapi_schema": props.get("mesh_openapi_schema", ""),
         "owner_persona": props.get("mesh_owner_persona", ""),
@@ -201,7 +214,14 @@ def _build_predicate_search_text(
 
 
 def _ensure_predicate_collection(client, log) -> Any:
-    """Idempotent create + return handle to the Predicate collection."""
+    """Idempotent create + return handle to the Predicate collection.
+
+    Also runs forward-compatible schema evolution: when this code adds a
+    new property, the property is added to existing collections via
+    config.add_property rather than requiring a wipe + rebuild. New
+    properties are nullable per Weaviate's contract, so existing objects
+    coexist without backfill.
+    """
     if not client.collections.exists(_PREDICATE_COLLECTION):
         log.info(f"Creating {_PREDICATE_COLLECTION} collection in Weaviate...")
         client.collections.create(
@@ -228,12 +248,45 @@ def _ensure_predicate_collection(client, log) -> Any:
                     name="synonyms",
                     data_type=wvc.config.DataType.TEXT_ARRAY,
                 ),
+                # Anti-synonyms — phrases that should REPEL this verb in
+                # Engine O's /search_predicates re-rank. NOT included in
+                # search_text (would attract the wrong query); read by
+                # Engine O as a separate field for the lexical-overlap
+                # penalty. Per iagent ADR-0008 follow-up.
+                wvc.config.Property(
+                    name="anti_synonyms",
+                    data_type=wvc.config.DataType.TEXT_ARRAY,
+                ),
                 wvc.config.Property(name="description", data_type=wvc.config.DataType.TEXT),
                 # Provenance
                 wvc.config.Property(name="tool_urn", data_type=wvc.config.DataType.TEXT),
             ],
         )
-    return client.collections.get(_PREDICATE_COLLECTION)
+    collection = client.collections.get(_PREDICATE_COLLECTION)
+    # Forward-compat: add anti_synonyms to a pre-existing collection that
+    # was created before this property landed. config.add_property is a
+    # no-op if the property already exists.
+    try:
+        existing_names = {p.name for p in collection.config.get().properties}
+        if "anti_synonyms" not in existing_names:
+            log.info(
+                f"Adding anti_synonyms property to existing {_PREDICATE_COLLECTION} collection..."
+            )
+            collection.config.add_property(
+                wvc.config.Property(
+                    name="anti_synonyms",
+                    data_type=wvc.config.DataType.TEXT_ARRAY,
+                )
+            )
+    except Exception as exc:  # noqa: BLE001
+        # Schema-evolution failure is non-fatal: Engine O's reader treats
+        # missing anti_synonyms as an empty list (penalty = 0), so routing
+        # degrades cleanly to the no-anti-synonym behavior.
+        log.warning(
+            f"Could not ensure anti_synonyms property on {_PREDICATE_COLLECTION}: {exc}. "
+            "Engine O's penalty pass will no-op until the next successful schema reconcile."
+        )
+    return collection
 
 
 def sync_predicate_to_weaviate(
@@ -256,6 +309,7 @@ def sync_predicate_to_weaviate(
     input_uri = rel_props.get("_input_uri") or rel_props.get("input_uri", "")
     output_uri = rel_props.get("_output_uri") or rel_props.get("output_uri", "")
     synonyms = list(rel_props.get("synonyms") or [])
+    anti_synonyms = list(rel_props.get("anti_synonyms") or [])
     domains = list(rel_props.get("domains") or [])
 
     search_text = _build_predicate_search_text(
@@ -264,6 +318,11 @@ def sync_predicate_to_weaviate(
         synonyms=synonyms,
         description=description or "",
     )
+    # Anti-synonyms intentionally NOT folded into search_text: BM25 over
+    # them would ATTRACT the wrong query (the verb that should repel
+    # "what tables do you have" would instead match those tokens and
+    # score high). Engine O reads anti_synonyms separately and applies a
+    # lexical-overlap penalty after Weaviate returns candidates.
 
     client = get_weaviate_client()
     try:
@@ -282,6 +341,7 @@ def sync_predicate_to_weaviate(
             "requires_human_approval": bool(rel_props.get("requires_human_approval", False)),
             "search_text": search_text,
             "synonyms": synonyms,
+            "anti_synonyms": anti_synonyms,
             "description": description or "",
             "tool_urn": tool_urn,
         }
