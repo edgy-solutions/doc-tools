@@ -269,6 +269,41 @@ def render_sparql_lines(fields: List[OverlayField], step: Any, step_uri: str) ->
     return lines
 
 
+def proprietary_field_names(fields: List[OverlayField]) -> List[str]:
+    """Names of the secret-loaded (proprietary) overlay fields."""
+    return [f.name for f in fields if f.proprietary]
+
+
+def _baml_field_type(tb: Any, f: OverlayField) -> Any:
+    """Map an overlay field kind to a BAML TypeBuilder FieldType."""
+    if f.kind == "list":
+        return tb.string().list()
+    if f.kind == "int":
+        t = tb.int()
+        return t.optional() if f.optional else t
+    if f.kind == "bool":
+        return tb.bool()
+    # scalar / enum -> string (enums are injected as free strings in the
+    # proprietary path; their allowed values live in the secret, not here)
+    t = tb.string()
+    return t.optional() if f.optional else t
+
+
+def inject_proprietary_properties(tb: Any, fields: List[OverlayField]) -> List[str]:
+    """Add proprietary overlay fields onto the @@dynamic ManufacturingStep class
+    via TypeBuilder so the LLM extracts them. Non-proprietary fields stay in the
+    static BAML schema and are skipped here. Returns the injected field names."""
+    injected: List[str] = []
+    for f in fields:
+        if not f.proprietary:
+            continue
+        prop = tb.ManufacturingStep.add_property(f.name, _baml_field_type(tb, f))
+        if f.description:
+            prop.description(f.description)
+        injected.append(f.name)
+    return injected
+
+
 def _enum_value(v: Any) -> Any:
     """BAML may return enum wrappers; unwrap to the plain value."""
     return getattr(v, "value", v) if v is not None else None

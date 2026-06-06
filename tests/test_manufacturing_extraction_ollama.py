@@ -1,0 +1,91 @@
+"""Live Ollama-backed extraction test for the proprietary overlay feature.
+
+End-to-end proof that a proprietary overlay field (defined only in a secret
+spec, never committed) is:
+  1. injected onto the @@dynamic ManufacturingStep via TypeBuilder,
+  2. extracted by the LLM from text that mentions it,
+  3. carried through the mirror model in process_fulltext, and
+  4. persisted by to_graph_queries (Neo4j attr + RDF literal).
+
+This test requires a live Ollama server and is SKIPPED unless OLLAMA_BASE_URL
+is set, so the normal unit suite is unaffected. Run it with, e.g.:
+
+    OLLAMA_BASE_URL=http://192.168.1.119:11434/v1 \
+    OLLAMA_MODEL=gpt-oss-128k:120b \
+    OLLAMA_NUM_CTX=8192 \
+    uv run python -m pytest tests/test_manufacturing_extraction_ollama.py -q -s
+"""
+import json
+import os
+from types import SimpleNamespace
+
+import pytest
+
+OLLAMA = os.getenv("OLLAMA_BASE_URL")
+pytestmark = pytest.mark.skipif(
+    not OLLAMA,
+    reason="requires a live Ollama server (set OLLAMA_BASE_URL / OLLAMA_MODEL)",
+)
+
+# A stand-in "proprietary" spec. Plain test fields — the point is to prove the
+# secret-loaded overlay path works, not to ship real proprietary semantics.
+PROPRIETARY_SPEC = {
+    "fields": [
+        {
+            "name": "lot_acceptance_code",
+            "kind": "scalar",
+            "neo4j_attr": True,
+            "rdf_literal": "hasLotAcceptanceCode",
+            "description": "The Lot Acceptance Code (LAC) governing this step, e.g. 'LAC-7731'. Null if not mentioned.",
+        },
+        {
+            "name": "torque_spec_nm",
+            "kind": "int",
+            "neo4j_attr": True,
+            "rdf_literal": "torqueSpecNm",
+            "description": "The torque specification in newton-metres (Nm) called out in this step, as an integer. Null if not mentioned.",
+        },
+    ]
+}
+
+WORK_INSTRUCTION_TEXT = (
+    "Procedure 1000, Step 1.1: Apply sealant MIL-S-81733 to the forward seam "
+    "using a calibrated torque wrench. Torque the retaining fastener to 35 Nm. "
+    "The Lot Acceptance Code (LAC) governing this operation is LAC-7731. "
+    "This step physically transforms the assembly and is value-added."
+)
+
+
+def test_proprietary_overlay_field_extracted_and_persisted(tmp_path, monkeypatch):
+    from doc_tools.plugins.manufacturing import ManufacturingPlugin, MatAugmentation
+
+    spec_path = tmp_path / "proprietary_overlay.json"
+    spec_path.write_text(json.dumps(PROPRIETARY_SPEC))
+    monkeypatch.setenv("MANUFACTURING_OVERLAY_SPEC", str(spec_path))
+    monkeypatch.setenv("PROMPT_SOURCE", "file")  # canonical committed prompt
+
+    elements = [{"type": "NarrativeText", "text": WORK_INSTRUCTION_TEXT}]
+    plugin = ManufacturingPlugin(domain_type="manufacturing")
+
+    nodes = plugin.process_fulltext(
+        full_text=WORK_INSTRUCTION_TEXT, doc_id="part_test", elements=elements
+    )
+    assert nodes, "extraction returned no nodes"
+    aug = nodes[0].domain_augmentation
+    assert isinstance(aug, MatAugmentation)
+    assert aug.steps, "no manufacturing steps were extracted"
+
+    # 1-3: the proprietary fields rode the @@dynamic schema through to the steps.
+    lacs = [getattr(s, "lot_acceptance_code", None) for s in aug.steps]
+    torques = [getattr(s, "torque_spec_nm", None) for s in aug.steps]
+    print(f"\nExtracted lot_acceptance_code={lacs} torque_spec_nm={torques}")
+    assert any(v and "7731" in str(v) for v in lacs), f"lot_acceptance_code not extracted: {lacs}"
+    assert any(str(v) == "35" for v in torques if v is not None), f"torque_spec_nm not extracted: {torques}"
+
+    # 4: and they reach the graph writer (Neo4j attribute + RDF literal).
+    config = SimpleNamespace(graph_child_label="Part")
+    cypher, sparql = plugin.to_graph_queries(nodes, config, doc_id="part_test", image_prefix="img/")
+    cypher_blob = json.dumps(cypher)
+    sparql_blob = " ".join(sparql)
+    assert "lot_acceptance_code" in cypher_blob, "proprietary field not SET on the step node"
+    assert "hasLotAcceptanceCode" in sparql_blob, "proprietary RDF literal not emitted"

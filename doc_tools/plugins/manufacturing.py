@@ -1,11 +1,15 @@
 from typing import List, Optional, Tuple, Any, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.plugins import manufacturing_overlay as overlay
 from doc_tools.utils.formatters import convert_element_to_markdown
 # --- BAML-ready Schemas (Domain B: MAT/Manufacturing) ---
 class ManufacturingStep(BaseModel):
+    # extra="allow" lets proprietary overlay fields (injected at runtime via
+    # TypeBuilder) ride through this mirror model into to_graph_queries.
+    model_config = ConfigDict(extra="allow")
+
     procedure_id: str
     step_id: str
     instruction_text: str
@@ -84,6 +88,9 @@ class ManufacturingPlugin(AugmentationPlugin):
             for r in roles: tb.PersonnelRole.add_value(r)
             for h in hazards: tb.HazardClass.add_value(h)
             for c in categories: tb.ProcessCategory.add_value(c)
+            # Inject proprietary overlay fields (from the MANUFACTURING_OVERLAY_SPEC
+            # secret) onto the @@dynamic ManufacturingStep; no-op when unset.
+            overlay.inject_proprietary_properties(tb, overlay.active_overlay())
 
             try:
                 partial = b.ExtractWorkInstructions(
@@ -157,7 +164,8 @@ class ManufacturingPlugin(AugmentationPlugin):
                     for r in roles: tb.PersonnelRole.add_value(r)
                     for h in hazards: tb.HazardClass.add_value(h)
                     for c in categories: tb.ProcessCategory.add_value(c)
-                    
+                    overlay.inject_proprietary_properties(tb, overlay.active_overlay())
+
                     return b.ExtractWorkInstructions(
                         text=txt,
                         system_instructions=dynamic_instructions,
@@ -187,7 +195,8 @@ class ManufacturingPlugin(AugmentationPlugin):
             
             all_steps = []
             final_assessment = StrategicAssessment(proprietary_score=0.0, outsourceable=False)
-            
+            prop_names = overlay.proprietary_field_names(overlay.active_overlay())
+
             for resp in baml_responses:
                 for s in resp.steps:
                     all_steps.append(ManufacturingStep(
@@ -208,7 +217,8 @@ class ManufacturingPlugin(AugmentationPlugin):
                         military_and_industry_standards=s.military_and_industry_standards,
                         internal_part_numbers=s.internal_part_numbers,
                         material_and_hardware_slang=s.material_and_hardware_slang,
-                        figure_references=getattr(s, 'figure_references', []) or []
+                        figure_references=getattr(s, 'figure_references', []) or [],
+                        **{name: getattr(s, name, None) for name in prop_names}
                     ))
                 # Update assessment (max score)
                 if resp.assessment.proprietary_score > final_assessment.proprietary_score:
