@@ -26,12 +26,14 @@
     3. `### INSTRUCTIONS ###` (Dynamic `system_instructions` parameter)
     4. `### OUTPUT FORMAT ###` (`{{ ctx.output_format }}`)
   - **Dynamic Enums**: For `@@dynamic` enums in BAML, you MUST use the `TypeBuilder` pattern (`tb = TypeBuilder()`, `tb.enum("Name").add_value("Value")`) and pass it via `baml_options={"tb": tb}`.
-  - **Langfuse & GitOps**:
-    - Decouple prompt instructions from BAML code.
-    - Store ground-truth prompts in `prompts/*.md`.
-    - Use `Langfuse()` SDK in plugins to fetch prompts dynamically via the `production` label.
+  - **Prompt Source (CM-Canonical with opt-in Langfuse)**:
+    - Decouple prompt instructions from BAML code; store ground-truth prompts in `prompts/*.md`.
+    - Prompt source is env-controlled in `doc_tools/plugins/base.py::_get_dynamic_prompt`:
+      - `PROMPT_SOURCE=file` (DEFAULT, production) → canonical git-committed prompt; Langfuse is never contacted (client is lazy).
+      - `PROMPT_SOURCE=langfuse` (opt-in, SME/dev) → live GUI fetch at `LANGFUSE_PROMPT_LABEL` (default `production`), with automatic file fallback on outage.
+    - Production must stay file-canonical — ship prompt changes engineers-via-PR, never by relying on the live GUI in prod.
     - Pass dynamic instructions as a `system_instructions` parameter to BAML functions.
-    - Use `scripts/check_drift.py` in CI/CD to validate local prompts against Langfuse `ready-for-prod` tags.
+    - `scripts/check_drift.py` reads the SAME `LANGFUSE_PROMPT_LABEL`; keep CI and runtime aligned (no label mismatch). It fails the merge if `prompts/*.md` diverges from that Langfuse label.
 - **Cypher Queries**: Parameterize node labels carefully in Python using f-strings before passing to Neo4j. Neo4j python drivers do not support parameterizing node labels directly.
 - **Multi-Standard & Hybrid Graph Strategy**:
   - Use `doc_tools.parsers` builders (`s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, `mil_std_40051_rdf.py`) for XML-to-RDF mapping.

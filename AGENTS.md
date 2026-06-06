@@ -27,11 +27,13 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   6. **Existing Domains**: `manufacturing.py` (MANUFACTURING), `maintenance.py` (MAINTENANCE), `training.py` (TRAINING - uses full document context), `compliance.py` (COMPLIANCE), `sustainment.py` (SUSTAINMENT - uses full document context for PCN/PDN aggregation).
 - To configure external services, subclass `ConfigurableResource` inside `doc_tools/utils/dagster_resources.py`.
 
-- **Dynamic Prompt Management (Langfuse & GitOps)**:
-  1. All prompts should be decoupled from BAML code.
-  2. Create a ground-truth Markdown file in `prompts/{prompt_name}.md`.
-  3. Use the `Langfuse` SDK in the plugin's `__init__` and `execute_global_pass` to fetch prompts dynamically via the `production` label.
-  4. Integrate `scripts/check_drift.py` into CI/CD to ensure local Markdown files match Langfuse versions tagged as `ready-for-prod`.
+- **Prompt Management (CM-Canonical with opt-in Langfuse path)**:
+  1. All prompts are decoupled from BAML code and stored as ground-truth Markdown in `prompts/{prompt_name}.md`.
+  2. **Prompt source is env-controlled** via `_get_dynamic_prompt` in `doc_tools/plugins/base.py`:
+     - `PROMPT_SOURCE=file` (DEFAULT) → load the canonical, git-committed prompt. This is the production path: what runs is exactly what was merged via PR, with NO runtime Langfuse dependency (the Langfuse client is lazily constructed and never touched in this mode).
+     - `PROMPT_SOURCE=langfuse` → opt-in SME/dev path. Fetches live from Langfuse at `LANGFUSE_PROMPT_LABEL` (default `production`), degrading gracefully to the canonical file if Langfuse is unreachable.
+  3. **Do NOT make production depend on the live Langfuse path.** Prompt changes ship engineers-via-PR: edit in the GUI (dev) → reconcile into `prompts/*.md` via PR → CI drift check → image build → deploy.
+  4. `scripts/check_drift.py` fails the merge if a local Markdown file diverges from the `LANGFUSE_PROMPT_LABEL` version in Langfuse. It reads the SAME env var the runtime serves, so CI guards exactly what the live path can serve (keep these aligned — do not reintroduce a label mismatch).
 
 - **Table Processing**:
   1. Documents with tabular data should use `doc_tools.utils.formatters.convert_element_to_markdown` during the global pass.

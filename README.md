@@ -90,7 +90,7 @@ Input strings are automatically sanitized and normalized by the pipeline:
 8. **10x Factory Extraction:** Maps deep-physics logic by rigorously isolating `is_value_added` from `is_safety_critical` steps into Neo4j for exact bottleneck and critical path analysis.
 9. **Sustainment Lifecycle Analysis:** Processes entire PCN/PDN documents in a single global context (with safe chunking for large files) to accurately aggregate impacted parts, replacements, and Last Time Buy (LTB) dates into the graph.
 10. **Markdown Table Pre-processing:** Intercepts `unstructured` HTML tables and converts them to Markdown grids before LLM processing, ensuring high-fidelity extraction of complex tabular data.
-11. **Dynamic Prompt Management (Langfuse & GitOps):** Decouples LLM instructions from BAML code. Prompts are managed via Langfuse with a GitOps workflow that includes CI/CD drift detection between local Markdown files and production-tagged prompts.
+11. **Prompt Management (CM-Canonical with an opt-in Langfuse path):** Decouples LLM instructions from BAML code. **Production runs from canonical, git-committed prompts** (`prompts/*.md`) baked into the image — what executes is exactly what was reviewed and merged via PR, with no runtime dependency on Langfuse. A `PROMPT_SOURCE=langfuse` escape hatch lets SMEs/devs hot-tune prompts live from the Langfuse GUI (with automatic file fallback), and a CI/CD drift check keeps the GUI and Git in sync. See [Prompt Source & GitOps](#-prompt-source--gitops-cm-canonical).
 12. **Declarative Component Architecture:** Leverages `dag-tools` for a modular, reusable, and zero-config orchestration layer. Components like `S3SensorComponent` and `S3ToFileComponent` enable rapid fanning-out of pipelines across new domains.
 
 ---
@@ -337,6 +337,31 @@ All four outputs converge in `apply_semantic_tags` ([`doc_tools/assets/semantic_
 4. From there the standard **Semantic Binding Plane** takes over — HITL approval in DataHub, then sync to Neo4j via `sync_approved_tags_to_neo4j`.
 
 > **Domain tagging**: Every extractor injects a `domain` tag (default `DATA_ENGINEERING`) into each record. For the file-based parser the domain is inferred from the S3 key prefix (`domain/design_files/file.edmx`), preserving the same strict domain-segregation guarantees as the document pipeline.
+
+---
+
+## 📝 Prompt Source & GitOps (CM-Canonical)
+
+LLM instructions are decoupled from BAML code and stored as ground-truth Markdown in `prompts/*.md`. How the running pipeline **sources** a prompt is governed by two environment variables, with safe, reproducible defaults:
+
+| Variable | Default | Effect |
+| :--- | :--- | :--- |
+| `PROMPT_SOURCE` | `file` | `file` = load the canonical, git-committed prompt (production default — no Langfuse on the hot path). `langfuse` = fetch live from the Langfuse GUI, falling back to the file if Langfuse is unreachable. |
+| `LANGFUSE_PROMPT_LABEL` | `production` | The Langfuse label served on the `langfuse` path **and** validated by the CI drift check — a single knob so CI guards exactly what the live path can serve. |
+
+### Why `file` is the production default
+For a safety-/compliance-critical pipeline, a given container image must produce **deterministic, auditable** extraction. Sourcing prompts live from a GUI would let the *same image* yield different safety-critical results depending on what someone edited in Langfuse minutes ago. So:
+
+- **Production (engineers-via-PR, the canonical path):** leave `PROMPT_SOURCE` unset (`file`). Prompt changes flow through PR review → CI → image build → deploy. Langfuse is never contacted at runtime.
+- **Dev / SME hot-tuning (the opt-in path):** set `PROMPT_SOURCE=langfuse`. SMEs iterate in the Langfuse GUI without a redeploy. This path is for experimentation — it is **not** canonical.
+
+### The promotion loop (closing the GUI → Git gap)
+1. SME edits and labels a prompt in the Langfuse GUI (dev runs with `PROMPT_SOURCE=langfuse`).
+2. The change is reconciled back into `prompts/*.md` via a PR.
+3. `scripts/check_drift.py` runs in CI and **fails the merge** if any local file diverges from the `LANGFUSE_PROMPT_LABEL` version in Langfuse — forcing the GUI change to be committed before it can ship.
+4. Merge → image build (prompts baked in) → deploy. Production now serves the reviewed, canonical text.
+
+> **Resilience:** Even on the `langfuse` path, an unreachable Langfuse degrades gracefully to the canonical file rather than failing the run (see `doc_tools/plugins/base.py::_get_dynamic_prompt`).
 
 ---
 
