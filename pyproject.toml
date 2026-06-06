@@ -3,7 +3,7 @@ name = "doc-tools"
 version = "0.1.0"
 description = "Generative AI Document Ingestion Tools"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "dagster",
     "dagster-webserver",
@@ -44,6 +44,10 @@ dependencies = [
 dev = [
     "pytest",
 ]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["doc_tools*"]
