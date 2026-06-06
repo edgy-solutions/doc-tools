@@ -39,8 +39,13 @@ secrets:
   WEAVIATE_HTTP_HOST: "iagent-weaviate"
   WEAVIATE_GRPC_HOST: "iagent-weaviate-grpc"
   WEAVIATE_API_KEY: ""
-  AWS_ACCESS_KEY_ID: "minioadmin"
-  AWS_SECRET_ACCESS_KEY: "minioadmin"
+  # Match what `kubectl -n sandbox get statefulset iagent-minio
+  # -o yaml | grep MINIO_ROOT` reports for this cluster's MinIO. The
+  # chart's defaults (minioadmin/minioadmin) are MinIO's stock root
+  # creds but this sandbox uses a different root user/pass, so
+  # doc-tools' boto/aws-sdk calls would 403 against them.
+  AWS_ACCESS_KEY_ID: "minio-sandbox"
+  AWS_SECRET_ACCESS_KEY: "minio-sandbox-secret"
   JENA_URL: "http://iagent-fuseki:3030"
   JENA_DS: "ds"
   JENA_USERNAME: "admin"
