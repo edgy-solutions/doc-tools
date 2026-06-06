@@ -12,34 +12,38 @@
     {
       "params": {
         "action": "Apply sealant",
-        "cert": "QC Inspector",
-        "cert_id": "cert_QC Inspector",
-        "duration": 30,
+        "consumables": [
+          "Sealant MIL-S-81733"
+        ],
+        "estimated_duration_minutes": 30,
         "figures": [
           "3",
           "12A"
         ],
-        "hazard": "1.1D",
-        "hazard_id": "hazard_1.1D",
+        "hazard_class": "1.1D",
+        "hazard_class_id": "hazard_1.1D",
         "image_prefix": "https://cdn.example/img/",
         "instruction_text": "Apply sealant \"MIL-S-81733\" to the seam.",
+        "internal_part_numbers": [
+          "99-812"
+        ],
         "is_safety_critical": true,
         "is_value_added": true,
         "justification": "Physically transforms the product.",
-        "part_id": "part_42",
-        "parts": [
-          "99-812"
-        ],
-        "proc_id": "1000",
-        "proc_node_id": "proc_part_42_1000",
-        "process_category": "Transformation",
-        "slang": [
+        "material_and_hardware_slang": [
           "RTV Silicone"
         ],
-        "standards": [
+        "military_and_industry_standards": [
           "MIL-PRF-81733",
           "J-STD-001"
         ],
+        "part_id": "part_42",
+        "proc_id": "1000",
+        "proc_node_id": "proc_part_42_1000",
+        "process_category": "Transformation",
+        "required_cert": "QC Inspector",
+        "required_cert_id": "cert_QC Inspector",
+        "standard_ref": "ISO-9001",
         "step_id": "1.1",
         "step_node_id": "step_part_42_1.1",
         "tools": [
@@ -47,38 +51,31 @@
           "Brush"
         ]
       },
-      "query": "MERGE (p:Part:MANUFACTURING {id: $part_id}) MERGE (proc:Procedure:MANUFACTURING {id: $proc_node_id}) SET proc.procedure_id = $proc_id MERGE (p)-[:REQUIRES_PROCEDURE]->(proc) MERGE (s:ManufacturingStep:MANUFACTURING {id: $step_node_id}) SET s.step_id = $step_id, s.raw_text = $instruction_text, s.action = $action, s.is_value_added = $is_value_added, s.is_safety_critical = $is_safety_critical, s.process_category = $process_category, s.justification = $justification, s.estimated_duration_minutes = $duration, s.military_and_industry_standards = $standards, s.internal_part_numbers = $parts, s.material_and_hardware_slang = $slang MERGE (proc)-[:CONTAINS_STEP]->(s) WITH s UNWIND $standards AS std_name MERGE (std:Standard:MANUFACTURING {id: \"std_\" + std_name}) SET std.name = std_name MERGE (s)-[:GOVERNED_BY]->(std) WITH s UNWIND $parts AS pn MERGE (part:Part:MANUFACTURING {id: \"part_\" + pn}) SET part.part_number = pn MERGE (s)-[:REQUIRES_PART]->(part) WITH s UNWIND $tools AS t_name MERGE (tool:Tool:MANUFACTURING {id: \"tool_\" + t_name}) SET tool.part_number = t_name MERGE (s)-[:REQUIRES_TOOL]->(tool) WITH s UNWIND $slang AS term MERGE (st:SlangTerm:MANUFACTURING {id: \"slang_\" + term}) SET st.term = term MERGE (s)-[:USABLE_SLANG]->(st) MERGE (h:Hazard:MANUFACTURING {id: $hazard_id}) SET h.class = $hazard MERGE (s)-[:HAS_HAZARD]->(h) MERGE (c:Certification:MANUFACTURING {id: $cert_id}) SET c.certification = $cert MERGE (s)-[:REQUIRES_CERT]->(c) WITH s UNWIND $figures AS fig_ref MERGE (f:Figure:MANUFACTURING {id: \"fig_\" + fig_ref}) ON CREATE SET f.url = $image_prefix + fig_ref + \".png\", f.title = fig_ref MERGE (s)-[:REFERENCES_FIGURE]->(f)"
+      "query": "MERGE (p:Part:MANUFACTURING {id: $part_id}) MERGE (proc:Procedure:MANUFACTURING {id: $proc_node_id}) SET proc.procedure_id = $proc_id MERGE (p)-[:REQUIRES_PROCEDURE]->(proc) MERGE (s:ManufacturingStep:MANUFACTURING {id: $step_node_id}) SET s.step_id = $step_id, s.raw_text = $instruction_text, s.action = $action, s.is_value_added = $is_value_added, s.is_safety_critical = $is_safety_critical, s.process_category = $process_category, s.justification = $justification, s.estimated_duration_minutes = $estimated_duration_minutes, s.consumables = $consumables, s.standard_ref = $standard_ref MERGE (proc)-[:CONTAINS_STEP]->(s) WITH s UNWIND $tools AS t_name MERGE (tool:Tool:MANUFACTURING {id: \"tool_\" + t_name}) SET tool.part_number = t_name MERGE (s)-[:REQUIRES_TOOL]->(tool) WITH s MERGE (n:Hazard:MANUFACTURING {id: $hazard_class_id}) SET n.class = $hazard_class MERGE (s)-[:HAS_HAZARD]->(n) WITH s MERGE (n:Certification:MANUFACTURING {id: $required_cert_id}) SET n.certification = $required_cert MERGE (s)-[:REQUIRES_CERT]->(n) WITH s UNWIND $military_and_industry_standards AS val MERGE (n:Standard:MANUFACTURING {id: \"std_\" + val}) SET n.name = val MERGE (s)-[:GOVERNED_BY]->(n) WITH s UNWIND $internal_part_numbers AS val MERGE (n:Part:MANUFACTURING {id: \"part_\" + val}) SET n.part_number = val MERGE (s)-[:REQUIRES_PART]->(n) WITH s UNWIND $material_and_hardware_slang AS val MERGE (n:SlangTerm:MANUFACTURING {id: \"slang_\" + val}) SET n.term = val MERGE (s)-[:USABLE_SLANG]->(n) WITH s UNWIND $figures AS fig_ref MERGE (f:Figure:MANUFACTURING {id: \"fig_\" + fig_ref}) ON CREATE SET f.url = $image_prefix + fig_ref + \".png\", f.title = fig_ref MERGE (s)-[:REFERENCES_FIGURE]->(f)"
     },
     {
       "params": {
         "action": "Inspect",
-        "cert": "",
-        "cert_id": "",
-        "duration": -1,
-        "figures": [],
-        "hazard": "",
-        "hazard_id": "",
+        "consumables": [],
+        "estimated_duration_minutes": -1,
         "image_prefix": "https://cdn.example/img/",
         "instruction_text": "Inspect the weld.",
         "is_safety_critical": false,
         "is_value_added": false,
         "justification": "Inspection only; no transformation.",
         "part_id": "part_42",
-        "parts": [],
         "proc_id": "1000",
         "proc_node_id": "proc_part_42_1000",
         "process_category": "Inspection",
-        "slang": [],
-        "standards": [],
         "step_id": "2.1",
         "step_node_id": "step_part_42_2.1",
         "tools": []
       },
-      "query": "MERGE (p:Part:MANUFACTURING {id: $part_id}) MERGE (proc:Procedure:MANUFACTURING {id: $proc_node_id}) SET proc.procedure_id = $proc_id MERGE (p)-[:REQUIRES_PROCEDURE]->(proc) MERGE (s:ManufacturingStep:MANUFACTURING {id: $step_node_id}) SET s.step_id = $step_id, s.raw_text = $instruction_text, s.action = $action, s.is_value_added = $is_value_added, s.is_safety_critical = $is_safety_critical, s.process_category = $process_category, s.justification = $justification, s.estimated_duration_minutes = $duration, s.military_and_industry_standards = $standards, s.internal_part_numbers = $parts, s.material_and_hardware_slang = $slang MERGE (proc)-[:CONTAINS_STEP]->(s) WITH s UNWIND $standards AS std_name MERGE (std:Standard:MANUFACTURING {id: \"std_\" + std_name}) SET std.name = std_name MERGE (s)-[:GOVERNED_BY]->(std) WITH s UNWIND $parts AS pn MERGE (part:Part:MANUFACTURING {id: \"part_\" + pn}) SET part.part_number = pn MERGE (s)-[:REQUIRES_PART]->(part) WITH s UNWIND $tools AS t_name MERGE (tool:Tool:MANUFACTURING {id: \"tool_\" + t_name}) SET tool.part_number = t_name MERGE (s)-[:REQUIRES_TOOL]->(tool) WITH s UNWIND $slang AS term MERGE (st:SlangTerm:MANUFACTURING {id: \"slang_\" + term}) SET st.term = term MERGE (s)-[:USABLE_SLANG]->(st)"
+      "query": "MERGE (p:Part:MANUFACTURING {id: $part_id}) MERGE (proc:Procedure:MANUFACTURING {id: $proc_node_id}) SET proc.procedure_id = $proc_id MERGE (p)-[:REQUIRES_PROCEDURE]->(proc) MERGE (s:ManufacturingStep:MANUFACTURING {id: $step_node_id}) SET s.step_id = $step_id, s.raw_text = $instruction_text, s.action = $action, s.is_value_added = $is_value_added, s.is_safety_critical = $is_safety_critical, s.process_category = $process_category, s.justification = $justification, s.estimated_duration_minutes = $estimated_duration_minutes, s.consumables = $consumables MERGE (proc)-[:CONTAINS_STEP]->(s) WITH s UNWIND $tools AS t_name MERGE (tool:Tool:MANUFACTURING {id: \"tool_\" + t_name}) SET tool.part_number = t_name MERGE (s)-[:REQUIRES_TOOL]->(tool)"
     }
   ],
   "sparql": [
-    "PREFIX mfg: <http://example.com/manufacturing#> PREFIX iof: <http://example.com/iof#> INSERT DATA { mfg:step_part_42_1.1 a mfg:ManufacturingStep ; mfg:hasAction \"Apply sealant\" ; mfg:hasText \"Apply sealant MIL-S-81733 to the seam.\" . mfg:step_part_42_1.1 mfg:governedBy iof:ISO9001_Standard . mfg:step_part_42_1.1 mfg:usesTool \"Torque Wrench\" . mfg:step_part_42_1.1 mfg:usesTool \"Brush\" . mfg:step_part_42_1.1 mfg:consumesMaterial \"Sealant MIL-S-81733\" . mfg:step_part_42_1.1 mfg:hasHazardClass \"1.1D\" . mfg:step_part_42_1.1 mfg:requiresCertification \"QC Inspector\" . mfg:step_part_42_1.1 mfg:referencesFigure mfg:fig_3 . mfg:fig_3 a mfg:Figure . mfg:step_part_42_1.1 mfg:referencesFigure mfg:fig_12A . mfg:fig_12A a mfg:Figure . }",
-    "PREFIX mfg: <http://example.com/manufacturing#> PREFIX iof: <http://example.com/iof#> INSERT DATA { mfg:step_part_42_2.1 a mfg:ManufacturingStep ; mfg:hasAction \"Inspect\" ; mfg:hasText \"Inspect the weld.\" . }"
+    "PREFIX mfg: <http://example.com/manufacturing#> PREFIX iof: <http://example.com/iof#> INSERT DATA { mfg:step_part_42_1.1 a mfg:ManufacturingStep ; mfg:hasAction \"Apply sealant\" ; mfg:hasText \"Apply sealant MIL-S-81733 to the seam.\" . mfg:step_part_42_1.1 mfg:usesTool \"Torque Wrench\" . mfg:step_part_42_1.1 mfg:usesTool \"Brush\" . mfg:step_part_42_1.1 mfg:isValueAdded \"True\" . mfg:step_part_42_1.1 mfg:isSafetyCritical \"True\" . mfg:step_part_42_1.1 mfg:hasProcessCategory \"Transformation\" . mfg:step_part_42_1.1 mfg:hasJustification \"Physically transforms the product.\" . mfg:step_part_42_1.1 mfg:estimatedDurationMinutes \"30\" . mfg:step_part_42_1.1 mfg:consumesMaterial \"Sealant MIL-S-81733\" . mfg:step_part_42_1.1 mfg:governedBy iof:ISO9001_Standard . mfg:step_part_42_1.1 mfg:hasHazardClass \"1.1D\" . mfg:step_part_42_1.1 mfg:requiresCertification \"QC Inspector\" . mfg:step_part_42_1.1 mfg:referencesFigure mfg:fig_3 . mfg:fig_3 a mfg:Figure . mfg:step_part_42_1.1 mfg:referencesFigure mfg:fig_12A . mfg:fig_12A a mfg:Figure . }",
+    "PREFIX mfg: <http://example.com/manufacturing#> PREFIX iof: <http://example.com/iof#> INSERT DATA { mfg:step_part_42_2.1 a mfg:ManufacturingStep ; mfg:hasAction \"Inspect\" ; mfg:hasText \"Inspect the weld.\" . mfg:step_part_42_2.1 mfg:isValueAdded \"False\" . mfg:step_part_42_2.1 mfg:isSafetyCritical \"False\" . mfg:step_part_42_2.1 mfg:hasProcessCategory \"Inspection\" . mfg:step_part_42_2.1 mfg:hasJustification \"Inspection only; no transformation.\" . }"
   ]
 }

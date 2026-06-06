@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
+from doc_tools.plugins import manufacturing_overlay as overlay
 from doc_tools.utils.formatters import convert_element_to_markdown
 # --- BAML-ready Schemas (Domain B: MAT/Manufacturing) ---
 class ManufacturingStep(BaseModel):
@@ -231,188 +232,130 @@ class ManufacturingPlugin(AugmentationPlugin):
         )
 
     def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:
+        """Emit Cypher + SPARQL for each manufacturing node.
+
+        Base fields (identity, instruction text, action, tooling, figures) are
+        rendered here; everything else is data-driven by the overlay descriptors
+        in ``manufacturing_overlay`` (default + secret-loaded proprietary), so a
+        new field never requires editing this method. See
+        ``tests/test_manufacturing_graph_golden.py`` for the pinned output.
+        """
+        dom = self.domain_label
+        overlay_fields = overlay.active_overlay()
         cypher_queries = []
         sparql_queries = []
-        
+
         for node in nodes:
             sec = node.base_extraction
             aug = node.domain_augmentation
-            
+
             if not isinstance(aug, MatAugmentation):
                 continue
-                
-            # --- NEO4J CYPHER: (Page)-[:REQUIRES_PROCEDURE]->(Procedure) ---
-            # Strip spaces and quotes out of the title so it is a safe URI for SPARQL
+
+            # --- Part node + strategic assessment ---
             safe_title = sec.title.replace(" ", "_").replace("'", "").replace('"', "")
             part_id = sec.node_id or f"part_{sec.page_start}_{safe_title}"
             cypher_queries.append({
                 "query": f"""
-                MERGE (p:{config.graph_child_label}:{self.domain_label} {{id: $part_id}})
+                MERGE (p:{config.graph_child_label}:{dom} {{id: $part_id}})
                 SET p.title = $title, p.proprietary_score = $score, p.outsourceable = $out
                 """,
                 "params": {
                     "part_id": part_id,
                     "title": sec.title,
                     "score": aug.assessment.proprietary_score,
-                    "out": aug.assessment.outsourceable
-                }
+                    "out": aug.assessment.outsourceable,
+                },
             })
-            
-            for step_idx, step in enumerate(aug.steps):
+
+            for step in aug.steps:
                 step_node_id = f"step_{part_id}_{step.step_id}"
                 proc_node_id = f"proc_{part_id}_{step.procedure_id}"
-                
-                # Create Procedure Node & link Part -> Procedure -> Step
+
+                # Base step attributes + overlay attributes.
+                base_set = [
+                    "s.step_id = $step_id",
+                    "s.raw_text = $instruction_text",
+                    "s.action = $action",
+                ]
+                attr_clauses, attr_params = overlay.render_step_attrs(overlay_fields, step)
+                set_clause = ",\n                    ".join(base_set + attr_clauses)
+
+                params = {
+                    "part_id": part_id,
+                    "proc_node_id": proc_node_id,
+                    "proc_id": step.procedure_id,
+                    "step_node_id": step_node_id,
+                    "step_id": step.step_id,
+                    "instruction_text": step.instruction_text,
+                    "action": step.action_verb,
+                    "tools": step.tooling,
+                    "image_prefix": image_prefix,
+                }
+                params.update(attr_params)
+
+                # Base: Part -> Procedure -> Step, plus base tooling relationship.
                 edge_cypher = f"""
-                MERGE (p:{config.graph_child_label}:{self.domain_label} {{id: $part_id}})
-                MERGE (proc:Procedure:{self.domain_label} {{id: $proc_node_id}})
+                MERGE (p:{config.graph_child_label}:{dom} {{id: $part_id}})
+                MERGE (proc:Procedure:{dom} {{id: $proc_node_id}})
                 SET proc.procedure_id = $proc_id
                 MERGE (p)-[:REQUIRES_PROCEDURE]->(proc)
-                
-                MERGE (s:ManufacturingStep:{self.domain_label} {{id: $step_node_id}})
-                SET s.step_id = $step_id, 
-                    s.raw_text = $instruction_text,
-                    s.action = $action,
-                    s.is_value_added = $is_value_added,
-                    s.is_safety_critical = $is_safety_critical,
-                    s.process_category = $process_category,
-                    s.justification = $justification,
-                    s.estimated_duration_minutes = $duration,
-                    s.military_and_industry_standards = $standards,
-                    s.internal_part_numbers = $parts,
-                    s.material_and_hardware_slang = $slang
-                
+
+                MERGE (s:ManufacturingStep:{dom} {{id: $step_node_id}})
+                SET {set_clause}
+
                 MERGE (proc)-[:CONTAINS_STEP]->(s)
-                
-                WITH s
-                UNWIND $standards AS std_name
-                MERGE (std:Standard:{self.domain_label} {{id: "std_" + std_name}})
-                SET std.name = std_name
-                MERGE (s)-[:GOVERNED_BY]->(std)
-                
-                WITH s
-                UNWIND $parts AS pn
-                MERGE (part:Part:{self.domain_label} {{id: "part_" + pn}})
-                SET part.part_number = pn
-                MERGE (s)-[:REQUIRES_PART]->(part)
-                
+
                 WITH s
                 UNWIND $tools AS t_name
-                MERGE (tool:Tool:{self.domain_label} {{id: "tool_" + t_name}})
+                MERGE (tool:Tool:{dom} {{id: "tool_" + t_name}})
                 SET tool.part_number = t_name
                 MERGE (s)-[:REQUIRES_TOOL]->(tool)
-                
-                WITH s
-                UNWIND $slang AS term
-                MERGE (st:SlangTerm:{self.domain_label} {{id: "slang_" + term}})
-                SET st.term = term
-                MERGE (s)-[:USABLE_SLANG]->(st)
                 """
-                
-                # Append conditional nodes for Hazards and Certifications
-                if step.hazard_class:
-                    hazard_id = f"hazard_{step.hazard_class}"
-                    edge_cypher += f"""
-                    MERGE (h:Hazard:{self.domain_label} {{id: $hazard_id}})
-                    SET h.class = $hazard
-                    MERGE (s)-[:HAS_HAZARD]->(h)
-                    """
-                    
-                if step.required_cert:
-                    cert_id = f"cert_{step.required_cert}"
-                    edge_cypher += f"""
-                    MERGE (c:Certification:{self.domain_label} {{id: $cert_id}})
-                    SET c.certification = $cert
-                    MERGE (s)-[:REQUIRES_CERT]->(c)
-                    """
 
+                # Overlay: typed relationship nodes (hazard, cert, standards, parts, slang, ...).
+                rel_blocks, rel_params = overlay.render_related_blocks(overlay_fields, step)
+                params.update(rel_params)
+                for block in rel_blocks:
+                    edge_cypher += "\n                " + block.replace("{domain}", dom)
+
+                # Base: figure references are core/cross-cutting.
                 if step.figure_references:
+                    params["figures"] = step.figure_references
                     edge_cypher += f"""
                     WITH s
                     UNWIND $figures AS fig_ref
-                    MERGE (f:Figure:{self.domain_label} {{id: "fig_" + fig_ref}})
+                    MERGE (f:Figure:{dom} {{id: "fig_" + fig_ref}})
                     ON CREATE SET f.url = $image_prefix + fig_ref + ".png", f.title = fig_ref
                     MERGE (s)-[:REFERENCES_FIGURE]->(f)
                     """
-                    
-                cypher_queries.append({
-                    "query": edge_cypher,
-                    "params": {
-                        "part_id": part_id,
-                        "proc_node_id": proc_node_id,
-                        "proc_id": step.procedure_id,
-                        "step_node_id": step_node_id,
-                        "step_id": step.step_id,
-                        "instruction_text": step.instruction_text,
-                        "action": step.action_verb,
-                        "is_value_added": step.is_value_added,
-                        "is_safety_critical": step.is_safety_critical,
-                        "process_category": step.process_category,
-                        "justification": step.justification,
-                        "duration": step.estimated_duration_minutes if step.estimated_duration_minutes is not None else -1,
-                        "standards": step.military_and_industry_standards,
-                        "parts": step.internal_part_numbers,
-                        "tools": step.tooling,
-                        "slang": step.material_and_hardware_slang,
-                        "hazard_id": f"hazard_{step.hazard_class}" if step.hazard_class else "",
-                        "hazard": step.hazard_class or "",
-                        "cert_id": f"cert_{step.required_cert}" if step.required_cert else "",
-                        "cert": step.required_cert or "",
-                        "figures": step.figure_references,
-                        "image_prefix": image_prefix
-                    }
-                })
-                
-                # --- JENA SPARQL/RDF: Map MAT properties to OWL Classes ---
+
+                cypher_queries.append({"query": edge_cypher, "params": params})
+
+                # --- JENA SPARQL/RDF ---
+                step_uri = f"mfg:{step_node_id}"
                 sparql = f"""
                 PREFIX mfg: <http://example.com/manufacturing#>
                 PREFIX iof: <http://example.com/iof#>
-                
+
                 INSERT DATA {{
-                    mfg:{step_node_id} a mfg:ManufacturingStep ;
+                    {step_uri} a mfg:ManufacturingStep ;
                         mfg:hasAction "{step.action_verb}" ;
                         mfg:hasText "{step.instruction_text.replace('"', '')}" .
                 """
-                
-                if step.standard_ref:
-                    # Sanitize standard_ref for Jena compatibility
-                    safe_std = step.standard_ref.replace("-", "").replace(" ", "_")
-                    sparql += f"""
-                        mfg:{step_node_id} mfg:governedBy iof:{safe_std}_Standard .
-                    """
-                
-                if step.tooling:
-                    for t in step.tooling:
-                        sparql += f"""
-                            mfg:{step_node_id} mfg:usesTool "{t}" .
-                        """
-                        
-                if step.consumables:
-                    for c in step.consumables:
-                        sparql += f"""
-                            mfg:{step_node_id} mfg:consumesMaterial "{c}" .
-                        """
-                        
-                if step.hazard_class:
-                    sparql += f"""
-                        mfg:{step_node_id} mfg:hasHazardClass "{step.hazard_class}" .
-                    """
-                    
-                if step.required_cert:
-                    sparql += f"""
-                        mfg:{step_node_id} mfg:requiresCertification "{step.required_cert}" .
-                    """
+                # Base tooling literals.
+                for t in (step.tooling or []):
+                    sparql += f'\n                    {step_uri} mfg:usesTool "{t}" .'
+                # Overlay literals/relations.
+                for line in overlay.render_sparql_lines(overlay_fields, step, step_uri):
+                    sparql += f"\n                    {line}"
+                # Base figure triples.
+                for fig in (step.figure_references or []):
+                    safe_fig = fig.replace(" ", "_").replace('"', "")
+                    sparql += f"\n                    {step_uri} mfg:referencesFigure mfg:fig_{safe_fig} ."
+                    sparql += f"\n                    mfg:fig_{safe_fig} a mfg:Figure ."
+                sparql += "\n                }"
 
-                if step.figure_references:
-                    for fig in step.figure_references:
-                        safe_fig = fig.replace(" ", "_").replace('"', '')
-                        sparql += f"""
-                            mfg:{step_node_id} mfg:referencesFigure mfg:fig_{safe_fig} .
-                            mfg:fig_{safe_fig} a mfg:Figure .
-                        """
-                    
-                sparql += "}"
-                
                 sparql_queries.append(sparql)
-                
+
         return cypher_queries, sparql_queries
