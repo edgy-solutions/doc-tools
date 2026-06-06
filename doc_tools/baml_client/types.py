@@ -107,6 +107,7 @@ class MaintenanceStep(BaseModel):
     figure_references: typing.List[str] = Field(description='Extract ONLY explicit figure, image, graphic, or drawing identifiers referenced in this step. Valid examples: \'Figure 3\', \'Fig. 12A\', \'Graphic 7\'. Extract the identifier only (e.g., \'3\', \'12A\', \'7\'). Do NOT extract vague references. Return empty array if no explicit figure ID is present.')
 
 class ManufacturingStep(BaseModel):
+    model_config = ConfigDict(extra='allow')
     procedure_id: str = Field(description='The parent procedure this step belongs to')
     step_id: str = Field(description='The specific step identifier')
     instruction_text: str = Field(description='The full, verbatim raw text of the step from the document.')

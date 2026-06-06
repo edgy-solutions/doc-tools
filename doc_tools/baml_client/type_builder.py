@@ -79,8 +79,8 @@ class TypeBuilder(type_builder.TypeBuilder):
         return MaintenanceStepViewer(self)
 
     @property
-    def ManufacturingStep(self) -> "ManufacturingStepViewer":
-        return ManufacturingStepViewer(self)
+    def ManufacturingStep(self) -> "ManufacturingStepBuilder":
+        return ManufacturingStepBuilder(self)
 
     @property
     def MatAugmentation(self) -> "MatAugmentationViewer":
@@ -709,13 +709,25 @@ class ManufacturingStepAst:
         return self._props
 
 
-class ManufacturingStepViewer(ManufacturingStepAst):
+class ManufacturingStepBuilder(ManufacturingStepAst):
     def __init__(self, tb: type_builder.TypeBuilder):
         super().__init__(tb)
 
     
-    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
-        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    def add_property(self, name: str, type: baml_py.FieldType) -> baml_py.ClassPropertyBuilder:
+        if name in self._properties:
+            raise ValueError(f"Property {name} already exists.")
+        return self._bldr.property(name).type(type)
+
+    def list_properties(self) -> typing.List[typing.Tuple[str, baml_py.ClassPropertyBuilder]]:
+        return self._bldr.list_properties()
+
+    def remove_property(self, name: str) -> None:
+        self._bldr.remove_property(name)
+
+    def reset(self) -> None:
+        self._bldr.reset()
+
     
 
 
@@ -725,78 +737,83 @@ class ManufacturingStepProperties:
         self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
 
     
+    def __getattr__(self, name: str) -> baml_py.ClassPropertyBuilder:
+        if name not in self.__properties:
+            raise AttributeError(f"Property {name} not found.")
+        return self.__bldr.property(name)
+
     
     @property
-    def procedure_id(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("procedure_id"))
+    def procedure_id(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("procedure_id")
     
     @property
-    def step_id(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("step_id"))
+    def step_id(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("step_id")
     
     @property
-    def instruction_text(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("instruction_text"))
+    def instruction_text(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("instruction_text")
     
     @property
-    def action_verb(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("action_verb"))
+    def action_verb(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("action_verb")
     
     @property
-    def tooling(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("tooling"))
+    def tooling(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("tooling")
     
     @property
-    def consumables(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("consumables"))
+    def consumables(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("consumables")
     
     @property
-    def hazard_class(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("hazard_class"))
+    def hazard_class(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("hazard_class")
     
     @property
-    def required_cert(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("required_cert"))
+    def required_cert(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("required_cert")
     
     @property
-    def standard_ref(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("standard_ref"))
+    def standard_ref(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("standard_ref")
     
     @property
-    def is_value_added(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("is_value_added"))
+    def is_value_added(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("is_value_added")
     
     @property
-    def is_safety_critical(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("is_safety_critical"))
+    def is_safety_critical(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("is_safety_critical")
     
     @property
-    def process_category(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("process_category"))
+    def process_category(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("process_category")
     
     @property
-    def justification(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("justification"))
+    def justification(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("justification")
     
     @property
-    def estimated_duration_minutes(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("estimated_duration_minutes"))
+    def estimated_duration_minutes(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("estimated_duration_minutes")
     
     @property
-    def military_and_industry_standards(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("military_and_industry_standards"))
+    def military_and_industry_standards(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("military_and_industry_standards")
     
     @property
-    def internal_part_numbers(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("internal_part_numbers"))
+    def internal_part_numbers(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("internal_part_numbers")
     
     @property
-    def material_and_hardware_slang(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("material_and_hardware_slang"))
+    def material_and_hardware_slang(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("material_and_hardware_slang")
     
     @property
-    def figure_references(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("figure_references"))
+    def figure_references(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("figure_references")
     
     
 

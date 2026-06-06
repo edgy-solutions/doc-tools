@@ -37,6 +37,10 @@ class ManufacturingStep {
 
   // Hook 4: Figure/Image References for Neo4j Figure Nodes
   figure_references string[] @description("Extract ONLY explicit figure, image, graphic, or drawing identifiers referenced in this step. Valid examples: 'Figure 3', 'Fig. 12A', 'Graphic 7', 'Drawing 101-B'. Extract the identifier only (e.g., '3', '12A', '7', '101-B'). Do NOT extract vague references like 'see the diagram below' or 'as illustrated'. Return empty array if no explicit figure ID is present.")
+
+  // Allow proprietary/overlay fields to be injected at runtime via TypeBuilder
+  // (doc_tools.plugins.manufacturing_overlay) without committing them here.
+  @@dynamic
 }
 
 class StrategicAssessment {
