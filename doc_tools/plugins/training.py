@@ -53,7 +53,9 @@ class TrainingPlugin(AugmentationPlugin):
                 
             augmentation = SlideAugmentation(
                 concepts=concepts,
-                objectives=baml_response.objectives,
+                # BAML returns objectives as LearningObjective objects; SlideAugmentation
+                # declares List[str], so extract the description (tolerating plain strings).
+                objectives=[getattr(o, "description", o) for o in baml_response.objectives],
                 figure_references=getattr(baml_response, 'figure_references', []) or []
             )
             
