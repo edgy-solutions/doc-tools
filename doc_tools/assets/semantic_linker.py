@@ -35,6 +35,7 @@ def propose_datahub_term(dataset_urn: str, ontology_uri: str, reason: str):
         aspect=GlossaryTermInfoClass(
             name=short_name,
             definition=f"Ontology Class: {ontology_uri}",
+            termSource="INTERNAL",  # required by GlossaryTermInfoClass; omitting it raised TypeError at runtime
             customProperties={"ontology_uri": ontology_uri}
         )
     )
