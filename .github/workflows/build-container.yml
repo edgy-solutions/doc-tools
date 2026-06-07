@@ -26,7 +26,12 @@ jobs:
 
       - name: Generate requirements.txt from pyproject.toml
         run: |
-          uv export --format requirements-txt --no-hashes > requirements.txt
+          # --no-emit-project: emit dependencies only, NOT the doc-tools project itself.
+          # pyproject now declares a [build-system], so the project is a real package and
+          # uv export would otherwise add an "-e ." line. The Docker build only COPYs
+          # requirements.txt into /app (no pyproject.toml present), so trying to install "."
+          # fails with "/app does not appear to be a Python project".
+          uv export --format requirements-txt --no-hashes --no-emit-project > requirements.txt
 
       - name: Inject Golden Dockerfile
         run: |
