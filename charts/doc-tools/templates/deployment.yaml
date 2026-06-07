@@ -59,19 +59,37 @@ spec:
             - name: {{ $key }}
               value: {{ $val | quote }}
             {{- end }}
+            {{- if .Values.manufacturingOverlay.enabled }}
+            - name: MANUFACTURING_OVERLAY_SPEC
+              value: {{ printf "%s/%s" .Values.manufacturingOverlay.mountPath .Values.manufacturingOverlay.secretKey | quote }}
+            {{- end }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
+          {{- if or .Values.volumeMounts .Values.manufacturingOverlay.enabled }}
           volumeMounts:
+            {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.manufacturingOverlay.enabled }}
+            - name: manufacturing-overlay
+              mountPath: {{ .Values.manufacturingOverlay.mountPath }}
+              readOnly: true
+            {{- end }}
           {{- end }}
-      {{- with .Values.volumes }}
+      {{- if or .Values.volumes .Values.manufacturingOverlay.enabled }}
       volumes:
+        {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.manufacturingOverlay.enabled }}
+        - name: manufacturing-overlay
+          secret:
+            secretName: {{ .Values.manufacturingOverlay.existingSecret | default (printf "%s-manufacturing-overlay" (include "doc-tools.fullname" .)) }}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

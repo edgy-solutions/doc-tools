@@ -84,6 +84,11 @@ env:
   RABBITMQ_GIT_BRANCH: "main"
   RABBITMQ_SCHEMA_PATH: "schemas/rabbitmq"
   # JENA_URL: "http://jena-fuseki:3030/ds" # Optional override
+  # Prompt sourcing (doc_tools/plugins/base.py):
+  #   "file"     -> canonical, git-committed prompts (prod default; no Langfuse at runtime)
+  #   "langfuse" -> live Langfuse GUI at LANGFUSE_PROMPT_LABEL (dev/SME hot-tuning)
+  PROMPT_SOURCE: "file"
+  LANGFUSE_PROMPT_LABEL: "production"
 
 # Additional environment variables from external Secrets or ConfigMaps
 # Example block for required variables for the infrastructure team:
@@ -106,6 +111,22 @@ env:
 # - JENA_DS
 # - JENA_USERNAME
 # - JENA_PASSWORD
+
+# Proprietary manufacturing overlay fields (doc_tools/plugins/manufacturing_overlay.py).
+# Defines extra extraction fields at runtime via a secret JSON spec WITHOUT committing
+# them to the repo. When enabled, the JSON is mounted as a file and
+# MANUFACTURING_OVERLAY_SPEC is set to <mountPath>/<secretKey>.
+manufacturingOverlay:
+  enabled: false
+  # RECOMMENDED for prod: reference a Secret you created out-of-band so the
+  # proprietary content never passes through Helm values or release history.
+  existingSecret: ""
+  # Key within the secret that holds the JSON document (also the mounted filename).
+  secretKey: "manufacturing_overlay.json"
+  mountPath: "/etc/doc-tools/overlay"
+  # Dev-only convenience: inline JSON. If set (and existingSecret is empty) the chart
+  # creates the secret from this. DO NOT commit real proprietary content here.
+  spec: ""
 
 autoscaling:
   enabled: false
