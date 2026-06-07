@@ -365,6 +365,45 @@ For a safety-/compliance-critical pipeline, a given container image must produce
 
 ---
 
+## 🧩 Proprietary / Overlay Extraction Fields (Manufacturing)
+
+The manufacturing work-instruction extractor splits its schema into a **base** (committed, public: identity, instruction text, action, tooling, figures) and a data-driven **overlay** ([`doc_tools/plugins/manufacturing_overlay.py`](doc_tools/plugins/manufacturing_overlay.py)). Each overlay field declares **both** how it is extracted (a BAML description) **and** how it is persisted (Neo4j attribute, typed relationship, and/or RDF triple) — so a new field never requires editing the graph writer or the BAML class.
+
+Two overlays compose at runtime:
+- **Default overlay** — the non-proprietary hooks/analytics, committed in the module.
+- **Proprietary overlay** — loaded from a secret JSON file pointed at by `MANUFACTURING_OVERLAY_SPEC`. Field names/descriptions **never enter this repo**: they are injected onto the `@@dynamic` `ManufacturingStep` via BAML `TypeBuilder`, extracted by the LLM, carried through the plugin, and persisted by the same descriptor machinery. When the env var is unset, extraction and persistence are exactly as before.
+
+### Spec format
+A reference (non-proprietary) spec lives at [`examples/manufacturing_overlay.sample.json`](examples/manufacturing_overlay.sample.json). Each entry under `fields`:
+
+| key | meaning |
+| :--- | :--- |
+| `name` | the field name on the step |
+| `kind` | `scalar` / `list` / `int` / `bool` / `enum` |
+| `description` | extraction instruction shown to the LLM (in `{{ ctx.output_format }}`) |
+| `optional` | default `true` |
+| `neo4j_attr` | `SET s.<name>` on the `ManufacturingStep` node |
+| `related` | `{ label, rel_type, id_prefix, value_prop }` → a typed node + edge off the step |
+| `rdf_literal` | predicate for an RDF literal triple (`mfg:<step> mfg:<pred> "value"`) |
+| `rdf_relation` | `{ predicate, target_prefix, target_suffix }` → RDF object-property to a derived IRI |
+
+A field may combine kinds (e.g. `neo4j_attr` + `rdf_literal`, or a `related` relationship).
+
+### Enabling in Kubernetes
+**Recommended** (proprietary content stays out of git *and* Helm release history) — reference a pre-created secret:
+```bash
+kubectl create secret generic mfg-overlay \
+  --from-file=manufacturing_overlay.json=./my_overlay.json
+helm upgrade doc-tools ./charts/doc-tools \
+  --set manufacturingOverlay.enabled=true \
+  --set manufacturingOverlay.existingSecret=mfg-overlay
+```
+The JSON is mounted read-only at `manufacturingOverlay.mountPath` and `MANUFACTURING_OVERLAY_SPEC` is set automatically. For local/dev only, `manufacturingOverlay.spec` accepts inline JSON (the chart then creates the secret for you).
+
+> **Scope note:** the overlay carries proprietary *fields*. Proprietary *prompt text* (the `system_instructions`) is governed separately by [Prompt Source & GitOps](#-prompt-source--gitops-cm-canonical) — keep it in Langfuse (dev) or a secret-mounted md, not the committed prompt.
+
+---
+
 ## ⚙️ Performance Tuning & K8s Resource Control
 
 The pipeline supports dynamic Kubernetes resource allocation via environment variables. This allows DevOps to scale high-compute assets (like PDF parsing) independently from metadata-light tasks.

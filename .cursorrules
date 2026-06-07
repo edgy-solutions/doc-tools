@@ -34,6 +34,10 @@
     - Production must stay file-canonical — ship prompt changes engineers-via-PR, never by relying on the live GUI in prod.
     - Pass dynamic instructions as a `system_instructions` parameter to BAML functions.
     - `scripts/check_drift.py` reads the SAME `LANGFUSE_PROMPT_LABEL`; keep CI and runtime aligned (no label mismatch). It fails the merge if `prompts/*.md` diverges from that Langfuse label.
+- **Manufacturing Overlay Fields**:
+  - `ManufacturingStep` = public base (identity/text/action/tooling/figures) + data-driven overlay (`doc_tools/plugins/manufacturing_overlay.py`). Each `OverlayField` declares extraction (`description`) AND persistence (`neo4j_attr` / `related` / `rdf_literal` / `rdf_relation`).
+  - Add/move fields by editing the overlay descriptor (or the `MANUFACTURING_OVERLAY_SPEC` secret JSON) — NOT `to_graph_queries` or the BAML class. The class is `@@dynamic`; proprietary fields inject via `TypeBuilder` and ride the `extra="allow"` mirror model. Keep proprietary field names out of the repo (secret only).
+  - Persistence is pinned by `tests/test_manufacturing_graph_golden.py` (regenerate with `UPDATE_GOLDEN=1` after intentional changes).
 - **Cypher Queries**: Parameterize node labels carefully in Python using f-strings before passing to Neo4j. Neo4j python drivers do not support parameterizing node labels directly.
 - **Multi-Standard & Hybrid Graph Strategy**:
   - Use `doc_tools.parsers` builders (`s1000d_rdf.py`, `dita_rdf.py`, `iads_rdf.py`, `mil_std_40051_rdf.py`) for XML-to-RDF mapping.

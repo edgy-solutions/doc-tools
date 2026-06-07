@@ -35,6 +35,13 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   3. **Do NOT make production depend on the live Langfuse path.** Prompt changes ship engineers-via-PR: edit in the GUI (dev) → reconcile into `prompts/*.md` via PR → CI drift check → image build → deploy.
   4. `scripts/check_drift.py` fails the merge if a local Markdown file diverges from the `LANGFUSE_PROMPT_LABEL` version in Langfuse. It reads the SAME env var the runtime serves, so CI guards exactly what the live path can serve (keep these aligned — do not reintroduce a label mismatch).
 
+- **Manufacturing Overlay Fields (proprietary extraction without committing them)**:
+  `ManufacturingStep` is split into a public **base** (identity/text/action/tooling/figures) and a data-driven **overlay** (`doc_tools/plugins/manufacturing_overlay.py`). Each overlay `OverlayField` declares extraction (BAML `description`) AND persistence (`neo4j_attr`, `related` typed node/edge, `rdf_literal`, `rdf_relation`).
+  1. **Default overlay** (committed) covers the non-proprietary hooks/analytics; **proprietary overlay** loads from the `MANUFACTURING_OVERLAY_SPEC` secret JSON and never enters the repo.
+  2. The class is `@@dynamic`; proprietary fields are injected via `TypeBuilder` in both `ManufacturingPlugin` call sites and ride the `extra="allow"` mirror model through to `to_graph_queries`. No-op when the secret is unset.
+  3. **Adding/changing a field is data, not code** — edit the overlay descriptor (or the secret spec), not `to_graph_queries` or the BAML class. `tests/test_manufacturing_graph_golden.py` pins persistence; `tests/test_manufacturing_extraction_ollama.py` (skipped unless `OLLAMA_BASE_URL` set) proves end-to-end extraction.
+  4. Proprietary *prompt text* is a separate concern — use the `PROMPT_SOURCE` path, not the committed prompt.
+
 - **Table Processing**:
   1. Documents with tabular data should use `doc_tools.utils.formatters.convert_element_to_markdown` during the global pass.
   2. This converts `unstructured` HTML tables into Markdown grids to improve LLM extraction accuracy for dense data mapping (e.g., part-to-replacement).

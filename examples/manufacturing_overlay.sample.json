@@ -1,0 +1,30 @@
+{
+  "_comment": "Sample (non-proprietary) manufacturing overlay spec. Point MANUFACTURING_OVERLAY_SPEC at a copy of this (or mount it as a K8s secret) to add extraction fields without committing them to the repo. Each field declares how it is extracted (description) AND how it is persisted (neo4j_attr / related / rdf_literal / rdf_relation).",
+  "fields": [
+    {
+      "name": "lot_acceptance_code",
+      "kind": "scalar",
+      "description": "The Lot Acceptance Code (LAC) governing this step, e.g. 'LAC-7731'. Null if not mentioned.",
+      "neo4j_attr": true,
+      "rdf_literal": "hasLotAcceptanceCode"
+    },
+    {
+      "name": "torque_spec_nm",
+      "kind": "int",
+      "description": "Torque specification in newton-metres (Nm) called out in this step, as an integer. Null if not mentioned.",
+      "neo4j_attr": true,
+      "rdf_literal": "torqueSpecNm"
+    },
+    {
+      "name": "special_processes",
+      "kind": "list",
+      "description": "Named special processes invoked by this step (e.g. heat-treat or plating codes). Empty list if none.",
+      "related": {
+        "label": "SpecialProcess",
+        "rel_type": "USES_SPECIAL_PROCESS",
+        "id_prefix": "sp_",
+        "value_prop": "name"
+      }
+    }
+  ]
+}
