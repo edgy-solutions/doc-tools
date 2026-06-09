@@ -7,14 +7,27 @@ from dagster import ConfigurableResource
 from pydantic import Field
 
 class Neo4jResource(ConfigurableResource):
-    uri: str 
-    username: str 
-    password: str 
+    uri: str
+    username: str
+    password: str
 
     def get_client(self):
         # In a real system, this would return a driver or a wrapper
         from .neo4j_client import Neo4jClient
         return Neo4jClient(uri=self.uri, user=self.username, password=self.password)
+
+    def get_driver(self):
+        """Return a raw ``neo4j.Driver`` for callers that want to use the
+        native ``with driver.session() as session:`` pattern directly.
+
+        ``aitool_linker.sync_aitool_predicate_to_neo4j`` calls this. Without
+        the method the asset raises ``AttributeError: 'Neo4jResource' object
+        has no attribute 'get_driver'`` on every sync, every URN, which then
+        gets caught by Dagster's broad except and reported as a generic
+        step failure with no operator-visible cause.
+        """
+        from neo4j import GraphDatabase
+        return GraphDatabase.driver(self.uri, auth=(self.username, self.password))
 
 class WeaviateResource(ConfigurableResource):
     http_host: str = Field(description="The HTTP REST endpoint for Weaviate (e.g., weaviate:8080)")
