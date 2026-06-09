@@ -83,15 +83,22 @@ class AIToolSensorComponent(Component, Resolvable, Model):
               }
             }
             """
+            # DataHub v1.6.0+ removed `sortFilters` from SearchInput; sending
+            # it returns HTTP 200 with a GraphQL ValidationError and
+            # `data: null`, which the .get('data', {}) default below CANNOT
+            # catch (default only applies when the key is missing, not when
+            # the value is null). The sensor then raises NoneType.get on
+            # every tick, which gets caught by the broad except below and
+            # silently reported as "empty result." See ADR-0019 Contract C
+            # follow-up: this whole sensor is being retired in favor of the
+            # mesh-registrar gateway; the fix here keeps Contract C green
+            # in the meantime.
             variables = {
                 "input": {
                     "type": "MLMODEL",
                     "query": "*",
                     "start": 0,
                     "count": 50,
-                    "sortFilters": [
-                        {"field": "lastModified", "sortDirection": "DESCENDING"}
-                    ],
                 }
             }
             headers = {
@@ -106,22 +113,43 @@ class AIToolSensorComponent(Component, Resolvable, Model):
                     headers=headers,
                 )
                 resp.raise_for_status()
+                body = resp.json() or {}
+                # Surface GraphQL-level errors (DataHub returns HTTP 200 with
+                # `errors` and `data: null` on schema mismatches). Without
+                # this, the .get chain below silently no-ops.
+                gql_errors = body.get("errors") or []
+                if gql_errors:
+                    sensor_context.log.error(
+                        "DataHub GraphQL errors on mesh tool search: %s",
+                        gql_errors,
+                    )
+                # `or {}` (not the .get default) is intentional: `data` key
+                # can be present with a `null` value, in which case the
+                # default never fires.
                 results = (
-                    resp.json()
-                    .get("data", {})
-                    .get("search", {})
-                    .get("searchResults", [])
+                    ((body.get("data") or {}).get("search") or {}).get(
+                        "searchResults"
+                    )
+                    or []
                 )
 
                 for r in results:
-                    entity = r.get("entity", {}) or {}
+                    if not isinstance(r, dict):
+                        continue
+                    entity = r.get("entity") or {}
+                    if not isinstance(entity, dict):
+                        continue
                     urn = entity.get("urn")
                     if not urn:
                         continue
                     props = (entity.get("properties") or {}).get(
-                        "customProperties", []
+                        "customProperties"
                     ) or []
-                    flat = {p["key"]: p["value"] for p in props}
+                    flat = {
+                        p.get("key"): p.get("value")
+                        for p in props
+                        if isinstance(p, dict)
+                    }
                     if flat.get("mesh_is_registration") != "true":
                         continue
 
