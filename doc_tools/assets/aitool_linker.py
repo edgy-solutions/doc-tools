@@ -426,13 +426,31 @@ def sync_aitool_predicate_to_neo4j(
 
     verb_local = get_verb_local_name(verb_iri)
 
-    # APOC's apoc.merge.relationship parameterizes the relationship type --
-    # essential because Cypher itself can't take a relationship type as a
-    # parameter. APOC ships with Neo4j's enterprise images and is already
-    # in NEO4J_PLUGINS for this cluster.
+    # ADR-0019 Contract D — typed-range validation, no auto-MERGE.
+    # The endpoint classes (input_uri/output_uri) MUST already exist as
+    # :OntologyClass nodes from a canonical ontology load. The prior
+    # MERGE form silently fabricated phantom :OntologyClass nodes when
+    # the URI was misspelled or referred to a system-level concept that
+    # had never been defined (the "Engine E registered mesh:GraphQuery
+    # without anyone defining it" pattern). Those phantoms had no
+    # subClassOf edges, no provenance, and they made the registered verb
+    # silently unroutable AND polluted the noun graph.
+    #
+    # The MATCH below verifies pre-existence. If either endpoint class
+    # isn't in the substrate, registration is rejected with a loud,
+    # specific error naming the offending URI — same shape as the
+    # incomplete-props rejection above. The fix path is either:
+    #   - load the canonical ontology that defines the URI, then
+    #     re-register the tool, OR
+    #   - fix the tool's registration to point at a real existing class.
+    # APOC ships with Neo4j's enterprise images and is in NEO4J_PLUGINS
+    # for this cluster, so apoc.merge.relationship (which needs APOC
+    # because Cypher cannot take a relationship type as a parameter)
+    # remains the relationship-side primitive — only the *node*-side
+    # MERGEs are now MATCHes.
     cypher = """
-    MERGE (s:OntologyClass {uri: $input_uri})
-    MERGE (o:OntologyClass {uri: $output_uri})
+    MATCH (s:OntologyClass {uri: $input_uri})
+    MATCH (o:OntologyClass {uri: $output_uri})
     WITH s, o
     CALL apoc.merge.relationship(
         s,
@@ -457,6 +475,32 @@ def sync_aitool_predicate_to_neo4j(
                 props=rel_props,
             )
             record = result.single()
+        if record is None:
+            # Identify which endpoint class is missing so the operator's
+            # remediation is one step, not a guess. Pure read; no writes.
+            with driver.session() as session:
+                missing = [
+                    uri for uri in (input_uri, output_uri)
+                    if not session.run(
+                        "MATCH (c:OntologyClass {uri: $uri}) RETURN c LIMIT 1",
+                        uri=uri,
+                    ).single()
+                ]
+            context.log.error(
+                "❌ Refusing to sync %s: registered range types not "
+                "pre-existing in noun graph (ADR-0019 Contract D). "
+                "Missing OntologyClass nodes: %s. Run the canonical "
+                "ontology load (e.g. doc-tools' ingest_ontology_job) "
+                "to define them, or fix the tool's registration to "
+                "point at existing classes.",
+                config.tool_urn, missing,
+            )
+            return {
+                "status": "rejected",
+                "tool_urn": config.tool_urn,
+                "reason": "unresolved_range_types",
+                "missing_uris": missing,
+            }
         context.log.info(
             f"✅ Synced predicate edge: ({input_uri}) -[{verb_local}]-> ({output_uri}) "
             f"for {config.tool_urn}"
