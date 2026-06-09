@@ -11,6 +11,8 @@ Neo4j predicate edge. The sensor's poll interval bounds end-to-end
 registration latency (typically ~30s).
 """
 
+import hashlib
+import json
 import time
 
 import requests
@@ -153,12 +155,33 @@ class AIToolSensorComponent(Component, Resolvable, Model):
                     if flat.get("mesh_is_registration") != "true":
                         continue
 
-                    # The run_key is the URN + a coarse timestamp so a
-                    # re-registration (same URN, new properties) re-syncs.
-                    # Sub-second updates collapse to the same key; that's
-                    # intentional -- if the SDK is re-emitting faster than
-                    # 1Hz, we don't need to chase every flicker.
-                    run_key = f"{urn}_{int(current_time)}"
+                    # The run_key is the URN + a content hash of the
+                    # registration's customProperties. Dagster dedups on
+                    # run_key; same URN + same properties => same key =>
+                    # the next sensor tick skips this URN. Same URN +
+                    # different properties => new hash => new key => a
+                    # fresh sync fires.
+                    #
+                    # The prior implementation used `int(current_time)`
+                    # in place of the hash, which made the key change on
+                    # every tick (current_time is captured at the start
+                    # of each tick). With a 30s tick interval and N
+                    # registered tools, this enqueued N runs per tick
+                    # forever — 12 tools at 30s = 24 runs/min, queue
+                    # depth climbs without bound and the user-code gRPC
+                    # server times out under the load. (Caught in 2026-
+                    # 06-09 incident: 397 queued runs after ~15 min,
+                    # daemon spiraled.)
+                    #
+                    # Hashing the flattened customProperties (sorted) is
+                    # both deterministic and tolerant of key-order
+                    # variation from DataHub's response.
+                    props_hash = hashlib.sha256(
+                        json.dumps(
+                            sorted(flat.items()), sort_keys=True
+                        ).encode()
+                    ).hexdigest()[:12]
+                    run_key = f"{urn}_{props_hash}"
                     yield RunRequest(
                         run_key=run_key,
                         run_config=RunConfig(
