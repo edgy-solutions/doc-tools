@@ -67,10 +67,16 @@ def _fetch_tool_properties(tool_urn: str) -> Optional[Dict[str, str]]:
     iagent ADR-0009 Step F'.6) has the natural-language text it needs for
     semantic verb matching, without forcing a second GraphQL round trip.
     """
+    # DataHub v1.6.0 renamed MLModel.mlModelProperties → MLModel.properties.
+    # The old field name returns a ValidationError + data:null, which the
+    # caller's `or {}` patterns above coerce into a "skipped" result — so the
+    # symptom is "every sync fails silently / runs are red" rather than a
+    # clean error. Aligns with the sensor's main search query in
+    # components/aitool_sensor.py which already uses the new field name.
     query = """
     query getModelProperties($urn: String!) {
       mlModel(urn: $urn) {
-        mlModelProperties {
+        properties {
           description
           customProperties {
             key
@@ -89,16 +95,36 @@ def _fetch_tool_properties(tool_urn: str) -> Optional[Dict[str, str]]:
             timeout=10,
         )
         resp.raise_for_status()
+        body = resp.json() or {}
     except Exception:
         return None
 
+    # DataHub returns HTTP 200 with `data: null` and an `errors` array
+    # on schema mismatches or per-URN failures. dict.get("data", {})
+    # cannot save us — its default fires only when the KEY is absent,
+    # not when the value is explicitly null. Coerce with `or {}` and
+    # surface the GraphQL errors so the next schema drift fails loud
+    # instead of dropping into an AttributeError caught by Dagster's
+    # broad except.
+    if body.get("errors"):
+        # Returning None here triggers the "skipped" branch in the
+        # caller, which logs the URN and warns the operator. The next
+        # sensor tick retries.
+        return None
     model = (
-        resp.json().get("data", {}).get("mlModel") or {}
-    ).get("mlModelProperties")
+        ((body.get("data") or {}).get("mlModel") or {}).get(
+            "properties"
+        )
+    )
     if not model:
         return None
 
-    props = {p["key"]: p["value"] for p in model.get("customProperties", [])}
+    cprops = model.get("customProperties") or []
+    props = {
+        p.get("key"): p.get("value")
+        for p in cprops
+        if isinstance(p, dict)
+    }
     if props.get("mesh_is_registration") != "true":
         return None
     # Stash the top-level description for the Weaviate sync.
