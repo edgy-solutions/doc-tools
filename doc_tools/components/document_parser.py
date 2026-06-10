@@ -183,7 +183,6 @@ class DocumentParserComponent(Component, Resolvable, Model):
         process_job = define_asset_job(
             name=f"{self.name}_job",
             selection=[self.name, "build_knowledge_graph"],
-            partitions_def=parts_def,
             tags=k8s_tags
         )
 

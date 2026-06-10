@@ -167,14 +167,12 @@ xml_graph_sync_job = define_asset_job(
 ingest_ontology_job = define_asset_job(
     name="ingest_ontology_job",
     selection=["ingest_ontology_to_jena"],
-    partitions_def=ontology_partitions,
     tags=ontology_k8s_tags
 )
 
 design_metadata_job = define_asset_job(
     name="parse_design_metadata_job",
     selection=["parse_design_metadata"],
-    partitions_def=design_files_partition,
     tags=design_k8s_tags
 )
 
