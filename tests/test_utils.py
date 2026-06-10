@@ -57,15 +57,23 @@ def test_jena_init_reads_env(monkeypatch):
     assert c.base_url == "http://fuseki:3030" and c.dataset == "kg"
 
 
-@patch("doc_tools.utils.jena_client.SPARQLWrapper")
-def test_jena_execute_update_targets_update_endpoint(mock_wrapper):
-    inst = MagicMock()
-    mock_wrapper.return_value = inst
-    JenaClient(url="http://jena:3030", dataset="ds", username="u", password="p").execute_update("INSERT DATA {}")
-    assert mock_wrapper.call_args[0][0] == "http://jena:3030/ds/update"
-    inst.setCredentials.assert_called_once_with("u", "p")
-    inst.setQuery.assert_called_once_with("INSERT DATA {}")
-    inst.query.assert_called_once()
+@patch("doc_tools.utils.jena_client.httpx.Client")
+def test_jena_execute_update_posts_sparql_update(mock_client_cls):
+    # execute_update now POSTs via httpx with application/sparql-update
+    # (SPARQLWrapper hit the /update endpoint with a method Fuseki 405'd).
+    client = MagicMock()
+    mock_client_cls.return_value.__enter__.return_value = client
+    client.post.return_value = MagicMock(raise_for_status=lambda: None)
+
+    JenaClient(url="http://jena:3030", dataset="ds", username="u", password="p").execute_update(
+        "INSERT DATA { <a> <b> <c> }"
+    )
+
+    assert client.post.call_args.args[0] == "http://jena:3030/ds/update"
+    kw = client.post.call_args.kwargs
+    assert kw["headers"]["Content-Type"] == "application/sparql-update"
+    assert kw["content"] == b"INSERT DATA { <a> <b> <c> }"
+    assert mock_client_cls.call_args.kwargs["auth"] == ("u", "p")
 
 
 @patch("doc_tools.utils.jena_client.SPARQLWrapper")

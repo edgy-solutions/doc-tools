@@ -1,4 +1,5 @@
 import os
+import httpx
 from SPARQLWrapper import SPARQLWrapper, POST, BASIC, JSON
 
 class JenaClient:
@@ -18,10 +19,23 @@ class JenaClient:
         return sparql
 
     def execute_update(self, query: str):
-        sparql = self._get_wrapper("update")
-        sparql.setMethod(POST)
-        sparql.setQuery(query)
-        return sparql.query()
+        """POST a SPARQL Update to Fuseki's update endpoint.
+
+        Uses httpx with ``Content-Type: application/sparql-update`` (the Fuseki
+        SPARQL Update protocol) — the same direct-HTTP approach the working
+        Graph Store writes use. SPARQLWrapper was issuing a request Fuseki
+        rejected with ``HTTP 405: Method Not Allowed`` on ``/update``.
+        """
+        url = f"{self.base_url}/{self.dataset}/update"
+        auth = (self.username, self.password) if (self.username and self.password) else None
+        with httpx.Client(auth=auth, verify=False) as client:
+            resp = client.post(
+                url,
+                content=query.encode("utf-8"),
+                headers={"Content-Type": "application/sparql-update"},
+            )
+            resp.raise_for_status()
+            return resp
 
     def execute_query(self, query: str):
         sparql = self._get_wrapper("query")
