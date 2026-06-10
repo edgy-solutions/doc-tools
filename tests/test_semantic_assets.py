@@ -15,6 +15,8 @@ from doc_tools.assets.semantic_assets import (
     init_neo4j_n10s,
     sync_jena_to_neo4j,
     _apply_post_sync_domain_labels,
+    _ensure_weaviate_collection,
+    _index_chunk,
 )
 
 
@@ -111,3 +113,32 @@ def test_apply_post_sync_domain_labels_empty_is_noop():
     nclient = MagicMock()
     _apply_post_sync_domain_labels(nclient, [], "X", build_asset_context())
     nclient.execute_query.assert_not_called()
+
+
+# --------------------------------------------------------------------------- #
+# Weaviate v4 chunk indexing (regression guard for the stale-API bug:
+# build_knowledge_graph used to call ensure_class/add_object, which don't exist
+# on the v4 WeaviateClient). Constructing wvc.config.Property in the helper also
+# exercises the real Weaviate v4 API, catching signature drift.
+# --------------------------------------------------------------------------- #
+def test_ensure_weaviate_collection_creates_when_missing():
+    client = MagicMock()
+    client.collections.exists.return_value = False
+    _ensure_weaviate_collection(client, "Chunks")
+    client.collections.create.assert_called_once()
+    assert client.collections.create.call_args.kwargs["name"] == "Chunks"
+
+
+def test_ensure_weaviate_collection_skips_when_present():
+    client = MagicMock()
+    client.collections.exists.return_value = True
+    _ensure_weaviate_collection(client, "Chunks")
+    client.collections.create.assert_not_called()
+
+
+def test_index_chunk_inserts_via_v4_data_insert():
+    client = MagicMock()
+    props = {"text": "hi", "doc_id": "d", "chunk_id": "d_p1", "domain": "MANUFACTURING"}
+    _index_chunk(client, "Chunks", props)
+    client.collections.get.assert_called_once_with("Chunks")
+    client.collections.get.return_value.data.insert.assert_called_once_with(properties=props)

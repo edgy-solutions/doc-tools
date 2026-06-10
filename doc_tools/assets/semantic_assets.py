@@ -13,6 +13,29 @@ from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
 from doc_tools.plugins.sustainment import SustainmentPlugin
+import weaviate.classes as wvc
+
+
+def _ensure_weaviate_collection(client, name: str) -> None:
+    """Idempotently create the chunk collection using the Weaviate v4 API
+    (mirrors ontology_assets). The deployed cluster supplies the default
+    vectorizer, so no vectorizer_config is set here."""
+    if not client.collections.exists(name):
+        client.collections.create(
+            name=name,
+            properties=[
+                wvc.config.Property(name="text", data_type=wvc.config.DataType.TEXT),
+                wvc.config.Property(name="doc_id", data_type=wvc.config.DataType.TEXT),
+                wvc.config.Property(name="chunk_id", data_type=wvc.config.DataType.TEXT),
+                wvc.config.Property(name="domain", data_type=wvc.config.DataType.TEXT),
+            ],
+        )
+
+
+def _index_chunk(client, name: str, properties: dict) -> None:
+    """Insert one chunk object using the Weaviate v4 API."""
+    client.collections.get(name).data.insert(properties=properties)
+
 
 @asset(
     partitions_def=pdf_files_partition,
@@ -120,19 +143,9 @@ def build_knowledge_graph(
         
     context.log.info(f"Initialized {type(plugin).__name__} for domain: {domain_type}")
 
-    # Ensure Weaviate Class
+    # Ensure Weaviate Collection (v4 API)
     try:
-        weaviate_client.ensure_class({
-            "class": collection_name,
-            "vectorizer": "text2vec-transformers",
-            "moduleConfig": {"text2vec-transformers": {"vectorizeClassName": False}},
-            "properties": [
-                {"name": "text", "dataType": ["text"]},
-                {"name": "doc_id", "dataType": ["string"]},
-                {"name": "chunk_id", "dataType": ["string"]},
-                {"name": "domain", "dataType": ["text"]}
-            ]
-        })
+        _ensure_weaviate_collection(weaviate_client, collection_name)
     except Exception as e:
         context.log.error(f"Weaviate Class creation failed: {e}")
 
@@ -195,12 +208,11 @@ def build_knowledge_graph(
         except Exception as e:
             context.log.error(f"Neo4j baseline chunk creation failed: {e}")
 
-        # Vector Indexing (Per Chunk)
+        # Vector Indexing (Per Chunk, v4 API)
         try:
-            weaviate_client.add_object(
-                data_object={"text": chunk_text, "doc_id": doc_id, "chunk_id": chunk_id, "domain": domain_label},
-                class_name=collection_name
-            )
+            _index_chunk(weaviate_client, collection_name, {
+                "text": chunk_text, "doc_id": doc_id, "chunk_id": chunk_id, "domain": domain_label,
+            })
         except Exception as e:
             context.log.error(f"Vector indexing failed for chunk {chunk_id}: {e}")
 
