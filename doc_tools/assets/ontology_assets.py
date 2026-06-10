@@ -64,7 +64,26 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
 def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig, s3: S3Resource, jena: JenaResource) -> MaterializeResult:
     """
     Detects RDF files in MinIO (via sensor partition) and pushes them to Jena Named Graphs.
-    s3://ontologies/{domain}/{file} -> http://internal/{domain}
+
+    Domain resolution (in order of precedence):
+      1. ``config.extra_metadata["domain"]`` — explicit override. Use this
+         when the s3 path is the ontology's *source* and not its *semantic
+         domain* — e.g. ``s3://ontologies/mro/mro_extension.ttl`` should
+         classify under ``MAINTENANCE``, not ``MRO``. The path tells you
+         where the file came from; the domain tells the resolver which
+         classes to consider for which queries. Conflating the two breaks
+         every case where one semantic domain has source TTLs under
+         multiple s3 prefixes (the common case once multiple ontology
+         stewards contribute).
+      2. ``parts[0]`` (s3 path's first segment) — legacy default. Kept
+         because existing sensor-fired ingestions rely on it, but should
+         be considered deprecated for any new domain. Logs a warning so
+         it's visible when the implicit path is in use.
+
+    Reference: tests/routing/STEP1_2_EXECUTION_REPORT.md deviation #1 —
+    the canonical pipeline ran to RUN_SUCCESS but landed classes at a
+    domain the resolver couldn't see, requiring a runtime workaround.
+    Explicit config is the fix.
     """
     file_url = config.file_url
     if file_url.startswith("s3://"):
@@ -78,14 +97,29 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
             # Fallback to partition key replacing double underscores
             partition_key = context.partition_key
             obj_key = partition_key.replace("__", "/")
-        
+
     parts = obj_key.split('/')
-    
+
     if len(parts) < 2:
-        raise Exception(f"Invalid ontology path: {obj_key}. Expected '{domain}/{filename}'")
-    
-    domain = parts[0]
+        raise Exception(f"Invalid ontology path: {obj_key}. Expected '{{path}}/{{filename}}'")
+
     filename = parts[-1]
+
+    # Domain: explicit override > path-derived default.
+    explicit_domain = (config.extra_metadata or {}).get("domain")
+    if explicit_domain:
+        domain = str(explicit_domain)
+        context.log.info(
+            f"Using explicit domain '{domain}' from config.extra_metadata "
+            f"(path-derived would have been '{parts[0]}')"
+        )
+    else:
+        domain = parts[0]
+        context.log.warning(
+            f"No explicit 'domain' in config.extra_metadata; falling back to "
+            f"path-derived '{domain}'. Pass extra_metadata={{'domain': '<SEMANTIC_DOMAIN>'}} "
+            f"to make the classification deliberate."
+        )
     
     # Derive Named Graph URI
     graph_uri = f"http://internal/{domain}"
