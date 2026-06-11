@@ -4,6 +4,7 @@ from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.plugins import manufacturing_overlay as overlay
 from doc_tools.utils.formatters import convert_element_to_markdown
+from doc_tools.utils.jena_client import escape_sparql_string
 # --- BAML-ready Schemas (Domain B: MAT/Manufacturing) ---
 class ManufacturingStep(BaseModel):
     # extra="allow" lets proprietary overlay fields (injected at runtime via
@@ -350,12 +351,12 @@ class ManufacturingPlugin(AugmentationPlugin):
 
                 INSERT DATA {{
                     {step_uri} a mfg:ManufacturingStep ;
-                        mfg:hasAction "{step.action_verb}" ;
-                        mfg:hasText "{step.instruction_text.replace('"', '')}" .
+                        mfg:hasAction "{escape_sparql_string(step.action_verb)}" ;
+                        mfg:hasText "{escape_sparql_string(step.instruction_text)}" .
                 """
                 # Base tooling literals.
                 for t in (step.tooling or []):
-                    sparql += f'\n                    {step_uri} mfg:usesTool "{t}" .'
+                    sparql += f'\n                    {step_uri} mfg:usesTool "{escape_sparql_string(t)}" .'
                 # Overlay literals/relations.
                 for line in overlay.render_sparql_lines(overlay_fields, step, step_uri):
                     sparql += f"\n                    {line}"

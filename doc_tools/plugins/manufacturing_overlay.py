@@ -310,5 +310,12 @@ def _enum_value(v: Any) -> Any:
 
 
 def _lit(v: Any) -> str:
-    """Sanitize a value for embedding in a SPARQL string literal."""
-    return str(v).replace('"', "")
+    """Sanitize a value for embedding in a SPARQL string literal.
+
+    Delegates to ``escape_sparql_string`` so newlines / backslashes / tabs
+    / unescaped quotes are properly escaped (the prior implementation
+    only stripped raw double-quotes, which caused Fuseki 400s on any
+    multi-line extracted text — see jena_client.escape_sparql_string).
+    """
+    from doc_tools.utils.jena_client import escape_sparql_string
+    return escape_sparql_string(str(v))

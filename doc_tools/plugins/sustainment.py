@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
+from doc_tools.utils.jena_client import escape_sparql_string
 # --- BAML-ready Schemas (Domain: Sustainment) ---
 class PartImpact(BaseModel):
     affected_mpn: str
@@ -314,7 +315,7 @@ class SustainmentPlugin(AugmentationPlugin):
                 """
                 if part.ltb_date:
                     sparql += f"""
-                    <http://internal/components/{safe_mpn}> pcn:hasLastTimeBuyDate "{part.ltb_date}"^^xsd:date .
+                    <http://internal/components/{safe_mpn}> pcn:hasLastTimeBuyDate "{escape_sparql_string(part.ltb_date)}"^^xsd:date .
                     """
                 if part.replacement_mpn:
                     safe_rep = part.replacement_mpn.replace(' ', '_')

@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Any
 from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
+from doc_tools.utils.jena_client import escape_sparql_string
 
 # --- BAML-ready Schemas (Domain C: Compliance) ---
 class ComplianceRule(BaseModel):
@@ -153,19 +154,19 @@ class CompliancePlugin(AugmentationPlugin):
                 
                 INSERT DATA {{
                     iof:{rule_node_id} a iof:ComplianceRule ;
-                        iof:hasManualReference "{rule.manual_reference}" ;
-                        iof:hasRuleType "{rule.rule_type}" ;
-                        iof:hasDescription "{rule.rule_description}" .
+                        iof:hasManualReference "{escape_sparql_string(rule.manual_reference)}" ;
+                        iof:hasRuleType "{escape_sparql_string(rule.rule_type)}" ;
+                        iof:hasDescription "{escape_sparql_string(rule.rule_description)}" .
                 """
-                
+
                 if rule.target_metric:
                     sparql += f"""
-                        iof:{rule_node_id} iof:hasTargetMetric "{rule.target_metric}" .
+                        iof:{rule_node_id} iof:hasTargetMetric "{escape_sparql_string(rule.target_metric)}" .
                     """
-                        
+
                 if rule.applicable_hazard_class:
                     sparql += f"""
-                        iof:{rule_node_id} iof:appliesToHazardClass "{rule.applicable_hazard_class}" .
+                        iof:{rule_node_id} iof:appliesToHazardClass "{escape_sparql_string(rule.applicable_hazard_class)}" .
                     """
                     
                 sparql += "}"

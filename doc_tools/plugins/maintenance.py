@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
+from doc_tools.utils.jena_client import escape_sparql_string
 # --- BAML-ready Schemas (Domain D: MRO/Maintenance) ---
 class MaintenanceStep(BaseModel):
     procedure_id: str
@@ -328,26 +329,26 @@ class MaintenancePlugin(AugmentationPlugin):
                 
                 INSERT DATA {{
                     mro:{step_node_id} a mro:MaintenanceStep ;
-                        mro:hasAction "{step.action_verb}" ;
-                        mro:hasText "{step.instruction_text.replace('"', '')}" .
+                        mro:hasAction "{escape_sparql_string(step.action_verb)}" ;
+                        mro:hasText "{escape_sparql_string(step.instruction_text)}" .
                 """
-                
+
                 if step.standard_ref:
                     safe_std = step.standard_ref.replace("-", "").replace(" ", "_")
                     sparql += f"""
                         mro:{step_node_id} mro:governedBy mro:{safe_std}_Standard .
                     """
-                
+
                 if step.tooling:
                     for t in step.tooling:
                         sparql += f"""
-                            mro:{step_node_id} mro:usesTool "{t}" .
+                            mro:{step_node_id} mro:usesTool "{escape_sparql_string(t)}" .
                         """
-                        
+
                 if step.consumables:
                     for c in step.consumables:
                         sparql += f"""
-                            mro:{step_node_id} mro:consumesMaterial "{c}" .
+                            mro:{step_node_id} mro:consumesMaterial "{escape_sparql_string(c)}" .
                         """
 
                 if step.figure_references:

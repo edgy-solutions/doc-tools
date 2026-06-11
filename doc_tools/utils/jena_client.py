@@ -2,6 +2,36 @@ import os
 import httpx
 from SPARQLWrapper import SPARQLWrapper, POST, BASIC, JSON
 
+
+def escape_sparql_string(s: str) -> str:
+    """Escape a Python string for safe embedding in a SPARQL double-quoted
+    string literal (``"..."``).
+
+    SPARQL grammar (W3C SPARQL 1.1, section 19.7 "Strings") disallows the
+    following inside ``"..."``: raw newline, carriage return, raw backslash,
+    unescaped double-quote. Fuseki rejects bodies containing any of these
+    with ``HTTP 400 Bad Request`` — and silently corrupts the dataset if any
+    Update happens to be otherwise-valid by accident.
+
+    Plugin SPARQL builders historically used ``.replace('"', '')`` as their
+    only "sanitization", which strips quotes but leaves newlines and
+    backslashes intact. Any document with multi-line extracted text (i.e.
+    almost all of them) produced an invalid Update body. See
+    ``manufacturing.py:to_graph_queries`` for the original site; this helper
+    is the canonical fix.
+
+    Backslash MUST be escaped first to avoid double-escaping the
+    substitutions added by later steps.
+    """
+    return (
+        s.replace("\\", "\\\\")
+         .replace('"', '\\"')
+         .replace("\n", "\\n")
+         .replace("\r", "\\r")
+         .replace("\t", "\\t")
+    )
+
+
 class JenaClient:
     def __init__(self, url: str = None, dataset: str = None, username: str = None, password: str = None):
         # Prefer passed parameters, fall back to environment variables
