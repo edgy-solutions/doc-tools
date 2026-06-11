@@ -1,0 +1,137 @@
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix mesh: <http://invincible-agent/mesh#> .
+
+# =============================================================================
+# mesh: system ontology — platform-level concepts that ADR-0004's predicate
+# graph emits as input/output URIs on tool registrations. ADR-0019 §6 makes
+# them real :OntologyClass nodes with provenance so they are not phantoms.
+# =============================================================================
+#
+# Two top-level roots:
+#   - mesh:Request   — anything an engine accepts as input
+#   - mesh:Response  — anything an engine produces as output
+#
+# Both subclass prov:Entity since PROV-O's wasDerivedFrom is the lineage
+# relation the catalog tools rely on.
+# =============================================================================
+
+mesh:Request a owl:Class ;
+  rdfs:subClassOf prov:Entity ;
+  rdfs:label "Request" ;
+  rdfs:comment "Abstract parent of platform request shapes — anything an engine accepts as input." .
+
+mesh:Response a owl:Class ;
+  rdfs:subClassOf prov:Entity ;
+  rdfs:label "Response" ;
+  rdfs:comment "Abstract parent of platform response shapes — anything an engine produces as output." .
+
+# -----------------------------------------------------------------------------
+# Request shapes (inputs)
+# -----------------------------------------------------------------------------
+
+mesh:AgentTask a owl:Class ;
+  rdfs:subClassOf mesh:Request ;
+  rdfs:label "Agent Task" ;
+  rdfs:comment "A multi-step task delegated to a smolagents CodeAgent loop (Engine A)." .
+
+mesh:KnowledgeQuery a owl:Class ;
+  rdfs:subClassOf mesh:Request ;
+  rdfs:label "Knowledge Query" ;
+  rdfs:comment "A retrieval request against a manual / document corpus (Engine W)." .
+
+mesh:GraphQuery a owl:Class ;
+  rdfs:subClassOf mesh:Request ;
+  rdfs:label "Graph Query" ;
+  rdfs:comment "A request for the knowledge graph expert (Engine E) to answer using execute_cypher / search_manual_text / get_graph_schema." .
+
+mesh:CatalogAssetQuery a owl:Class ;
+  rdfs:subClassOf mesh:Request ;
+  rdfs:label "Catalog Asset Query" ;
+  rdfs:comment "Identifies a specific catalog asset (dataset, dashboard) by name — input shape for catalog-asset-level verbs (describeAsset, traceLineage, lookupOwnership, ...)." .
+
+mesh:CatalogScopeQuery a owl:Class ;
+  rdfs:subClassOf mesh:Request ;
+  rdfs:label "Catalog Scope Query" ;
+  rdfs:comment "Defines a scope (domain / owner / tag) without naming a single asset — input shape for enumerateCatalog." .
+
+mesh:DatasetAnalysisRequest a owl:Class ;
+  rdfs:subClassOf mesh:Request ;
+  rdfs:label "Dataset Analysis Request" ;
+  rdfs:comment "Input shape for analyzeDataset — names a dataset and the analytical question." .
+
+mesh:InstanceIdentifier a owl:Class ;
+  rdfs:subClassOf mesh:Request ;
+  rdfs:label "Instance Identifier" ;
+  rdfs:comment "A token that names a specific individual rather than describing a kind — a catalog asset path (e.g. gold.sales.revenue_summary), a procedure code (TEST-1234), a data module code (DMC), a tail number, an equipment serial, or a quoted titled name (e.g. 'Customer 360'). Input shape for the mesh:resolveInstance routing pre-step: any engine that owns an instance registry registers itself as a provider, and the router fans the identifier out to discover the named individual's class authoritatively. The lexical SHAPE of the token never decides the class — only providers do. See ADR Recipe v2 (instance resolution as registry-discovered capability)." .
+
+mesh:InstanceResolution a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Instance Resolution" ;
+  rdfs:comment "The provider's answer to a mesh:resolveInstance lookup: a (possibly empty) list of candidate instances, each with its class URI, label, identity (typically a URN), and the provider's relevance score. An empty list is a first-class answer — providers MUST abstain below their own relevance floor rather than return least-bad matches. Output shape for mesh:resolveInstance. The router consumes the candidate list with a decision table (exact match / fuzzy-unanimous-class / fuzzy-mixed-class abstain / empty fall-through) and only the class is used to set the routing subject; the identity flows downstream as a hint for the executing engine to re-verify against its own store." .
+
+# -----------------------------------------------------------------------------
+# Response shapes (outputs)
+# -----------------------------------------------------------------------------
+
+mesh:AgentResponse a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Agent Response" ;
+  rdfs:comment "The final output of a smolagents CodeAgent run." .
+
+mesh:GraphExpertResponse a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Graph Expert Response" ;
+  rdfs:comment "The output of an Engine E smolagents loop over Neo4j." .
+
+mesh:KnowledgeRetrievalResponse a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Knowledge Retrieval Response" ;
+  rdfs:comment "The output of an Engine W Weaviate hybrid retrieval." .
+
+mesh:DatasetAnalysisReport a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Dataset Analysis Report" ;
+  rdfs:comment "Structured analytical output (profile, statistics, anomaly indicators) from analyzeDataset." .
+
+mesh:AssetProfile a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Asset Profile" ;
+  rdfs:comment "Profile of a single catalog asset returned by describeAsset (owner, tags, schema summary, freshness)." .
+
+mesh:CatalogListing a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Catalog Listing" ;
+  rdfs:comment "Flat list of catalog assets returned by enumerateCatalog." .
+
+mesh:OwnershipFact a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Ownership Fact" ;
+  rdfs:comment "Output of lookupOwnership: owner identity (email, team) plus ownership timestamp." .
+
+mesh:LineageTopology a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Lineage Topology" ;
+  rdfs:comment "Upstream/downstream lineage chain returned by traceLineage, derived from prov:wasDerivedFrom." .
+
+mesh:SchemaDescription a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Schema Description" ;
+  rdfs:comment "Column-level schema (fields, types, descriptions) returned by findSchema." .
+
+mesh:FreshnessReport a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Freshness Report" ;
+  rdfs:comment "Last-updated timestamp + SLA comparison returned by checkFreshness." .
+
+mesh:TagFilterResult a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Tag Filter Result" ;
+  rdfs:comment "Assets matching a tag query, returned by filterByTag." .
+
+mesh:ImpactSet a owl:Class ;
+  rdfs:subClassOf mesh:Response ;
+  rdfs:label "Impact Set" ;
+  rdfs:comment "Downstream blast radius of a schema change, returned by assessImpact." .
