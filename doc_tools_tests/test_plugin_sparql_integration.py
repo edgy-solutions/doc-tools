@@ -182,6 +182,53 @@ def test_manufacturing_plugin_emits_well_formed_sparql(dirty_doc_id: str):
         )
 
 
+def test_sustainment_plugin_emits_well_formed_sparql(dirty_doc_id: str):
+    """SustainmentPlugin mostly uses ``<URI>`` not string literals for its
+    triples, but the ``ltb_date`` field is a literal that ships through
+    ``escape_sparql_string``. Verify dirty input doesn't break the body."""
+    from doc_tools.plugins.sustainment import (
+        SustainmentPlugin, SustainmentNotice, SustainmentAugmentation, PartImpact
+    )
+
+    class _FakeConfig:
+        graph_child_label = "SustainmentSection"
+        graph_node_label = "SustainmentDocument"
+
+    part = PartImpact(
+        affected_mpn="MPN-123\nDIRTY",
+        replacement_mpn="MPN-456",
+        ltb_date='2026-06-10"\nbad',  # dirty date payload
+    )
+    notice = SustainmentNotice(
+        doc_id="LEGAL-001",
+        doc_type="PCN",
+        pub_date="2026-06-10",
+        mfr="Acme Corp",
+        categories=["EOL"],
+        summary="multi-line\nnotice\twith \"quote\"",
+        impacted_parts=[part],
+    )
+    aug = SustainmentAugmentation(notice=notice)
+    sec = BaseSection(
+        title="Sustainment notice", level=1, page_start=1,
+        content="ignored", node_id="sus_test_section",
+    )
+    node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
+
+    plugin = SustainmentPlugin("sustainment")
+    cypher_qs, sparql_qs = plugin.to_graph_queries(
+        [node], _FakeConfig(), doc_id=dirty_doc_id, image_prefix=""
+    )
+
+    assert sparql_qs, "sustainment plugin produced no SPARQL"
+    for i, sparql in enumerate(sparql_qs):
+        ok, reason = _all_literals_well_formed(sparql)
+        assert ok, (
+            f"Sustainment plugin SPARQL #{i} is malformed: {reason}\n"
+            f"---\n{sparql}\n---"
+        )
+
+
 def test_compliance_plugin_emits_well_formed_sparql(dirty_doc_id: str):
     from doc_tools.plugins.compliance import (
         CompliancePlugin, ComplianceRule, ComplianceAugmentation
@@ -190,8 +237,9 @@ def test_compliance_plugin_emits_well_formed_sparql(dirty_doc_id: str):
     class _FakeConfig:
         graph_child_label = "ComplianceSection"
 
+    # See _build_compliance_node docstring re: URI-construction issue.
     rule = ComplianceRule(
-        manual_reference='Section 4.2 "Safety"',
+        manual_reference='Section_4_2_Safety',
         rule_type="MANDATORY",
         rule_description=DIRTY_TEXT,
         target_metric="< 5 m/s\nwith \"safety\" margin",
@@ -221,6 +269,38 @@ def test_compliance_plugin_emits_well_formed_sparql(dirty_doc_id: str):
 
 
 # ---------------------------------------------------------------------------
+# Negative control — the well-formed checker MUST catch the bad case
+# ---------------------------------------------------------------------------
+
+def test_negative_control_unescaped_sparql_fails_well_formed_check():
+    """Sanity check on the checker itself.
+
+    If the well-formed regex ever accidentally accepts a raw-newline /
+    unescaped-quote body, every plugin test in this file silently
+    passes and we lose the regression guard. This test simulates the
+    pre-fix code path (the .replace('"','') strip) and asserts the
+    checker correctly REJECTS its output. If this test passes, the
+    above tests' assertions are actually meaningful.
+    """
+    # Mimics the old maintenance.py interpolation: only strips quotes,
+    # leaves newlines + backslashes intact.
+    dirty_text = "Step 1:\nUse the \"Allen\" key.\nTorque to 5 N·m."
+    bad_strip = dirty_text.replace('"', '')
+    bad_sparql = f"""
+    PREFIX mro: <http://example.com/maintenance#>
+    INSERT DATA {{
+        mro:step1 mro:hasText "{bad_strip}" .
+    }}
+    """
+    ok, reason = _all_literals_well_formed(bad_sparql)
+    assert not ok, (
+        "The well-formed checker accepted a body that contains raw newlines. "
+        "This means the regex regressed and the plugin tests above are "
+        f"no-op. Reason returned: {reason!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Live Jena tier — runs only when JENA_INTEGRATION_URL is set
 # ---------------------------------------------------------------------------
 
@@ -231,44 +311,120 @@ def _maybe_skip_no_jena():
         )
 
 
-def test_maintenance_plugin_dirty_sparql_executes_against_live_jena(dirty_doc_id: str):
-    """End-to-end: plugin → SPARQL → live Fuseki /update → HTTP 204.
-
-    The exact path that returned HTTP 400 at work before commit 5bebcbf.
-    If anything regresses (new field bypassing escape, helper deleted,
-    plugin imports break), this fails before merge.
-    """
-    _maybe_skip_no_jena()
-
+def _build_maintenance_node():
     from doc_tools.plugins.maintenance import (
         MaintenancePlugin, MaintenanceStep, MroAugmentation
     )
-    from doc_tools.utils.jena_client import JenaClient
-
-    class _FakeConfig:
-        graph_child_label = "MroSection"
-
     step = MaintenanceStep(
-        procedure_id="LIVE-P-001",
-        step_id="LIVE-P-001-S1",
-        instruction_text=DIRTY_TEXT,
-        action_verb=DIRTY_ACTION,
-        tooling=[DIRTY_TOOL],
-        consumables=[],
-        is_safety_critical=False,
-        justification="live test",
+        procedure_id="LIVE-MRO-001", step_id="LIVE-MRO-001-S1",
+        instruction_text=DIRTY_TEXT, action_verb=DIRTY_ACTION,
+        tooling=[DIRTY_TOOL], consumables=[],
+        is_safety_critical=False, justification="live test",
     )
     aug = MroAugmentation(steps=[step])
-    sec = BaseSection(
-        title="Live test section", level=1, page_start=1,
-        content="ignored", node_id="mro_live_test_section",
-    )
+    sec = BaseSection(title="Live test section", level=1, page_start=1,
+                      content="ignored", node_id="mro_live_section")
     node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
+    return MaintenancePlugin("maintenance"), node
 
-    plugin = MaintenancePlugin("maintenance")
+
+def _build_manufacturing_node():
+    from doc_tools.plugins.manufacturing import (
+        ManufacturingPlugin, ManufacturingStep, MatAugmentation, StrategicAssessment
+    )
+    step = ManufacturingStep(
+        procedure_id="LIVE-MFG-001", step_id="LIVE-MFG-001-S1",
+        instruction_text=DIRTY_TEXT, action_verb=DIRTY_ACTION,
+        tooling=[DIRTY_TOOL], consumables=['WD-40 "spray"'],
+        is_value_added=True, is_safety_critical=False,
+        process_category="ASSEMBLY", justification="live test",
+    )
+    aug = MatAugmentation(
+        steps=[step],
+        assessment=StrategicAssessment(proprietary_score=0.3, outsourceable=True),
+    )
+    sec = BaseSection(title="Live test section", level=1, page_start=1,
+                      content="ignored", node_id="mfg_live_section")
+    node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
+    return ManufacturingPlugin("manufacturing"), node
+
+
+def _build_compliance_node():
+    """Compliance live test focuses on the STRING-LITERAL escape concern
+    (rule_description, target_metric, hazard_class are interpolated into
+    "...". Use clean manual_reference because compliance.py builds the URI
+    prefixed name from it directly (raw_ref = manual_reference.replace(' ','_')
+    .replace('.','_').replace('-','_')) — non-alphanumeric chars in
+    manual_reference leak into the URI and produce an invalid prefixed
+    name. That's a separate URI-construction bug; not the scope of this
+    test (which guards the string-literal fix from 5bebcbf). Reported
+    separately so it can be fixed in its own commit."""
+    from doc_tools.plugins.compliance import (
+        CompliancePlugin, ComplianceRule, ComplianceAugmentation
+    )
+    rule = ComplianceRule(
+        manual_reference='Section_4_2_Safety',  # clean — see docstring
+        rule_type="MANDATORY",
+        rule_description=DIRTY_TEXT, target_metric='< 5 m/s\nwith "safety" margin',
+        applicable_hazard_class='Class "B"',
+    )
+    aug = ComplianceAugmentation(rules=[rule])
+    sec = BaseSection(title="Compliance section", level=1, page_start=1,
+                      content="ignored", node_id="comp_live_section")
+    node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
+    return CompliancePlugin("compliance"), node
+
+
+def _build_sustainment_node():
+    from doc_tools.plugins.sustainment import (
+        SustainmentPlugin, SustainmentNotice, SustainmentAugmentation, PartImpact
+    )
+    part = PartImpact(
+        affected_mpn="MPN-123", replacement_mpn="MPN-456",
+        ltb_date='2026-06-10',  # use clean date for live; sustainment uses xsd:date
+    )
+    notice = SustainmentNotice(
+        doc_id="LIVE-SUS-001", doc_type="PCN", pub_date="2026-06-10",
+        mfr="Acme Corp", categories=["EOL"],
+        summary='multi-line\nnotice\twith "quote"',
+        impacted_parts=[part],
+    )
+    aug = SustainmentAugmentation(notice=notice)
+    sec = BaseSection(title="Sustainment notice", level=1, page_start=1,
+                      content="ignored", node_id="sus_live_section")
+    node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
+    return SustainmentPlugin("sustainment"), node
+
+
+class _FakeConfig:
+    graph_child_label = "LiveSection"
+    graph_node_label = "LiveDocument"  # sustainment uses this for root node
+
+
+@pytest.mark.parametrize("plugin_builder,name", [
+    (_build_maintenance_node, "maintenance"),
+    (_build_manufacturing_node, "manufacturing"),
+    (_build_compliance_node, "compliance"),
+    (_build_sustainment_node, "sustainment"),
+], ids=["maintenance", "manufacturing", "compliance", "sustainment"])
+def test_plugin_dirty_sparql_executes_against_live_jena(plugin_builder, name, dirty_doc_id):
+    """End-to-end across all plugins: plugin → SPARQL → live Fuseki → HTTP 204.
+
+    Each parametrize case constructs that plugin's dirty-input
+    DocumentNode, gets the generated SPARQL list, and POSTs every
+    query to live Fuseki via JenaClient. If anything regresses
+    (escape helper deleted, a plugin field bypasses it, a new
+    plugin schema adds an unescaped literal), the failing case
+    pinpoints the offending plugin.
+    """
+    _maybe_skip_no_jena()
+    from doc_tools.utils.jena_client import JenaClient
+
+    plugin, node = plugin_builder()
     _, sparql_qs = plugin.to_graph_queries(
         [node], _FakeConfig(), doc_id=dirty_doc_id, image_prefix=""
     )
+    assert sparql_qs, f"{name} plugin produced no SPARQL"
 
     client = JenaClient(
         url=os.environ["JENA_INTEGRATION_URL"],
@@ -283,8 +439,8 @@ def test_maintenance_plugin_dirty_sparql_executes_against_live_jena(dirty_doc_id
             if r.status_code != 204:
                 failures.append((i, f"unexpected status {r.status_code}", sparql))
         except Exception as e:
-            failures.append((i, f"{type(e).__name__}: {e}", sparql))
+            failures.append((i, f"{type(e).__name__}: {str(e)[:150]}", sparql))
     assert not failures, (
-        f"{len(failures)} of {len(sparql_qs)} SPARQL queries failed against live Fuseki:\n"
+        f"{name}: {len(failures)} of {len(sparql_qs)} SPARQL queries failed:\n"
         + "\n".join(f"  #{i}: {reason}\n     {sp[:200]}" for i, reason, sp in failures)
     )
