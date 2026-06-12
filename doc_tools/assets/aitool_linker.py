@@ -168,6 +168,32 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     except json.JSONDecodeError:
         domains = []
 
+    # Per-provider fan-out budget declared by the engine at
+    # registration. The router (Engine O) reads this and uses it
+    # as the timeout for /resolve_instance calls — Engine D wants
+    # 8s (DataHub GraphQL p95), Engine E wants 2s (sub-second
+    # Cypher). When None, the router falls back to its global
+    # floor; never set the floor below the slowest declared
+    # provider. Without this property piped through, every
+    # provider inherits the floor as its ceiling — exactly the
+    # asymmetry that hid Engine D's 2s-strangle bug last night.
+    try:
+        timeout_s_raw = props.get("mesh_timeout_s")
+        timeout_s = float(timeout_s_raw) if timeout_s_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        timeout_s = None
+
+    # ARCHITECTURAL NOTE — allowlist drift is its own bug class.
+    # This function is an explicit allowlist of mesh_* properties
+    # that get materialized onto the Neo4j relationship. When the
+    # mesh-registrar gateway adds a new customProperty, it's
+    # SILENTLY dropped here unless this dict gets an entry too.
+    # mesh_provider + mesh_timeout_s were added together in the
+    # Recipe v2 Gate-6 arc (2026-06-12) and the absence in the
+    # allowlist nearly hid both. Future registration properties
+    # need an entry here. A v0.2 cleanup should swap the allowlist
+    # for a `mesh_*` prefix pass-through (whitelist by convention,
+    # not enumeration) and kill this bug class entirely.
     return {
         "iri": props["mesh_verb_iri"],
         "synonyms": synonyms,
@@ -183,6 +209,9 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
         "tool_kind": props.get("mesh_tool_kind", "AITool"),
         "version": props.get("mesh_tool_version", "0.0.0"),
         "sdk_version": props.get("mesh_sdk_version", ""),
+        # Recipe v2 / Gate-6 additions — router uses these.
+        "provider": props.get("mesh_provider", ""),
+        "timeout_s": timeout_s,
     }
 
 
