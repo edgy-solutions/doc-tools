@@ -503,6 +503,18 @@ def sync_aitool_predicate_to_neo4j(
     # because Cypher cannot take a relationship type as a parameter)
     # remains the relationship-side primitive — only the *node*-side
     # MERGEs are now MATCHes.
+    # apoc.merge.relationship's third argument is the MATCH KEY — if an
+    # existing rel matches it, we update; otherwise we create. Identity
+    # used to be just ``{iri: verb_iri}``, which meant N providers
+    # registering the SAME predicate (e.g. Engine D and Engine E both
+    # offering mesh:resolveInstance) collapsed into ONE edge with
+    # last-write-wins semantics. Recipe v2 / Gate 6 needs each provider's
+    # registration to live as its own edge so the discovery Cypher can
+    # return multiple endpoint_urls — adding ``_tool_urn`` to the match
+    # key makes the identity (verb_iri × tool_urn), one edge per
+    # registration. Found 2026-06-12 when engine_e_resolve_instance
+    # silently overwrote engine_d_resolve_instance's row.
+    match_key = {"iri": verb_iri, "_tool_urn": rel_props.get("tool_urn", "")}
     cypher = """
     MATCH (s:OntologyClass {uri: $input_uri})
     MATCH (o:OntologyClass {uri: $output_uri})
@@ -510,7 +522,7 @@ def sync_aitool_predicate_to_neo4j(
     CALL apoc.merge.relationship(
         s,
         $verb_local,
-        {iri: $verb_iri},
+        $match_key,
         $props,
         o,
         $props
@@ -527,6 +539,7 @@ def sync_aitool_predicate_to_neo4j(
                 output_uri=output_uri,
                 verb_local=verb_local,
                 verb_iri=verb_iri,
+                match_key=match_key,
                 props=rel_props,
             )
             record = result.single()
