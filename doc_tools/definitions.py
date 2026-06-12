@@ -115,15 +115,43 @@ datahub_sensor = DataHubSensorComponent(
 )
 _datahub_sensor_defs = datahub_sensor.build_defs(None)
 
-# AITool binding plane (ADR-0004 Step B). Mirror of the Dataset sensor for
-# SDK-registered mesh tools -- polls DataHub for mlModel entities tagged with
-# mesh_is_registration=true and syncs their predicate edges into Neo4j.
-aitool_sensor = AIToolSensorComponent(
-    name="aitool_registration_sensor",
-    datahub_gms_url=os.getenv("DATAHUB_GMS_URL", "http://datahub-gms:8080/api/graphql"),
-    datahub_token=os.getenv("DATAHUB_TOKEN", "")
-)
-_aitool_sensor_defs = aitool_sensor.build_defs(None)
+# AITool binding plane — RETIRED 2026-06-13 per ADR-0006 §Addendum.
+#
+# Gateway v0.2 (agent_fleet/mesh_registrar) is now sole writer of AITool
+# predicate edges into Neo4j + Weaviate. The sensor's role was to poll
+# DataHub for mesh_is_registration=true MCPs and materialize them; v0.2
+# does that synchronously in the request path with bounded forward-retry
+# + saga compensation, eliminating the sync-gap window the sensor's
+# run-key dedup + allowlist drift bug classes lived in.
+#
+# Why DEACTIVATED, not deleted:
+#   - The component, asset (sync_aitool_predicate_to_neo4j), and helper
+#     functions in doc_tools/assets/aitool_linker.py stay in the
+#     codebase so a one-off manual re-sync of a specific tool_urn is
+#     still possible via Dagster's launchpad (the asset takes a
+#     tool_urn config and is idempotent). It just isn't triggered by
+#     a sensor anymore.
+#   - Rollback is a one-line revert: re-add the sensor block to
+#     Definitions() below if v0.2 needs to be turned off in an
+#     emergency. Until that happens, AITool MCPs in DataHub are
+#     audit-trail records, not materialization triggers.
+#   - The Dataset sync sensor (datahub_sensor) is UNCHANGED — it
+#     operates on glossary terms / Dataset HAS_DATA edges, which v0.2
+#     explicitly does not touch (ADR-0006 §Addendum §Scope guardrails).
+#
+# A short-window race during cutover is the only failure mode this
+# transition introduces — see ADR-0006 §Addendum §Cutover. The mitigation
+# in that section is: the conjunctive-read invariant makes any
+# half-written state unrouted, so even if the sensor fires once during
+# the rollout window with allowlist-drift'd properties, the resulting
+# edge is unrouted until v0.2 re-registers it cleanly.
+#
+# aitool_sensor = AIToolSensorComponent(
+#     name="aitool_registration_sensor",
+#     datahub_gms_url=os.getenv("DATAHUB_GMS_URL", "http://datahub-gms:8080/api/graphql"),
+#     datahub_token=os.getenv("DATAHUB_TOKEN", "")
+# )
+# _aitool_sensor_defs = aitool_sensor.build_defs(None)
 
 # 3. Assets & Jobs
 all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion])
@@ -182,9 +210,15 @@ s3_io_manager = s3_pickle_io_manager.configured({
 })
 
 defs = Definitions(
-    assets=list(_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + list(_aitool_sensor_defs.assets) + all_assets,
-    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + list(_aitool_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_aitool_sensor_defs.sensors),
+    # AITool sensor RETIRED 2026-06-13 per ADR-0006 §Addendum — the
+    # gateway v0.2 saga is now sole writer of AITool predicate edges.
+    # The aitool_linker module (with sync_aitool_predicate_to_neo4j)
+    # is loaded via all_assets so the asset is still callable for
+    # one-off manual syncs through the Dagster launchpad. The SENSOR
+    # is what's gone — no automatic polling of DataHub for mlModel MCPs.
+    assets=list(_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
+    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -226,6 +260,6 @@ del _ontology_sensor_defs
 del _design_sensor_defs
 del _design_parser_defs
 del _datahub_sensor_defs
-del _aitool_sensor_defs
+# del _aitool_sensor_defs  # RETIRED 2026-06-13 — gateway v0.2 is sole writer; see ADR-0006 §Addendum
 del _sqlserver_extractor_defs
 del _oracle_extractor_defs
