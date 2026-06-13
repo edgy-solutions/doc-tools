@@ -272,26 +272,42 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
 def sync_jena_ontologies_to_neo4j(
     context: AssetExecutionContext,
     config: S3FileConfig,
-    jena: JenaResource,
+    s3: S3Resource,
     neo4j: Neo4jResource,
 ) -> MaterializeResult:
-    """Sync TTL-ingested classes from Jena to Neo4j via n10s.
+    """Sync TTL-ingested classes from MinIO to Neo4j via rdflib extraction.
 
     Closes the Session-1 DAG-wiring break that made TTL→Neo4j the deploy-
     blocker (see module docstring above). Depends only on
     `ingest_ontology_to_jena` so the XML pipeline's sync stays
     independent.
 
-    Per-partition: each TTL file gets its own materialization, scoped to
-    its own Jena Named Graph and domain. Failures in one partition don't
-    cascade to others.
+    Implementation note (Session-2 lesson): the first attempt used
+    n10s.rdf.import.fetch against Jena. That ran into three layered
+    problems — a wrong Fuseki endpoint path (`/ds/query` 404s instead of
+    `/ds/sparql`), n10s's silent-zero failure mode (it returns success
+    with triplesLoaded=0 when the fetch HTTP-errors), AND a
+    :Resource-vs-:OntologyClass label collision with the historical
+    direct-load shape that would have duplicated every node. Replaced
+    with the simpler shape: extract classes via rdflib from the S3
+    source (same RDF the ingest_ontology_to_jena step parses) and emit
+    them as direct MERGEs. Mirrors the validated pattern from
+    seed_mro_extension_runtime.py and from sync_ontology_to_weaviate's
+    Weaviate path — same source data, same extraction, same convention.
+
+    The seam stays first-class observable: this asset's only job is
+    "TTL classes reach Neo4j's OntologyClass graph." Failures raise
+    loudly. Idempotent — re-runs MERGE on URI and update label/
+    definition/domain.
     """
-    # ----- Resolve domain (same precedence as ingest_ontology_to_jena) -----
+    # ----- Resolve domain + S3 key (same precedence as ingest_ontology_to_jena) -----
     file_url = config.file_url
     if file_url.startswith("s3://"):
         url_parts = file_url[5:].split("/", 1)
+        bucket = url_parts[0]
         obj_key = url_parts[1] if len(url_parts) > 1 else ""
     else:
+        bucket = os.getenv("ONTOLOGY_BUCKET", "ontologies")
         obj_key = context.run.tags.get("s3_key") or ""
         if not obj_key:
             obj_key = context.partition_key.replace("__", "/")
@@ -311,119 +327,171 @@ def sync_jena_ontologies_to_neo4j(
     else:
         domain = parts[0]
         context.log.warning(
-            f"No explicit 'domain' in config.extra_metadata; falling back to "
-            f"path-derived '{domain}'. Pass extra_metadata={{'domain': "
-            f"'<SEMANTIC_DOMAIN>'}} for deliberate classification — the "
-            f"same lesson as ingest_ontology_to_jena."
+            f"No explicit 'domain' in config.extra_metadata; falling back "
+            f"to path-derived '{domain}'. Pass extra_metadata={{'domain': "
+            f"'<SEMANTIC_DOMAIN>'}} for deliberate classification — same "
+            f"lesson as ingest_ontology_to_jena."
         )
 
-    graph_uri = f"http://internal/{domain}"
-    neo4j_client = neo4j.get_client()
-
-    # ----- Step 1: build the SPARQL CONSTRUCT fetch URL --------------------
-    sparql_construct = (
-        f"CONSTRUCT {{ ?s ?p ?o }} WHERE {{ "
-        f"GRAPH <{graph_uri}> {{ ?s ?p ?o }} }}"
-    )
-    jena_base = jena.url.rstrip("/")
-    jena_ds = jena.dataset
-    encoded_query = urllib.parse.quote(sparql_construct)
-    fetch_url = f"{jena_base}/{jena_ds}/query?query={encoded_query}"
-
+    # ----- Step 1: fetch + parse the RDF from MinIO -----------------------
+    bucket = os.getenv("ONTOLOGY_BUCKET", "ontologies")
+    filename = parts[-1]
+    s3_client = s3.get_client()
     context.log.info(
-        f"Triggering n10s fetch from Jena graph <{graph_uri}> "
-        f"(domain={domain}) for partition {context.partition_key}"
+        f"Fetching {filename!r} from s3://{bucket}/{obj_key} for "
+        f"domain '{domain}'"
     )
-
-    # ----- Step 2: n10s import. Raises on failure (no swallow). -----------
     try:
-        neo4j_client.execute_query(
-            "CALL n10s.rdf.import.fetch($url, 'Turtle', "
-            "{ headerParams: { Accept: 'application/x-turtle' } })",
-            {"url": fetch_url},
-        )
+        response = s3_client.get_object(Bucket=bucket, Key=obj_key)
+        rdf_content = response["Body"].read()
     except Exception as e:
         raise Exception(
-            f"n10s.rdf.import.fetch failed for domain '{domain}' "
-            f"(graph={graph_uri}): {e}. Check that "
-            f"init_neo4j_n10s has been materialized (n10s config + "
-            f"unique-URI constraint) and that the Jena named graph has "
-            f"triples (CONSTRUCT against an empty graph imports zero "
-            f"triples silently, but the call should still succeed)."
+            f"Failed to fetch RDF from s3://{bucket}/{obj_key} for "
+            f"Neo4j sync: {e}. Note ingest_ontology_to_jena (upstream "
+            f"dep) succeeded so the file exists; check MinIO ACLs and "
+            f"the S3 resource credentials."
         ) from e
 
-    # ----- Step 3: relabel owl:Class nodes as :OntologyClass --------------
-    # n10s preserves rdf:type as a typed edge. We identify nodes that are
-    # owl:Class instances and apply the conventional :OntologyClass label
-    # plus the `domain` property the resolver filters on. Mirrors the
-    # historical shape of the existing mesh#AgentTask node (verified via
-    # `MATCH (c:OntologyClass {uri: '...AgentTask'}) RETURN labels(c)`).
-    #
-    # `handleVocabUris: 'IGNORE'` (the n10s_init config) means owl:Class
-    # is imported as a :Resource node with `uri = 'http://www.w3.org/...'`,
-    # and the rdf:type relationship lands as a typed relationship whose
-    # type is the raw IRI string. We query for it explicitly.
-    OWL_CLASS_URI = "http://www.w3.org/2002/07/owl#Class"
-    RDF_TYPE_URI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+    g = rdflib.Graph()
+    fmt = "xml" if filename.endswith((".rdf", ".owl")) else "turtle"
+    try:
+        g.parse(data=rdf_content, format=fmt)
+    except Exception as e:
+        raise Exception(
+            f"RDF parse failed for {filename!r} (format={fmt}): {e}. "
+            f"This is downstream of ingest_ontology_to_jena which "
+            f"already validated the same content — the failure here "
+            f"is probably a content/MinIO drift between the two assets."
+        ) from e
+
+    # ----- Step 2: SPARQL-extract classes (same shape as the Weaviate sync) ----
+    extract_query = """
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    PREFIX owl:  <http://www.w3.org/2002/07/owl#>
+    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+    SELECT ?uri ?label ?definition
+    WHERE {
+        ?uri a ?type .
+        FILTER(?type IN (owl:Class, rdfs:Class))
+        OPTIONAL { ?uri rdfs:label ?label }
+        OPTIONAL {
+            { ?uri skos:definition ?definition }
+            UNION
+            { ?uri rdfs:comment ?definition }
+        }
+    }
+    """
+    rows = list(g.query(extract_query))
+    classes = []
+    for row in rows:
+        uri = str(row.uri)
+        # Drop blank nodes; they're never resolver targets.
+        if not uri or uri.startswith("Bnode_") or uri.startswith("_:"):
+            continue
+        label = str(row.label) if row.label is not None else uri.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
+        definition = str(row.definition) if row.definition is not None else ""
+        classes.append({"uri": uri, "label": label, "definition": definition})
+
+    if not classes:
+        # Silent-zero is the same failure shape that bit the n10s
+        # attempt. The asset's contract is "TTL classes reach Neo4j" —
+        # zero classes is a contract violation that should turn red.
+        raise Exception(
+            f"Zero classes extracted from {filename!r} (domain "
+            f"'{domain}') — the SPARQL extraction found no "
+            f"owl:Class / rdfs:Class triples. This could be a "
+            f"parse-but-no-types issue, or a content drift. The "
+            f"upstream ingest_ontology_to_jena validated {len(g)} "
+            f"triples; classes among them: 0. Fix the TTL or the "
+            f"extraction pattern."
+        )
 
     context.log.info(
-        f"Post-sync relabeling: identifying owl:Class nodes in domain "
-        f"'{domain}' and tagging them as :OntologyClass"
+        f"Extracted {len(classes)} classes from {filename!r} for "
+        f"domain '{domain}'. First 3: "
+        f"{[c['uri'] for c in classes[:3]]}"
     )
 
-    relabel_summary = neo4j_client.execute_query(
-        """
-        MATCH (cls:Resource {uri: $owl_class_uri})
-        MATCH (n:Resource)-[r]->(cls)
-        WHERE type(r) = $rdf_type_uri OR type(r) ENDS WITH '#type'
-        WITH DISTINCT n
-        SET n:OntologyClass, n.domain = $domain
-        WITH n
-        OPTIONAL MATCH (n)-[lbl]->(lblObj)
-        WHERE type(lbl) ENDS WITH '#label'
-        SET n.label = coalesce(lblObj.uri, lblObj.value, n.label)
-        RETURN count(DISTINCT n) AS relabeled
-        """,
-        {
-            "owl_class_uri": OWL_CLASS_URI,
-            "rdf_type_uri": RDF_TYPE_URI,
-            "domain": domain.upper(),
-        },
-    )
-
-    # ----- Step 4: best-effort label extraction from rdfs:label literals --
-    # n10s also stores literal-valued properties on the Resource node when
-    # configured. If the label property landed as `rdfs__label` or similar
-    # n10s-shortened key, grab it.
+    # ----- Step 3: MERGE into Neo4j ---------------------------------------
+    # Match the validated pattern from seed_mro_extension_runtime.py:
+    # MERGE on uri; SET label / definition / domain. Idempotent. Preserves
+    # any rich properties (ingest_run_id, source_ontology, provenance,
+    # ingested_at) that the historical direct-load shape established —
+    # this asset doesn't overwrite them, just refreshes the
+    # resolver-visible label / definition / domain.
+    neo4j_client = neo4j.get_client()
     try:
         neo4j_client.execute_query(
             """
-            MATCH (n:OntologyClass)
-            WHERE n.domain = $domain AND n.label IS NULL
-            SET n.label = coalesce(
-                n.`http://www.w3.org/2000/01/rdf-schema#label`,
-                n.rdfs__label,
-                n.label
-            )
+            UNWIND $classes AS cls
+            MERGE (c:OntologyClass {uri: cls.uri})
+            SET c.label = cls.label,
+                c.definition = cls.definition,
+                c.domain = $domain,
+                c.last_synced_at = datetime(),
+                c.synced_by = 'sync_jena_ontologies_to_neo4j',
+                c.synced_from = $s3_path
             """,
-            {"domain": domain.upper()},
+            {
+                "classes": classes,
+                "domain": domain.upper(),
+                "s3_path": f"s3://{bucket}/{obj_key}",
+            },
         )
     except Exception as e:
-        context.log.warning(
-            f"Label fallback assignment failed (non-fatal): {e}"
+        raise Exception(
+            f"Neo4j MERGE failed for domain '{domain}' "
+            f"({len(classes)} classes): {e}"
+        ) from e
+
+    # ----- Step 4: verification read (the seam's standing assertion) ------
+    # The asset's contract is "TTL classes reach Neo4j." Verify by
+    # reading back. This is the analog of the saga's read-back probe.
+    verify_uris = [c["uri"] for c in classes]
+    try:
+        result = neo4j_client.execute_query(
+            """
+            UNWIND $uris AS uri
+            OPTIONAL MATCH (c:OntologyClass {uri: uri})
+            RETURN uri AS asked, c.uri AS landed, c.domain AS domain
+            """,
+            {"uris": verify_uris},
         )
+        missing = [r["asked"] for r in result.records if r["landed"] is None]
+    except Exception as e:
+        context.log.warning(f"Verification readback failed: {e}")
+        missing = []
+
+    if missing:
+        raise Exception(
+            f"Verification readback found {len(missing)} classes that "
+            f"did NOT land in Neo4j despite the MERGE returning. "
+            f"Missing: {missing[:5]}{' ...' if len(missing) > 5 else ''}. "
+            f"This is the read-back-probe failure mode the v0.2 saga "
+            f"introduced for predicate edges; same shape applied here."
+        )
+
+    context.log.info(
+        f"Sync complete. {len(classes)} :OntologyClass nodes "
+        f"materialized at full-IRI form for domain '{domain}'. "
+        f"Verification readback green."
+    )
 
     return MaterializeResult(
         metadata={
             "domain": domain,
-            "graph_uri": graph_uri,
-            "fetch_url": fetch_url,
+            "classes_merged": len(classes),
+            "s3_path": f"s3://{bucket}/{obj_key}",
             "partition_key": context.partition_key,
+            "first_class_uris": [c["uri"] for c in classes[:5]],
             "rule": (
                 "Option 3 — TTL→Neo4j is a first-class observable seam; "
-                "depends only on ingest_ontology_to_jena. See "
-                "invincible-agent state doc dated 2026-06-12 for the "
-                "decision history."
+                "depends only on ingest_ontology_to_jena. rdflib "
+                "extraction + direct MERGE (chosen over n10s after the "
+                "Session-2 first attempt revealed three layered "
+                "problems). See invincible-agent state doc dated "
+                "2026-06-12 for the decision history."
             ),
         }
     )
