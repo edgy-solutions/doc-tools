@@ -194,7 +194,11 @@ xml_graph_sync_job = define_asset_job(
 
 ingest_ontology_job = define_asset_job(
     name="ingest_ontology_job",
-    selection=["ingest_ontology_to_jena"],
+    # Option 3 fix (2026-06-12): include sync_jena_ontologies_to_neo4j so
+    # TTL ingests propagate to Neo4j's OntologyClass graph in the same
+    # job. Without this, the Session-1 DAG-wiring break stays open and
+    # canonical classes never reach the runtime graph the resolver reads.
+    selection=["ingest_ontology_to_jena", "sync_jena_ontologies_to_neo4j"],
     tags=ontology_k8s_tags
 )
 
