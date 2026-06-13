@@ -45,6 +45,7 @@ from doc_tools.parsers.mil_info_code_map import (
     DATA_MODULE_ROOT,
     MIL_NS,
 )
+from doc_tools.parsers.dmc_canonicalizer import assemble_canonical_dmc
 
 
 # -----------------------------------------------------------------------------
@@ -94,26 +95,27 @@ def extract_facts(xml_bytes: bytes) -> S1000dFacts:
     facts.info_code = dm_code.get("infoCode", "")
     facts.system_code = dm_code.get("systemCode", "")
 
-    # S1000D canonical DMC string form — fields are CONCATENATED within
-    # certain groups (subSystemCode+subSubSystemCode, disassyCode+variant,
-    # infoCode+variant) and DASH-separated between groups. Pattern:
-    #   <mic>-<sdc>-<sysc>-<ssc><sssc>-<asy>-<dis><dvar>-<info><ivar>-<itemloc>
-    # This matches what s1kd-newdm accepts as input (and what humans
-    # write on documents). Splitting every field with `-` would
-    # produce e.g. "SANDBOXRTX-B-72-3-0-10-00-A-520-A-A" — not
-    # canonical, and the round-trip identity (input → parse → write
-    # → input) would break.
-    facts.dmc = "-".join([
-        facts.model_ident_code,
-        dm_code.get("systemDiffCode", ""),
-        facts.system_code,
-        dm_code.get("subSystemCode", "") + dm_code.get("subSubSystemCode", ""),
-        dm_code.get("assyCode", ""),
-        (dm_code.get("disassyCode", "") or dm_code.get("disasCode", ""))
-            + (dm_code.get("disassyCodeVariant", "") or dm_code.get("disasCodeVariant", "")),
-        facts.info_code + dm_code.get("infoCodeVariant", ""),
-        dm_code.get("itemLocationCode", ""),
-    ])
+    # S1000D canonical DMC string form — assembled via the SHARED
+    # canonicalizer (dmc_canonicalizer.assemble_canonical_dmc), which
+    # is the same code path the B3 phone book uses to normalize
+    # incoming queries. Same-canonicalizer-both-sides: a bug in
+    # canonicalization fails the ingest tests AND the phone-book
+    # probes identically, which is the architectural property the
+    # rule was named for (architect's B3 framing, 2026-06-13). Do
+    # NOT reimplement the join here.
+    facts.dmc = assemble_canonical_dmc(
+        mic=facts.model_ident_code,
+        sdc=dm_code.get("systemDiffCode", ""),
+        sysc=facts.system_code,
+        ssc=dm_code.get("subSystemCode", ""),
+        sssc=dm_code.get("subSubSystemCode", ""),
+        asy=dm_code.get("assyCode", ""),
+        dis=dm_code.get("disassyCode", "") or dm_code.get("disasCode", ""),
+        dvar=dm_code.get("disassyCodeVariant", "") or dm_code.get("disasCodeVariant", ""),
+        info=facts.info_code,
+        ivar=dm_code.get("infoCodeVariant", ""),
+        itemloc=dm_code.get("itemLocationCode", ""),
+    )
 
     # ----- Title -----
     tech = root.find(".//dmTitle/techName")
