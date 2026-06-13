@@ -93,20 +93,27 @@ def extract_facts(xml_bytes: bytes) -> S1000dFacts:
     facts.model_ident_code = dm_code.get("modelIdentCode", "")
     facts.info_code = dm_code.get("infoCode", "")
     facts.system_code = dm_code.get("systemCode", "")
-    parts = [
+
+    # S1000D canonical DMC string form — fields are CONCATENATED within
+    # certain groups (subSystemCode+subSubSystemCode, disassyCode+variant,
+    # infoCode+variant) and DASH-separated between groups. Pattern:
+    #   <mic>-<sdc>-<sysc>-<ssc><sssc>-<asy>-<dis><dvar>-<info><ivar>-<itemloc>
+    # This matches what s1kd-newdm accepts as input (and what humans
+    # write on documents). Splitting every field with `-` would
+    # produce e.g. "SANDBOXRTX-B-72-3-0-10-00-A-520-A-A" — not
+    # canonical, and the round-trip identity (input → parse → write
+    # → input) would break.
+    facts.dmc = "-".join([
         facts.model_ident_code,
         dm_code.get("systemDiffCode", ""),
         facts.system_code,
-        dm_code.get("subSystemCode", ""),
-        dm_code.get("subSubSystemCode", ""),
+        dm_code.get("subSystemCode", "") + dm_code.get("subSubSystemCode", ""),
         dm_code.get("assyCode", ""),
-        dm_code.get("disassyCode", "") or dm_code.get("disasCode", ""),
-        dm_code.get("disassyCodeVariant", "") or dm_code.get("disasCodeVariant", ""),
-        facts.info_code,
-        dm_code.get("infoCodeVariant", ""),
+        (dm_code.get("disassyCode", "") or dm_code.get("disasCode", ""))
+            + (dm_code.get("disassyCodeVariant", "") or dm_code.get("disasCodeVariant", "")),
+        facts.info_code + dm_code.get("infoCodeVariant", ""),
         dm_code.get("itemLocationCode", ""),
-    ]
-    facts.dmc = "-".join(p for p in parts if p)
+    ])
 
     # ----- Title -----
     tech = root.find(".//dmTitle/techName")
