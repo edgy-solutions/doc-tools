@@ -1,16 +1,17 @@
 """Shared canonical DMC string canonicalizer.
 
 Per the architect's B3 framing: "same-canonicalizer-both-sides" — the
-B2 ingest writer and the B3 phone-book reader must use the IDENTICAL
-function for normalizing DMC strings. Two parallel implementations
-would reproduce the exact `n_candidates=0`-when-it-should-match
-failure that 49a3fdb (the B2 DMC string-form fix) just closed at the
-write layer.
+B2 ingest writer and the B3 read path (Engine E's /resolve_dmc) must
+use the IDENTICAL function for normalizing DMC strings. Two parallel
+implementations would reproduce the exact `n_candidates=0`-when-it-
+should-match failure that 49a3fdb (the B2 DMC string-form fix) just
+closed at the write layer.
 
 This module is the single source of truth. `s1000d_ingest` imports
-`canonicalize_dmc` for the write path; the B3 phone book imports it
-for the read path. A bug in canonicalization fails both tests
-identically — exactly the property the rule was named for.
+`canonicalize_dmc` for the write path; Engine E (neo4j_expert)
+imports it for the /resolve_dmc read path. A bug in canonicalization
+fails both tests identically — exactly the property the rule was
+named for.
 
 Per S1000D Issue 4.2 (and back-compatible with 5.0 / 6.0), the
 canonical DMC string form is:
@@ -31,16 +32,16 @@ between the two fields):
     info + ivar   CONCAT, 3+1=4 chars (info code + variant)
     itemloc       1 char (item location code)
 
-Example: `SANDBOXRTX-B-72-30-10-00A-520A-A`
-  mic=SANDBOXRTX, sdc=B, sysc=72, ssc=3, sssc=0, asy=10,
+Example: `EXAMPLE-B-72-30-10-00A-520A-A`
+  mic=EXAMPLE, sdc=B, sysc=72, ssc=3, sssc=0, asy=10,
   dis=00, dvar=A, info=520, ivar=A, itemloc=A.
 
 Acceptable input forms (all normalize to the canonical above):
 
-    SANDBOXRTX-B-72-30-10-00A-520A-A         (already canonical)
-    DMC-SANDBOXRTX-B-72-30-10-00A-520A-A     (with "DMC-" prefix)
-    sandboxrtx-b-72-30-10-00a-520a-a         (lowercase)
-    "  DMC-SANDBOXRTX-B-72-30-10-00A-520A-A "  (whitespace padding)
+    EXAMPLE-B-72-30-10-00A-520A-A         (already canonical)
+    DMC-EXAMPLE-B-72-30-10-00A-520A-A     (with "DMC-" prefix)
+    example-b-72-30-10-00a-520a-a         (lowercase)
+    "  DMC-EXAMPLE-B-72-30-10-00A-520A-A "  (whitespace padding)
 
 Forms that DO NOT canonicalize (returns None):
 
@@ -60,7 +61,7 @@ from typing import Optional
 # normalization. Field groupings match the docstring's table.
 #
 # mic is intentionally permissive (1+ chars, alphanumeric) so test
-# corpora like SANDBOXRTX validate alongside production MICs.
+# corpora (with any well-formed MIC) validate alongside production MICs.
 _CANONICAL_RE = re.compile(
     r"^"
     r"(?P<mic>[A-Z0-9]+)"
@@ -117,7 +118,7 @@ def canonicalize_dmc(raw: Optional[str]) -> Optional[str]:
 
     Used by:
       - doc_tools.parsers.s1000d_ingest.extract_facts (WRITE path)
-      - agent_fleet.dmc_phone_book.main (READ path)
+      - agent_fleet.neo4j_expert.main /resolve_dmc handler (READ path)
 
     These two paths must agree on the canonical form. A bug here
     breaks both, which is the architectural property the
@@ -190,9 +191,9 @@ def assemble_canonical_dmc(
     construction — not by accident of how a join happens to format.
     Same function the canonicalizer's regex normalizes TO.
 
-    The B2 ingest's extract_facts calls this to build facts.dmc; the
-    B3 phone book calls canonicalize_dmc(query) to normalize a user
-    query to the same form for the lookup.
+    The B2 ingest's extract_facts calls this to build facts.dmc;
+    Engine E's /resolve_dmc handler calls canonicalize_dmc(query) to
+    normalize a user query to the same form for the lookup.
     """
     return (
         f"{mic.upper()}-"
