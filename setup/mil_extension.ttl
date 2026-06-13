@@ -1,0 +1,132 @@
+@prefix mil:  <http://edgy-solutions.com/ontology/mil#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix iof:  <https://spec.industrialontologies.org/ontology/core/Core/> .
+
+mil:MIL_Ontology a owl:Ontology ;
+    rdfs:label "Unified Military Technical Manual Ontology" ;
+    rdfs:comment "Bridges S1000D, IADS, and DITA into a single equipment graph. Two orthogonal axes: SOURCE FORMAT (how the document was authored — ingest/provenance concern) and CONTENT KIND (what the document IS — routing concern, derived from the S1000D information code). Routing resolves against the content-kind hierarchy under mil:DataModule; ingest records the source-format class for lineage. An instance carries both: INSTANCE_OF its content kind, plus mil:hasInfoCode / a source-format marker." .
+
+# ===========================================================================
+# AXIS 1 — SOURCE FORMAT (ingest provenance; NOT the routing-visible layer)
+# These record how a module was authored. They are siblings, distinguished by
+# parser/source, and exist for lineage — not for the resolver candidate pool.
+# ===========================================================================
+
+mil:DataModule a owl:Class ;
+    rdfs:subClassOf iof:InformationContentEntity ;
+    rdfs:label "S1000D Data Module" ;
+    skos:definition "A unit of technical information authored to the S1000D standard, identified by its Data Module Code (DMC). Root of the content-kind hierarchy below." .
+
+mil:IadsNode a owl:Class ;
+    rdfs:subClassOf iof:InformationContentEntity ;
+    rdfs:label "IADS XML Node" ;
+    skos:definition "A technical information unit authored in the IADS XML format. Source-format class for ingest provenance." .
+
+mil:DitaNode a owl:Class ;
+    rdfs:subClassOf iof:InformationContentEntity ;
+    rdfs:label "DITA Task or Topic" ;
+    skos:definition "A technical information unit authored as a DITA task or topic. Source-format class for ingest provenance." .
+
+# ===========================================================================
+# AXIS 2 — CONTENT KIND (the ROUTING-VISIBLE hierarchy)
+# Subclasses of mil:DataModule, distinguished by WHAT THE CONTENT IS, derived
+# deterministically from the S1000D information code (mil:hasInfoCode). These
+# are the subjects user questions resolve to. A kind enters the resolver
+# candidate pool only when a verb is typed against it (Wave-3 discipline);
+# bulk-declared here from the standardized info-code taxonomy, held out of the
+# pool until verb coverage exists.
+# ===========================================================================
+
+mil:DescriptiveDataModule a owl:Class ;
+    rdfs:subClassOf mil:DataModule ;
+    rdfs:label "Descriptive Data Module" ;
+    skos:definition "Describes what a system, subsystem, or item IS — function, construction, operation. S1000D information code family 0xx." ;
+    rdfs:comment "Routing subject for descriptive/'what is' queries about equipment." .
+
+mil:ProcedureDataModule a owl:Class ;
+    rdfs:subClassOf mil:DataModule ;
+    rdfs:label "Procedure Data Module" ;
+    skos:definition "Describes HOW to perform a task — maintenance, operation, servicing, assembly. S1000D information code families 2xx (operation) and 5xx/7xx (maintenance/repair)." ;
+    rdfs:comment "Routing subject for 'how do I', step, and procedure queries. Maps to the :Procedure / :ManufacturingStep instance labels (see ingest mapping)." .
+
+mil:FaultIsolationDataModule a owl:Class ;
+    rdfs:subClassOf mil:DataModule ;
+    rdfs:label "Fault Isolation Data Module" ;
+    skos:definition "Describes how to detect, isolate, and correct a fault — symptoms, fault trees, troubleshooting. S1000D information code family 4xx." ;
+    rdfs:comment "Routing subject for diagnostic / 'why is it broken' / 'how do I find the fault' queries. The diagnostic lane." .
+
+mil:IllustratedPartsDataModule a owl:Class ;
+    rdfs:subClassOf mil:DataModule ;
+    rdfs:label "Illustrated Parts Data Module" ;
+    skos:definition "Catalogs the parts of an assembly with illustrations and part numbers — the IPD/IPC. S1000D information code family 9xx." ;
+    rdfs:comment "Routing subject for parts-breakdown, IPD, and 'what parts make up X' queries." .
+
+mil:Diagram a owl:Class ;
+    rdfs:subClassOf mil:DataModule ;
+    rdfs:label "Diagram" ;
+    skos:definition "A visual technical illustration — schematic, wiring diagram, exploded view, callout — attached to a data module." ;
+    rdfs:comment "Routing subject (or output) for diagram/figure queries." .
+
+# ===========================================================================
+# MATERIAL ARTIFACTS (instances cross-linked to data modules)
+# ===========================================================================
+
+mil:Tool a owl:Class ;
+    rdfs:subClassOf iof:MaterialArtifact ;
+    rdfs:label "Support Equipment or Tool" ;
+    skos:definition "A tool or item of support equipment required to perform a procedure." .
+
+mil:Part a owl:Class ;
+    rdfs:subClassOf iof:MaterialArtifact ;
+    rdfs:label "Spare Part" ;
+    skos:definition "A spare or replacement part referenced by a data module." .
+
+# ===========================================================================
+# OBJECT PROPERTIES — the instance cross-links.
+# These are the join keys the composition layer (ADR-0011) will walk:
+# "what procedure covers replacing part X" traverses mil:hasPart;
+# "what does this procedure require" traverses mil:requiresTool.
+# Typed now so composition is over named predicates, not hand-waved edges.
+# ===========================================================================
+
+mil:requiresTool a owl:ObjectProperty ;
+    rdfs:domain iof:InformationContentEntity ;
+    rdfs:range mil:Tool ;
+    rdfs:label "Requires Tool" ;
+    skos:definition "Relates a data module (typically a procedure) to a tool or support equipment its steps require." .
+
+mil:hasPart a owl:ObjectProperty ;
+    rdfs:domain iof:InformationContentEntity ;
+    rdfs:range mil:Part ;
+    rdfs:label "Has Spare Part" ;
+    skos:definition "Relates a data module to a spare part it references or whose replacement it covers." .
+
+# ===========================================================================
+# DATATYPE PROPERTIES
+# mil:hasInfoCode is the DETERMINISTIC CLASSIFICATION KEY — the ingest path
+# reads it to assign the Axis-2 content kind. No LLM in that path.
+# ===========================================================================
+
+mil:hasInstructionText a owl:DatatypeProperty ;
+    rdfs:domain iof:InformationContentEntity ;
+    rdfs:range xsd:string ;
+    rdfs:label "Instruction Text" .
+
+mil:hasWarning a owl:DatatypeProperty ;
+    rdfs:domain iof:InformationContentEntity ;
+    rdfs:range xsd:string ;
+    rdfs:label "Safety Warning" .
+
+mil:hasSNS a owl:DatatypeProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label "Standard Numbering System Code" ;
+    skos:definition "The S1000D Standard Numbering System code identifying the system/subsystem the module applies to. Used for equipment cross-linking." .
+
+mil:hasInfoCode a owl:DatatypeProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label "S1000D Information Code" ;
+    skos:definition "The S1000D information code. The DETERMINISTIC source of the Axis-2 content-kind classification: 0xx -> Descriptive, 2xx/5xx/7xx -> Procedure, 4xx -> FaultIsolation, 9xx -> IllustratedParts. Read at ingest to assign INSTANCE_OF; no model inference." .
