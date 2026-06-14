@@ -205,3 +205,123 @@ def assemble_canonical_dmc(
         f"{info.upper()}{ivar.upper()}-"
         f"{itemloc.upper()}"
     )
+
+
+# =============================================================================
+# MIL-STD-40051 WPNO canonicalizer (per architect's 40051-track assignment,
+# 2026-06-13). The 40051 wpno is the analog of S1000D's DMC — the WP-level
+# instance identifier. Same "same-canonicalizer-both-sides" rule: the WP
+# ingest reader and any future WP phone-book read path must use the
+# IDENTICAL function. Lives in the same file as canonicalize_dmc so the
+# byte-identity drift guard between agent_fleet/utils and doc-tools covers
+# both round-trips with one assertion.
+#
+# IMPORTANT: 40051 wpno values DO NOT have a single fixed grammar. The DTD
+# declares `wpno` as `CDATA` — any string is valid. Observed forms in
+# 40051 TMs include:
+#   - "EXAMPLE-X-XXXX-VAR"  (full type + WP num + TM number + variant)
+#   - "P0005"               (type + WP num only; no TM tail)
+#   - "introwp_name"        (descriptive name; underscore-separated)
+#
+# Therefore canonicalize_wpno is a NORMALIZER, not a structural validator.
+# It returns None only when input is empty/whitespace-only — anything else
+# is canonicalized to a deterministic form. The "honest miss" applies to
+# garbage input, not to legitimate variant shapes.
+#
+# Canonicalization rules:
+#   1. strip surrounding whitespace + quotes
+#   2. lowercase
+#   3. replace any run of whitespace OR underscore with a single hyphen
+#   4. reject pure-empty + strings with no alphanumeric character
+#   5. return verbatim normalized form
+# =============================================================================
+
+_WPNO_HAS_ALNUM = re.compile(r"[a-z0-9]")
+
+
+@dataclass(frozen=True)
+class WPNOFields:
+    """Decomposed 40051 wpno. The structured form `<type><num>-<tm_id>`
+    when the input matches that grammar; otherwise wptype/wpnum are
+    empty and the full string lives in tm_id. The canonical form is
+    always recoverable via `.canonical`."""
+    wptype: str
+    wpnum: str
+    tm_id: str
+
+    @property
+    def canonical(self) -> str:
+        if self.wptype and self.wpnum:
+            return f"{self.wptype}{self.wpnum}-{self.tm_id}" if self.tm_id else f"{self.wptype}{self.wpnum}"
+        return self.tm_id
+
+
+_WPNO_STRUCTURED_RE = re.compile(
+    r"^"
+    r"(?P<wptype>[a-z])"
+    r"(?P<wpnum>[0-9]+)"
+    r"(?:-(?P<tail>[a-z0-9-]+))?"
+    r"$"
+)
+
+
+def canonicalize_wpno(raw: Optional[str]) -> Optional[str]:
+    """Normalize a 40051 wpno string to its canonical form.
+
+    Returns the canonical string on success, None if the input is
+    empty or contains no alphanumeric character (true garbage).
+    NEVER raises on user input — "honest miss" for true garbage,
+    successful normalization for any well-formed identifier.
+
+    Used by:
+      - doc_tools.parsers.mil_40051_ingest.read_40051_wp (WRITE path)
+      - any future 40051 phone-book read path (analogous to /resolve_dmc)
+
+    Same-canonicalizer-both-sides: a bug here fails write and read
+    paths identically. The drift guard between agent_fleet/utils and
+    doc-tools enforces that the two copies stay byte-identical so this
+    property holds for both DMC and wpno.
+    """
+    fields = parse_wpno(raw)
+    return fields.canonical if fields else None
+
+
+def parse_wpno(raw: Optional[str]) -> Optional[WPNOFields]:
+    """Same as canonicalize_wpno but returns the decomposed fields.
+
+    For inputs matching the structured "type+num-tail" grammar, wptype
+    and wpnum are extracted; for unstructured inputs (descriptive name
+    form like "rpstl_introwp"), they're empty and the full string is
+    tm_id.
+    """
+    if not raw:
+        return None
+    s = raw.strip().strip('"').strip("'")
+    s = re.sub(r"[\s_]+", "-", s)
+    s = s.lower()
+    if not _WPNO_HAS_ALNUM.search(s):
+        return None
+    m = _WPNO_STRUCTURED_RE.match(s)
+    if m:
+        return WPNOFields(
+            wptype=m.group("wptype"),
+            wpnum=m.group("wpnum"),
+            tm_id=m.group("tail") or "",
+        )
+    return WPNOFields(wptype="", wpnum="", tm_id=s)
+
+
+def assemble_canonical_wpno(*, wptype: str, wpnum: str, tm_id: str) -> str:
+    """Assemble a canonical wpno from its decomposed parts.
+
+    Use this in the WRITE path so the writer's output is canonical by
+    construction (mirrors assemble_canonical_dmc).
+
+    If wptype/wpnum are both empty (unstructured form), returns tm_id
+    lowercased — the round-trip identity for descriptive-name wpnos.
+    """
+    if wptype and wpnum:
+        if tm_id:
+            return f"{wptype.lower()}{wpnum}-{tm_id.lower()}"
+        return f"{wptype.lower()}{wpnum}"
+    return tm_id.lower()
