@@ -131,3 +131,28 @@ def test_to_graph_queries_matches_golden():
     )
     expected = json.loads(GOLDEN.read_text())
     assert actual == expected
+
+
+def test_sparql_iris_sanitized_for_slashy_doc_ids():
+    """Regression: doc-id-derived node ids contain '/' (e.g. 'inbound/22'), which
+    is illegal in a SPARQL prefixed local name and made Fuseki 400 the whole
+    Update. The IRI local part must be sanitized."""
+    step = ManufacturingStep(
+        procedure_id="0010", step_id="1.1", instruction_text="Apply sealant.",
+        action_verb="Apply", tooling=[], consumables=[], is_value_added=True,
+        is_safety_critical=False, process_category="Transformation",
+        justification="x", figure_references=["7"],
+    )
+    sec = BaseSection(title="t", level=0, page_start=1, content="", node_id="inbound/22")
+    node = DocumentNode(
+        base_extraction=sec,
+        domain_augmentation=MatAugmentation(
+            steps=[step], assessment=StrategicAssessment(proprietary_score=0.0, outsourceable=False)
+        ),
+    )
+    _, sparql = ManufacturingPlugin(domain_type="manufacturing").to_graph_queries(
+        [node], SimpleNamespace(graph_child_label="Part")
+    )
+    body = " ".join(sparql)
+    assert "mfg:step_inbound_22_1.1" in body   # '/' sanitized to '_'
+    assert "inbound/22" not in body            # no raw slash anywhere in the RDF body

@@ -124,3 +124,16 @@ def test_extract_images_switches_to_hi_res(mock_partition):
 def test_extract_text_reraises_on_failure(_partition):
     with pytest.raises(RuntimeError):
         ext.extract_text_and_metadata("/tmp/x.pdf")
+
+
+# --------------------------------------------------------------------------- #
+# SPARQL IRI local-part sanitization (Fuseki 400 fix)
+# --------------------------------------------------------------------------- #
+def test_safe_iri_local_replaces_unsafe_chars():
+    from doc_tools.utils.jena_client import safe_iri_local
+    # slash from a doc id like "inbound/22" is the real-world offender
+    assert safe_iri_local("step_inbound/22_1.1") == "step_inbound_22_1.1"
+    assert safe_iri_local("a b#c") == "a_b_c"
+    assert safe_iri_local(".lead.trail.") == "lead.trail"  # no leading/trailing dot
+    assert safe_iri_local("") == "_"
+    assert safe_iri_local("12A") == "12A"  # already-safe passes through

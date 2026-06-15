@@ -1,6 +1,26 @@
 import os
+import re
 import httpx
 from SPARQLWrapper import SPARQLWrapper, POST, BASIC, JSON
+
+_IRI_LOCAL_UNSAFE = re.compile(r"[^A-Za-z0-9_.-]")
+
+
+def safe_iri_local(s: str) -> str:
+    """Sanitize a string into a SPARQL/Turtle prefixed-name local part (PN_LOCAL).
+
+    Companion to :func:`escape_sparql_string` (which protects string *literals*).
+    This one protects *IRIs* of the form ``prefix:local``. Plugin SPARQL builders
+    form IRIs like ``mfg:{step_node_id}``, and ``step_node_id`` is derived from
+    the doc id — which is a path such as ``inbound/22``. A raw ``/`` (or space,
+    ``#``, etc.) is illegal in a prefixed local name, so Fuseki rejects the whole
+    Update body with ``HTTP 400 Bad Request``.
+
+    Replaces every character outside ``[A-Za-z0-9_.-]`` with ``_`` and strips any
+    leading/trailing ``.`` (PN_LOCAL may not begin or end with a dot).
+    """
+    cleaned = _IRI_LOCAL_UNSAFE.sub("_", s or "")
+    return cleaned.strip(".") or "_"
 
 
 def escape_sparql_string(s: str) -> str:

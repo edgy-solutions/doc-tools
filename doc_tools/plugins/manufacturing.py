@@ -4,7 +4,7 @@ from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.plugins import manufacturing_overlay as overlay
 from doc_tools.utils.formatters import convert_element_to_markdown
-from doc_tools.utils.jena_client import escape_sparql_string
+from doc_tools.utils.jena_client import escape_sparql_string, safe_iri_local
 # --- BAML-ready Schemas (Domain B: MAT/Manufacturing) ---
 class ManufacturingStep(BaseModel):
     # extra="allow" lets proprietary overlay fields (injected at runtime via
@@ -344,7 +344,10 @@ class ManufacturingPlugin(AugmentationPlugin):
                 cypher_queries.append({"query": edge_cypher, "params": params})
 
                 # --- JENA SPARQL/RDF ---
-                step_uri = f"mfg:{step_node_id}"
+                # Sanitize the IRI local part: step_node_id derives from the doc id
+                # (e.g. "inbound/22"), and a raw "/" is illegal in a prefixed name
+                # -> Fuseki 400 Bad Request on the whole Update.
+                step_uri = f"mfg:{safe_iri_local(step_node_id)}"
                 sparql = f"""
                 PREFIX mfg: <http://example.com/manufacturing#>
                 PREFIX iof: <http://example.com/iof#>
@@ -362,7 +365,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                     sparql += f"\n                    {line}"
                 # Base figure triples.
                 for fig in (step.figure_references or []):
-                    safe_fig = fig.replace(" ", "_").replace('"', "")
+                    safe_fig = safe_iri_local(fig)
                     sparql += f"\n                    {step_uri} mfg:referencesFigure mfg:fig_{safe_fig} ."
                     sparql += f"\n                    mfg:fig_{safe_fig} a mfg:Figure ."
                 sparql += "\n                }"
