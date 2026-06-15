@@ -44,3 +44,18 @@ def test_table_without_html_marks_structure_unavailable():
     md = convert_element_to_markdown(el)
     assert "Structure unavailable" in md
     assert "raw cells only" in md
+
+
+def test_table_with_missing_cells_fills_without_future_warning():
+    # A table with an empty numeric cell -> pandas NaN. fillna("") on a numeric
+    # column raised a FutureWarning; the astype(object) fix must avoid it.
+    import warnings
+    html = (
+        "<table><thead><tr><th>Qty</th><th>Note</th></tr></thead>"
+        "<tbody><tr><td>4</td><td></td></tr><tr><td></td><td>see spec</td></tr></tbody></table>"
+    )
+    el = {"type": "Table", "text": "raw", "metadata": {"text_as_html": html}}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)  # fail if the dtype warning returns
+        md = convert_element_to_markdown(el)
+    assert "Qty" in md and "see spec" in md

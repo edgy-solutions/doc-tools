@@ -30,11 +30,15 @@ def convert_element_to_markdown(element: Union[Dict[str, Any], Any]) -> str:
                 # Wrap HTML in StringIO to avoid pandas deprecation warnings
                 dfs = pd.read_html(StringIO(html_str))
                 if dfs:
-                    df = dfs[0]
-                    df.fillna("", inplace=True) # Replace NaNs with empty strings
+                    # Cast to object before fillna: an all-NaN / numeric column
+                    # raises a pandas FutureWarning when filled with "" in place.
+                    df = dfs[0].astype(object).fillna("")  # NaNs -> empty strings
                     md_table = df.to_markdown(index=False)
             except Exception as e:
-                logger.warning(f"HTML to Markdown conversion failed: {e}")
+                # Non-fatal: degenerate/empty table HTML (e.g. "No tables found
+                # matching pattern") just falls back to the raw HTML. Debug-level
+                # so it doesn't spam the logs once per table on every document.
+                logger.debug(f"HTML to Markdown conversion failed, using raw HTML: {e}")
                 md_table = html_str # Fallback to raw HTML
         
         # HYBRID APPROACH: Return both the spatial Markdown grid AND the supplemental raw text.
