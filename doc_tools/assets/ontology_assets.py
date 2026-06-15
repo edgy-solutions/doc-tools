@@ -365,6 +365,30 @@ def sync_jena_ontologies_to_neo4j(
         ) from e
 
     # ----- Step 2: SPARQL-extract classes (same shape as the Weaviate sync) ----
+    #
+    # Blank-node owl:Class entries are EXCLUDED at the SPARQL layer via
+    # !isBlank(?uri). Imported ontologies (PROV-O, IOF_Core, S3000L,
+    # DINEN62264, etc.) declare many anonymous owl:Class restrictions
+    # (rdfs:subClassOf of a unionOf / intersectionOf / Restriction expression,
+    # which rdflib materializes as a fresh blank node with type owl:Class).
+    # These have no human label, no semantic content, and no role as resolver
+    # targets — they're RDF authoring artifacts, not concepts.
+    #
+    # PRE-FIX bug history (2026-06-15): this filter was Python-side and
+    # checked `uri.startswith("Bnode_")` / `"_:"` which **never match**
+    # rdflib's `BNode.__str__` output (`N[a-f0-9]{32}`). The filter has been
+    # a no-op since Session 2's keystone — every ontology re-ingest leaked
+    # ~441 blank-node :OntologyClass nodes (substrate count grew 1,191
+    # blank-node phantoms across two writers, this pipeline contributing
+    # 441). Surfaced by the mesh:Thing investigation's pre-flight provenance
+    # grouping. Inert in routing (no verbs route through them, no LLM picks
+    # them — labels are the hex IDs themselves) but cosmetic debt that ships
+    # to every fresh bootstrap.
+    #
+    # Defense-in-depth: SPARQL filter is primary; Python isinstance check is
+    # secondary belt-and-braces in case a future rdflib version changes
+    # SPARQL evaluation. Either alone would close the leak; both together
+    # surface the regression at two layers.
     extract_query = """
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     PREFIX owl:  <http://www.w3.org/2002/07/owl#>
@@ -374,6 +398,7 @@ def sync_jena_ontologies_to_neo4j(
     WHERE {
         ?uri a ?type .
         FILTER(?type IN (owl:Class, rdfs:Class))
+        FILTER(!isBlank(?uri))
         OPTIONAL { ?uri rdfs:label ?label }
         OPTIONAL {
             { ?uri skos:definition ?definition }
@@ -385,8 +410,12 @@ def sync_jena_ontologies_to_neo4j(
     rows = list(g.query(extract_query))
     classes = []
     for row in rows:
+        # Defense-in-depth: rdflib's BNode subclasses URIRef; isinstance
+        # check fires even if SPARQL didn't filter (e.g., future rdflib
+        # behavior change). The string check is kept for legacy outputs.
+        if isinstance(row.uri, rdflib.term.BNode):
+            continue
         uri = str(row.uri)
-        # Drop blank nodes; they're never resolver targets.
         if not uri or uri.startswith("Bnode_") or uri.startswith("_:"):
             continue
         label = str(row.label) if row.label is not None else uri.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
