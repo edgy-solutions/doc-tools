@@ -251,7 +251,13 @@ def build_knowledge_graph(
         neo4j_client.close()
     except Exception:
         pass
-        
+    # The Weaviate v4 client holds gRPC/HTTP connections that must be closed
+    # explicitly, or it leaks (ResourceWarning Con004) across runs.
+    try:
+        weaviate_client.close()
+    except Exception:
+        pass
+
     return {"doc_id": doc_id, "status": "processed", "node_label": node_label, "collection": collection_name}
 
 @asset
