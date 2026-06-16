@@ -87,6 +87,7 @@ class ManufacturingStep(BaseModel):
     figure_references: typing.List[str] = Field(description='Extract ONLY explicit figure, image, graphic, or drawing identifiers referenced in this step. Valid examples: \'Figure 3\', \'Fig. 12A\', \'Graphic 7\', \'Drawing 101-B\'. Extract the identifier only (e.g., \'3\', \'12A\', \'7\', \'101-B\'). Do NOT extract vague references like \'see the diagram below\' or \'as illustrated\'. Return empty array if no explicit figure ID is present.')
 
 class MatAugmentation(BaseModel):
+    model_config = ConfigDict(extra='allow')
     steps: typing.List["ManufacturingStep"]
     assessment: typing.Optional["StrategicAssessment"] = None
 

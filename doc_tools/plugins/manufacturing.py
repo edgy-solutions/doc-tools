@@ -35,6 +35,10 @@ class StrategicAssessment(BaseModel):
     outsourceable: bool
 
 class MatAugmentation(BaseModel):
+    # extra="allow" lets document-level overlay fields (injected via TypeBuilder
+    # onto the @@dynamic MatAugmentation) ride through into extraction.json.
+    model_config = ConfigDict(extra="allow")
+
     steps: List[ManufacturingStep]
     assessment: StrategicAssessment
 
@@ -229,7 +233,13 @@ class ManufacturingPlugin(AugmentationPlugin):
                 if resp.assessment.outsourceable:
                     final_assessment.outsourceable = True
             
-            augmentation = MatAugmentation(steps=all_steps, assessment=final_assessment)
+            augmentation = MatAugmentation(
+                steps=all_steps,
+                assessment=final_assessment,
+                # document-level overlay fields (summary, extraction notes, ...)
+                # merged across chunks; empty when no document-scope fields exist.
+                **overlay.extract_document_fields(baml_responses, overlay_fields),
+            )
             global_section = BaseSection(title="Full Manufacturing Plan", level=0, page_start=0, content="", node_id=doc_id)
             return [DocumentNode(base_extraction=global_section, domain_augmentation=augmentation)]
             

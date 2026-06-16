@@ -51,6 +51,11 @@ class StrategicAssessment {
 class MatAugmentation {
   steps ManufacturingStep[]
   assessment StrategicAssessment
+
+  // Allow document-level overlay fields (e.g. a work-instruction summary or
+  // extraction notes) to be injected at runtime via TypeBuilder, alongside the
+  // per-step fields injected onto ManufacturingStep.
+  @@dynamic
 }
 
 function ExtractWorkInstructions(text: string, system_instructions: string) -> MatAugmentation {

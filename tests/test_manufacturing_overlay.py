@@ -68,7 +68,10 @@ class _Cls:
 
 
 class _TB:
-    def __init__(self): self.ManufacturingStep = _Cls(); self.classes = {}
+    def __init__(self):
+        self.ManufacturingStep = _Cls()
+        self.MatAugmentation = _Cls("MatAugmentation")
+        self.classes = {}
     def add_class(self, name): c = _Cls(name); self.classes[name] = c; return c
     def string(self): return _FT("string")
     def int(self): return _FT("int")
@@ -179,3 +182,46 @@ def test_render_object_blocks_skips_without_object_node():
     f = ov.OverlayField(name="x", kind="object_list", proprietary=True, item_properties=[ov.ObjectField("a")])
     blocks, params = ov.render_object_blocks([f], SimpleNamespace(x=[{"a": "1"}]))
     assert blocks == [] and params == {}
+
+
+# --------------------------------------------------------------------------- #
+# Document-scope fields (per-document, injected onto MatAugmentation)
+# --------------------------------------------------------------------------- #
+def test_inject_routes_document_scope_to_mat_augmentation():
+    fields = [
+        ov.OverlayField(name="lot_code", kind="scalar", proprietary=True),                      # step
+        ov.OverlayField(name="work_summary", kind="scalar", proprietary=True, scope="document"),
+    ]
+    tb = _TB()
+    ov.inject_proprietary_properties(tb, fields)
+    assert "lot_code" in tb.ManufacturingStep.added
+    assert "work_summary" in tb.MatAugmentation.added
+    assert "work_summary" not in tb.ManufacturingStep.added
+
+
+def test_extract_document_fields_merges_across_chunks():
+    from types import SimpleNamespace
+    fields = [
+        ov.OverlayField(name="work_summary", kind="scalar", proprietary=True, scope="document"),
+        ov.OverlayField(name="notes", kind="list", proprietary=True, scope="document"),
+        ov.OverlayField(name="lot_code", kind="scalar", proprietary=True),  # step-scope -> ignored
+    ]
+    responses = [
+        SimpleNamespace(work_summary="Part A overview.", notes=["gap1"], lot_code="x"),
+        SimpleNamespace(work_summary="Part B overview.", notes=["gap1", "gap2"], lot_code="y"),
+        SimpleNamespace(work_summary="", notes=[], lot_code="z"),
+    ]
+    out = ov.extract_document_fields(responses, fields)
+    assert "lot_code" not in out  # step-scope excluded
+    assert out["work_summary"] == "Part A overview.\n\nPart B overview."  # distinct concat
+    assert out["notes"] == ["gap1", "gap2"]  # unioned across chunks
+
+
+def test_document_scope_field_never_renders_on_a_step():
+    from types import SimpleNamespace
+    # even mis-configured with neo4j_attr + a default, a document field must not
+    # leak onto every step node.
+    f = ov.OverlayField(name="work_summary", kind="scalar", proprietary=True, scope="document",
+                        neo4j_attr=True, neo4j_default="X")
+    clauses, params = ov.render_step_attrs([f], SimpleNamespace())
+    assert clauses == [] and params == {}

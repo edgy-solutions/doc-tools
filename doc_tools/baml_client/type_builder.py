@@ -83,8 +83,8 @@ class TypeBuilder(type_builder.TypeBuilder):
         return ManufacturingStepBuilder(self)
 
     @property
-    def MatAugmentation(self) -> "MatAugmentationViewer":
-        return MatAugmentationViewer(self)
+    def MatAugmentation(self) -> "MatAugmentationBuilder":
+        return MatAugmentationBuilder(self)
 
     @property
     def MroAugmentation(self) -> "MroAugmentationViewer":
@@ -833,13 +833,25 @@ class MatAugmentationAst:
         return self._props
 
 
-class MatAugmentationViewer(MatAugmentationAst):
+class MatAugmentationBuilder(MatAugmentationAst):
     def __init__(self, tb: type_builder.TypeBuilder):
         super().__init__(tb)
 
     
-    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
-        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    def add_property(self, name: str, type: baml_py.FieldType) -> baml_py.ClassPropertyBuilder:
+        if name in self._properties:
+            raise ValueError(f"Property {name} already exists.")
+        return self._bldr.property(name).type(type)
+
+    def list_properties(self) -> typing.List[typing.Tuple[str, baml_py.ClassPropertyBuilder]]:
+        return self._bldr.list_properties()
+
+    def remove_property(self, name: str) -> None:
+        self._bldr.remove_property(name)
+
+    def reset(self) -> None:
+        self._bldr.reset()
+
     
 
 
@@ -849,14 +861,19 @@ class MatAugmentationProperties:
         self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
 
     
+    def __getattr__(self, name: str) -> baml_py.ClassPropertyBuilder:
+        if name not in self.__properties:
+            raise AttributeError(f"Property {name} not found.")
+        return self.__bldr.property(name)
+
     
     @property
-    def steps(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("steps"))
+    def steps(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("steps")
     
     @property
-    def assessment(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("assessment"))
+    def assessment(self) -> baml_py.ClassPropertyBuilder:
+        return self.__bldr.property("assessment")
     
     
 

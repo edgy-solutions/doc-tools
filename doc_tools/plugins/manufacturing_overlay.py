@@ -76,6 +76,7 @@ class OverlayField:
     kind: str                    # "scalar" | "list" | "bool" | "int" | "enum" | "object_list"
     description: str = ""        # BAML extraction instruction (the @description)
     optional: bool = True
+    scope: str = "step"          # "step" (per ManufacturingStep) | "document" (per MatAugmentation)
     # --- persistence ---
     neo4j_attr: bool = False
     neo4j_attr_name: Optional[str] = None
@@ -183,6 +184,7 @@ def _field_from_dict(d: dict) -> OverlayField:
         kind=d.get("kind", "scalar"),
         description=d.get("description", ""),
         optional=d.get("optional", True),
+        scope=d.get("scope", "step"),
         neo4j_attr=d.get("neo4j_attr", False),
         neo4j_attr_name=d.get("neo4j_attr_name"),
         neo4j_default=d.get("neo4j_default"),
@@ -232,6 +234,8 @@ def render_step_attrs(fields: List[OverlayField], step: Any) -> tuple[list[str],
     clauses: list[str] = []
     params: dict = {}
     for f in fields:
+        if f.scope == "document":
+            continue
         if not f.neo4j_attr:
             continue
         raw = _enum_value(getattr(step, f.name, None))
@@ -250,6 +254,8 @@ def render_related_blocks(fields: List[OverlayField], step: Any) -> tuple[list[s
     blocks: list[str] = []
     params: dict = {}
     for f in fields:
+        if f.scope == "document":
+            continue
         if not f.related:
             continue
         r = f.related
@@ -288,6 +294,8 @@ def render_object_blocks(fields: List[OverlayField], step: Any) -> tuple[list[st
     blocks: list[str] = []
     params: dict = {}
     for f in fields:
+        if f.scope == "document":
+            continue
         if f.kind != "object_list" or not f.object_node:
             continue
         value = getattr(step, f.name, None)
@@ -315,6 +323,8 @@ def render_sparql_lines(fields: List[OverlayField], step: Any, step_uri: str) ->
     """RDF triples for overlay fields (literals and derived-IRI relations)."""
     lines: list[str] = []
     for f in fields:
+        if f.scope == "document":
+            continue
         value = _enum_value(getattr(step, f.name, None))
         if f.rdf_literal:
             if f.kind == "list":
@@ -400,18 +410,45 @@ def _baml_field_type(tb: Any, f: OverlayField) -> Any:
 
 
 def inject_proprietary_properties(tb: Any, fields: List[OverlayField]) -> List[str]:
-    """Add proprietary overlay fields onto the @@dynamic ManufacturingStep class
-    via TypeBuilder so the LLM extracts them. Non-proprietary fields stay in the
-    static BAML schema and are skipped here. Returns the injected field names."""
+    """Add proprietary overlay fields via TypeBuilder so the LLM extracts them.
+    Step-scope fields are injected onto the @@dynamic ManufacturingStep;
+    document-scope fields onto MatAugmentation. Non-proprietary fields stay in
+    the static BAML schema and are skipped. Returns the injected field names."""
     injected: List[str] = []
     for f in fields:
         if not f.proprietary:
             continue
-        prop = tb.ManufacturingStep.add_property(f.name, _baml_field_type(tb, f))
+        target = tb.MatAugmentation if f.scope == "document" else tb.ManufacturingStep
+        prop = target.add_property(f.name, _baml_field_type(tb, f))
         if f.description:
             prop.description(f.description)
         injected.append(f.name)
     return injected
+
+
+def extract_document_fields(responses: list, fields: List[OverlayField]) -> dict:
+    """Collect + merge document-scope overlay values across the per-chunk BAML
+    responses (each a MatAugmentation). Non-empty values are merged so a
+    multi-chunk document keeps every chunk's contribution: lists are unioned,
+    strings concatenated distinctly, scalars take the first non-empty.
+    """
+    out: dict = {}
+    for resp in responses:
+        for f in fields:
+            if f.scope != "document" or not f.proprietary:
+                continue
+            v = _enum_value(getattr(resp, f.name, None))
+            if f.kind == "object_list":
+                v = [_to_dict(it) for it in (v or [])]
+            if v in (None, "", []):
+                continue
+            if f.name not in out:
+                out[f.name] = v
+            elif isinstance(out[f.name], list) and isinstance(v, list):
+                out[f.name] = out[f.name] + [x for x in v if x not in out[f.name]]
+            elif isinstance(out[f.name], str) and isinstance(v, str) and v not in out[f.name]:
+                out[f.name] = out[f.name] + "\n\n" + v
+    return out
 
 
 def _enum_value(v: Any) -> Any:

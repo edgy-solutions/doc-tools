@@ -146,3 +146,50 @@ def test_object_list_overlay_extracted_as_objects_and_persisted(tmp_path, monkey
     cypher_blob = json.dumps(cypher)
     assert "ComponentItem" in cypher_blob and "HAS_COMPONENT" in cypher_blob
     assert "UNWIND $component_items AS item" in cypher_blob
+
+
+# A document-scope overlay (one summary + notes per document, on MatAugmentation).
+DOC_SCOPE_SPEC = {
+    "fields": [
+        {
+            "name": "work_instruction_summary",
+            "kind": "scalar",
+            "scope": "document",
+            "description": "A concise 1-2 sentence summary of the overall purpose of this work instruction and the major process types involved (e.g. sealing, torqueing, inspection). Based only on the source.",
+        },
+        {
+            "name": "extraction_notes",
+            "kind": "list",
+            "scope": "document",
+            "description": "Notes on gaps/ambiguities: missing part numbers, missing quantities, unclear references, or fields where information was not specified. One note per item. Empty list if none.",
+        },
+    ]
+}
+
+
+def test_document_scope_fields_populate_augmentation_and_extraction_json(tmp_path, monkeypatch):
+    from doc_tools.plugins.manufacturing import ManufacturingPlugin, MatAugmentation
+    from doc_tools.assets.semantic_assets import _extraction_payload
+
+    spec_path = tmp_path / "doc_overlay.json"
+    spec_path.write_text(json.dumps(DOC_SCOPE_SPEC))
+    monkeypatch.setenv("MANUFACTURING_OVERLAY_SPEC", str(spec_path))
+    monkeypatch.setenv("PROMPT_SOURCE", "file")
+
+    plugin = ManufacturingPlugin(domain_type="manufacturing")
+    nodes = plugin.process_fulltext(
+        full_text=WORK_INSTRUCTION_TEXT, doc_id="part_doc",
+        elements=[{"type": "NarrativeText", "text": WORK_INSTRUCTION_TEXT}],
+    )
+    assert nodes
+    aug = nodes[0].domain_augmentation
+    assert isinstance(aug, MatAugmentation)
+
+    summary = getattr(aug, "work_instruction_summary", None)
+    print(f"\nwork_instruction_summary={summary!r}")
+    print(f"extraction_notes={getattr(aug, 'extraction_notes', None)!r}")
+    assert summary and isinstance(summary, str) and len(summary) > 10, "no document summary extracted"
+
+    # the document field rides through into extraction.json (at the augmentation level)
+    payload = _extraction_payload(nodes, "part_doc", "manufacturing")
+    assert "work_instruction_summary" in payload["augmentations"][0]
