@@ -106,31 +106,80 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
 
     filename = parts[-1]
 
-    # Domain: explicit override > path-derived default.
+    # Domain resolution (2026-06-16: explicit-per-file mechanism — see
+    # standing memory feedback_path_vs_semantic_domain + STATE_GATEWAY_V02.md
+    # "explicit-per-file domain fix"). The resolver queries with SEMANTIC
+    # domain names (MAINTENANCE / SUSTAINMENT / DATA_ENGINEERING / MESH /
+    # MANUFACTURING) and the s3 PATH is the source axis, not the semantic
+    # axis. Path-derivation works correct-by-accident when the path's
+    # first segment happens to match the semantic domain (mro/, idp/,
+    # sustainment/, mesh/) and silently produces wrong-domain entries
+    # when it doesn't (mil/, future Munitions). Removing the silent
+    # fallback is the durability fix.
+    #
+    # Priority order:
+    #   1. config.extra_metadata['domain'] — explicit dagster config
+    #      (used by prime_databases.py's trigger_ingest_jobs)
+    #   2. S3 object metadata 'x-amz-meta-domain' — set by
+    #      prime_databases.py's upload_canonical_ttls; auto-fixes
+    #      the sensor-fired path that doesn't pass dagster config
+    #   3. ERROR — path-derivation as a SILENT fallback is removed;
+    #      a future ingestion path that doesn't declare a domain
+    #      should fail loud, not silently land at a path-derived
+    #      value that will produce confidently-wrong routing.
+    #
+    # The error path's message names the fix path explicitly so the
+    # remediation is obvious from the log.
+    s3_client = s3.get_client()
+    bucket = os.getenv("ONTOLOGY_BUCKET", "ontologies")
+
     explicit_domain = (config.extra_metadata or {}).get("domain")
+    s3_metadata_domain = None
+    domain_source = None
+
     if explicit_domain:
         domain = str(explicit_domain)
-        context.log.info(
-            f"Using explicit domain '{domain}' from config.extra_metadata "
-            f"(path-derived would have been '{parts[0]}')"
-        )
+        domain_source = "config.extra_metadata"
     else:
-        domain = parts[0]
-        context.log.warning(
-            f"No explicit 'domain' in config.extra_metadata; falling back to "
-            f"path-derived '{domain}'. Pass extra_metadata={{'domain': '<SEMANTIC_DOMAIN>'}} "
-            f"to make the classification deliberate."
-        )
-    
+        # Probe S3 object metadata for x-amz-meta-domain (priority 2).
+        try:
+            head = s3_client.head_object(Bucket=bucket, Key=obj_key)
+            s3_metadata_domain = (head.get("Metadata") or {}).get("domain")
+        except Exception as e:
+            context.log.warning(f"head_object failed (continuing): {e}")
+            s3_metadata_domain = None
+
+        if s3_metadata_domain:
+            domain = str(s3_metadata_domain)
+            domain_source = "s3_object_metadata.x-amz-meta-domain"
+        else:
+            raise Exception(
+                f"Domain not declared for ontology {obj_key!r}. "
+                f"Path-derivation as a silent fallback was removed 2026-06-16 "
+                f"after producing confidently-wrong routing for the mil/ path "
+                f"(mil:* classes are SEMANTIC maintenance, but path-derived "
+                f"'MIL' was invisible to MAINTENANCE-domain resolver queries). "
+                f"Declare domain via ONE OF: "
+                f"(1) config.extra_metadata={{'domain': '<SEMANTIC_DOMAIN>'}} "
+                f"in dagster runConfigData (the prime_databases.py path), OR "
+                f"(2) S3 object metadata 'x-amz-meta-domain' on the object "
+                f"(the sensor-fired path; prime_databases.py:339-343 sets "
+                f"this automatically on every upload). The path's first "
+                f"segment is {parts[0]!r}, which the legacy fallback would "
+                f"have used — confirm that's the intended SEMANTIC domain "
+                f"before declaring it."
+            )
+
+    context.log.info(
+        f"Using domain {domain!r} from {domain_source} for ontology {filename!r}"
+    )
+
     # Derive Named Graph URI
     graph_uri = f"http://internal/{domain}"
-    
-    s3_client = s3.get_client()
+
     context.log.info(f"Ingesting ontology '{filename}' for domain '{domain}' into graph <{graph_uri}>")
-    
+
     # 1. Download from MinIO
-    # We'll assume the 'ontologies' bucket as per instructions
-    bucket = os.getenv("ONTOLOGY_BUCKET", "ontologies")
     try:
         response = s3_client.get_object(Bucket=bucket, Key=obj_key)
         rdf_content = response['Body'].read()
@@ -318,25 +367,48 @@ def sync_jena_ontologies_to_neo4j(
             f"Invalid ontology path: {obj_key!r}. Expected '{{path}}/{{filename}}'"
         )
 
+    # ----- Domain resolution (2026-06-16: explicit-per-file, no silent fallback).
+    # Same precedence as ingest_ontology_to_jena:
+    #   1. config.extra_metadata['domain']
+    #   2. S3 object metadata 'x-amz-meta-domain'
+    #   3. ERROR (path-derivation as silent fallback removed)
+    # See ingest_ontology_to_jena's identical block for the trace.
+    s3_client = s3.get_client()
+    bucket_default = os.getenv("ONTOLOGY_BUCKET", "ontologies")
+
     explicit_domain = (config.extra_metadata or {}).get("domain")
+    domain_source = None
     if explicit_domain:
         domain = str(explicit_domain)
-        context.log.info(
-            f"Using explicit domain '{domain}' from config.extra_metadata"
-        )
+        domain_source = "config.extra_metadata"
     else:
-        domain = parts[0]
-        context.log.warning(
-            f"No explicit 'domain' in config.extra_metadata; falling back "
-            f"to path-derived '{domain}'. Pass extra_metadata={{'domain': "
-            f"'<SEMANTIC_DOMAIN>'}} for deliberate classification — same "
-            f"lesson as ingest_ontology_to_jena."
-        )
+        try:
+            head = s3_client.head_object(Bucket=bucket_default, Key=obj_key)
+            s3_metadata_domain = (head.get("Metadata") or {}).get("domain")
+        except Exception as e:
+            context.log.warning(f"head_object failed (continuing): {e}")
+            s3_metadata_domain = None
+
+        if s3_metadata_domain:
+            domain = str(s3_metadata_domain)
+            domain_source = "s3_object_metadata.x-amz-meta-domain"
+        else:
+            raise Exception(
+                f"Domain not declared for ontology {obj_key!r}. "
+                f"Path-derivation as a silent fallback was removed 2026-06-16. "
+                f"Declare domain via config.extra_metadata={{'domain':'<SEMANTIC>'}} "
+                f"or via S3 object metadata x-amz-meta-domain. Path's first "
+                f"segment {parts[0]!r} — confirm it's the intended SEMANTIC "
+                f"domain before declaring it."
+            )
+
+    context.log.info(
+        f"Using domain {domain!r} from {domain_source}"
+    )
 
     # ----- Step 1: fetch + parse the RDF from MinIO -----------------------
-    bucket = os.getenv("ONTOLOGY_BUCKET", "ontologies")
+    bucket = bucket_default
     filename = parts[-1]
-    s3_client = s3.get_client()
     context.log.info(
         f"Fetching {filename!r} from s3://{bucket}/{obj_key} for "
         f"domain '{domain}'"
