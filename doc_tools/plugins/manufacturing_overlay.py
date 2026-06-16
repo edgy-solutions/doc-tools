@@ -54,9 +54,26 @@ class RdfRelation:
 
 
 @dataclass(frozen=True)
+class ObjectField:
+    """One property of an object inside an ``object_list`` overlay field."""
+    name: str
+    kind: str = "scalar"   # scalar | int | bool
+    description: str = ""
+
+
+@dataclass(frozen=True)
+class ObjectNode:
+    """Persistence for an ``object_list``: each item -> a typed node + edge."""
+    label: str                            # Neo4j label for each item, e.g. "BomItem"
+    rel_type: str                         # edge from the step to each item
+    id_props: tuple = ()                  # sub-field names whose values form the item id
+    rdf_predicate: Optional[str] = None   # reserved; RDF for object lists is future work
+
+
+@dataclass(frozen=True)
 class OverlayField:
     name: str
-    kind: str                    # "scalar" | "list" | "bool" | "int" | "enum"
+    kind: str                    # "scalar" | "list" | "bool" | "int" | "enum" | "object_list"
     description: str = ""        # BAML extraction instruction (the @description)
     optional: bool = True
     # --- persistence ---
@@ -66,6 +83,9 @@ class OverlayField:
     related: Optional[RelatedNode] = None
     rdf_literal: Optional[str] = None      # predicate for a literal triple
     rdf_relation: Optional[RdfRelation] = None
+    # --- nested object lists (kind == "object_list") ---
+    item_properties: Optional[List["ObjectField"]] = None  # the per-item sub-schema
+    object_node: Optional["ObjectNode"] = None             # how each item persists to the graph
     proprietary: bool = False
 
     @property
@@ -156,6 +176,8 @@ DEFAULT_OVERLAY: List[OverlayField] = [
 def _field_from_dict(d: dict) -> OverlayField:
     related = d.get("related")
     rdf_rel = d.get("rdf_relation")
+    props = d.get("properties")          # per-item sub-schema for object_list
+    obj_node = d.get("object_node")      # how each item persists
     return OverlayField(
         name=d["name"],
         kind=d.get("kind", "scalar"),
@@ -167,6 +189,16 @@ def _field_from_dict(d: dict) -> OverlayField:
         related=RelatedNode(**related) if related else None,
         rdf_literal=d.get("rdf_literal"),
         rdf_relation=RdfRelation(**rdf_rel) if rdf_rel else None,
+        item_properties=[
+            ObjectField(name=p["name"], kind=p.get("kind", "scalar"), description=p.get("description", ""))
+            for p in props
+        ] if props else None,
+        object_node=ObjectNode(
+            label=obj_node["label"],
+            rel_type=obj_node["rel_type"],
+            id_props=tuple(obj_node.get("id_props", [])),
+            rdf_predicate=obj_node.get("rdf_predicate"),
+        ) if obj_node else None,
         proprietary=True,
     )
 
@@ -249,6 +281,36 @@ def render_related_blocks(fields: List[OverlayField], step: Any) -> tuple[list[s
     return blocks, params
 
 
+def render_object_blocks(fields: List[OverlayField], step: Any) -> tuple[list[str], dict]:
+    """Cypher blocks (+params) for object_list fields: each item becomes a typed
+    node with one property per sub-field, plus an edge from the step. Items must
+    already be plain dicts (see coerce_extracted)."""
+    blocks: list[str] = []
+    params: dict = {}
+    for f in fields:
+        if f.kind != "object_list" or not f.object_node:
+            continue
+        value = getattr(step, f.name, None)
+        if not _present(value):
+            continue
+        on = f.object_node
+        sub_names = [p.name for p in (f.item_properties or [])]
+        id_props = list(on.id_props) or sub_names[:1]
+        param = f.name
+        params[param] = [dict(it) for it in value]
+        id_expr = ' + "_" + '.join(f'toString(coalesce(item.{p}, ""))' for p in id_props) or '""'
+        block = (
+            f"WITH s UNWIND ${param} AS item "
+            f'MERGE (n:{on.label}:{{domain}} {{id: "{f.name}_" + {id_expr}}}) '
+        )
+        set_expr = ", ".join(f"n.{p} = item.{p}" for p in sub_names)
+        if set_expr:
+            block += f"SET {set_expr} "
+        block += f"MERGE (s)-[:{on.rel_type}]->(n)"
+        blocks.append(block)
+    return blocks, params
+
+
 def render_sparql_lines(fields: List[OverlayField], step: Any, step_uri: str) -> list[str]:
     """RDF triples for overlay fields (literals and derived-IRI relations)."""
     lines: list[str] = []
@@ -274,8 +336,56 @@ def proprietary_field_names(fields: List[OverlayField]) -> List[str]:
     return [f.name for f in fields if f.proprietary]
 
 
+def coerce_extracted(fields: List[OverlayField], source: Any) -> dict:
+    """Pull proprietary overlay values off a BAML response object for the mirror
+    model. object_list items are normalized to plain dicts (so they serialize
+    into extraction.json and pass to Cypher cleanly); scalars are enum-unwrapped.
+    """
+    out: dict = {}
+    for f in fields:
+        if not f.proprietary:
+            continue
+        raw = getattr(source, f.name, None)
+        if f.kind == "object_list":
+            out[f.name] = [_to_dict(it) for it in (raw or [])]
+        else:
+            out[f.name] = _enum_value(raw)
+    return out
+
+
+def _to_dict(item: Any) -> dict:
+    if isinstance(item, dict):
+        return item
+    if hasattr(item, "model_dump"):
+        return item.model_dump()
+    if hasattr(item, "__dict__"):
+        return dict(item.__dict__)
+    return {"value": item}
+
+
+def _item_class_name(field_name: str) -> str:
+    """Unique BAML class name for an object_list field's item type."""
+    return "".join(p.capitalize() for p in field_name.replace("-", "_").split("_")) + "Item"
+
+
+def _baml_scalar_type(tb: Any, kind: str) -> Any:
+    if kind == "int":
+        return tb.int()
+    if kind == "bool":
+        return tb.bool()
+    return tb.string()
+
+
 def _baml_field_type(tb: Any, f: OverlayField) -> Any:
     """Map an overlay field kind to a BAML TypeBuilder FieldType."""
+    if f.kind == "object_list":
+        # Build a dynamic nested class from the per-item sub-schema, then list it.
+        cls = tb.add_class(_item_class_name(f.name))
+        for sub in (f.item_properties or []):
+            prop = cls.add_property(sub.name, _baml_scalar_type(tb, sub.kind))
+            if sub.description:
+                prop.description(sub.description)
+        return cls.type().list()
     if f.kind == "list":
         return tb.string().list()
     if f.kind == "int":

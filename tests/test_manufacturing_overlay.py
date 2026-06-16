@@ -61,13 +61,15 @@ class _Prop:
 
 
 class _Cls:
-    def __init__(self): self.added = {}
+    def __init__(self, name="ManufacturingStep"): self.name = name; self.added = {}
     def add_property(self, name, ftype):
         pr = _Prop(); self.added[name] = (ftype, pr); return pr
+    def type(self): return _FT(f"class:{self.name}")
 
 
 class _TB:
-    def __init__(self): self.ManufacturingStep = _Cls()
+    def __init__(self): self.ManufacturingStep = _Cls(); self.classes = {}
+    def add_class(self, name): c = _Cls(name); self.classes[name] = c; return c
     def string(self): return _FT("string")
     def int(self): return _FT("int")
     def bool(self): return _FT("bool")
@@ -92,3 +94,88 @@ def test_inject_proprietary_properties_only_adds_proprietary_with_correct_types(
     assert added["p_bool"][0].name == "bool"
     assert added["p_scalar"][0].name == "string" and added["p_scalar"][0].is_opt is False
     assert added["p_list"][1].desc == "L"        # description propagated to the property
+
+
+# --------------------------------------------------------------------------- #
+# Nested object lists (kind == "object_list")
+# --------------------------------------------------------------------------- #
+def test_object_list_parsed_from_dict():
+    f = ov._field_from_dict({
+        "name": "widget_items", "kind": "object_list", "description": "Components.",
+        "properties": [
+            {"name": "operation", "kind": "scalar", "description": "Op no."},
+            {"name": "qty", "kind": "int", "description": "Quantity."},
+        ],
+        "object_node": {"label": "WidgetItem", "rel_type": "HAS_WIDGET", "id_props": ["operation", "qty"]},
+    })
+    assert f.kind == "object_list" and f.proprietary
+    assert [(p.name, p.kind) for p in f.item_properties] == [("operation", "scalar"), ("qty", "int")]
+    assert f.object_node.label == "WidgetItem"
+    assert f.object_node.rel_type == "HAS_WIDGET"
+    assert f.object_node.id_props == ("operation", "qty")
+
+
+def test_inject_object_list_builds_nested_class_and_lists_it():
+    f = ov.OverlayField(
+        name="widget_items", kind="object_list", proprietary=True,
+        item_properties=[ov.ObjectField("operation", "scalar", "Op"), ov.ObjectField("qty", "int", "Qty")],
+    )
+    tb = _TB()
+    injected = ov.inject_proprietary_properties(tb, [f])
+
+    assert injected == ["widget_items"]
+    assert "WidgetItemsItem" in tb.classes
+    assert set(tb.classes["WidgetItemsItem"].added) == {"operation", "qty"}
+    assert tb.classes["WidgetItemsItem"].added["qty"][0].name == "int"  # sub-field kind honored
+    ftype, _ = tb.ManufacturingStep.added["widget_items"]
+    assert ftype.is_list and ftype.name == "class:WidgetItemsItem"
+
+
+def test_coerce_extracted_normalizes_object_list_to_dicts():
+    from types import SimpleNamespace
+
+    class _Item:  # mimic a BAML pydantic item object
+        def __init__(self, **kw): self.__dict__.update(kw)
+        def model_dump(self): return dict(self.__dict__)
+
+    fields = [
+        ov.OverlayField(name="widget_items", kind="object_list", proprietary=True,
+                        item_properties=[ov.ObjectField("operation"), ov.ObjectField("qty")]),
+        ov.OverlayField(name="lot_code", kind="scalar", proprietary=True),
+        ov.OverlayField(name="is_value_added", kind="bool"),  # not proprietary -> skipped
+    ]
+    src = SimpleNamespace(
+        widget_items=[_Item(operation="0010", qty="4"), _Item(operation="0020", qty="1")],
+        lot_code="LAC-7",
+        is_value_added=True,
+    )
+    out = ov.coerce_extracted(fields, src)
+    assert out["lot_code"] == "LAC-7"
+    assert "is_value_added" not in out  # non-proprietary skipped
+    assert out["widget_items"] == [{"operation": "0010", "qty": "4"}, {"operation": "0020", "qty": "1"}]
+
+
+def test_render_object_blocks_builds_node_per_item():
+    from types import SimpleNamespace
+    f = ov.OverlayField(
+        name="widget_items", kind="object_list", proprietary=True,
+        item_properties=[ov.ObjectField("operation"), ov.ObjectField("qty")],
+        object_node=ov.ObjectNode(label="WidgetItem", rel_type="HAS_WIDGET", id_props=("operation",)),
+    )
+    step = SimpleNamespace(widget_items=[{"operation": "0010", "qty": "4"}])
+    blocks, params = ov.render_object_blocks([f], step)
+
+    assert len(blocks) == 1
+    b = blocks[0]
+    assert "UNWIND $widget_items AS item" in b
+    assert "MERGE (n:WidgetItem:{domain}" in b
+    assert "n.operation = item.operation" in b and "n.qty = item.qty" in b
+    assert "MERGE (s)-[:HAS_WIDGET]->(n)" in b
+    assert params["widget_items"] == [{"operation": "0010", "qty": "4"}]
+
+
+def test_render_object_blocks_skips_without_object_node():
+    from types import SimpleNamespace
+    f = ov.OverlayField(name="x", kind="object_list", proprietary=True, item_properties=[ov.ObjectField("a")])
+    blocks, params = ov.render_object_blocks([f], SimpleNamespace(x=[{"a": "1"}]))
+    assert blocks == [] and params == {}

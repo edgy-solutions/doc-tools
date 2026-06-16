@@ -196,7 +196,7 @@ class ManufacturingPlugin(AugmentationPlugin):
             
             all_steps = []
             final_assessment = StrategicAssessment(proprietary_score=0.0, outsourceable=False)
-            prop_names = overlay.proprietary_field_names(overlay.active_overlay())
+            overlay_fields = overlay.active_overlay()
 
             for resp in baml_responses:
                 for s in resp.steps:
@@ -219,7 +219,9 @@ class ManufacturingPlugin(AugmentationPlugin):
                         internal_part_numbers=s.internal_part_numbers,
                         material_and_hardware_slang=s.material_and_hardware_slang,
                         figure_references=getattr(s, 'figure_references', []) or [],
-                        **{name: getattr(s, name, None) for name in prop_names}
+                        # proprietary overlay fields: object_list items normalized
+                        # to plain dicts, scalars enum-unwrapped.
+                        **overlay.coerce_extracted(overlay_fields, s)
                     ))
                 # Update assessment (max score)
                 if resp.assessment.proprietary_score > final_assessment.proprietary_score:
@@ -328,6 +330,13 @@ class ManufacturingPlugin(AugmentationPlugin):
                 rel_blocks, rel_params = overlay.render_related_blocks(overlay_fields, step)
                 params.update(rel_params)
                 for block in rel_blocks:
+                    edge_cypher += "\n                " + block.replace("{domain}", dom)
+
+                # Overlay: object_list nodes (e.g. BOM items, tooling items) — each
+                # item becomes a typed node with its sub-fields as properties.
+                obj_blocks, obj_params = overlay.render_object_blocks(overlay_fields, step)
+                params.update(obj_params)
+                for block in obj_blocks:
                     edge_cypher += "\n                " + block.replace("{domain}", dom)
 
                 # Base: figure references are core/cross-cutting.

@@ -89,3 +89,60 @@ def test_proprietary_overlay_field_extracted_and_persisted(tmp_path, monkeypatch
     sparql_blob = " ".join(sparql)
     assert "lot_acceptance_code" in cypher_blob, "proprietary field not SET on the step node"
     assert "hasLotAcceptanceCode" in sparql_blob, "proprietary RDF literal not emitted"
+
+
+# A generic object_list overlay (nested objects inside a list). Plain test
+# field names — proves the nested-class path works end-to-end via the LLM.
+OBJECT_LIST_SPEC = {
+    "fields": [
+        {
+            "name": "component_items",
+            "kind": "object_list",
+            "description": "List of components/parts the step installs or consumes. One entry per distinct part.",
+            "properties": [
+                {"name": "part_number", "kind": "scalar",
+                 "description": "The part number, e.g. '99-812'. If missing write 'Not specified'."},
+                {"name": "quantity", "kind": "scalar",
+                 "description": "Quantity required. If not stated write 'Not specified'."},
+            ],
+            "object_node": {"label": "ComponentItem", "rel_type": "HAS_COMPONENT", "id_props": ["part_number"]},
+        }
+    ]
+}
+
+COMPONENT_TEXT = (
+    "Procedure 1000, Step 1.1: Install the bracket assembly. Required components: "
+    "part number 99-812, quantity 2; and part number AN960-10 washer, quantity 4. "
+    "Secure using a calibrated torque wrench."
+)
+
+
+def test_object_list_overlay_extracted_as_objects_and_persisted(tmp_path, monkeypatch):
+    from doc_tools.plugins.manufacturing import ManufacturingPlugin, MatAugmentation
+
+    spec_path = tmp_path / "object_overlay.json"
+    spec_path.write_text(json.dumps(OBJECT_LIST_SPEC))
+    monkeypatch.setenv("MANUFACTURING_OVERLAY_SPEC", str(spec_path))
+    monkeypatch.setenv("PROMPT_SOURCE", "file")
+
+    elements = [{"type": "NarrativeText", "text": COMPONENT_TEXT}]
+    plugin = ManufacturingPlugin(domain_type="manufacturing")
+    nodes = plugin.process_fulltext(full_text=COMPONENT_TEXT, doc_id="part_obj", elements=elements)
+    assert nodes, "extraction returned no nodes"
+    aug = nodes[0].domain_augmentation
+    assert isinstance(aug, MatAugmentation) and aug.steps
+
+    # the nested object list comes back as a list of dicts with the sub-fields
+    items = [it for s in aug.steps for it in (getattr(s, "component_items", None) or [])]
+    print(f"\ncomponent_items={items}")
+    assert items, "no component_items extracted"
+    assert all(isinstance(it, dict) for it in items), "items are not plain dicts"
+    assert all("part_number" in it for it in items), "sub-field part_number missing"
+    assert any("99-812" in str(it.get("part_number", "")) for it in items)
+
+    # and they persist as typed nodes off the step
+    config = SimpleNamespace(graph_child_label="Part")
+    cypher, _ = plugin.to_graph_queries(nodes, config, doc_id="part_obj", image_prefix="img/")
+    cypher_blob = json.dumps(cypher)
+    assert "ComponentItem" in cypher_blob and "HAS_COMPONENT" in cypher_blob
+    assert "UNWIND $component_items AS item" in cypher_blob
