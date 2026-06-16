@@ -17,6 +17,7 @@ from doc_tools.assets.semantic_assets import (
     _apply_post_sync_domain_labels,
     _ensure_weaviate_collection,
     _index_chunk,
+    _extraction_payload,
 )
 
 
@@ -142,3 +143,37 @@ def test_index_chunk_inserts_via_v4_data_insert():
     _index_chunk(client, "Chunks", props)
     client.collections.get.assert_called_once_with("Chunks")
     client.collections.get.return_value.data.insert.assert_called_once_with(properties=props)
+
+
+# --------------------------------------------------------------------------- #
+# extraction.json payload — the structured LLM output written to S3 (option A).
+# --------------------------------------------------------------------------- #
+def test_extraction_payload_serializes_augmentations_and_skips_none():
+    from doc_tools.plugins.manufacturing import (
+        ManufacturingStep, StrategicAssessment, MatAugmentation,
+    )
+    from doc_tools.plugins.models import BaseSection, DocumentNode
+
+    step = ManufacturingStep(
+        procedure_id="0010", step_id="1", instruction_text="Apply sealant.",
+        action_verb="Apply", tooling=["Wrench"], consumables=[], is_value_added=True,
+        is_safety_critical=False, process_category="Transformation", justification="x",
+    )
+    aug = MatAugmentation(
+        steps=[step], assessment=StrategicAssessment(proprietary_score=0.5, outsourceable=False)
+    )
+    sec = BaseSection(title="t", level=0, page_start=0, content="", node_id="d1")
+    nodes = [
+        DocumentNode(base_extraction=sec, domain_augmentation=aug),
+        DocumentNode(base_extraction=sec, domain_augmentation=None),  # no-op augment -> skipped
+    ]
+
+    payload = _extraction_payload(nodes, "inbound/22", "manufacturing")
+
+    assert payload["doc_id"] == "inbound/22"
+    assert payload["domain_type"] == "manufacturing"
+    assert len(payload["augmentations"]) == 1  # the None node is skipped
+    a = payload["augmentations"][0]
+    assert a["steps"][0]["action_verb"] == "Apply"
+    assert a["steps"][0]["tooling"] == ["Wrench"]
+    assert a["assessment"]["proprietary_score"] == 0.5

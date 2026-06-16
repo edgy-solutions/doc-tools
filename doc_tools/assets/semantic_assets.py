@@ -37,6 +37,23 @@ def _index_chunk(client, name: str, properties: dict) -> None:
     client.collections.get(name).data.insert(properties=properties)
 
 
+def _extraction_payload(document_nodes, doc_id: str, domain_type: str) -> dict:
+    """Serialize the structured LLM extraction for persistence to S3.
+
+    to_graph_queries only writes Neo4j/Jena; this captures the raw extracted
+    records (each node's Pydantic ``domain_augmentation`` -> dict) so the output
+    is retrievable / auditable / reprocessable. Domain-generic: works for any
+    plugin whose augmentation is a Pydantic model. Nodes without an augmentation
+    (e.g. per-chunk no-op augment) are skipped.
+    """
+    augmentations = [
+        n.domain_augmentation.model_dump()
+        for n in document_nodes
+        if n.domain_augmentation is not None and hasattr(n.domain_augmentation, "model_dump")
+    ]
+    return {"doc_id": doc_id, "domain_type": domain_type, "augmentations": augmentations}
+
+
 @asset(
     partitions_def=pdf_files_partition,
     automation_condition=AutomationCondition.on_missing() | AutomationCondition.any_deps_updated()
@@ -221,7 +238,25 @@ def build_knowledge_graph(
     # base_dir: "manufacturing/IID/generated/test_pdf"
     base_dir = os.path.dirname(text_location)
     image_prefix = f"s3://{config.bucket}/{base_dir}/images/"
-    
+
+    # Persist the structured LLM extraction to S3 (next to text.json) so it can be
+    # retrieved/audited/reprocessed — the graph sink below only writes Neo4j + Jena.
+    try:
+        payload = _extraction_payload(document_nodes, doc_id, domain_type)
+        extraction_key = f"{base_dir}/extraction.json"
+        s3_client.put_object(
+            Bucket=config.bucket,
+            Key=extraction_key,
+            Body=json.dumps(payload, indent=2, default=str).encode("utf-8"),
+            ContentType="application/json",
+        )
+        context.log.info(
+            f"Wrote extraction to s3://{config.bucket}/{extraction_key} "
+            f"({len(payload['augmentations'])} augmentation(s))"
+        )
+    except Exception as e:
+        context.log.error(f"Failed to write extraction.json: {e}")
+
     # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
     context.log.info(f"Generating domain graph queries from {len(document_nodes)} augmented nodes...")
     cypher_queries, sparql_queries = plugin.to_graph_queries(document_nodes, config, doc_id=doc_id, image_prefix=image_prefix)
