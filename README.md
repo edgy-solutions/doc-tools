@@ -110,7 +110,7 @@ mentations for text extraction, layout detection, Neo4j mapping, and Weaviate co
   - `doc_tools/definitions.py`: The entrypoint for Dagster orchestration.
 - `scripts/`:
   - `check_drift.py`: CI/CD script to validate prompt sync between Git and Langfuse.
-- `setup/`: Contains `setup_env.py` and local ontologies for priming the databases.
+- `setup/`: Local ontology TTLs (`mro_extension.ttl`, `mil_extension.ttl`, `idp_extension.ttl`, `mesh_system.ttl`, `maintenance_extension.ttl`, `sustainment_extension.ttl`). The historical `setup_env.py` priming script was retired 2026-06-17 — substrate priming now lives in the `invincible-agent` chart's `primeSubstrate` Helm Job (`invincible-agent/setup/prime_databases.py`), which uses the same TTLs but with explicit semantic domains, Jena dataset provisioning, triple-guarded wipe, and `--trigger-ingest` integration. The TTL files in this directory are still served by their `https://raw.githubusercontent.com/edgy-solutions/doc-tools/main/setup/<name>.ttl` raw URLs and consumed by `prime_databases.py`'s `CANONICAL_TTL_MANIFEST`.
 - `pyproject.toml`: The root Python project configuration managed via [uv](https://docs.astral.sh/uv/).
 
 ---
@@ -442,4 +442,4 @@ helm template doc-tools ./charts/doc-tools
 helm install doc-tools ./charts/doc-tools
 ```
 
-**Note on First Deployment:** The Helm chart includes a `post-install` Job that automatically executes `setup/setup_env.py`. This securely primes your graph constraints, vector schemas, and downloads foundational Industrial Ontologies (IOF/ISA-95) into Apache Jena before the Dagster webserver even starts accepting traffic.
+**Note on First Deployment (substrate priming):** The doc-tools chart no longer includes a substrate-priming Job. Substrate priming was unified into the `invincible-agent` chart on 2026-06-17 — it ships a `primeSubstrate` post-install/post-upgrade Helm Job that runs `invincible-agent/setup/prime_databases.py` (the modernized successor to the deprecated `setup_env.py`). The new mechanism uses explicit semantic domains (`MAINTENANCE`, `MANUFACTURING`, `SUSTAINMENT`, `DATA_ENGINEERING`, `MESH`) instead of path-derived ones, provisions the Jena dataset, and supports a triple-guarded `--wipe` flag for fresh-start re-primes. See `invincible-agent/tests/routing/SESSION_3_DEPLOY_CHECKLIST.md §2.1` for the deploy procedure.
