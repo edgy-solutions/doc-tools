@@ -11,7 +11,7 @@ class Outline {
 }
 
 function ExtractOutline(document_text: string, system_instructions: string) -> Outline {
-  client Ollama
+  client LLM
   prompt #"
     {{ system_instructions }}
 

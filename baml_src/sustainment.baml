@@ -24,7 +24,7 @@ class SustainmentNotice {
 }
 
 function ExtractSustainment(doc: string, system_instructions: string) -> SustainmentNotice {
-  client Ollama
+  client LLM
   prompt #"
     {{ system_instructions }}
 

@@ -90,6 +90,31 @@ env:
   PROMPT_SOURCE: "file"
   LANGFUSE_PROMPT_LABEL: "production"
 
+  # --- LLM endpoint (BAML client<llm> LLM in baml_src/main.baml) ---
+  # The BAML client is provider="openai-generic", which speaks the OpenAI
+  # Chat Completions wire protocol. Concretely covers Ollama / LiteLLM /
+  # vLLM / OpenRouter / real OpenAI. Set LLM_BASE_URL to any one of:
+  #
+  #   Direct Ollama:    http://<ollama-host>:11434/v1
+  #   LiteLLM proxy:    http://iagent-litellm:4000/v1   (iagent helm template)
+  #   vLLM:             http://<vllm-host>:8000/v1
+  #   Real OpenAI:      https://api.openai.com/v1      (LLM_API_KEY required)
+  #   OpenRouter:       https://openrouter.ai/api/v1   (LLM_API_KEY required)
+  #
+  # LLM_API_KEY: empty for direct Ollama (header ignored), "any" for
+  # stateless LiteLLM, real key for OpenAI / OpenRouter / authenticated
+  # LiteLLM with a database_url. Default "any" works for the first two
+  # and is harmless for direct Ollama.
+  #
+  # LLM_NUM_CTX is an Ollama-specific request option (passed through by
+  # LiteLLM to Ollama; ignored by vLLM/OpenAI/OpenRouter). For vLLM,
+  # configure context length via the vLLM server's --max-model-len at
+  # deploy time.
+  LLM_BASE_URL: "http://ollama:11434/v1"
+  LLM_MODEL: "gpt-oss-128k:120b"
+  LLM_NUM_CTX: "8192"
+  LLM_API_KEY: "any"
+
 # Additional environment variables from external Secrets or ConfigMaps
 # Example block for required variables for the infrastructure team:
 # extraEnvFrom:

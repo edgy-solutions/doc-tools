@@ -134,7 +134,7 @@ class ManufacturingPlugin(AugmentationPlugin):
 
         try:
             import os
-            context_size = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
+            context_size = int(os.getenv("LLM_NUM_CTX", "8192"))
             reserved_tokens = 4000
             chars_per_token = 3
             max_chars = (context_size - reserved_tokens) * chars_per_token

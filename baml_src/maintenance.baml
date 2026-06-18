@@ -38,7 +38,7 @@ class MroAugmentation {
 }
 
 function ExtractMaintenanceProcedures(text: string, system_instructions: string) -> MroAugmentation {
-  client Ollama
+  client LLM
   prompt #"
     {{ system_instructions }}
 

@@ -1,4 +1,4 @@
-"""Live Ollama-backed extraction tests for the remaining domain plugins.
+"""Live LLM-backed extraction tests for the remaining domain plugins.
 
 Mirrors test_manufacturing_extraction_ollama.py: each test exercises the real
 LLM extraction path (compliance/training via augment, maintenance/sustainment
@@ -6,10 +6,12 @@ via process_fulltext) and asserts domain-appropriate structured output. Where a
 plugin has a fallback path, we assert the output is NOT the fallback, proving
 real extraction ran.
 
-SKIPPED unless OLLAMA_BASE_URL is set, so CI never depends on a model server:
+SKIPPED unless LLM_BASE_URL is set, so CI never depends on a model server.
+Works against any OpenAI-compatible endpoint (Ollama, LiteLLM, vLLM, real
+OpenAI):
 
-    OLLAMA_BASE_URL=http://192.168.1.119:11434/v1 \
-    OLLAMA_MODEL=gpt-oss-128k:120b OLLAMA_NUM_CTX=8192 \
+    LLM_BASE_URL=http://192.168.1.119:11434/v1 \
+    LLM_MODEL=gpt-oss-128k:120b LLM_NUM_CTX=8192 \
     uv run python -m pytest tests/test_plugin_extraction_ollama.py -q -s
 """
 import os
@@ -17,8 +19,8 @@ import os
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    not os.getenv("OLLAMA_BASE_URL"),
-    reason="requires a live Ollama server (set OLLAMA_BASE_URL / OLLAMA_MODEL)",
+    not os.getenv("LLM_BASE_URL"),
+    reason="requires a live LLM endpoint (set LLM_BASE_URL / LLM_MODEL)",
 )
 
 

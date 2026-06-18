@@ -1,4 +1,4 @@
-"""Live Ollama-backed extraction test for the proprietary overlay feature.
+"""Live LLM-backed extraction test for the proprietary overlay feature.
 
 End-to-end proof that a proprietary overlay field (defined only in a secret
 spec, never committed) is:
@@ -7,12 +7,13 @@ spec, never committed) is:
   3. carried through the mirror model in process_fulltext, and
   4. persisted by to_graph_queries (Neo4j attr + RDF literal).
 
-This test requires a live Ollama server and is SKIPPED unless OLLAMA_BASE_URL
-is set, so the normal unit suite is unaffected. Run it with, e.g.:
+This test requires a live OpenAI-compatible LLM endpoint (Ollama, LiteLLM,
+vLLM, OpenRouter, or real OpenAI). SKIPPED unless LLM_BASE_URL is set, so
+the normal unit suite is unaffected. Run it with, e.g.:
 
-    OLLAMA_BASE_URL=http://192.168.1.119:11434/v1 \
-    OLLAMA_MODEL=gpt-oss-128k:120b \
-    OLLAMA_NUM_CTX=8192 \
+    LLM_BASE_URL=http://192.168.1.119:11434/v1 \
+    LLM_MODEL=gpt-oss-128k:120b \
+    LLM_NUM_CTX=8192 \
     uv run python -m pytest tests/test_manufacturing_extraction_ollama.py -q -s
 """
 import json
@@ -21,10 +22,10 @@ from types import SimpleNamespace
 
 import pytest
 
-OLLAMA = os.getenv("OLLAMA_BASE_URL")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL")
 pytestmark = pytest.mark.skipif(
-    not OLLAMA,
-    reason="requires a live Ollama server (set OLLAMA_BASE_URL / OLLAMA_MODEL)",
+    not LLM_BASE_URL,
+    reason="requires a live LLM endpoint (set LLM_BASE_URL / LLM_MODEL)",
 )
 
 # A stand-in "proprietary" spec. Plain test fields — the point is to prove the

@@ -17,7 +17,7 @@ class SlideAugmentation {
 }
 
 function ExtractConcepts(slide_text: string, system_instructions: string) -> SlideAugmentation {
-  client Ollama
+  client LLM
   prompt #"
     {{ system_instructions }}
 

@@ -39,7 +39,7 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   `ManufacturingStep` is split into a public **base** (identity/text/action/tooling/figures) and a data-driven **overlay** (`doc_tools/plugins/manufacturing_overlay.py`). Each overlay `OverlayField` declares extraction (BAML `description`) AND persistence (`neo4j_attr`, `related` typed node/edge, `rdf_literal`, `rdf_relation`).
   1. **Default overlay** (committed) covers the non-proprietary hooks/analytics; **proprietary overlay** loads from the `MANUFACTURING_OVERLAY_SPEC` secret JSON and never enters the repo.
   2. The class is `@@dynamic`; proprietary fields are injected via `TypeBuilder` in both `ManufacturingPlugin` call sites and ride the `extra="allow"` mirror model through to `to_graph_queries`. No-op when the secret is unset.
-  3. **Adding/changing a field is data, not code** — edit the overlay descriptor (or the secret spec), not `to_graph_queries` or the BAML class. `tests/test_manufacturing_graph_golden.py` pins persistence; `tests/test_manufacturing_extraction_ollama.py` (skipped unless `OLLAMA_BASE_URL` set) proves end-to-end extraction.
+  3. **Adding/changing a field is data, not code** — edit the overlay descriptor (or the secret spec), not `to_graph_queries` or the BAML class. `tests/test_manufacturing_graph_golden.py` pins persistence; `tests/test_manufacturing_extraction_ollama.py` (skipped unless `LLM_BASE_URL` set) proves end-to-end extraction.
   4. Proprietary *prompt text* is a separate concern — use the `PROMPT_SOURCE` path, not the committed prompt.
 
 - **Table Processing**:

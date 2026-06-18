@@ -59,7 +59,7 @@ class MatAugmentation {
 }
 
 function ExtractWorkInstructions(text: string, system_instructions: string) -> MatAugmentation {
-  client Ollama
+  client LLM
   prompt #"
     {{ system_instructions }}
 

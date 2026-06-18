@@ -11,7 +11,7 @@ class ComplianceAugmentation {
 }
 
 function ExtractComplianceRules(text: string, system_instructions: string) -> ComplianceAugmentation {
-  client Ollama
+  client LLM
   prompt #"
     {{ system_instructions }}
 
