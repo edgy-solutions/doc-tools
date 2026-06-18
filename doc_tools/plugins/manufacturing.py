@@ -330,11 +330,24 @@ class ManufacturingPlugin(AugmentationPlugin):
                 MERGE (proc)-[:CONTAINS_STEP]->(s)
 
                 WITH s
+                MERGE (k:OntologyClass {{uri: "http://edgy-solutions.com/ontology/mfg#WorkInstruction"}})
+                MERGE (s)-[:INSTANCE_OF]->(k)
+
+                WITH s
                 UNWIND $tools AS t_name
                 MERGE (tool:Tool:{dom} {{id: "tool_" + t_name}})
                 SET tool.part_number = t_name
                 MERGE (s)-[:REQUIRES_TOOL]->(tool)
                 """
+                # ADR-0021 Step 4: stamp the canonical content-kind edge above.
+                # The :ManufacturingStep label stays for backward compat
+                # (existing MATCH queries filter on it). The new edge makes
+                # the step reachable through the substrate class chain
+                # (ADR-0018 symmetric (S,P) routing) — a verb typed against
+                # mfg:WorkInstruction can now reach manufacturing content.
+                # Single general kind today per architect's ruling 2026-06-18;
+                # sub-kinds become rows in the kind-selection mapping table
+                # only when routing pressure justifies them (Wave-3).
 
                 # Overlay: typed relationship nodes (hazard, cert, standards, parts, slang, ...).
                 rel_blocks, rel_params = overlay.render_related_blocks(overlay_fields, step)
@@ -367,12 +380,21 @@ class ManufacturingPlugin(AugmentationPlugin):
                 # (e.g. "inbound/22"), and a raw "/" is illegal in a prefixed name
                 # -> Fuseki 400 Bad Request on the whole Update.
                 step_uri = f"mfg:{safe_iri_local(step_node_id)}"
+                # ADR-0021 Step 4: canonical mfg namespace + general kind.
+                # Old placeholder ns http://example.com/manufacturing# was the
+                # pre-canonical direct-load shape (see STATE_GATEWAY_V02.md
+                # 2026-06-17 Step 1 — 7 legacy classes there are residue).
+                # Canonical ns is http://edgy-solutions.com/ontology/mfg#
+                # (declared in setup/ontologies/mfg_extension.ttl). The
+                # general kind is mfg:WorkInstruction — sensors / electronics
+                # / munitions / mechanical-assemblies are what is described,
+                # not separate kinds (architect's ruling 2026-06-18).
                 sparql = f"""
-                PREFIX mfg: <http://example.com/manufacturing#>
+                PREFIX mfg: <http://edgy-solutions.com/ontology/mfg#>
                 PREFIX iof: <http://example.com/iof#>
 
                 INSERT DATA {{
-                    {step_uri} a mfg:ManufacturingStep ;
+                    {step_uri} a mfg:WorkInstruction ;
                         mfg:hasAction "{escape_sparql_string(step.action_verb)}" ;
                         mfg:hasText "{escape_sparql_string(step.instruction_text)}" .
                 """
