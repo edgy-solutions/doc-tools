@@ -73,6 +73,9 @@ env:
   LLM_MODEL: "gpt-oss-128k:120b"
   LLM_NUM_CTX: "8192"
   LLM_API_KEY: "any"
+  # Embedding model — must match the iagent rehearsal overlay value.
+  # Cross-repo agreement on this name is the contract.
+  LLM_EMBED_MODEL: "nomic-embed-text"
 
 # Doc-tools' unstructured/PDF pipeline is memory-heavy (table parser,
 # layout model, image extraction). Conservative starting point; will

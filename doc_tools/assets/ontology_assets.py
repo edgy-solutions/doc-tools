@@ -36,24 +36,50 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
         collection = client.collections.get("OntologyClass")
         context.log.info(f"Syncing {len(extracted_classes)} classes to Weaviate for domain {domain}...")
         
-        # Batch insert for high performance (Idempotent Upsert)
+        # Batch insert for high performance (Idempotent Upsert).
+        # Computes the vector via doc_tools.utils.embed.embed_text() (LiteLLM
+        # /embeddings, default nomic-embed-text) and passes it to
+        # batch.add_object(vector=...) so Engine O's hybrid search can use
+        # vector similarity (in addition to BM25 over the same text). The
+        # embedded text is "<label> — <definition>" — labels alone are
+        # often too short to embed informatively. See doc_tools/utils/embed.py
+        # for the rationale: code owns the embedding-model contract.
+        from doc_tools.utils.embed import embed_text
         with collection.batch.dynamic() as batch:
             for cls in extracted_classes:
                 # Use the URI to generate a deterministic UUID
                 deterministic_uuid = generate_uuid5(str(cls["uri"]))
-                
+
                 safe_label = str(cls["label"]) if cls.get("label") else str(cls["uri"]).split("#")[-1].split("/")[-1]
                 safe_definition = str(cls["definition"]) if cls.get("definition") else "No definition provided."
 
-                batch.add_object(
-                    properties={
+                # Embed "<label> — <definition>" for richer signal than
+                # label alone. Best-effort: on gateway failure, write
+                # without a vector so ingestion still completes (BM25
+                # still works; backfill can populate later).
+                embed_input = f"{safe_label} — {safe_definition}"
+                try:
+                    cls_vector = embed_text(embed_input)
+                except Exception as e:
+                    context.log.warning(
+                        f"embed_text failed for {cls.get('uri','<?>')}; "
+                        f"writing without vector (BM25-only until backfill): {e}"
+                    )
+                    cls_vector = None
+
+                add_kwargs: dict = {
+                    "properties": {
                         "uri": str(cls["uri"]),
                         "label": safe_label,
                         "definition": safe_definition,
                         "domain": domain.upper()
                     },
-                    uuid=deterministic_uuid
-                )
+                    "uuid": deterministic_uuid,
+                }
+                if cls_vector is not None:
+                    add_kwargs["vector"] = cls_vector
+
+                batch.add_object(**add_kwargs)
                 
         context.log.info("Weaviate sync complete.")
         

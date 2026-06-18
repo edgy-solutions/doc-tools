@@ -33,8 +33,35 @@ def _ensure_weaviate_collection(client, name: str) -> None:
 
 
 def _index_chunk(client, name: str, properties: dict) -> None:
-    """Insert one chunk object using the Weaviate v4 API."""
-    client.collections.get(name).data.insert(properties=properties)
+    """Insert one chunk object using the Weaviate v4 API.
+
+    Computes the vector via doc_tools.utils.embed.embed_text() (LiteLLM
+    /embeddings, default model nomic-embed-text) and passes it explicitly
+    to .data.insert(vector=...). No server-side text2vec module is
+    involved — code owns the contract for "what embedding model." See
+    doc_tools/utils/embed.py for the rationale.
+
+    If the embedding gateway is unavailable we still write the row WITHOUT
+    a vector — BM25 queries still work, and a follow-up backfill can
+    populate vectors once the gateway is restored. The alternative (hard
+    failure) would gate ingestion on the LLM stack being healthy, which
+    is the fragility we're explicitly avoiding.
+    """
+    from doc_tools.utils.embed import embed_text  # local import: keeps
+    # module-load cheap for callers that monkey-patch this for tests.
+
+    text = properties.get("text", "")
+    try:
+        vector = embed_text(text) if text else None
+    except Exception as e:
+        print(f"[semantic_assets] embed_text failed for chunk; "
+              f"writing without vector (BM25-only until backfill): {e}")
+        vector = None
+
+    insert_kwargs: dict = {"properties": properties}
+    if vector is not None:
+        insert_kwargs["vector"] = vector
+    client.collections.get(name).data.insert(**insert_kwargs)
 
 
 def _extraction_payload(document_nodes, doc_id: str, domain_type: str) -> dict:

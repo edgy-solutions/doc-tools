@@ -115,6 +115,19 @@ env:
   LLM_NUM_CTX: "8192"
   LLM_API_KEY: "any"
 
+  # --- Embedding model for Weaviate vector writes/reads ---
+  # doc-tools' semantic_assets.py and any other Weaviate writer
+  # (doc_tools/utils/embed.py::embed_text) pull a vector from
+  # LLM_BASE_URL/embeddings using this model name, then write
+  # `vector=<computed>` to the Weaviate insert. NO server-side
+  # text2vec module is involved — Weaviate is dumb storage.
+  #
+  # Must match invincible-agent/agent_fleet/utils/embed.py's default
+  # and any LLM_EMBED_MODEL override set in the iagent chart that
+  # populates the same collections. Cross-repo agreement on this
+  # name is the contract.
+  LLM_EMBED_MODEL: "nomic-embed-text"
+
 # Additional environment variables from external Secrets or ConfigMaps
 # Example block for required variables for the infrastructure team:
 # extraEnvFrom:
