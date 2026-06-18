@@ -37,14 +37,16 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
         context.log.info(f"Syncing {len(extracted_classes)} classes to Weaviate for domain {domain}...")
         
         # Batch insert for high performance (Idempotent Upsert).
-        # Computes the vector via doc_tools.utils.embed.embed_text() (LiteLLM
-        # /embeddings, default nomic-embed-text) and passes it to
-        # batch.add_object(vector=...) so Engine O's hybrid search can use
-        # vector similarity (in addition to BM25 over the same text). The
+        # Computes the vector via doc_tools.utils.embed.embed_document()
+        # (LiteLLM /embeddings, default nomic-embed-text, search_document:
+        # prefix) and passes it to batch.add_object(vector=...) so Engine O's
+        # hybrid search (which calls embed_query for the search_query:-prefixed
+        # query vector) can score document/query similarity correctly. The
         # embedded text is "<label> — <definition>" — labels alone are
         # often too short to embed informatively. See doc_tools/utils/embed.py
-        # for the rationale: code owns the embedding-model contract.
-        from doc_tools.utils.embed import embed_text
+        # for the rationale: code owns the embedding-model contract AND the
+        # task-prefix discipline.
+        from doc_tools.utils.embed import embed_document
         with collection.batch.dynamic() as batch:
             for cls in extracted_classes:
                 # Use the URI to generate a deterministic UUID
@@ -59,10 +61,10 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
                 # still works; backfill can populate later).
                 embed_input = f"{safe_label} — {safe_definition}"
                 try:
-                    cls_vector = embed_text(embed_input)
+                    cls_vector = embed_document(embed_input)
                 except Exception as e:
                     context.log.warning(
-                        f"embed_text failed for {cls.get('uri','<?>')}; "
+                        f"embed_document failed for {cls.get('uri','<?>')}; "
                         f"writing without vector (BM25-only until backfill): {e}"
                     )
                     cls_vector = None

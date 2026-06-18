@@ -104,7 +104,95 @@ def test_only_canonical_embedding_model_name_in_doc_tools():
 
     assert not violations, (
         f"Hardcoded embedding model name(s) found outside the contract.\n"
-        f"Resolve by calling doc_tools.utils.embed.embed_text() instead, "
-        f"which reads LLM_EMBED_MODEL from env (default 'nomic-embed-text').\n"
+        f"Resolve by calling doc_tools.utils.embed.embed_document() or "
+        f"embed_query() instead. They read LLM_EMBED_MODEL from env "
+        f"(default 'nomic-embed-text') and apply the correct task prefix.\n"
+        + "\n".join(f"  {f}:{ln}  {snippet}" for f, ln, snippet in violations)
+    )
+
+
+EMBED_MODULE_RELATIVE = "doc_tools/utils/embed.py"
+PREFIX_STRINGS = ("search_document: ", "search_query: ")
+FORBIDDEN_LOW_LEVEL_SYMBOLS = ("embed_text", "embed_texts", "_post_embedding")
+
+
+def test_prefix_strings_only_in_embed_module():
+    """search_document: / search_query: literal strings may only appear in
+    doc_tools/utils/embed.py."""
+    violations: list[tuple[str, int, str]] = []
+    embed_module_abs = DOC_TOOLS.parent / EMBED_MODULE_RELATIVE
+
+    for py_file in DOC_TOOLS.rglob("*.py"):
+        if py_file.resolve() == embed_module_abs.resolve():
+            continue
+        if any(part.startswith(".") for part in py_file.relative_to(DOC_TOOLS).parts):
+            continue
+        if "baml_client" in py_file.parts:
+            continue
+        try:
+            text = py_file.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            if any(p in line for p in PREFIX_STRINGS):
+                if line.lstrip().startswith("#"):
+                    continue
+                violations.append((str(py_file), lineno, line.strip()))
+
+    assert not violations, (
+        "Task-prefix literal strings found outside "
+        f"{EMBED_MODULE_RELATIVE}.\n"
+        "Resolve by calling embed_document() / embed_query() from "
+        "doc_tools.utils.embed.\n"
+        + "\n".join(f"  {f}:{ln}  {snippet}" for f, ln, snippet in violations)
+    )
+
+
+def test_no_low_level_embed_symbols_outside_embed_module():
+    """embed_text / embed_texts / _post_embedding only exist (and are only
+    callable) inside doc_tools/utils/embed.py."""
+    violations: list[tuple[str, int, str]] = []
+    embed_module_abs = DOC_TOOLS.parent / EMBED_MODULE_RELATIVE
+
+    for py_file in DOC_TOOLS.rglob("*.py"):
+        if py_file.resolve() == embed_module_abs.resolve():
+            continue
+        if any(part.startswith(".") for part in py_file.relative_to(DOC_TOOLS).parts):
+            continue
+        if "baml_client" in py_file.parts:
+            continue
+        try:
+            text = py_file.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        in_docstring = False
+        docstring_delim = None
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            if in_docstring:
+                assert docstring_delim is not None
+                if line.count(docstring_delim) % 2 == 1:
+                    in_docstring = False
+                    docstring_delim = None
+                continue
+            for delim in ('"""', "'''"):
+                if line.count(delim) % 2 == 1:
+                    in_docstring = True
+                    docstring_delim = delim
+                    break
+            if in_docstring:
+                continue
+            if line.lstrip().startswith("#"):
+                continue
+            for sym in FORBIDDEN_LOW_LEVEL_SYMBOLS:
+                import re as _re
+                if _re.search(rf"\b{sym}\b", line):
+                    violations.append((str(py_file), lineno, line.strip()))
+                    break
+
+    assert not violations, (
+        "Low-level embed symbols (embed_text / embed_texts / _post_embedding) "
+        f"used outside {EMBED_MODULE_RELATIVE}.\n"
+        "Resolve by calling embed_document() (write side) or embed_query() "
+        "(read side) instead.\n"
         + "\n".join(f"  {f}:{ln}  {snippet}" for f, ln, snippet in violations)
     )

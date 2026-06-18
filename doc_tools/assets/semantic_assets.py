@@ -47,14 +47,16 @@ def _index_chunk(client, name: str, properties: dict) -> None:
     failure) would gate ingestion on the LLM stack being healthy, which
     is the fragility we're explicitly avoiding.
     """
-    from doc_tools.utils.embed import embed_text  # local import: keeps
+    from doc_tools.utils.embed import embed_document  # local import: keeps
     # module-load cheap for callers that monkey-patch this for tests.
 
     text = properties.get("text", "")
     try:
-        vector = embed_text(text) if text else None
+        # WRITE path: embed_document applies the search_document: prefix
+        # that pairs with embed_query on the iagent reader side.
+        vector = embed_document(text) if text else None
     except Exception as e:
-        print(f"[semantic_assets] embed_text failed for chunk; "
+        print(f"[semantic_assets] embed_document failed for chunk; "
               f"writing without vector (BM25-only until backfill): {e}")
         vector = None
 
