@@ -74,6 +74,14 @@ ontology_sensor = S3SensorComponent(
     partition_name="ontology_files",
     target_job="ingest_ontology_job",
     target_op="ingest_ontology_to_jena",
+    # ingest_ontology_job's selection includes BOTH ops, and both require
+    # the same S3FileConfig (file_url). Without listing the second op
+    # here the sensor-triggered run fails config validation with
+    # "Missing required config entry sync_jena_ontologies_to_neo4j at
+    # path root:ops". prime_databases.py's --trigger-ingest provides
+    # both ops' config explicitly via GraphQL; this aligns the sensor
+    # path with that. See dag-tools S3SensorComponent additional_target_ops.
+    additional_target_ops=["sync_jena_ontologies_to_neo4j"],
     filter_patterns=[],
     s3_resource={
         "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
