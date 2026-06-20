@@ -577,7 +577,14 @@ def sync_jena_ontologies_to_neo4j(
     # ----- Step 4: verification read (the seam's standing assertion) ------
     # The asset's contract is "TTL classes reach Neo4j." Verify by
     # reading back. This is the analog of the saga's read-back probe.
+    #
+    # neo4j_client.execute_query (utils/neo4j_client.py) returns a plain
+    # list[dict] — NOT a neo4j.Result with a `.records` attribute. The
+    # previous code assumed .records and silently swallowed the
+    # AttributeError, then logged "readback green" regardless. That made
+    # verification a no-op and hid real "merged but absent" cases.
     verify_uris = [c["uri"] for c in classes]
+    readback_ok = False
     try:
         result = neo4j_client.execute_query(
             """
@@ -587,7 +594,8 @@ def sync_jena_ontologies_to_neo4j(
             """,
             {"uris": verify_uris},
         )
-        missing = [r["asked"] for r in result.records if r["landed"] is None]
+        missing = [r["asked"] for r in result if r["landed"] is None]
+        readback_ok = True
     except Exception as e:
         context.log.warning(f"Verification readback failed: {e}")
         missing = []
@@ -601,10 +609,16 @@ def sync_jena_ontologies_to_neo4j(
             f"introduced for predicate edges; same shape applied here."
         )
 
+    verify_msg = (
+        "Verification readback green."
+        if readback_ok
+        else "Verification readback was skipped due to a prior error; "
+             "see WARNING above."
+    )
     context.log.info(
         f"Sync complete. {len(classes)} :OntologyClass nodes "
         f"materialized at full-IRI form for domain '{domain}'. "
-        f"Verification readback green."
+        f"{verify_msg}"
     )
 
     return MaterializeResult(
