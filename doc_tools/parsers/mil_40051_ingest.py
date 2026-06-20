@@ -232,11 +232,15 @@ def merge_40051_wp_instance(
     instance_uri = wpno_to_instance_uri(facts.wpno)
 
     # Step 1: MATCH the kind class FIRST. G1 contract.
+    # doc_tools.utils.neo4j_client.execute_query returns list[dict], not
+    # a neo4j.Result with a `.records` attribute. Truth-test the list
+    # directly (empty == kind missing). Same fix as ontology_assets
+    # readback (commit 7079a42) and s1000d_ingest.
     kind_present = neo4j_client.execute_query(
         "MATCH (c:OntologyClass {uri: $uri}) RETURN c.uri AS uri LIMIT 1",
         {"uri": facts.kind_iri},
     )
-    if not kind_present.records:
+    if not kind_present:
         raise Exception(
             f"G1 contract violation prevented: kind class {facts.kind_iri!r} "
             f"does not exist in Neo4j. The canonical pipeline must materialize "

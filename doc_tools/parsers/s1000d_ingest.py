@@ -192,11 +192,16 @@ def merge_data_module_instance(
 
     # Step 1: MATCH the kind class FIRST. If it's missing, fail loudly.
     # This is the G1 contract — ABox ingest never auto-CREATES TBox.
+    # doc_tools.utils.neo4j_client.execute_query returns list[dict], not
+    # a neo4j.Result with a `.records` attribute. The previous `.records`
+    # check would raise AttributeError on the first call; truth-test the
+    # list directly (empty == kind missing). Same fix as ontology_assets
+    # readback (commit 7079a42).
     kind_present = neo4j_client.execute_query(
         "MATCH (c:OntologyClass {uri: $uri}) RETURN c.uri AS uri LIMIT 1",
         {"uri": facts.kind_iri},
     )
-    if not kind_present.records:
+    if not kind_present:
         raise Exception(
             f"G1 contract violation prevented: kind class {facts.kind_iri!r} "
             f"does not exist in Neo4j. The canonical pipeline must materialize "
