@@ -119,9 +119,59 @@ def build_knowledge_graph(
         try:
             domain_type = context.run.tags.get("domain_type")
         except AttributeError:
+            # NOTE: domain_type silently defaults to "Training" here. This is
+            # the pre-ADR-0021 chain and is DELIBERATELY left in place —
+            # ADR-0021 is content_kind-scoped; whether domain_type should
+            # also halt is left to a future ADR. The asymmetry below
+            # (content_kind HALTS on missing row, domain_type defaults to
+            # "Training") is intentional. Do not collapse the two without
+            # an ADR ruling. (Banked at architect's request 2026-06-20.)
             domain_type = metadata.get("project", "Training")
-    
+
     domain_label = domain_type.upper().replace(" ", "_").replace("-", "_")
+
+    # ----------------------------------------------------------------------
+    # ADR-0021 content_kind resolution (Phase 2/3)
+    # ----------------------------------------------------------------------
+    # Deterministic content-kind selection via the chartable mapping table.
+    # The resolver halts on unclassifiable input — NEVER silent default —
+    # for the domains it covers. Two asymmetries are deliberate:
+    #
+    #   1. domain_type silently defaults to "Training" (above);
+    #      content_kind HALTS via UnclassifiableContentKindError (here).
+    #      ADR-0021 is content_kind-scoped; the domain_type halt question
+    #      is for a future ADR. Same class of bug, one layer up.
+    #
+    #   2. Today only the manufacturing domain has KIND_MAPPING rows, so
+    #      the resolver runs ONLY for manufacturing. Other domains keep
+    #      their pre-ADR-0021 dispatch path. This is a SCOPED MIGRATION —
+    #      not a silent default for other domains. When a domain is
+    #      migrated, it gets KIND_MAPPING rows and joins the resolver call.
+    #
+    # See doc_tools/utils/content_kind.py for the table + halt rule.
+    from doc_tools.utils.content_kind import (
+        resolve_content_kind, UnclassifiableContentKindError,
+    )
+    s3_key = manifest.get("source_object_key") or manifest.get("s3_key", "")
+    kind_entry = None
+    if domain_type == "manufacturing":
+        try:
+            kind_entry = resolve_content_kind(metadata, s3_key)
+            context.log.info(
+                f"ADR-0021 content_kind resolved: kind={kind_entry.kind!r} "
+                f"target={kind_entry.target_ontology_class!r}"
+            )
+        except UnclassifiableContentKindError:
+            # Re-raise — manufacturing must halt on unclassifiable. The
+            # catch is here only to log + reraise with the same exception,
+            # so the operator can see the failure named in the asset's
+            # Dagster log. The halt is structural; this branch is decoration.
+            context.log.error(
+                "ADR-0021 content_kind resolution HALTED for manufacturing "
+                "path (no KIND_MAPPING row matches metadata.content_kind "
+                "or the path-derived segment)."
+            )
+            raise
     
     s3_client = s3.get_client()
     neo4j_client = neo4j.get_client()
@@ -171,7 +221,16 @@ def build_knowledge_graph(
             
     # Initialize appropriate Plugin
     if domain_type == "manufacturing":
-        plugin = ManufacturingPlugin(domain_type)
+        # ADR-0021 Phase 2/3: target_ontology_class flows from the
+        # resolved kind_entry → manufacturing plugin → Cypher MERGE.
+        # When no resolver ran (won't happen for manufacturing per the
+        # halt above), the plugin's self-consistent default kicks in.
+        plugin = ManufacturingPlugin(
+            domain_type,
+            target_ontology_class=(
+                kind_entry.target_ontology_class if kind_entry else None
+            ),
+        )
     elif domain_type == "maintenance":
         from doc_tools.plugins.maintenance import MaintenancePlugin
         plugin = MaintenancePlugin(domain_type)

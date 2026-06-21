@@ -47,6 +47,28 @@ class ManufacturingPlugin(AugmentationPlugin):
     """
     New Munitions Acceleration & Manufacturing (MAT) extraction logic.
     """
+
+    # ADR-0021 Phase 2/3: the INSTANCE_OF target URI used by the Cypher MERGE
+    # in ``to_graph_queries`` is now parameterized via the constructor. The
+    # default below matches ``KIND_MAPPING["work-instructions"].target_ontology_class``
+    # in ``doc_tools.utils.content_kind`` (the only row today) — a SELF-
+    # CONSISTENT default, not a silent-default in the HALT-rule sense: the
+    # constructor's fallback IS the table's only row. The dispatcher in
+    # ``semantic_assets`` overrides this by passing
+    # ``kind_entry.target_ontology_class`` resolved via the content_kind
+    # resolver (which halts on unclassifiable input — see
+    # ``content_kind.UnclassifiableContentKindError`` for the rule the
+    # resolver does NOT inherit from the legacy domain_type chain).
+    _DEFAULT_TARGET_ONTOLOGY_CLASS_URI = (
+        "http://edgy-solutions.com/ontology/mfg#WorkInstruction"
+    )
+
+    def __init__(self, domain_type: str, target_ontology_class: Optional[str] = None):
+        super().__init__(domain_type)
+        self.target_ontology_class = (
+            target_ontology_class or self._DEFAULT_TARGET_ONTOLOGY_CLASS_URI
+        )
+
     def execute_global_pass(self, all_chunks: List[Dict[str, Any]], max_chars: int, config: Any) -> List[Any]:
         """
         Converts elements to Markdown and chunks them based on token limits.
@@ -314,6 +336,11 @@ class ManufacturingPlugin(AugmentationPlugin):
                     "action": step.action_verb,
                     "tools": step.tooling,
                     "image_prefix": image_prefix,
+                    # ADR-0021 Phase 2/3: target URI sourced from
+                    # KIND_MAPPING via the resolver in semantic_assets
+                    # (overridden via constructor), or the self-consistent
+                    # default when the plugin is constructed directly.
+                    "target_ontology_class": self.target_ontology_class,
                 }
                 params.update(attr_params)
 
@@ -330,7 +357,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                 MERGE (proc)-[:CONTAINS_STEP]->(s)
 
                 WITH s
-                MERGE (k:OntologyClass {{uri: "http://edgy-solutions.com/ontology/mfg#WorkInstruction"}})
+                MERGE (k:OntologyClass {{uri: $target_ontology_class}})
                 MERGE (s)-[:INSTANCE_OF]->(k)
 
                 WITH s

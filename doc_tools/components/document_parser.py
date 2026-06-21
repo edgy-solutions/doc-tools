@@ -150,10 +150,26 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     context.log.error(f"Failed extraction process: {e}")
 
                 # Create Manifest (Merge component config with file metadata)
+                #
+                # ADR-0021 Phase 2/3: also stamp content_kind from the path
+                # alongside domain_type. The precedence is metadata > path,
+                # encoded via the dict-spread below — `doc_metadata` (from
+                # metadata.json) overrides this path-derived value when
+                # present, same way it already does for domain_type. The
+                # resolver in `semantic_assets` HALTS on unclassifiable
+                # input (no fallback to a default) — see
+                # doc_tools/utils/content_kind.py for the rule the
+                # legacy domain_type chain deliberately does not inherit.
+                #
+                # Path shape: <domain_type>/<content_kind>/<doc_id>/<file>
+                # e.g. manufacturing/work-instructions/M67/grenade.pdf
+                # parts[0] = domain ("manufacturing"); parts[1] = content_kind.
+                content_kind_from_path = parts[1] if len(parts) >= 3 else None
                 manifest_metadata = {
-                    "domain_type": domain,  # Explicitly preserve domain
-                    **self.config, 
-                    **doc_metadata
+                    "domain_type": domain,
+                    "content_kind": content_kind_from_path,
+                    **self.config,
+                    **doc_metadata,
                 }
                 base_name = filename.replace('.', '_')
                 manifest = {
