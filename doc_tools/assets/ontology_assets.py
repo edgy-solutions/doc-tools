@@ -11,6 +11,56 @@ from dag_tools.components.s3_sensor.file_component import S3FileConfig
 from doc_tools.partitions import ontology_partitions
 from doc_tools.utils.weaviate_client import get_weaviate_client
 
+
+# Meta-ontology IRI prefixes — vocabularies that describe ONTOLOGIES,
+# not DOMAIN CONCEPTS. Their terms should never appear in the
+# OntologyClass corpus (Engine O's /resolve candidate pool). They got
+# in because the SPARQL extract patterns match `owl:Class` and
+# `rdfs:Class` and meta-ontologies declare their own meta-concepts as
+# `owl:Class` (e.g. prov:Bundle, prov:Usage).
+#
+# The 2026-06-27 PROV-contamination finding banked at
+# [[ontology-class-pool-prov-contamination]] documented the
+# consequence: 31 PROV-O classes sat in the Weaviate OntologyClass
+# collection tagged domain=DATA_ENGINEERING with rich definitions,
+# competing with weakly-defined domain classes. Every routed-path
+# query in the 2026-06-27 session reproducibly returned prov#*
+# (Bundle, Usage, PrimarySource) and fell back to Engine A. The
+# specialist routing path was effectively never exercised.
+#
+# Path A fix per [[failure-mode-pluralism-in-fixes]]: filter at
+# ingest time so meta-ontology terms never enter the corpus. Same
+# shape as [[mesh-thing-retired]]. Paired cleanup deletes the
+# existing 31 polluted entries (separate operation; this filter
+# prevents the next ingest from re-polluting).
+_META_ONTOLOGY_IRI_PREFIXES: tuple[str, ...] = (
+    "http://www.w3.org/ns/prov#",          # PROV-O
+    "http://www.w3.org/2000/01/rdf-schema#",  # RDFS
+    "http://www.w3.org/1999/02/22-rdf-syntax-ns#",  # RDF
+    "http://www.w3.org/2002/07/owl#",      # OWL
+    "http://www.w3.org/2004/02/skos/core#",  # SKOS
+    "http://purl.org/dc/terms/",           # Dublin Core terms
+    "http://purl.org/dc/elements/1.1/",    # Dublin Core elements
+    "http://xmlns.com/foaf/0.1/",          # FOAF
+    "http://www.w3.org/ns/dcat#",          # DCAT (data catalog vocabulary)
+    "http://www.w3.org/2006/vcard/ns#",    # vCard
+)
+
+
+def _is_meta_ontology_iri(uri: str) -> bool:
+    """Return True iff `uri` belongs to a meta-ontology that should
+    NOT enter the OntologyClass corpus. Used by both the Weaviate
+    and Neo4j sync paths to filter the SPARQL extraction's output
+    before write.
+
+    Defensive at the read-side too (Engine O could add a parallel
+    filter), but the WRITE-side is where the fix belongs per
+    [[writer-canonical-form-class]]: don't put pollution into the
+    store you'd otherwise have to filter at every reader.
+    """
+    return any(uri.startswith(p) for p in _META_ONTOLOGY_IRI_PREFIXES)
+
+
 def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, context: AssetExecutionContext):
     """
     Takes parsed ontology classes (from rdflib/Jena) and dual-writes them to Weaviate.
@@ -18,7 +68,27 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
     """
     # 🔗 Use the Fleet-Standard Connection Strategy
     client = get_weaviate_client()
-    
+
+    # Meta-ontology filter — see _META_ONTOLOGY_IRI_PREFIXES docstring.
+    # Filter BEFORE batch open so we don't pay batch-init cost for
+    # entries we'd skip anyway, and so the log line below is honest
+    # about how many classes are actually written.
+    filtered_meta: list[dict] = []
+    domain_classes: list[dict] = []
+    for cls in extracted_classes:
+        uri = str(cls.get("uri", ""))
+        if _is_meta_ontology_iri(uri):
+            filtered_meta.append(cls)
+        else:
+            domain_classes.append(cls)
+    if filtered_meta:
+        context.log.info(
+            f"Filtered {len(filtered_meta)} meta-ontology classes from "
+            f"Weaviate sync (e.g. {filtered_meta[0].get('uri','<?>')}). "
+            f"See [[ontology-class-pool-prov-contamination]] for the "
+            f"2026-06-27 finding this filter closes."
+        )
+
     try:
         # Ensure the collection exists
         if not client.collections.exists("OntologyClass"):
@@ -34,8 +104,12 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
             )
             
         collection = client.collections.get("OntologyClass")
-        context.log.info(f"Syncing {len(extracted_classes)} classes to Weaviate for domain {domain}...")
-        
+        context.log.info(
+            f"Syncing {len(domain_classes)} domain classes to Weaviate "
+            f"for domain {domain} ({len(filtered_meta)} meta-ontology "
+            f"classes filtered)..."
+        )
+
         # Batch insert for high performance (Idempotent Upsert).
         # Computes the vector via doc_tools.utils.embed.embed_document()
         # (LiteLLM /embeddings, default nomic-embed-text, search_document:
@@ -48,7 +122,7 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
         # task-prefix discipline.
         from doc_tools.utils.embed import embed_document
         with collection.batch.dynamic() as batch:
-            for cls in extracted_classes:
+            for cls in domain_classes:
                 # Use the URI to generate a deterministic UUID
                 deterministic_uuid = generate_uuid5(str(cls["uri"]))
 
@@ -517,6 +591,13 @@ def sync_jena_ontologies_to_neo4j(
             continue
         uri = str(row.uri)
         if not uri or uri.startswith("Bnode_") or uri.startswith("_:"):
+            continue
+        # Meta-ontology filter — see _META_ONTOLOGY_IRI_PREFIXES /
+        # _is_meta_ontology_iri at module top. Mirrors the Weaviate-side
+        # filter in sync_ontology_to_weaviate so BOTH stores stay
+        # canonical-clean of provenance/RDFS/OWL/SKOS/DC/etc. terms.
+        # See [[ontology-class-pool-prov-contamination]].
+        if _is_meta_ontology_iri(uri):
             continue
         label = str(row.label) if row.label is not None else uri.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
         definition = str(row.definition) if row.definition is not None else ""
