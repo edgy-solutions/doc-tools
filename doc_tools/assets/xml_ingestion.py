@@ -10,6 +10,7 @@ from doc_tools.parsers.s1000d_rdf import S1000dGraphBuilder
 from doc_tools.parsers.dita_rdf import DitaGraphBuilder
 from doc_tools.parsers.iads_rdf import IadsGraphBuilder
 from doc_tools.parsers.mil_std_40051_rdf import MilStd40051GraphBuilder
+from doc_tools.partitions import xml_files_partition
 from doc_tools.utils.dagster_resources import WeaviateResource
 from doc_tools.utils.xml_chunks import extract_chunks_from_graph
 
@@ -64,11 +65,22 @@ def resolve_xml_config(config: XmlIngestConfig) -> tuple[str, str]:
         "Got neither."
     )
 
-@asset
+@asset(partitions_def=xml_files_partition)
 def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> dict:
     """
     Universal XML to RDF extractor. Routes to specific parsers based on the
     S3 directory prefix and processes files entirely in-memory.
+
+    Partitioned by `xml_files_partition` (added 2026-06-29) so the
+    new `xml_sensor` (S3SensorComponent) can register a partition
+    per WP XML it discovers under the `40051/` prefix and trigger
+    `xml_graph_sync_job` per-WP. The downstream four assets
+    (`upload_to_jena`, `init_neo4j_n10s`, `sync_jena_to_neo4j`,
+    `index_xml_chunks_to_weaviate`) consume this asset's output
+    via `deps=["extract_rdf_from_xml"]` — Dagster runs them per
+    partition automatically, no separate partition_def needed
+    on them. Manual launchpad runs still work — operator picks
+    a partition key from the dynamic partition UI.
     """
     s3_client = s3.get_client()
 
