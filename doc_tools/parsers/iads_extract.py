@@ -119,16 +119,43 @@ def iter_iads_xml_entries(iads_path: Path | str) -> Iterator[tuple[str, bytes]]:
     (Windows-style backslashes intact). Callers that want a basename
     for fixture matching should derive it.
     """
+    for relpath, body in iter_iads_entries(iads_path):
+        if relpath.lower().endswith(".xml"):
+            yield relpath, body
+
+
+def iter_iads_entries(iads_path: Path | str) -> Iterator[tuple[str, bytes]]:
+    """Yield (relative_path, decompressed_bytes) for EVERY entry in the .iads.
+
+    Sibling of :func:`iter_iads_xml_entries` for callers that need access
+    to non-XML resources too — most importantly the graphics (CGM, JPG,
+    G4, PNG, BMP) that the WP XMLs reference via ``<graphic boardno=...>``.
+    The 40051 parser produces ``mil:Figure`` URIs with predicted S3 paths
+    derived from those board numbers; this iterator surfaces the actual
+    bytes so an upstream Dagster asset can convert (e.g., CGM->PNG via
+    Inkscape) and upload to those predicted paths.
+
+    The same per-entry framing logic as the XML iterator applies — each
+    entry's CompressedLength is the framed length and gzip magic is
+    located within the slice. Entries that fail to decompress (no gzip
+    magic in the declared slice) are skipped silently and the manifest
+    offset advances per declaration.
+
+    Returned ``relative_path`` is the manifest's VERBATIM value
+    (Windows backslashes intact). Callers should derive basenames for
+    case-insensitive matching against the XML entity references — the
+    helmet.iads sample emits ``Graphics\\ms098897a.cgm`` even though
+    M0004.xml's ENTITY declaration says ``..\\graphics\\MS098897A.cgm``.
+    """
     iads_path = Path(iads_path)
     data = iads_path.read_bytes()
     manifest_end, entries = _read_manifest(data)
 
     offset = manifest_end
     for relpath, clen in entries:
-        if relpath.lower().endswith(".xml"):
-            body = _decompress_at(data, offset, clen)
-            if body is not None:
-                yield relpath, body
+        body = _decompress_at(data, offset, clen)
+        if body is not None:
+            yield relpath, body
         offset += clen
 
 

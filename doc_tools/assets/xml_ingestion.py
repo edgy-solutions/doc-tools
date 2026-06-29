@@ -1,6 +1,7 @@
 import os
 import boto3
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from dagster import asset, AssetExecutionContext, Config, MaterializeResult
 from dagster_aws.s3 import S3Resource
@@ -21,22 +22,60 @@ _XML_INGEST_DOMAIN = "MAINTENANCE"
 
 
 class XmlIngestConfig(Config):
-    s3_bucket: str
-    s3_key: str
+    """Two-shape config for `extract_rdf_from_xml`:
+
+    1. ``{s3_bucket, s3_key}`` — the original manual-launchpad shape.
+       Kept for backward compatibility with any GraphQL launchRun
+       callers that already use this form.
+    2. ``{file_url: "s3://bucket/key"}`` — the S3SensorComponent shape
+       used by the new ``xml_sensor`` (added 2026-06-29). The sensor
+       passes file_url; the asset parses it into bucket+key. The other
+       sensor-triggered jobs in doc-tools (document_parser,
+       ingest_ontology) already use this convention.
+
+    Exactly one of the two shapes must be provided. If both are set,
+    s3_bucket+s3_key wins (they're explicit; file_url is a convenience).
+    """
+
+    s3_bucket: Optional[str] = None
+    s3_key: Optional[str] = None
+    file_url: Optional[str] = None
+
+    def resolve(self) -> tuple[str, str]:
+        """Return (bucket, key) after honoring the two-shape contract.
+
+        Raises ValueError on invalid config so Dagster surfaces a clear
+        failure instead of None-dereferencing downstream.
+        """
+        if self.s3_bucket and self.s3_key:
+            return self.s3_bucket, self.s3_key
+        if self.file_url:
+            parsed = urlparse(self.file_url)
+            if parsed.scheme != "s3" or not parsed.netloc or not parsed.path:
+                raise ValueError(
+                    f"file_url must be an s3:// URI with bucket+key; "
+                    f"got {self.file_url!r}"
+                )
+            return parsed.netloc, parsed.path.lstrip("/")
+        raise ValueError(
+            "XmlIngestConfig requires either (s3_bucket+s3_key) or file_url. "
+            "Got neither."
+        )
 
 @asset
 def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> dict:
     """
-    Universal XML to RDF extractor. Routes to specific parsers based on the 
+    Universal XML to RDF extractor. Routes to specific parsers based on the
     S3 directory prefix and processes files entirely in-memory.
     """
     s3_client = s3.get_client()
 
-    context.log.info(f"Fetching XML from s3://{config.s3_bucket}/{config.s3_key} into memory...")
-    
+    s3_bucket, s3_key = config.resolve()
+    context.log.info(f"Fetching XML from s3://{s3_bucket}/{s3_key} into memory...")
+
     response = None
     try:
-        response = s3_client.get_object(Bucket=config.s3_bucket, Key=config.s3_key)
+        response = s3_client.get_object(Bucket=s3_bucket, Key=s3_key)
         xml_bytes = response['Body'].read()
     except Exception as e:
         context.log.error(f"Failed to fetch file from S3: {e}")
@@ -48,9 +87,12 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
             except Exception:
                 pass
 
-    # Routing Logic: Use the root directory name from the s3_key
-    doc_type = config.s3_key.split('/')[0].lower()
-    
+    # Routing Logic: Use the root directory name from the s3_key.
+    # Path-prefix dispatch supports any depth — `40051/army/aviation/helmet/M0004.xml`
+    # still routes to the 40051 parser via the first segment. The architect's
+    # 2026-06-29 "support depths" ruling is honored here.
+    doc_type = s3_key.split('/')[0].lower()
+
     PARSERS = {
         's1000d': S1000dGraphBuilder,
         'iads': IadsGraphBuilder,
@@ -63,16 +105,16 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
         raise ValueError(f"Unsupported doc_type: {doc_type}")
 
     context.log.info(f"Routing to {PARSERS[doc_type].__name__} for doc_type: {doc_type}")
-    
+
     # Derive doc_id from s3_key (e.g., "s1000d/manual_v2.xml" -> "manual_v2")
     import os
-    filename = os.path.basename(config.s3_key)
+    filename = os.path.basename(s3_key)
     doc_id = os.path.splitext(filename)[0]
-    base_dir = os.path.dirname(config.s3_key) or "unknown"
+    base_dir = os.path.dirname(s3_key) or "unknown"
     base_name = filename.replace('.', '_')
-    image_prefix = f"s3://{config.s3_bucket}/{base_dir}/generated/{base_name}/images/"
-    
-    builder = PARSERS[doc_type](bucket=config.s3_bucket, doc_id=doc_id, image_prefix=image_prefix)
+    image_prefix = f"s3://{s3_bucket}/{base_dir}/generated/{base_name}/images/"
+
+    builder = PARSERS[doc_type](bucket=s3_bucket, doc_id=doc_id, image_prefix=image_prefix)
 
     # Parse the in-memory bytes and capture the root URI
     root_uri = builder.parse_data_module(xml_bytes)
@@ -116,7 +158,7 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
     return {
         "rdf_string": rdf_string,
         "root_uri": root_uri,
-        "s3_key": config.s3_key,
+        "s3_key": s3_key,
         "chunks": chunks,
     }
 

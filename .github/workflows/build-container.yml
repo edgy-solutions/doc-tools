@@ -175,10 +175,10 @@ jobs:
           ENV SCARF_NO_ANALYTICS=true
           ENV HF_HOME=/app/.cache/huggingface
 
-          # Install system dependencies (Tesseract, Poppler, libmagic, LibreOffice for MS docs, CycloneDDS runtime libs, and MS SQL Driver)
+          # Install system dependencies (Tesseract, Poppler, libmagic, LibreOffice for MS docs, CycloneDDS runtime libs, MS SQL Driver, and Inkscape for CGM->PNG conversion in the IADS ingest path)
           RUN apt-get update && apt-get install -y --no-install-recommends \
               git libmagic1 libgl1 tesseract-ocr tesseract-ocr-eng poppler-utils \
-              libreoffice curl gnupg2 apt-transport-https libstdc++6 \
+              libreoffice curl gnupg2 apt-transport-https libstdc++6 inkscape \
            && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | \
               gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
            && curl -fsSL https://packages.microsoft.com/config/debian/12/prod.list \

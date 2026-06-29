@@ -7,9 +7,9 @@ from doc_tools.components.oracle_extractor import OracleExtractorComponent
 from doc_tools.components.design_parser import DesignParserComponent
 from doc_tools.components.datahub_sensor import DataHubSensorComponent
 from doc_tools.components.aitool_sensor import AIToolSensorComponent
-from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion
+from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
-from doc_tools.partitions import ontology_partitions, design_files_partition
+from doc_tools.partitions import ontology_partitions, design_files_partition, iads_files_partition, xml_files_partition
 import os
 from dag_tools.utils.k8s import resolve_k8s_resource_tags
 
@@ -111,6 +111,70 @@ design_sensor = S3SensorComponent(
 )
 _design_sensor_defs = design_sensor.build_defs(None)
 
+# 2026-06-29 — IADS bundle sensor. Watches the `iads/` prefix at ANY
+# depth so the architect can organize bundles by project/program
+# (e.g. `iads/army/aviation/helmet.iads`, `iads/airforce/c130/...`).
+# The S3SensorComponent's prefix-listing walks all sub-paths; cursor
+# tracking is by S3 key so re-uploads of the same bundle don't
+# retrigger. Each new `.iads` file launches `iads_ingest_job` which
+# unpacks the bundle to `40051/...` paths that the xml_sensor below
+# then picks up for per-WP ingest.
+iads_sensor = S3SensorComponent(
+    name="iads_sensor",
+    bucket="processing-artifacts",
+    prefix="iads/",
+    partition_name="iads_files",
+    target_job="iads_ingest_job",
+    target_op="extract_iads_bundle",
+    # Skip the unpacked-output dirs the IADS extractor creates so the
+    # sensor doesn't loop on its own outputs. The `40051/` prefix is
+    # outside our `iads/` watch so this filter is defensive only.
+    filter_patterns=["/generated/"],
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
+)
+_iads_sensor_defs = iads_sensor.build_defs(None)
+
+# 2026-06-29 — XML per-WP sensor. Watches the `40051/` prefix at ANY
+# depth so files produced by `extract_iads_bundle` (and any manually
+# uploaded XMLs under that prefix) trigger `xml_graph_sync_job`. The
+# `extract_rdf_from_xml` asset's `XmlIngestConfig` now accepts
+# `file_url`, matching the S3SensorComponent's config contract; the
+# four downstream assets in the job (upload_to_jena, init_neo4j_n10s,
+# sync_jena_to_neo4j, index_xml_chunks_to_weaviate) receive their
+# inputs from `extract_rdf_from_xml`'s dict output and don't need
+# their own per-op config. The `generated/` filter excludes the
+# images/text the bundle extractor uploads alongside the WP XMLs.
+#
+# We currently scope to `40051/` because that's the only XML doc-type
+# the IADS extractor produces. As S1000D / DITA / IADS-direct WPs land,
+# expand prefix or add sibling sensors per doc-type. The
+# `extract_rdf_from_xml` router dispatches by first path segment so
+# adding `s1000d/` etc. is a one-line widening here.
+xml_sensor = S3SensorComponent(
+    name="xml_sensor",
+    bucket="processing-artifacts",
+    prefix="40051/",
+    partition_name="xml_files",
+    target_job="xml_graph_sync_job",
+    target_op="extract_rdf_from_xml",
+    filter_patterns=["/generated/"],
+    s3_filter=r".*\.xml$",
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
+)
+_xml_sensor_defs = xml_sensor.build_defs(None)
+
 design_parser = DesignParserComponent(
     name="parse_design_metadata"
 )
@@ -162,7 +226,7 @@ _datahub_sensor_defs = datahub_sensor.build_defs(None)
 # _aitool_sensor_defs = aitool_sensor.build_defs(None)
 
 # 3. Assets & Jobs
-all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion])
+all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion])
 
 sqlserver_extractor = SqlServerExtractorComponent(
     name="extract_sqlserver_metadata",
@@ -228,6 +292,18 @@ design_metadata_job = define_asset_job(
     tags=design_k8s_tags
 )
 
+# 2026-06-29 — IADS bundle ingest. Unpacks a `.iads` container into S3:
+# each WP XML lands under `40051/<project>/<program>/<bundle>/<wp>.xml`
+# and each graphic (CGM converted via Inkscape, other formats as-is) lands
+# under the parser's predicted `<wp>/generated/<wp>/images/` path. The
+# downstream xml_sensor then triggers `xml_graph_sync_job` per WP XML.
+iads_k8s_tags = resolve_k8s_resource_tags(prefix="IADS_INGEST", default_cpu="1500m", default_mem="4Gi")
+iads_ingest_job = define_asset_job(
+    name="iads_ingest_job",
+    selection=["extract_iads_bundle"],
+    tags=iads_k8s_tags,
+)
+
 s3_io_manager = s3_pickle_io_manager.configured({
     "s3_bucket": os.getenv("DAGSTER_STORAGE_BUCKET", "processing-artifacts"),
     "s3_prefix": "dagster-artifacts"
@@ -241,8 +317,8 @@ defs = Definitions(
     # one-off manual syncs through the Dagster launchpad. The SENSOR
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
     assets=list(_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
-    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors),
+    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job, iads_ingest_job],
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -274,6 +350,8 @@ defs = Definitions(
         **_sustainment_sensor_defs.resources,
         **_ontology_sensor_defs.resources,
         **_design_sensor_defs.resources,
+        **_iads_sensor_defs.resources,
+        **_xml_sensor_defs.resources,
     },
 )
 
@@ -284,6 +362,8 @@ del _ontology_sensor_defs
 del _design_sensor_defs
 del _design_parser_defs
 del _datahub_sensor_defs
+del _iads_sensor_defs
+del _xml_sensor_defs
 # del _aitool_sensor_defs  # RETIRED 2026-06-13 — gateway v0.2 is sole writer; see ADR-0006 §Addendum
 del _sqlserver_extractor_defs
 del _oracle_extractor_defs
