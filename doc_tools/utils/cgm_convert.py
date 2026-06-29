@@ -1,28 +1,25 @@
-"""CGM → PNG conversion via Inkscape subprocess.
+"""CGM → PNG conversion for the IADS ingest path.
 
-The military-doc ingest path (40051 / S1000D / IADS) gets graphics
-references via ``<graphic boardno="...">`` and the 40051 parser
-predicts an S3 PNG path under each WP's ``generated/.../images/``
-directory. For the actual image bytes to land at that predicted path,
-the IADS extractor needs to convert each CGM (the IADS native vector
-format) into a browser-renderable raster.
+The military-doc ingest (40051 / S1000D / IADS) references graphics
+via ``<graphic boardno="...">`` and the 40051 parser predicts an S3
+PNG path under each WP's ``generated/.../images/`` directory. For the
+predicted PNG to actually exist, the IADS extractor needs to convert
+each CGM (IADS's native vector format) into a browser-renderable
+raster.
 
-We use **Inkscape** directly rather than ImageMagick wrapping it,
-because:
+**Converter: LibreOffice headless.** LibreOffice's Draw module imports
+CGM and exports PNG; we already install ``libreoffice`` in the
+doc-tools Docker image (for MS Office docs), so no new dependency.
+Inkscape (also in the image now per the 2026-06-29 commit) does NOT
+have native CGM import — it was the architect's initial preference
+but verification showed Inkscape's import list omits CGM. LibreOffice
+is the working path.
 
-  1. ImageMagick's CGM support is implemented as a delegate that
-     shells out to Inkscape anyway — calling Inkscape directly skips
-     one layer of indirection and one process spawn.
-  2. ImageMagick's apt-get install in our base image historically
-     pulls libopenjp2 transitive dependencies that 404 on Ubuntu
-     security pool flux (observed 2026-06-29).
-  3. Inkscape's CGM importer handles WebCGM 2.0 profile (the format
-     the helmet.iads sample uses) reliably.
+Invocation:
+    libreoffice --headless --convert-to png --outdir <dir> <input.cgm>
 
-The Dockerfile installs ``inkscape`` via apt — see
-``.github/workflows/build-container.yml`` (Dockerfile injection step).
-Local dev that wants to exercise this path needs Inkscape too;
-WSL Ubuntu-22.04 install is ``sudo apt install -y inkscape``.
+LibreOffice writes ``<input>.png`` into ``--outdir``. We then move it
+to the caller-specified output path.
 
 Boundary discipline: this module shells out via subprocess and writes
 to a caller-provided output path. Callers are responsible for cleanup
@@ -34,42 +31,40 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
 class CgmConvertError(RuntimeError):
-    """Raised when Inkscape fails to convert a CGM file.
+    """Raised when CGM->PNG conversion fails.
 
-    Includes the Inkscape stderr in the message so operators can
-    diagnose without re-running. Per
-    `[[trailing-steps-nonfatal]]`: callers in the ingest pipeline
-    catch this and log-and-continue so one bad graphic doesn't kill
-    a whole bundle, but the named exception keeps the failure mode
+    Per ``[[trailing-steps-nonfatal]]``: callers in the ingest pipeline
+    catch this and log-and-continue so one bad graphic doesn't kill a
+    whole bundle. The named exception keeps the failure mode
     distinguishable from other ingest errors.
     """
 
 
 def inkscape_available() -> bool:
-    """Return True if the inkscape executable resolves on PATH.
+    """Return True if a CGM converter is available on PATH.
 
-    Used by the ingest asset's pre-flight check so it can log a single
-    "skipping CGM conversion (no inkscape)" message rather than failing
-    every CGM in the bundle individually. The Docker image ships with
-    Inkscape; this returns False only in dev environments that haven't
-    installed it.
+    The function name is kept for API stability with callers committed
+    before the Inkscape→LibreOffice pivot (2026-06-29). It now returns
+    True when *any* of the supported converters resolves — LibreOffice
+    (primary) or Inkscape (fallback for SVG-shaped CGMs only).
     """
-    return shutil.which("inkscape") is not None
+    return shutil.which("libreoffice") is not None or shutil.which("inkscape") is not None
 
 
 def convert_cgm_to_png(cgm_path: Path | str, png_path: Path | str) -> None:
     """Convert ``cgm_path`` to a PNG written at ``png_path``.
 
-    Uses ``inkscape --export-type=png --export-filename=...`` which is
-    Inkscape 1.x+ syntax (Inkscape 0.x used ``-z -e``; we deliberately
-    pin to the 1.x form because the Docker image installs Ubuntu's
-    current inkscape >=1.0).
+    Primary path: LibreOffice headless. Inkscape is tried as a
+    last-resort fallback only if LibreOffice isn't installed — its
+    CGM support is incidental at best and many WebCGM 2.0 files fail
+    silently with a zero-byte PNG output.
 
     Args:
         cgm_path: Absolute or relative path to a .cgm file on disk.
@@ -78,11 +73,9 @@ def convert_cgm_to_png(cgm_path: Path | str, png_path: Path | str) -> None:
             staging before this call).
 
     Raises:
-        CgmConvertError: Inkscape returned non-zero, or wrote no output.
-            The exception message includes Inkscape's stderr for
-            diagnosis. Callers should catch + log + continue rather
-            than aborting the whole ingest (the boom diagram failing
-            shouldn't kill the rest of the helmet bundle).
+        CgmConvertError: The converter returned non-zero or produced
+            no/empty output. Callers should catch + log + continue
+            rather than aborting the whole ingest.
     """
     cgm = Path(cgm_path)
     png = Path(png_path)
@@ -90,12 +83,79 @@ def convert_cgm_to_png(cgm_path: Path | str, png_path: Path | str) -> None:
         raise CgmConvertError(f"CGM input does not exist: {cgm}")
     png.parent.mkdir(parents=True, exist_ok=True)
 
-    # Inkscape 1.x flag form. --export-type=png makes the output
-    # format explicit (Inkscape otherwise infers from the filename
-    # extension, but being explicit avoids surprise behavior on
-    # case-mismatched extensions). --without-gui keeps it headless;
-    # newer Inkscape (>=1.2) requires this implicitly so passing it
-    # is harmless and forward-compatible.
+    if shutil.which("libreoffice") is not None:
+        _convert_with_libreoffice(cgm, png)
+    elif shutil.which("inkscape") is not None:
+        logger.warning(
+            "libreoffice not on PATH; falling back to Inkscape for %s "
+            "(known to fail silently on many WebCGM files)",
+            cgm.name,
+        )
+        _convert_with_inkscape(cgm, png)
+    else:
+        raise CgmConvertError(
+            "No CGM converter on PATH. Add `libreoffice` (preferred) or "
+            "`inkscape` (best-effort fallback) to the doc-tools "
+            "Dockerfile's apt install list."
+        )
+
+    if not png.exists() or png.stat().st_size == 0:
+        # Converter "succeeded" but produced nothing usable — treat as
+        # failure so the asset's per-CGM error counter increments and
+        # the operator sees a real signal.
+        raise CgmConvertError(
+            f"converter produced no/empty output at {png} for {cgm}"
+        )
+    logger.info(
+        "cgm_convert: %s -> %s (%d bytes PNG)",
+        cgm.name, png.name, png.stat().st_size,
+    )
+
+
+def _convert_with_libreoffice(cgm: Path, png: Path) -> None:
+    """LibreOffice headless CGM->PNG. Writes ``<input_basename>.png``
+    into a tempdir then moves it to ``png``. We can't pass the output
+    filename directly — LibreOffice only honors ``--outdir`` and uses
+    the input's basename for the output filename."""
+    with tempfile.TemporaryDirectory() as outdir:
+        cmd = [
+            "libreoffice",
+            "--headless",
+            "--convert-to", "png",
+            "--outdir", outdir,
+            str(cgm),
+        ]
+        try:
+            # 300s timeout: LibreOffice's first-run can take ~10s to
+            # initialize its user profile. Per-CGM conversion after
+            # warmup is sub-second.
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=300, check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise CgmConvertError(
+                f"libreoffice conversion timed out after 300s for {cgm}"
+            ) from exc
+        if result.returncode != 0:
+            raise CgmConvertError(
+                f"libreoffice exited {result.returncode} converting {cgm}: "
+                f"{result.stderr.strip()[:500] or result.stdout.strip()[:500]}"
+            )
+        # LibreOffice names the output as <input_stem>.png in --outdir.
+        produced = Path(outdir) / (cgm.stem + ".png")
+        if not produced.exists():
+            raise CgmConvertError(
+                f"libreoffice claimed success but didn't write "
+                f"{produced} (stderr: {result.stderr.strip()[:300]})"
+            )
+        shutil.move(str(produced), str(png))
+
+
+def _convert_with_inkscape(cgm: Path, png: Path) -> None:
+    """Best-effort Inkscape fallback. Inkscape's native import list
+    does NOT include CGM; this path exists only because some users
+    have inkscape installed without libreoffice. Expect frequent
+    silent-zero-byte failures here — the wrapper guards them."""
     cmd = [
         "inkscape",
         str(cgm),
@@ -104,35 +164,14 @@ def convert_cgm_to_png(cgm_path: Path | str, png_path: Path | str) -> None:
     ]
     try:
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120,  # per-file ceiling; a single CGM should be sub-second
-            check=False,
+            cmd, capture_output=True, text=True, timeout=120, check=False,
         )
-    except FileNotFoundError as exc:
-        raise CgmConvertError(
-            "inkscape not found on PATH. Add `inkscape` to the doc-tools "
-            "Dockerfile's apt install list, or install locally for dev."
-        ) from exc
     except subprocess.TimeoutExpired as exc:
         raise CgmConvertError(
             f"inkscape conversion timed out after 120s for {cgm}"
         ) from exc
-
     if result.returncode != 0:
         raise CgmConvertError(
             f"inkscape exited {result.returncode} converting {cgm}: "
             f"{result.stderr.strip()[:500]}"
         )
-    if not png.exists() or png.stat().st_size == 0:
-        # Inkscape can silently produce a 0-byte file on some malformed
-        # CGM inputs; treat that as failure.
-        raise CgmConvertError(
-            f"inkscape produced no output at {png} for {cgm} "
-            f"(stderr: {result.stderr.strip()[:300]})"
-        )
-    logger.info(
-        "cgm_convert: %s -> %s (%d bytes PNG)",
-        cgm.name, png.name, png.stat().st_size,
-    )
