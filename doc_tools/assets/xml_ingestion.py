@@ -33,34 +33,38 @@ class XmlIngestConfig(Config):
        sensor-triggered jobs in doc-tools (document_parser,
        ingest_ontology) already use this convention.
 
-    Exactly one of the two shapes must be provided. If both are set,
-    s3_bucket+s3_key wins (they're explicit; file_url is a convenience).
+    Exactly one of the two shapes must be provided. Use the module-
+    level ``resolve_xml_config()`` to normalize to (bucket, key).
+
+    The resolve helper is intentionally NOT a method on this class —
+    Dagster's Pythonic-config schema-inference for partitioned assets
+    walks the class's method annotations and chokes on the helper's
+    ``tuple[str, str]`` return type. Free-function shape is the safe
+    form across both partitioned (xml_sensor) and non-partitioned
+    (launchpad) call paths.
     """
 
     s3_bucket: Optional[str] = None
     s3_key: Optional[str] = None
     file_url: Optional[str] = None
 
-    def resolve(self) -> tuple[str, str]:
-        """Return (bucket, key) after honoring the two-shape contract.
 
-        Raises ValueError on invalid config so Dagster surfaces a clear
-        failure instead of None-dereferencing downstream.
-        """
-        if self.s3_bucket and self.s3_key:
-            return self.s3_bucket, self.s3_key
-        if self.file_url:
-            parsed = urlparse(self.file_url)
-            if parsed.scheme != "s3" or not parsed.netloc or not parsed.path:
-                raise ValueError(
-                    f"file_url must be an s3:// URI with bucket+key; "
-                    f"got {self.file_url!r}"
-                )
-            return parsed.netloc, parsed.path.lstrip("/")
-        raise ValueError(
-            "XmlIngestConfig requires either (s3_bucket+s3_key) or file_url. "
-            "Got neither."
-        )
+def resolve_xml_config(config: XmlIngestConfig) -> tuple[str, str]:
+    """Normalize the two-shape XmlIngestConfig to (bucket, key)."""
+    if config.s3_bucket and config.s3_key:
+        return config.s3_bucket, config.s3_key
+    if config.file_url:
+        parsed = urlparse(config.file_url)
+        if parsed.scheme != "s3" or not parsed.netloc or not parsed.path:
+            raise ValueError(
+                f"file_url must be an s3:// URI with bucket+key; "
+                f"got {config.file_url!r}"
+            )
+        return parsed.netloc, parsed.path.lstrip("/")
+    raise ValueError(
+        "XmlIngestConfig requires either (s3_bucket+s3_key) or file_url. "
+        "Got neither."
+    )
 
 @asset
 def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> dict:
@@ -70,7 +74,7 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
     """
     s3_client = s3.get_client()
 
-    s3_bucket, s3_key = config.resolve()
+    s3_bucket, s3_key = resolve_xml_config(config)
     context.log.info(f"Fetching XML from s3://{s3_bucket}/{s3_key} into memory...")
 
     response = None

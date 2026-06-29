@@ -106,28 +106,39 @@ class IadsIngestConfig(Config):
     2. ``{file_url: "s3://bucket/key"}`` — S3SensorComponent shape used
        by the new ``iads_sensor`` (added 2026-06-29).
 
-    Exactly one shape must be provided. See ``XmlIngestConfig.resolve``
-    for the equivalent contract on the per-WP path.
+    Exactly one shape must be provided. Use ``resolve_iads_config()``
+    (module-level free function below) to normalize to (bucket, key).
+
+    The resolve helper is NOT a method on this class: Dagster's
+    Pythonic-config schema-inference for partitioned assets walks the
+    class's annotations including method return-types, and chokes on
+    the helper's ``tuple[str, str]`` return annotation with
+    ``Unable to resolve config type``. Free-function shape sidesteps it.
+    Same constraint applies to `XmlIngestConfig` in the sibling file
+    (non-partitioned asset there happened to use a more permissive
+    inference path, but the free-function shape is the safe form).
     """
 
     s3_bucket: Optional[str] = None
     s3_key: Optional[str] = None
     file_url: Optional[str] = None
 
-    def resolve(self) -> tuple[str, str]:
-        if self.s3_bucket and self.s3_key:
-            return self.s3_bucket, self.s3_key
-        if self.file_url:
-            parsed = urlparse(self.file_url)
-            if parsed.scheme != "s3" or not parsed.netloc or not parsed.path:
-                raise ValueError(
-                    f"file_url must be an s3:// URI with bucket+key; "
-                    f"got {self.file_url!r}"
-                )
-            return parsed.netloc, parsed.path.lstrip("/")
-        raise ValueError(
-            "IadsIngestConfig requires either (s3_bucket+s3_key) or file_url."
-        )
+
+def resolve_iads_config(config: IadsIngestConfig) -> tuple[str, str]:
+    """Normalize the two-shape IadsIngestConfig to (bucket, key)."""
+    if config.s3_bucket and config.s3_key:
+        return config.s3_bucket, config.s3_key
+    if config.file_url:
+        parsed = urlparse(config.file_url)
+        if parsed.scheme != "s3" or not parsed.netloc or not parsed.path:
+            raise ValueError(
+                f"file_url must be an s3:// URI with bucket+key; "
+                f"got {config.file_url!r}"
+            )
+        return parsed.netloc, parsed.path.lstrip("/")
+    raise ValueError(
+        "IadsIngestConfig requires either (s3_bucket+s3_key) or file_url."
+    )
 
 
 # Mapping from raw graphic extensions to the on-disk extension we upload.
@@ -185,7 +196,7 @@ def extract_iads_bundle(
     and bundle layout.
     """
     s3_client = s3.get_client()
-    s3_bucket, s3_key = config.resolve()
+    s3_bucket, s3_key = resolve_iads_config(config)
 
     # 1. Fetch the bundle bytes (we need a tempfile for CGM conversion
     #    later — LibreOffice reads from disk — but the IADS bytes
