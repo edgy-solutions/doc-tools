@@ -77,9 +77,15 @@ For ``iads/army/aviation/helmet.iads``:
 The per-WP replication keeps the parser's predicted URL stable.
 The bundle-shared ``source_graphics/`` preserves originals once for
 the click-through-to-source link the UI offers when rendering fails.
-"""
-from __future__ import annotations
 
+NOTE on `from __future__ import annotations`: deliberately NOT used
+in this module. PEP 563 stringifies all annotations, and Dagster's
+``infer_schema_from_config_annotation`` (used by the @asset
+decorator for partitioned assets) can't resolve string-form types
+on Config classes — it raises ``DagsterInvalidPythonicConfigDefinition
+Error: Unable to resolve config type 'IadsIngestConfig'``. Smoke-
+tested at tests/test_dagster_config_load.py.
+"""
 import json
 import os
 import tempfile
