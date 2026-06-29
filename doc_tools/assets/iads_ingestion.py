@@ -1,62 +1,90 @@
 """IADS-bundle ingest — unpack a `.iads` container into S3 so the
 existing `xml_graph_sync_job` per-WP path can finish the work.
 
-Closes the 40051 image-rendering gap surfaced in the 2026-06-29
-corpus-ingest investigation: the helmet TM bundle's WP XMLs reference
-graphics via ``<graphic boardno="MS098897A">`` and the 40051 parser
-predicts an S3 PNG path for each figure, but the .iads bundle's actual
-graphics (CGM) never make it into S3 because the existing XML-ingest
-path takes one .xml file at a time and doesn't know about the
-companion container.
+Closes the 40051 image-rendering gap surfaced 2026-06-29 (the helmet TM
+bundle's `<graphic boardno="MS098897A">` references the boom diagram
+inside helmet.iads but the existing per-XML ingest path didn't unpack
+the companion container).
 
-This asset is the **bundle-level** entry point:
+## Rendering-origin discipline (2026-06-29 ruling)
 
-  1. Reads a `.iads` file from S3 (per `IadsIngestConfig.s3_key`).
-  2. Iterates ALL entries (WP XMLs + graphics) via
-     ``iter_iads_entries`` — the new sibling of the XML-only iterator.
-  3. Uploads each WP XML to a predictable per-bundle path under
-     ``40051/<project/program/.../>/<bundle_basename>/<wp_filename>.xml``.
-     The path mirrors the bundle's location in ``iads/...`` so
-     architects can organize by ``iads/army/aviation/helmet.iads``
-     and get ``40051/army/aviation/helmet/M0004.xml`` as the
-     corresponding per-WP file.
-  4. Converts CGM graphics to PNG via Inkscape (see
-     ``doc_tools/utils/cgm_convert``) and uploads to the path each
-     WP's 40051 parser will predict — i.e., the per-WP
-     ``generated/<wp_basename>/images/<graphic>.png`` dir. The same
-     PNG is uploaded under EACH WP's predicted path so the parser's
-     existing image-prefix logic keeps working without modification.
-     (Storage cost is small for current bundles; we can dedupe to a
-     bundle-shared dir later if it matters.)
-  5. Other graphic formats (JPG, PNG, BMP, G4, GIF) are uploaded
-     as-is — only CGM needs conversion. The 40051 parser writes the
-     same `.png` extension in its predicted URL regardless of source
-     format; we honor that by renaming the uploaded file's extension
-     while keeping its bytes. For .G4 (fax) we leave as-is for now
-     because the parser doesn't predict G4 URLs and the cortex-ui
-     FederatedImage doesn't render G4 either.
+The architect's explicit framing: **Path 3 (honest-failure placeholder)
+is the system behavior, not the consolation prize. Path 1 (labeled
+override) is layered on top — never disguised as pipeline output.**
 
-Per the architect's 2026-06-29 ruling:
+This asset enforces that by emitting a per-figure ``.meta.json``
+sidecar next to every uploaded graphic. The sidecar's
+``rendering_origin`` field tells the cortex-ui slide-in panel WHICH
+of three states this figure is in:
 
-  > "add sensor too - bucket prefix is fine just make sure we can
-  > support depths to the tree so that I can organize by project/program"
+  - ``"pipeline"`` — the IADS extractor converted the source format
+    successfully (no override present). The PNG at the predicted
+    path IS the pipeline's output.
+  - ``"supplied_override"`` — an operator placed a hand-converted
+    PNG at the bundle's `.overrides/` path; the UI MUST label this
+    visibly so "we hand-supplied this" never reads as "the pipeline
+    rendered this." A future engineer must be able to tell
+    instantly which figures were hand-fed and which weren't.
+  - ``"format_not_supported"`` — the conversion failed AND no
+    override exists. The PNG at the predicted path either does
+    not exist or is intentionally absent; the UI renders a
+    placeholder card with the figure ID, title, source format,
+    and a click-through to the raw source bytes (preserved at
+    `source_graphics/<name>.cgm`).
 
-The path-derivation here uses ``os.path.dirname`` of the bundle's
-S3 key so ANY depth under the ``iads/`` prefix is honored. A
-bundle at ``iads/foo/bar/baz/helmet.iads`` unpacks to
-``40051/foo/bar/baz/helmet/...``.
+`[[honest-failure-as-demo-asset]]` applied to the format layer:
+the system reports what it actually did. The next CGM that hits
+the pipeline without an override produces an honest placeholder,
+not a blank space the operator has to debug.
 
-Triggering the downstream `xml_graph_sync_job` per WP is handled
-by the new ``iads_unpacked_sensor`` — when this asset uploads a
-WP XML, the sensor sees it and launches the existing job. This
-keeps the bundle-extraction and per-WP-ingest decoupled.
+## Override convention
+
+Operators supply a hand-converted PNG by placing it at
+``<bundle_dir>/<bundle_basename>.overrides/<figure_basename>.png``.
+For the helmet bundle this is
+``iads/army/aviation/helmet.overrides/MS098897A.png``.
+
+The override:
+1. Wins over pipeline conversion when both exist.
+2. Is uploaded to the SAME predicted path as a pipeline rendering
+   (so the 40051 parser's URL prediction stays correct).
+3. Has its origin recorded in the `.meta.json` sidecar so the UI
+   shows the "supplied rendering" label.
+
+## Bundle layout produced by this asset
+
+For ``iads/army/aviation/helmet.iads``:
+
+```
+40051/army/aviation/helmet/
+├── M0004.xml                                   # WP XMLs unpacked
+├── T0003.xml
+├── ...
+├── generated/M0004_xml/images/                 # parser-predicted
+│   ├── MS098897A.png                           # if rendered/overridden
+│   ├── MS098897A.meta.json                     # always present
+│   ├── helmet.jpg
+│   ├── helmet.meta.json
+│   └── ...
+├── generated/T0003_xml/images/                 # replicated per WP
+│   └── ... (same set)
+└── source_graphics/                            # preserved raw bytes
+    ├── ms098897a.cgm                           # for click-through
+    ├── helmet.jpg
+    └── ...
+```
+
+The per-WP replication keeps the parser's predicted URL stable.
+The bundle-shared ``source_graphics/`` preserves originals once for
+the click-through-to-source link the UI offers when rendering fails.
 """
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from dagster import asset, AssetExecutionContext, Config, MaterializeResult, MetadataValue
@@ -103,10 +131,11 @@ class IadsIngestConfig(Config):
 
 
 # Mapping from raw graphic extensions to the on-disk extension we upload.
-# CGM gets converted to PNG. Other raster formats keep their original
-# extension. The 40051 parser writes `.png` URLs unconditionally, so the
-# CGM->PNG rename handles the boom diagram path; other formats remain
-# accessible via direct S3 path even if the parser doesn't reference them.
+# CGM gets converted to PNG (when conversion succeeds OR an override exists).
+# Other raster formats keep their original extension. The 40051 parser
+# writes `.png` URLs unconditionally, so the CGM->PNG rename handles the
+# boom diagram path; other formats remain accessible via direct S3 path
+# even if the parser doesn't reference them.
 _UPLOAD_EXT_MAP = {
     ".cgm": ".png",
     ".jpg": ".jpg",
@@ -115,15 +144,30 @@ _UPLOAD_EXT_MAP = {
     ".bmp": ".bmp",
     ".gif": ".gif",
     ".pcx": ".pcx",
-    # .G4 (TIFF Group 4 fax) stays — see module docstring.
     ".g4": ".g4",
-    # .pic is a small IADS preview thumbnail; skip — not user-facing.
+    # .pic skipped — IADS preview thumbnails, not user-facing.
 }
 
 # Graphic extensions we ever upload at all. Files outside this set
-# (.ent, .dtd, .dcf, .fos, .scc, .ico, etc.) are skipped — they're
-# IADS-tool metadata, not user-facing content.
+# (.ent, .dtd, .dcf, .fos, .scc, .ico, .pic, etc.) are skipped — they're
+# IADS-tool internals, not corpus content.
 _GRAPHIC_EXTS = set(_UPLOAD_EXT_MAP.keys())
+
+_CONTENT_TYPE_BY_EXT = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".bmp": "image/bmp",
+    ".gif": "image/gif",
+    ".pcx": "image/x-pcx",
+    ".g4": "image/g4-fax",
+}
+
+
+# Rendering-origin enum. These string values are the contract with the
+# cortex-ui slide-in panel; renaming them is a breaking change.
+RENDERING_ORIGIN_PIPELINE = "pipeline"
+RENDERING_ORIGIN_OVERRIDE = "supplied_override"
+RENDERING_ORIGIN_UNSUPPORTED = "format_not_supported"
 
 
 @asset(partitions_def=iads_files_partition)
@@ -132,25 +176,21 @@ def extract_iads_bundle(
     config: IadsIngestConfig,
     s3: S3Resource,
 ) -> MaterializeResult:
-    """Download a .iads from S3, unpack, convert CGM->PNG, upload all.
+    """Download a .iads from S3, unpack WPs + graphics, emit .meta.json
+    sidecars per figure.
 
-    Partitioned by `iads_files_partition` (DynamicPartitionsDefinition);
-    the `iads_sensor` registers a new partition per bundle key it
-    discovers under the `iads/` prefix. The partition key is the
-    bundle's S3 key with `/` replaced by `__` (the S3SensorComponent
-    convention — see dag_tools/components/s3_sensor for the rationale).
+    Partitioned by `iads_files_partition`; the `iads_sensor` registers
+    a new partition per bundle key it discovers under the `iads/`
+    prefix. See module docstring for the rendering-origin discipline
+    and bundle layout.
     """
-
     s3_client = s3.get_client()
-
     s3_bucket, s3_key = config.resolve()
 
-    # 1. Fetch the bundle bytes (zero local-disk dependency for the
-    #    .iads file itself; we still need a temp file for CGM conversion
-    #    because Inkscape reads from disk).
-    context.log.info(
-        f"Fetching IADS bundle from s3://{s3_bucket}/{s3_key}"
-    )
+    # 1. Fetch the bundle bytes (we need a tempfile for CGM conversion
+    #    later — LibreOffice reads from disk — but the IADS bytes
+    #    themselves stay in memory).
+    context.log.info(f"Fetching IADS bundle from s3://{s3_bucket}/{s3_key}")
     response = None
     try:
         response = s3_client.get_object(Bucket=s3_bucket, Key=s3_key)
@@ -162,56 +202,47 @@ def extract_iads_bundle(
             except Exception:
                 pass
 
-    context.log.info(
-        f"IADS bundle: {len(iads_bytes)} bytes; parsing manifest…"
-    )
+    context.log.info(f"IADS bundle: {len(iads_bytes)} bytes; parsing manifest…")
 
-    # 2. Derive the bundle's S3 layout from its key.
-    #    `iads/army/aviation/helmet.iads` →
-    #      bundle_basename = "helmet"
-    #      target_dir      = "40051/army/aviation/helmet"
-    #      per_wp_image_dir(wpname) = target_dir + f"/generated/{wpname}/images"
-    src_dir = os.path.dirname(s3_key)  # "iads/army/aviation"
-    bundle_basename = os.path.splitext(os.path.basename(s3_key))[0]  # "helmet"
-    # Replace the leading "iads/" prefix with "40051/" so the per-WP
-    # ingest sensor (which watches XML files under standard doc-type
-    # prefixes) picks up the unpacked content. ANY depth between
-    # `iads/` and the bundle is preserved per the architect's
-    # 2026-06-29 directive "support depths to the tree so that I can
-    # organize by project/program".
+    # 2. Derive bundle S3 layout. ANY depth between `iads/` and the
+    #    bundle is preserved per the 2026-06-29 "support depths" ruling.
+    src_dir = os.path.dirname(s3_key)
+    bundle_basename = os.path.splitext(os.path.basename(s3_key))[0]
     if src_dir.startswith("iads/"):
         unpacked_dir = src_dir.replace("iads/", "40051/", 1) + "/" + bundle_basename
     elif src_dir == "iads":
         unpacked_dir = "40051/" + bundle_basename
     else:
-        # Defensive: caller put the bundle outside `iads/`; mirror the
-        # exact path under `40051/<bundle_basename>/`. Architect chose
-        # the iads/ convention but we don't reject other locations.
-        unpacked_dir = (
-            f"{src_dir}/{bundle_basename}" if src_dir else bundle_basename
-        )
-    context.log.info(
-        f"Bundle target dir: s3://{s3_bucket}/{unpacked_dir}/ "
-        f"(bundle_basename={bundle_basename!r})"
+        unpacked_dir = f"{src_dir}/{bundle_basename}" if src_dir else bundle_basename
+
+    # Override directory convention: sibling to the bundle, named
+    # `<bundle>.overrides/`. Architects organize this by hand; the
+    # asset just checks for matching basenames at extract time.
+    overrides_dir = (
+        f"{src_dir}/{bundle_basename}.overrides" if src_dir
+        else f"{bundle_basename}.overrides"
     )
 
-    # 3. Write the .iads to a tempfile so we can mmap/seek (the
-    #    iter_iads_entries helper reads the whole file via Path.read_bytes
-    #    anyway, but a tempfile lets us reuse the existing API
-    #    unchanged).
+    # Source-graphics dir: bundle-level (NOT per-WP) so we preserve
+    # each unique original exactly once. The UI's click-through-to-
+    # source link points here when rendering fails or for the
+    # "view raw source" affordance.
+    source_graphics_dir = f"{unpacked_dir}/source_graphics"
+
+    context.log.info(
+        f"Bundle target dir: s3://{s3_bucket}/{unpacked_dir}/ | "
+        f"overrides dir: s3://{s3_bucket}/{overrides_dir}/ | "
+        f"source_graphics dir: s3://{s3_bucket}/{source_graphics_dir}/"
+    )
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_p = Path(tmpdir)
         iads_local = tmpdir_p / "bundle.iads"
         iads_local.write_bytes(iads_bytes)
 
-        # ────────────────────────────────────────────────────────────
-        # First pass: collect WP XMLs (basename-only, no path) and
-        # graphics. We need the WP list before uploading graphics so
-        # we can replicate each graphic under each WP's predicted
-        # image_prefix dir.
-        # ────────────────────────────────────────────────────────────
-        wp_xmls: List[tuple[str, bytes]] = []  # (basename_with_ext, body)
-        graphics: List[tuple[str, bytes]] = []  # (basename_with_ext, body)
+        # 3. First pass: split entries into WP XMLs vs graphics.
+        wp_xmls: List[Tuple[str, bytes]] = []
+        graphics: List[Tuple[str, bytes]] = []
 
         for relpath, body in iter_iads_entries(iads_local):
             basename = relpath.replace("\\", "/").rsplit("/", 1)[-1]
@@ -220,84 +251,141 @@ def extract_iads_bundle(
                 wp_xmls.append((basename, body))
             elif ext in _GRAPHIC_EXTS:
                 graphics.append((basename, body))
-            # All other entries (.ent, .dtd, .dcf, .fos, .scc, .ico,
-            # .pic, .db, etc.) are deliberately skipped — they're
-            # IADS-tool internals, not corpus content.
+            # Everything else: IADS-tool metadata, skip.
 
         context.log.info(
             f"IADS inventory: {len(wp_xmls)} WP XMLs, "
-            f"{len(graphics)} graphics for upload"
+            f"{len(graphics)} graphic entries"
         )
 
-        # ────────────────────────────────────────────────────────────
-        # Convert CGM graphics once into the tempdir. Convert each
-        # graphic at most once, even though we upload it per-WP.
-        # ────────────────────────────────────────────────────────────
-        prepared_graphics: List[tuple[str, bytes, str]] = []
-        # tuple = (uploaded_filename_with_target_ext, uploaded_bytes, content_type)
-        inkscape_ok = inkscape_available()
-        if not inkscape_ok:
+        # 4. Prepare each graphic: classify rendering_origin, prepare
+        #    bytes for upload (or None for unsupported), preserve
+        #    source bytes, build the meta sidecar payload.
+        converter_ok = inkscape_available()
+        if not converter_ok:
             context.log.warning(
-                "inkscape not available on PATH — CGM graphics will be "
-                "skipped this run. Add `inkscape` to the doc-tools "
-                "Dockerfile or install locally to enable CGM conversion."
+                "No CGM converter on PATH — CGM graphics with no override "
+                "will be labeled `format_not_supported`. Install libreoffice "
+                "(preferred) or inkscape in the doc-tools Dockerfile."
             )
 
-        cgm_converted = 0
-        cgm_failed = 0
+        # PreparedGraphic: per-figure dict carrying everything we
+        # need to upload across all WPs + write the source + meta.
+        prepared: List[Dict[str, Any]] = []
+
+        counts = {"pipeline": 0, "supplied_override": 0, "format_not_supported": 0}
+
         for basename, body in graphics:
             ext = os.path.splitext(basename)[1].lower()
+            figure_basename = os.path.splitext(basename)[0]
             target_ext = _UPLOAD_EXT_MAP[ext]
-            target_filename = os.path.splitext(basename)[0] + target_ext
+            target_filename = figure_basename + target_ext
 
-            if ext == ".cgm":
-                if not inkscape_ok:
-                    cgm_failed += 1
-                    continue
-                src_file = tmpdir_p / basename
-                out_file = tmpdir_p / target_filename
-                src_file.write_bytes(body)
-                try:
-                    convert_cgm_to_png(src_file, out_file)
-                    out_bytes = out_file.read_bytes()
-                    cgm_converted += 1
-                except CgmConvertError as e:
-                    cgm_failed += 1
-                    context.log.warning(
-                        f"CGM convert failed for {basename}: {e} "
-                        f"(skipped — bundle continues)"
-                    )
-                    continue
+            # Source preservation: every original goes to
+            # source_graphics/, regardless of rendering outcome. The
+            # source IS the truth even when the pipeline can't render
+            # it. UI's "view raw source" link points here.
+            source_s3_uri = f"s3://{s3_bucket}/{source_graphics_dir}/{basename}"
+
+            # Override check: case-insensitive on basename so the
+            # ENTITY-declaration case mismatch (XML refs MS098897A.cgm,
+            # IADS-internal file is ms098897a.cgm) is handled. Operators
+            # who place an override should match whichever case the
+            # figure_basename produces; that's the XML-side basename
+            # since that's what the parser's predicted URL uses.
+            override_bytes, override_key = _try_fetch_override(
+                s3_client, s3_bucket, overrides_dir, figure_basename, target_ext,
+                context=context,
+            )
+
+            # Decide rendering_origin + the bytes to upload.
+            uploaded_bytes: Optional[bytes] = None
+            origin: str
+            convert_error: Optional[str] = None
+
+            if override_bytes is not None:
+                # Override wins, always — even if pipeline conversion
+                # would have succeeded. Operator deliberately supplied
+                # something; the system honors that AND labels it.
+                uploaded_bytes = override_bytes
+                origin = RENDERING_ORIGIN_OVERRIDE
+                context.log.info(
+                    f"figure {figure_basename}: using supplied override at "
+                    f"s3://{s3_bucket}/{override_key} (rendering_origin="
+                    f"{origin})"
+                )
+            elif ext == ".cgm":
+                # CGM with no override → try converter.
+                if not converter_ok:
+                    origin = RENDERING_ORIGIN_UNSUPPORTED
+                else:
+                    src_file = tmpdir_p / basename
+                    out_file = tmpdir_p / target_filename
+                    src_file.write_bytes(body)
+                    try:
+                        convert_cgm_to_png(src_file, out_file)
+                        uploaded_bytes = out_file.read_bytes()
+                        origin = RENDERING_ORIGIN_PIPELINE
+                    except CgmConvertError as e:
+                        convert_error = str(e)[:300]
+                        origin = RENDERING_ORIGIN_UNSUPPORTED
+                        context.log.info(
+                            f"figure {figure_basename}: CGM conversion "
+                            f"failed ({convert_error}); rendering_origin="
+                            f"{origin} (no override present)"
+                        )
             else:
-                out_bytes = body
+                # Non-CGM raster → passthrough.
+                uploaded_bytes = body
+                origin = RENDERING_ORIGIN_PIPELINE
 
-            # Crude content-type map. The S3 GetObject side only needs
-            # this for the federated_image proxy to set the right
-            # Content-Type header back to the browser.
-            content_type = {
-                ".png": "image/png",
-                ".jpg": "image/jpeg",
-                ".bmp": "image/bmp",
-                ".gif": "image/gif",
-                ".pcx": "image/x-pcx",
-                ".g4": "image/g4-fax",
-            }.get(target_ext, "application/octet-stream")
+            counts[origin] += 1
 
-            prepared_graphics.append((target_filename, out_bytes, content_type))
+            content_type = _CONTENT_TYPE_BY_EXT.get(
+                target_ext, "application/octet-stream"
+            )
+            source_content_type = _CONTENT_TYPE_BY_EXT.get(
+                ext, "application/octet-stream"
+            )
+
+            # Meta sidecar payload. This is the contract with the
+            # cortex-ui slide-in. ADDING fields is safe; renaming or
+            # removing is a breaking UI change. JSON is keyed by the
+            # uploaded filename (without .meta.json suffix) so the
+            # UI can fetch with a predictable URL: replace the
+            # `.png`/`.jpg`/... extension with `.meta.json`.
+            meta: Dict[str, Any] = {
+                "schema_version": 1,
+                "figure_id": figure_basename,
+                "rendering_origin": origin,
+                "source_format": ext.lstrip("."),
+                "source_s3": source_s3_uri,
+                "uploaded_filename": target_filename,
+                "supplied_override_s3": (
+                    f"s3://{s3_bucket}/{override_key}" if override_key else None
+                ),
+                "convert_error": convert_error,  # populated only on UNSUPPORTED
+            }
+
+            prepared.append({
+                "figure_basename": figure_basename,
+                "uploaded_filename": target_filename,
+                "uploaded_bytes": uploaded_bytes,  # None for UNSUPPORTED
+                "content_type": content_type,
+                "source_basename": basename,
+                "source_bytes": body,
+                "source_content_type": source_content_type,
+                "meta": meta,
+                "meta_filename": figure_basename + ".meta.json",
+            })
 
         context.log.info(
-            f"Graphics prepared: {len(prepared_graphics)} ready for upload "
-            f"(CGM: {cgm_converted} converted, {cgm_failed} failed/skipped)"
+            f"Graphics classified: pipeline={counts['pipeline']}, "
+            f"supplied_override={counts['supplied_override']}, "
+            f"format_not_supported={counts['format_not_supported']}"
         )
 
-        # ────────────────────────────────────────────────────────────
-        # Upload WP XMLs first so the downstream `iads_unpacked_sensor`
-        # has the canonical inputs available BEFORE the graphics it
-        # might cross-reference. (Order is defensive — both must be
-        # present before the per-WP ingest runs, but the sensor is
-        # cursor-based and will pick up whichever fires its threshold
-        # first.)
-        # ────────────────────────────────────────────────────────────
+        # 5. Upload WP XMLs.
         wp_xml_keys: List[str] = []
         for basename, body in wp_xmls:
             target_key = f"{unpacked_dir}/{basename}"
@@ -310,51 +398,138 @@ def extract_iads_bundle(
             wp_xml_keys.append(target_key)
             context.log.info(f"uploaded WP XML: s3://{s3_bucket}/{target_key}")
 
-        # ────────────────────────────────────────────────────────────
-        # Replicate prepared graphics under EACH WP's predicted
-        # image_prefix path. The 40051 parser's
-        # `image_prefix = s3://{bucket}/{base_dir}/generated/{base_name}/images/`
-        # where base_dir = dirname(s3_key) and base_name =
-        # filename.replace('.','_'). With our upload above, each WP
-        # gets its own predicted prefix; we mirror the same set of
-        # graphics under each. Small storage hit; keeps the parser
-        # unchanged (architecturally clean — the parser doesn't need
-        # to know about bundles).
-        # ────────────────────────────────────────────────────────────
-        graphic_upload_count = 0
+        # 6. Upload source graphics once (bundle-level), regardless
+        #    of rendering outcome. UI's view-raw-source link reads here.
+        for p in prepared:
+            source_key = f"{source_graphics_dir}/{p['source_basename']}"
+            s3_client.put_object(
+                Bucket=s3_bucket,
+                Key=source_key,
+                Body=p["source_bytes"],
+                ContentType=p["source_content_type"],
+            )
+
+        # 7. Replicate prepared graphics (bytes + meta sidecar) under
+        #    EACH WP's predicted image_prefix dir. The 40051 parser's
+        #    `image_prefix = s3://{bucket}/{base_dir}/generated/{base_name}/images/`
+        #    where base_name = filename.replace('.','_'). We mirror the
+        #    same set of (PNG, meta.json) pairs under each WP so the
+        #    parser-predicted URL works without parser changes.
+        upload_count = {"figures": 0, "metas": 0, "skipped_unsupported": 0}
         for wp_basename, _ in wp_xmls:
             wp_base_name_dot = wp_basename.replace(".", "_")
             wp_image_dir = f"{unpacked_dir}/generated/{wp_base_name_dot}/images"
-            for target_filename, out_bytes, content_type in prepared_graphics:
-                graphic_key = f"{wp_image_dir}/{target_filename}"
+
+            for p in prepared:
+                meta_key = f"{wp_image_dir}/{p['meta_filename']}"
+                # Always write the meta sidecar — even for UNSUPPORTED.
+                # The UI uses presence-of-meta as the discovery signal;
+                # absence-of-meta means "no info about this figure."
+                s3_client.put_object(
+                    Bucket=s3_bucket,
+                    Key=meta_key,
+                    Body=json.dumps(p["meta"], indent=2).encode("utf-8"),
+                    ContentType="application/json",
+                )
+                upload_count["metas"] += 1
+
+                if p["uploaded_bytes"] is None:
+                    # UNSUPPORTED: meta sidecar already records the
+                    # truth; we deliberately DO NOT upload a PNG. UI
+                    # checks meta first, then renders the placeholder
+                    # card. (If we uploaded a 0-byte or broken PNG
+                    # here, FederatedImage would have rendering
+                    # artifacts before the UI got a chance to read
+                    # meta. Better: no PNG at all when rendering_origin
+                    # is `format_not_supported`.)
+                    upload_count["skipped_unsupported"] += 1
+                    continue
+
+                graphic_key = f"{wp_image_dir}/{p['uploaded_filename']}"
                 s3_client.put_object(
                     Bucket=s3_bucket,
                     Key=graphic_key,
-                    Body=out_bytes,
-                    ContentType=content_type,
+                    Body=p["uploaded_bytes"],
+                    ContentType=p["content_type"],
                 )
-                graphic_upload_count += 1
+                upload_count["figures"] += 1
 
         context.log.info(
             f"IADS unpack complete: {len(wp_xml_keys)} WP XMLs, "
-            f"{graphic_upload_count} graphic uploads "
-            f"({len(prepared_graphics)} unique × {len(wp_xmls)} WPs)"
+            f"{upload_count['figures']} figure PNGs, "
+            f"{upload_count['metas']} meta sidecars, "
+            f"{upload_count['skipped_unsupported']} UNSUPPORTED "
+            f"(no PNG, meta records why)"
         )
 
     return MaterializeResult(
         metadata={
-            "source_bundle": MetadataValue.text(
-                f"s3://{s3_bucket}/{s3_key}"
-            ),
-            "unpacked_dir": MetadataValue.text(
-                f"s3://{s3_bucket}/{unpacked_dir}/"
+            "source_bundle": MetadataValue.text(f"s3://{s3_bucket}/{s3_key}"),
+            "unpacked_dir": MetadataValue.text(f"s3://{s3_bucket}/{unpacked_dir}/"),
+            "overrides_dir": MetadataValue.text(f"s3://{s3_bucket}/{overrides_dir}/"),
+            "source_graphics_dir": MetadataValue.text(
+                f"s3://{s3_bucket}/{source_graphics_dir}/"
             ),
             "wp_xml_count": MetadataValue.int(len(wp_xml_keys)),
             "wp_xml_keys": MetadataValue.json(wp_xml_keys),
-            "graphics_unique_count": MetadataValue.int(len(prepared_graphics)),
-            "graphics_total_uploaded": MetadataValue.int(graphic_upload_count),
-            "cgm_converted": MetadataValue.int(cgm_converted),
-            "cgm_failed_or_skipped": MetadataValue.int(cgm_failed),
-            "inkscape_available": MetadataValue.bool(inkscape_ok),
+            "graphics_unique_count": MetadataValue.int(len(prepared)),
+            "rendering_origin_pipeline": MetadataValue.int(counts["pipeline"]),
+            "rendering_origin_supplied_override": MetadataValue.int(
+                counts["supplied_override"]
+            ),
+            "rendering_origin_format_not_supported": MetadataValue.int(
+                counts["format_not_supported"]
+            ),
+            "converter_available": MetadataValue.bool(converter_ok),
+            "figure_pngs_uploaded": MetadataValue.int(upload_count["figures"]),
+            "meta_sidecars_uploaded": MetadataValue.int(upload_count["metas"]),
         }
     )
+
+
+def _try_fetch_override(
+    s3_client,
+    bucket: str,
+    overrides_dir: str,
+    figure_basename: str,
+    target_ext: str,
+    *,
+    context: AssetExecutionContext,
+) -> Tuple[Optional[bytes], Optional[str]]:
+    """Look for ``<overrides_dir>/<figure_basename>.<target_ext>``.
+
+    Per the architect's 2026-06-29 ruling, the override is *labeled* —
+    its presence is recorded in the meta sidecar's ``rendering_origin``
+    so the UI never reads "we hand-supplied this" as "the pipeline
+    rendered this." This helper just fetches the bytes; the asset
+    sets the label.
+
+    Returns ``(bytes, key)`` on hit, ``(None, None)`` on miss. Any
+    error other than NoSuchKey is logged + treated as miss (defensive:
+    don't kill the whole ingest because the operator's override is
+    momentarily unreachable).
+    """
+    candidates = [target_ext, ".png", ".jpg", ".svg"]
+    seen: set[str] = set()
+    for ext in candidates:
+        if ext in seen:
+            continue
+        seen.add(ext)
+        key = f"{overrides_dir}/{figure_basename}{ext}"
+        try:
+            obj = s3_client.get_object(Bucket=bucket, Key=key)
+            body = obj["Body"].read()
+            try:
+                obj["Body"].close()
+            except Exception:
+                pass
+            return body, key
+        except s3_client.exceptions.NoSuchKey:
+            continue
+        except Exception as e:
+            context.log.warning(
+                f"override probe at s3://{bucket}/{key} failed "
+                f"(treated as miss): {e}"
+            )
+            continue
+    return None, None
