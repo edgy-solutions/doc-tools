@@ -128,7 +128,44 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
     base_name = filename.replace('.', '_')
     image_prefix = f"s3://{s3_bucket}/{base_dir}/generated/{base_name}/images/"
 
-    builder = PARSERS[doc_type](bucket=s3_bucket, doc_id=doc_id, image_prefix=image_prefix)
+    # Fetch the per-bundle graphics manifest (written by
+    # `extract_iads_bundle`) if present at the sibling path. The
+    # manifest is the single source of truth for figure URLs +
+    # rendering_origin; without it the parser falls back to the legacy
+    # `<boardno>.png` prediction. Sibling path = same dir as the WP XML,
+    # not under generated/. For an IADS-sourced WP at
+    # `40051/army/aviation/helmet/M0004.xml`, the manifest sits at
+    # `40051/army/aviation/helmet/graphics_manifest.json`.
+    import json as _json
+    graphics_manifest: Optional[Dict[str, Any]] = None
+    if doc_type == "40051":
+        manifest_key = f"{base_dir}/graphics_manifest.json"
+        try:
+            manifest_resp = s3_client.get_object(Bucket=s3_bucket, Key=manifest_key)
+            graphics_manifest = _json.loads(manifest_resp['Body'].read())
+            try:
+                manifest_resp['Body'].close()
+            except Exception:
+                pass
+            context.log.info(
+                f"Loaded graphics manifest from s3://{s3_bucket}/{manifest_key} "
+                f"with {len(graphics_manifest.get('figures', {}))} figure entries."
+            )
+        except s3_client.exceptions.NoSuchKey:
+            context.log.info(
+                f"No graphics_manifest.json at s3://{s3_bucket}/{manifest_key} — "
+                f"parser falls back to .png-extension prediction (legacy single-XML "
+                f"ingest path)."
+            )
+
+    builder = PARSERS[doc_type](
+        bucket=s3_bucket,
+        doc_id=doc_id,
+        image_prefix=image_prefix,
+        graphics_manifest=graphics_manifest,
+    ) if doc_type == "40051" else PARSERS[doc_type](
+        bucket=s3_bucket, doc_id=doc_id, image_prefix=image_prefix,
+    )
 
     # Parse the in-memory bytes and capture the root URI
     root_uri = builder.parse_data_module(xml_bytes)

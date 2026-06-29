@@ -472,6 +472,50 @@ def extract_iads_bundle(
                 )
                 upload_count["figures"] += 1
 
+        # 8. Per-bundle graphics manifest — the SINGLE source of truth the
+        #    parser reads to construct correct `mil:hasURL` triples.
+        #    Previously the parser hardcoded `<boardno>.png` for every
+        #    figure regardless of the source format the extractor uploaded
+        #    (CGM, JPG, BMP, PNG, GIF, PCX, G4) — a prediction that masked
+        #    a structural information-loss bug. Now the parser fetches this
+        #    manifest from a predictable sibling path (next to the WP XML)
+        #    and reads each figure's actual uploaded filename + rendering
+        #    origin, eliminating the prediction surface.
+        #
+        #    Indexed by figure_basename (matches the XML's
+        #    `<graphic boardno="..."/>` attribute). Both the parser AND the
+        #    cortex-ui slide-in (next session) consume this contract; see
+        #    `[[verification-must-fail]]` — predictions silently degrade
+        #    when the assumption breaks, manifests fail loud (missing key
+        #    is recognizable).
+        manifest_key = f"{unpacked_dir}/graphics_manifest.json"
+        manifest_doc = {
+            "schema_version": 1,
+            "bundle_source": f"s3://{s3_bucket}/{s3_key}",
+            "unpacked_dir": f"s3://{s3_bucket}/{unpacked_dir}/",
+            "figures": {
+                p["figure_basename"]: {
+                    "uploaded_filename": p["uploaded_filename"],
+                    "source_format": p["meta"]["source_format"],
+                    "rendering_origin": p["meta"]["rendering_origin"],
+                    "source_s3": p["meta"]["source_s3"],
+                    "supplied_override_s3": p["meta"]["supplied_override_s3"],
+                    "convert_error": p["meta"]["convert_error"],
+                }
+                for p in prepared
+            },
+        }
+        s3_client.put_object(
+            Bucket=s3_bucket,
+            Key=manifest_key,
+            Body=json.dumps(manifest_doc, indent=2).encode("utf-8"),
+            ContentType="application/json",
+        )
+        context.log.info(
+            f"Wrote graphics manifest with {len(manifest_doc['figures'])} "
+            f"figures: s3://{s3_bucket}/{manifest_key}"
+        )
+
         context.log.info(
             f"IADS unpack complete: {len(wp_xml_keys)} WP XMLs, "
             f"{upload_count['figures']} figure PNGs, "

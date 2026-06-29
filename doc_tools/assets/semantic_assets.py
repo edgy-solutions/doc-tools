@@ -321,6 +321,55 @@ def build_knowledge_graph(
         except Exception as e:
             context.log.error(f"Vector indexing failed for chunk {chunk_id}: {e}")
 
+    # ────────────────────────────────────────────────────────────────
+    # Per-figure chunks for embedded images (closes the PDF-side
+    # figure-in-answer gap surfaced 2026-06-30 alongside the XML
+    # graphics manifest work). `process_document_artifact` extracts
+    # images via `unstructured` and uploads them to S3, returning the
+    # mapping in `manifest["embedded_images"]: {filename: s3_url}`.
+    # Previously this map was recorded but never referenced by the
+    # chunk writer — so the LLM never saw image references and Engine
+    # W's answers were text-only even when the source PDF had
+    # diagrams.
+    #
+    # Each embedded image gets its own DocumentChunk whose text is
+    # markdown image syntax. When Engine W's hybrid search returns
+    # one of these chunks, the synthesizer typically preserves the
+    # markdown verbatim and the cortex-ui's SemanticInterpreter routes
+    # the <img src="s3://..."> through FederatedImage for inline
+    # display.
+    #
+    # Per [[failure-mode-pluralism-in-fixes]] sibling of the IADS
+    # manifest work — same shape (record-and-don't-reference), same
+    # fix (close the loop at the chunk-write layer).
+    # ────────────────────────────────────────────────────────────────
+    embedded_images = manifest.get("embedded_images") or {}
+    if embedded_images:
+        for img_filename, img_s3_url in embedded_images.items():
+            if not img_s3_url:
+                continue
+            # Caption from filename (strip extension, replace separators
+            # with spaces). e.g. "figure-page2-1.png" -> "figure page2 1".
+            stem = os.path.splitext(img_filename)[0]
+            caption = stem.replace("-", " ").replace("_", " ").strip() or img_filename
+            figure_chunk_id = f"{doc_id}_fig_{stem}"
+            figure_text = f"Figure {caption}:\n\n![{caption}]({img_s3_url})"
+            try:
+                _index_chunk(weaviate_client, collection_name, {
+                    "text": figure_text,
+                    "doc_id": doc_id,
+                    "chunk_id": figure_chunk_id,
+                    "domain": domain_label,
+                })
+            except Exception as e:
+                context.log.error(
+                    f"Figure chunk indexing failed for {figure_chunk_id}: {e}"
+                )
+        context.log.info(
+            f"Indexed {len(embedded_images)} embedded-image figure chunks "
+            f"for doc {doc_id}."
+        )
+
     # Derive image_prefix from text_location
     # e.g. text_location: "manufacturing/IID/generated/test_pdf/text.json"
     # base_dir: "manufacturing/IID/generated/test_pdf"

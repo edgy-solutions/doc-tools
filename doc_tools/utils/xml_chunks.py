@@ -47,6 +47,21 @@ from rdflib.namespace import RDFS
 _MIL_NS = "http://edgy-solutions.com/ontology/mil#"
 _MIL_INSTRUCTION = URIRef(_MIL_NS + "hasInstructionText")
 _MIL_WARNING = URIRef(_MIL_NS + "hasWarning")
+_MIL_HAS_FIGURE = URIRef(_MIL_NS + "hasFigure")
+_MIL_HAS_URL = URIRef(_MIL_NS + "hasURL")
+_MIL_RENDERING_ORIGIN = URIRef(_MIL_NS + "renderingOrigin")
+
+# Rendering-origin values that are safe to inline as markdown image
+# references. The IADS extractor wrote these into per-figure meta
+# sidecars + the bundle graphics_manifest; the 40051 parser propagates
+# them as `mil:renderingOrigin` triples on each Figure URI; the chunker
+# reads them here to choose inline-image-markdown vs text-only-mention.
+# Contract with cortex-ui's FederatedImage: a markdown image whose s3://
+# URL doesn't actually exist (i.e., `format_not_supported`) would
+# render a broken-image icon — we deliberately suppress that and let
+# the slide-in panel show the honest placeholder for unsupported
+# figures. See [[honest-failure-as-demo-asset]].
+_RENDERABLE_ORIGINS = {"pipeline", "supplied_override"}
 
 # Minimum chunk length for the "generic body" sweep. Filters out
 # identifiers, codes, and other short Literals that hurt BM25 signal
@@ -134,7 +149,58 @@ def extract_chunks_from_graph(
             })
     seen_predicates.add(_MIL_WARNING)
 
-    # 4. Generic-body fallback — any other text Literal directly
+    # 4. Figures — walk `mil:hasFigure` from root to each Figure URI,
+    #    read its `rdfs:label`, `mil:hasURL`, and `mil:renderingOrigin`.
+    #    Emit one chunk per figure. For renderable figures (pipeline /
+    #    supplied_override) the chunk text includes markdown image syntax
+    #    so the LLM may surface it in synthesis — `SemanticInterpreter`
+    #    renders <img> through `FederatedImage`, which signs the s3://
+    #    URL through cortex-bff and returns the bytes for inline display.
+    #    For unsupported figures (format_not_supported / unknown) the
+    #    chunk is text-only — no broken-image markdown — and the slide-in
+    #    panel surfaces the honest placeholder with click-through to
+    #    raw `source_s3`.
+    for figure_uri in g.objects(root, _MIL_HAS_FIGURE):
+        if not isinstance(figure_uri, URIRef):
+            continue
+        label = _first_literal(g, figure_uri, RDFS.label)
+        url = _first_literal(g, figure_uri, _MIL_HAS_URL)
+        origin = _first_literal(g, figure_uri, _MIL_RENDERING_ORIGIN) or ""
+        if not (label and url):
+            continue
+        local = _local_name(figure_uri)
+        if origin in _RENDERABLE_ORIGINS:
+            # Renderable: caption + markdown image. The blank line
+            # between caption and image is important — react-markdown
+            # treats them as separate blocks (the image block centers
+            # cleanly in the wrapped <FederatedImage> container).
+            text = f"Figure {label}:\n\n![{label}]({url})"
+        elif origin:
+            # Known-unsupported (format_not_supported): mention the
+            # figure exists, point at the slide-in panel for the
+            # honest placeholder + raw-source link. Avoid broken
+            # markdown that would render a placeholder icon inline.
+            text = (
+                f"Figure {label} is referenced in this data module but "
+                f"its source format is not renderable inline "
+                f"(rendering_origin={origin}). See the structural "
+                f"panel for the source-link affordance."
+            )
+        else:
+            # No origin info (legacy single-XML ingest with no
+            # manifest, or manifest entry missing). Conservative:
+            # caption only, no image markdown. Better to miss a
+            # render than to ship a broken one.
+            text = f"Figure {label} (source: {url})"
+        chunks.append({
+            "text": text,
+            "doc_id": root_uri,
+            "section": f"figure:{local}",
+            "domain": domain,
+        })
+    seen_predicates.add(_MIL_HAS_FIGURE)
+
+    # 5. Generic-body fallback — any other text Literal directly
     #    attached to the root. Catches parsers that don't use the
     #    mil:* predicates (a future S1000D builder may use s1000d:*
     #    instead). The min-chars threshold filters identifiers /
@@ -156,6 +222,17 @@ def extract_chunks_from_graph(
         })
 
     return chunks
+
+
+def _first_literal(g: Graph, subj, pred) -> str:
+    """Return the first Literal object of (subj, pred, *) triples as a
+    stripped string, or empty string when none exists. Helper for the
+    figure-chunk path where each Figure URI has exactly one label / url /
+    rendering_origin."""
+    for _, _, obj in g.triples((subj, pred, None)):
+        if isinstance(obj, Literal):
+            return str(obj).strip()
+    return ""
 
 
 def _literals_of(g: Graph, subj: URIRef, pred: URIRef) -> Iterable[Literal]:

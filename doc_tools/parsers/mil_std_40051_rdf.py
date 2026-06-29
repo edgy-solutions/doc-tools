@@ -7,9 +7,25 @@ class MilStd40051GraphBuilder:
     """
     Parser for US Army MIL-STD-40051 XML technical manuals.
     Maps Army Work Packages to a unified military ontology.
+
+    Figure URLs are sourced from a per-bundle `graphics_manifest.json`
+    written by the IADS extractor (see
+    `doc_tools/assets/iads_ingestion.py`). The manifest maps each
+    `<graphic boardno="..."/>` to the actual uploaded filename in S3
+    AND the rendering-origin discipline state (pipeline /
+    supplied_override / format_not_supported). Without a manifest the
+    parser falls back to the legacy `<boardno>.png` prediction — kept
+    for backward compatibility with manually-launched single-XML
+    ingests, but the cluster's IADS path always provides one.
     """
-    
-    def __init__(self, bucket: str = "", doc_id: str = "", image_prefix: str = ""):
+
+    def __init__(
+        self,
+        bucket: str = "",
+        doc_id: str = "",
+        image_prefix: str = "",
+        graphics_manifest: dict | None = None,
+    ):
         self.graph = Graph()
         self.MIL = Namespace("http://edgy-solutions.com/ontology/mil#")
         self.graph.bind("mil", self.MIL)
@@ -17,6 +33,12 @@ class MilStd40051GraphBuilder:
         self.bucket = bucket
         self.doc_id = doc_id
         self.image_prefix = image_prefix
+        # graphics_manifest["figures"][boardno] -> {uploaded_filename,
+        # rendering_origin, source_format, source_s3, ...}. See
+        # iads_ingestion.extract_iads_bundle for the writer.
+        self.graphics_manifest = (graphics_manifest or {}).get("figures", {}) \
+            if isinstance(graphics_manifest, dict) and "figures" in graphics_manifest \
+            else (graphics_manifest or {})
 
     def parse_data_module(self, xml_content: bytes) -> str:
         """
@@ -116,9 +138,12 @@ class MilStd40051GraphBuilder:
                 self.graph.add((node_uri, self.MIL.hasInstructionText, Literal(text)))
 
         # 6. Extract Figures & Graphics
-        # 40051 uses <graphic boardno="..."> and <figure> tags
+        # 40051 uses <graphic boardno="..."> and <figure> tags. URL +
+        # rendering_origin come from the per-bundle graphics manifest
+        # (see class docstring); fall back to `<boardno>.png` only when
+        # no manifest is available (legacy single-file ingest path).
         seen_figs = set()
-        
+
         # Primary: <graphic boardno="..."> elements
         graphic_elements = tree.xpath("//graphic[@boardno]")
         for g in graphic_elements:
@@ -129,11 +154,39 @@ class MilStd40051GraphBuilder:
                 figure_uri = URIRef(self.MIL[f"fig-{clean_boardno}"])
                 self.graph.add((figure_uri, RDF.type, self.MIL.Figure))
                 self.graph.add((figure_uri, RDFS.label, Literal(boardno)))
+
+                # Look up the actual uploaded filename + rendering origin
+                # from the manifest. The manifest is keyed by figure_basename
+                # (the part before the source extension); the XML's
+                # `boardno` attribute matches that key. Case-insensitive
+                # fallback handles the helmet TM's "MS098897A.cgm" XML ref
+                # vs the bundle's lowercase "ms098897a.cgm" entry.
+                figure_info = self.graphics_manifest.get(boardno) \
+                    or self.graphics_manifest.get(boardno.lower()) \
+                    or {}
+                actual_filename = figure_info.get(
+                    "uploaded_filename", f"{boardno}.png"
+                )
+                rendering_origin = figure_info.get("rendering_origin", "")
+
                 if self.image_prefix:
-                    full_s3_url = f"{self.image_prefix}{boardno}.png"
+                    full_s3_url = f"{self.image_prefix}{actual_filename}"
                     self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
                 else:
-                    self.graph.add((figure_uri, self.MIL.hasURL, Literal(boardno)))
+                    self.graph.add((figure_uri, self.MIL.hasURL, Literal(actual_filename)))
+
+                # Emit rendering_origin as a property — the chunker reads
+                # it to decide whether to inline image markdown (renderable)
+                # or fall back to a text-only mention (format_not_supported).
+                # The cortex-ui slide-in reads it too to choose the
+                # three-state render path.
+                if rendering_origin:
+                    self.graph.add((
+                        figure_uri,
+                        self.MIL.renderingOrigin,
+                        Literal(rendering_origin),
+                    ))
+
                 self.graph.add((node_uri, self.MIL.hasFigure, figure_uri))
 
         # Fallback: <figure> tags
@@ -148,16 +201,32 @@ class MilStd40051GraphBuilder:
                 figure_uri = URIRef(self.MIL[f"fig-{clean_id}"])
                 self.graph.add((figure_uri, RDF.type, self.MIL.Figure))
                 self.graph.add((figure_uri, RDFS.label, Literal(title)))
-                # Check for nested graphic
+                # Check for nested graphic — same manifest lookup as the
+                # primary <graphic boardno> path so URL extension matches
+                # what the extractor actually uploaded, and the
+                # rendering_origin property flows through.
                 nested_graphic = fig_el.find(".//graphic")
                 if nested_graphic is not None:
                     info_entity = nested_graphic.get("boardno", "") or nested_graphic.get("infoEntityIdent", "")
                     if info_entity:
+                        nested_info = self.graphics_manifest.get(info_entity) \
+                            or self.graphics_manifest.get(info_entity.lower()) \
+                            or {}
+                        actual_filename = nested_info.get(
+                            "uploaded_filename", f"{info_entity}.png"
+                        )
+                        rendering_origin = nested_info.get("rendering_origin", "")
                         if self.image_prefix:
-                            full_s3_url = f"{self.image_prefix}{info_entity}.png"
+                            full_s3_url = f"{self.image_prefix}{actual_filename}"
                             self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
                         else:
-                            self.graph.add((figure_uri, self.MIL.hasURL, Literal(info_entity)))
+                            self.graph.add((figure_uri, self.MIL.hasURL, Literal(actual_filename)))
+                        if rendering_origin:
+                            self.graph.add((
+                                figure_uri,
+                                self.MIL.renderingOrigin,
+                                Literal(rendering_origin),
+                            ))
                 self.graph.add((node_uri, self.MIL.hasFigure, figure_uri))
 
         return str(node_uri)
