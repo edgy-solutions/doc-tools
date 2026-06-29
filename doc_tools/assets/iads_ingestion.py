@@ -109,23 +109,24 @@ class IadsIngestConfig(Config):
     Exactly one shape must be provided. Use ``resolve_iads_config()``
     (module-level free function below) to normalize to (bucket, key).
 
-    The resolve helper is NOT a method on this class: Dagster's
-    Pythonic-config schema-inference for partitioned assets walks the
-    class's annotations including method return-types, and chokes on
-    the helper's ``tuple[str, str]`` return annotation with
-    ``Unable to resolve config type``. Free-function shape sidesteps it.
-    Same constraint applies to `XmlIngestConfig` in the sibling file
-    (non-partitioned asset there happened to use a more permissive
-    inference path, but the free-function shape is the safe form).
+    Empty-string-as-unset is the form Dagster's Pythonic-config schema
+    inference accepts for partitioned assets. ``Optional[str] = None``
+    LOOKS equivalent but trips ``DagsterInvalidPythonicConfigDefinition
+    Error: Unable to resolve config type``. The existing
+    ``IngestionConfig`` (doc_tools/config.py) uses the same shape and
+    works; matching that pattern.
     """
 
-    s3_bucket: Optional[str] = None
-    s3_key: Optional[str] = None
-    file_url: Optional[str] = None
+    s3_bucket: str = ""
+    s3_key: str = ""
+    file_url: str = ""
 
 
 def resolve_iads_config(config: IadsIngestConfig) -> tuple[str, str]:
-    """Normalize the two-shape IadsIngestConfig to (bucket, key)."""
+    """Normalize the two-shape IadsIngestConfig to (bucket, key).
+
+    Treats empty string as "field unset" (see Config docstring for
+    why we don't use Optional)."""
     if config.s3_bucket and config.s3_key:
         return config.s3_bucket, config.s3_key
     if config.file_url:

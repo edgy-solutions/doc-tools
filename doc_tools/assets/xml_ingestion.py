@@ -35,18 +35,16 @@ class XmlIngestConfig(Config):
 
     Exactly one of the two shapes must be provided. Use the module-
     level ``resolve_xml_config()`` to normalize to (bucket, key).
-
-    The resolve helper is intentionally NOT a method on this class —
-    Dagster's Pythonic-config schema-inference for partitioned assets
-    walks the class's method annotations and chokes on the helper's
-    ``tuple[str, str]`` return type. Free-function shape is the safe
-    form across both partitioned (xml_sensor) and non-partitioned
-    (launchpad) call paths.
+    Empty-string-as-unset is the form Dagster's Pythonic-config schema
+    inference accepts (``Optional[str] = None`` trips schema inference
+    with ``Unable to resolve config type`` for the partitioned-asset
+    path). Matches the existing ``IngestionConfig`` shape in
+    ``doc_tools/config.py``.
     """
 
-    s3_bucket: Optional[str] = None
-    s3_key: Optional[str] = None
-    file_url: Optional[str] = None
+    s3_bucket: str = ""
+    s3_key: str = ""
+    file_url: str = ""
 
 
 def resolve_xml_config(config: XmlIngestConfig) -> tuple[str, str]:
