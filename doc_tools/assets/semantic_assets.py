@@ -7,7 +7,7 @@ from dagster import asset, AssetExecutionContext, MaterializeResult, AutomationC
 from neo4j import GraphDatabase
 from doc_tools.config import IngestionConfig
 from dagster_aws.s3 import S3Resource
-from doc_tools.partitions import pdf_files_partition
+from doc_tools.partitions import pdf_files_partition, xml_files_partition
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
@@ -383,7 +383,7 @@ def build_knowledge_graph(
 
     return {"doc_id": doc_id, "status": "processed", "node_label": node_label, "collection": collection_name}
 
-@asset
+@asset(partitions_def=xml_files_partition)
 def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, jena: JenaResource) -> dict:
     """
     Uploads the generic RDF Turtle string to a specific Named Graph in Apache Jena.
@@ -417,7 +417,7 @@ def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, j
         context.log.error(f"Failed to upload to Jena: {e}")
         raise e
 
-@asset(deps=[upload_to_jena])
+@asset(deps=[upload_to_jena], partitions_def=xml_files_partition)
 def init_neo4j_n10s(context: AssetExecutionContext, neo4j: Neo4jResource) -> MaterializeResult:
     """
     Idempotently initializes Neosemantics (n10s) config in Neo4j.
@@ -443,7 +443,7 @@ def init_neo4j_n10s(context: AssetExecutionContext, neo4j: Neo4jResource) -> Mat
     driver.close()
     return MaterializeResult(metadata={"n10s_status": "ready"})
 
-@asset(deps=[init_neo4j_n10s])
+@asset(deps=[init_neo4j_n10s], partitions_def=xml_files_partition)
 def sync_jena_to_neo4j(context: AssetExecutionContext, upload_to_jena: dict, jena: JenaResource, neo4j: Neo4jResource) -> MaterializeResult:
     """
     Deletes the previous revision in Neo4j (deep wipe) and fetches the fresh isolated graph from Jena.

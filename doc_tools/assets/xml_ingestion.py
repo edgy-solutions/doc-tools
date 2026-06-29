@@ -177,7 +177,7 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
     }
 
 
-@asset(deps=["extract_rdf_from_xml"])
+@asset(deps=["extract_rdf_from_xml"], partitions_def=xml_files_partition)
 def index_xml_chunks_to_weaviate(
     context: AssetExecutionContext,
     extract_rdf_from_xml: dict,

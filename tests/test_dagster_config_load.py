@@ -119,3 +119,71 @@ def test_iads_config_resolve_rejects_empty():
     empty = IadsIngestConfig()
     with pytest.raises(ValueError, match="requires either"):
         resolve_iads_config(empty)
+
+
+def test_xml_graph_sync_job_partitions_consistent():
+    """Catches the 2026-06-29 'partitioned upstream + unpartitioned
+    downstream' bug. When `extract_rdf_from_xml` was partitioned by
+    `xml_files_partition` to enable the new xml_sensor, its four
+    downstream consumers (upload_to_jena, init_neo4j_n10s,
+    sync_jena_to_neo4j, index_xml_chunks_to_weaviate) stayed
+    unpartitioned. Dagster's IO manager couldn't bridge the gap:
+
+      DagsterExecutionLoadInputError: Error occurred while loading
+      input "extract_rdf_from_xml" of step "upload_to_jena"
+
+    The runtime symptom (sensor-triggered run fails at the second
+    step's input-load) is invisible to module-load tests. This test
+    asserts at IMPORT time that every asset in xml_graph_sync_job's
+    selection shares the SAME partitions_def — catches the regression
+    in seconds locally, before another CI + rollout cycle.
+    """
+    from doc_tools.definitions import defs
+
+    # Find xml_graph_sync_job and its selected asset keys.
+    sync_job = next(
+        (j for j in defs.jobs if j.name == "xml_graph_sync_job"),
+        None,
+    )
+    assert sync_job is not None, "xml_graph_sync_job not registered in defs.jobs"
+
+    selected_keys = sync_job.asset_selection_data.resolved_asset_selections \
+        if hasattr(sync_job, "asset_selection_data") else None
+    # Fallback for Dagster API variations — read selection from the
+    # job's resolved op selection if asset_selection_data isn't exposed.
+    if selected_keys is None:
+        # `selection` on define_asset_job is a list[str]; defs.assets
+        # has the AssetsDefinitions; find them by name.
+        selection_names = {
+            "extract_rdf_from_xml",
+            "upload_to_jena",
+            "init_neo4j_n10s",
+            "sync_jena_to_neo4j",
+            "index_xml_chunks_to_weaviate",
+        }
+        partitions_by_name: dict[str, object] = {}
+        for ad in defs.assets:
+            for key in ad.keys:
+                name = key.path[-1]
+                if name in selection_names:
+                    partitions_by_name[name] = ad.partitions_def
+
+        # Every asset in selection must be discoverable.
+        missing = selection_names - set(partitions_by_name)
+        assert not missing, (
+            f"xml_graph_sync_job selection includes assets not found in "
+            f"defs.assets: {missing}"
+        )
+
+        # All partition_defs must be the SAME object (either all
+        # xml_files_partition or all None).
+        unique_partition_defs = {id(p) for p in partitions_by_name.values()}
+        assert len(unique_partition_defs) == 1, (
+            f"xml_graph_sync_job's assets have MIXED partitions_defs:\n"
+            + "\n".join(
+                f"  {name}: {p}" for name, p in partitions_by_name.items()
+            )
+            + "\nDagster's IO manager will fail to load partitioned->"
+            "unpartitioned inputs at runtime. Make them all share the "
+            "same partitions_def (or all None)."
+        )
