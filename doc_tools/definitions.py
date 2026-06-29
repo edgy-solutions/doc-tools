@@ -196,7 +196,19 @@ design_k8s_tags = resolve_k8s_resource_tags(prefix="DESIGN_PARSER", default_cpu=
 
 xml_graph_sync_job = define_asset_job(
     name="xml_graph_sync_job",
-    selection=["extract_rdf_from_xml", "upload_to_jena", "init_neo4j_n10s", "sync_jena_to_neo4j"],
+    # `index_xml_chunks_to_weaviate` added 2026-06-28 to close the
+    # corpus-ingest gap: prior selection only wrote Jena+Neo4j, leaving
+    # Engine W's Weaviate `DocumentChunk` collection unpopulated from
+    # XML pubs. The asset consumes `extract_rdf_from_xml`'s `chunks`
+    # output (in-memory, per the "Zero disk I/O" rule) and writes one
+    # row per searchable unit to DocumentChunk.
+    selection=[
+        "extract_rdf_from_xml",
+        "upload_to_jena",
+        "init_neo4j_n10s",
+        "sync_jena_to_neo4j",
+        "index_xml_chunks_to_weaviate",
+    ],
     tags=xml_k8s_tags
 )
 

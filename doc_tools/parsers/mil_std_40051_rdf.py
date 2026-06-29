@@ -26,22 +26,53 @@ class MilStd40051GraphBuilder:
         tree = etree.fromstring(xml_content, parser=parser)
         
         # 1. Identity Extraction (Work Package Number)
-        # Often found in //wpno or //wpid/@wpno
-        wp_id = tree.xpath("//wpno/text()") or tree.xpath("//wpid/@wpno")
-        if wp_id:
-            wp_id = str(wp_id[0]).strip()
+        # Per MIL-STD-40051E DTD: the wpno is the wp-root element's ATTRIBUTE
+        # (e.g. `<maintwp wpno="m0004-1-1680-TNG">`, `<tswp wpno="...">`),
+        # NOT a child element. The original `//wpno/text()` XPath missed every
+        # real 40051 file — confirmed against helmet TM fixtures M0004 / T0003
+        # (corpus-ingest investigation 2026-06-28). Both helmet WPs fell
+        # through to "unknown_wp", causing every chunk to write under the same
+        # synthetic doc_id and collide in Weaviate.
+        wp_id_attr = tree.get("wpno")
+        if wp_id_attr:
+            wp_id = str(wp_id_attr).strip()
         else:
-            # Fallback to root id attribute
-            wp_id = tree.xpath("/@id")
-            wp_id = str(wp_id[0]) if wp_id else "unknown_wp"
+            # Legacy XPath fallbacks for non-conformant or partial inputs.
+            xpath_match = (
+                tree.xpath("//wpno/text()")
+                or tree.xpath("//wpid/@wpno")
+                or tree.xpath("/@id")
+            )
+            if xpath_match:
+                wp_id = str(xpath_match[0]).strip()
+            elif self.doc_id:
+                # Per-file fallback: the constructor's doc_id (derived from
+                # the S3 key, unique per file) is strictly better than the
+                # static "unknown_wp" which causes cross-file URI collision.
+                wp_id = self.doc_id
+            else:
+                wp_id = "unknown_wp"
 
         node_uri = URIRef(self.MIL[f"wpn-{wp_id}"])
         self.root_node = node_uri
-        
+
         # Classify as DataModule and WorkPackage
         self.graph.add((node_uri, RDF.type, self.MIL.DataModule))
         self.graph.add((node_uri, RDF.type, self.MIL.WorkPackage))
-        self.graph.add((node_uri, RDFS.label, Literal(f"Work Package {wp_id}")))
+
+        # Use the actual document title from <wpidinfo>/<title> when present
+        # (e.g. "MICROPHONE BOOM REMOVAL/INSTALLATION"), falling back to
+        # "Work Package {wp_id}". The real title produces a vastly more
+        # searchable label-chunk: BM25 matches a query like "microphone boom"
+        # against the real title but not against the generic placeholder.
+        # Confirmed against the helmet TM fixtures.
+        title_elements = tree.xpath("//wpidinfo/title/text()") or tree.xpath("//title/text()")
+        if title_elements:
+            title_text = " ".join(str(t).strip() for t in title_elements if str(t).strip())
+        else:
+            title_text = ""
+        label_text = f"{title_text} ({wp_id})" if title_text else f"Work Package {wp_id}"
+        self.graph.add((node_uri, RDFS.label, Literal(label_text)))
 
         # 2. Tools & Support Equipment
         # Looking for //supportreqs//name or //reqtools
