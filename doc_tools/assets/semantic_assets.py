@@ -433,11 +433,29 @@ def init_neo4j_n10s(context: AssetExecutionContext, neo4j: Neo4jResource) -> Mat
             session.run("CALL n10s.graphconfig.init({handleVocabUris: 'IGNORE'})")
             context.log.info("Initialized n10s graph config.")
         except Exception as e:
-            if "already exists" in str(e).lower():
-                context.log.info("n10s graph config already exists.")
+            # n10s.graphconfig.init rejects ANY re-init once the graph is
+            # populated. Two strings to recognize:
+            #   - "already exists" — the original cluster-fresh path
+            #   - "non-empty" / "cannot be changed" — the case when the
+            #     graph has been populated by prior runs (which is the
+            #     per-partition scenario the xml_files partition path
+            #     puts us in: every WP run wants to ensure the config
+            #     is set; only the first call to ANY of them succeeds;
+            #     the others MUST treat the "non-empty" rejection as
+            #     idempotent-no-op rather than failure).
+            err_str = str(e).lower()
+            if any(s in err_str for s in (
+                "already exists",
+                "non-empty",
+                "config cannot be changed",
+            )):
+                context.log.info(
+                    "n10s graph config already set (graph populated by "
+                    "prior run); treating init as idempotent no-op."
+                )
             else:
                 raise e
-        
+
         session.run("CREATE CONSTRAINT n10s_unique_uri IF NOT EXISTS FOR (r:Resource) REQUIRE r.uri IS UNIQUE")
         
     driver.close()
