@@ -77,11 +77,16 @@ def test_jena_execute_update_posts_sparql_update(mock_client_cls):
 
 
 @patch("doc_tools.utils.jena_client.SPARQLWrapper")
-def test_jena_execute_query_targets_query_endpoint(mock_wrapper):
+def test_jena_execute_query_targets_sparql_endpoint(mock_wrapper):
+    """Fuseki's default SPARQL Query service is at `/{dataset}/sparql`,
+    NOT `/{dataset}/query`. The previous test asserted `/query`, which
+    is the bug we ran into 2026-06-29 — `/ds/query` returns 404 on
+    our cluster's Fuseki. See doc_tools/utils/jena_client.execute_query
+    for the fix's rationale."""
     inst = MagicMock()
     mock_wrapper.return_value = inst
     JenaClient(url="http://jena:3030", dataset="ds").execute_query("SELECT * {}")
-    assert mock_wrapper.call_args[0][0] == "http://jena:3030/ds/query"
+    assert mock_wrapper.call_args[0][0] == "http://jena:3030/ds/sparql"
     inst.queryAndConvert.assert_called_once()
 
 

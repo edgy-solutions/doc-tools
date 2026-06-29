@@ -467,13 +467,30 @@ def sync_jena_to_neo4j(context: AssetExecutionContext, upload_to_jena: dict, jen
       }}
     }}
     """
-    try:
-        jena_results = jena_client.execute_query(subjects_query)
-        uri_list = [row["s"]["value"] for row in jena_results["results"]["bindings"]]
-        context.log.info(f"Found {len(uri_list)} unique URIs to wipe from Neo4j.")
-    except Exception as e:
-        context.log.error(f"Failed to fetch subjects from Jena: {e}")
-        uri_list = [root_uri] # Fallback to just the root if query fails
+    # Per [[silent-degrade-composition]]: this step previously caught
+    # the SPARQL-query exception and fell back to [root_uri], leaving
+    # the deep-wipe with a one-element list. Combined with the
+    # /ds/query 404 bug above, that meant any previous revision's
+    # triples for the doc stayed in Neo4j across re-ingests AND the
+    # step still reported SUCCESS. The fix: let the exception bubble.
+    # If Jena can't be queried, the wipe step can't do its job — the
+    # ingest must fail honestly so operators see the broken state
+    # instead of an accumulating-prior-revisions silent regression.
+    jena_results = jena_client.execute_query(subjects_query)
+    uri_list = [row["s"]["value"] for row in jena_results["results"]["bindings"]]
+    context.log.info(f"Found {len(uri_list)} unique URIs to wipe from Neo4j.")
+    if not uri_list:
+        # Empty result is suspicious — upload_to_jena should have
+        # written the document's triples to this named graph before
+        # this step runs. Zero subjects means either the upload
+        # didn't land OR Jena dropped the data. Either is a real
+        # failure mode, not benign.
+        raise RuntimeError(
+            f"sync_jena_to_neo4j: 0 subjects found in named graph "
+            f"<{graph_uri}>. upload_to_jena should have populated this "
+            f"graph; the empty result indicates the upload didn't land "
+            f"or the graph was dropped. Refusing to proceed silently."
+        )
         
     # 2. Deep Wipe in Neo4j
     if uri_list:
@@ -490,27 +507,57 @@ def sync_jena_to_neo4j(context: AssetExecutionContext, upload_to_jena: dict, jen
     # 3. Trigger Neo4j n10s fetch for ONLY this document
     # Scoped CONSTRUCT ensures we only pull the current revision's graph
     context.log.info(f"Triggering Neo4j n10s fetch from Jena Named Graph for: {s3_key}")
-    
+
     # n10s fetch requires a URL that returns RDF. We point it back to our Jena query endpoint.
     sparql_construct = f"CONSTRUCT {{ ?s ?p ?o }} WHERE {{ GRAPH <{graph_uri}> {{ ?s ?p ?o }} }}"
-    
-    # Construct the fetch URL (Fuseki /{dataset}/query endpoint with ?query=...)
+
+    # Construct the fetch URL. Fuseki's default SPARQL Query service is
+    # `/sparql`, NOT `/query` (the same bug captured at the top of
+    # ontology_assets.py for the previously-deleted n10s-fetch path —
+    # this xml pipeline preserved the buggy URL, and the silent-fallback
+    # in the wipe-step + n10s's silent-zero-on-fetch-error masked it
+    # for months). Caught 2026-06-29 with helmet ingest debug logging.
     jena_base = jena.url.rstrip('/')
     jena_ds = jena.dataset
     encoded_query = urllib.parse.quote(sparql_construct)
-    fetch_url = f"{jena_base}/{jena_ds}/query?query={encoded_query}"
-    
-    try:
-        # Pass headers to ensure we get Turtle back for n10s
-        result = neo4j_client.execute_query(
-            "CALL n10s.rdf.import.fetch($url, 'Turtle', { headerParams: { Accept: 'application/x-turtle' } })",
-            {"url": fetch_url}
+    fetch_url = f"{jena_base}/{jena_ds}/sparql?query={encoded_query}"
+
+    # n10s.rdf.import.fetch returns a summary record with triplesLoaded.
+    # If the URL 404s, n10s's silent-zero failure mode used to mask the
+    # problem. We now RAISE on triplesLoaded=0 because for an XML WP
+    # that has any content at all, a zero count signals the same
+    # endpoint-404 or named-graph-not-found we just spent hours
+    # debugging. Per [[verification-must-fail]] and
+    # [[silent-degrade-composition]]: the step that wires Jena→Neo4j
+    # MUST be able to report failure honestly.
+    result = neo4j_client.execute_query(
+        "CALL n10s.rdf.import.fetch($url, 'Turtle', { headerParams: { Accept: 'application/x-turtle' } }) "
+        "YIELD triplesLoaded, terminationStatus, extraInfo "
+        "RETURN triplesLoaded, terminationStatus, extraInfo",
+        {"url": fetch_url}
+    )
+    # Neo4jClient returns list[Record]; pull the first row.
+    rows = list(result) if not isinstance(result, list) else result
+    if not rows:
+        raise RuntimeError(
+            f"n10s.rdf.import.fetch returned no rows for graph {graph_uri} "
+            f"(fetch_url={fetch_url}). This indicates the procedure didn't "
+            f"execute — check n10s plugin availability."
         )
-        # result is now a record/summary
-        triples_imported = 0 # In a real driver we'd parse the result summary
-    except Exception as e:
-        context.log.error(f"n10s fetch failed: {e}")
-        triples_imported = 0
+    first = rows[0]
+    triples_imported = first.get("triplesLoaded", 0) if hasattr(first, "get") else first[0]
+    termination_status = first.get("terminationStatus") if hasattr(first, "get") else first[1]
+    extra_info = first.get("extraInfo") if hasattr(first, "get") else first[2]
+    context.log.info(
+        f"n10s.rdf.import.fetch: triplesLoaded={triples_imported}, "
+        f"terminationStatus={termination_status}, extraInfo={extra_info!r}"
+    )
+    if termination_status and termination_status.upper() != "OK":
+        raise RuntimeError(
+            f"n10s.rdf.import.fetch failed for graph {graph_uri}: "
+            f"terminationStatus={termination_status!r}, extraInfo={extra_info!r}, "
+            f"fetch_url={fetch_url}"
+        )
 
     # 4. Post-Sync: Apply MAINTENANCE domain label to all imported nodes
     # XML tech manuals (S1000D, IADS, DITA, 40051) are maintenance/MRO content

@@ -88,7 +88,16 @@ class JenaClient:
             return resp
 
     def execute_query(self, query: str):
-        sparql = self._get_wrapper("query")
+        # Fuseki's default SPARQL Query service endpoint is `/sparql`, not
+        # `/query` (the configurable Fuseki Server in this cluster exposes
+        # `/{dataset}/sparql` per service definition). Previously this
+        # code used `/query` and got 404 — but the calling asset
+        # (sync_jena_to_neo4j) catches the exception and falls back to
+        # [root_uri], so step status stayed SUCCESS while the sync was
+        # silently degraded. Caught when the helmet WPs started ingest
+        # with debug output enabled (2026-06-29). Sibling fix in
+        # semantic_assets.py's n10s.fetch URL.
+        sparql = self._get_wrapper("sparql")
         sparql.setReturnFormat(JSON)
         sparql.setQuery(query)
         return sparql.queryAndConvert()
