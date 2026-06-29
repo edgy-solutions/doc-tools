@@ -429,32 +429,34 @@ def init_neo4j_n10s(context: AssetExecutionContext, neo4j: Neo4jResource) -> Mat
     driver = GraphDatabase.driver(uri, auth=(user, pw))
     
     with driver.session() as session:
-        try:
-            session.run("CALL n10s.graphconfig.init({handleVocabUris: 'IGNORE'})")
-            context.log.info("Initialized n10s graph config.")
-        except Exception as e:
-            # n10s.graphconfig.init rejects ANY re-init once the graph is
-            # populated. Two strings to recognize:
-            #   - "already exists" — the original cluster-fresh path
-            #   - "non-empty" / "cannot be changed" — the case when the
-            #     graph has been populated by prior runs (which is the
-            #     per-partition scenario the xml_files partition path
-            #     puts us in: every WP run wants to ensure the config
-            #     is set; only the first call to ANY of them succeeds;
-            #     the others MUST treat the "non-empty" rejection as
-            #     idempotent-no-op rather than failure).
-            err_str = str(e).lower()
-            if any(s in err_str for s in (
-                "already exists",
-                "non-empty",
-                "config cannot be changed",
-            )):
-                context.log.info(
-                    "n10s graph config already set (graph populated by "
-                    "prior run); treating init as idempotent no-op."
-                )
-            else:
-                raise e
+        # Idempotency via PRECONDITION CHECK rather than exception
+        # match. n10s.graphconfig.init rejects ANY re-init once the
+        # graph has been populated, and the neo4j-python driver wraps
+        # the Bolt failure into a ClientError whose `str()` doesn't
+        # include the "non-empty" substring the underlying message has
+        # — the structured `{message: ...}` format hides it from
+        # `str(e).lower() match` patterns. Two prior attempts to
+        # catch by string ("already exists", then broadened to
+        # "non-empty"/"config cannot be changed") both missed. Precondition
+        # check sidesteps the string-format issue entirely: if any
+        # :Resource node exists, n10s has been initialized by a prior
+        # run; skip init.
+        existing = session.run(
+            "MATCH (r:Resource) RETURN count(r) AS c"
+        ).single()
+        resource_count = existing["c"] if existing else 0
+
+        if resource_count > 0:
+            context.log.info(
+                f"n10s: found {resource_count} existing :Resource node(s); "
+                f"graph already initialized — skipping n10s.graphconfig.init "
+                f"(idempotent per-partition no-op)."
+            )
+        else:
+            session.run(
+                "CALL n10s.graphconfig.init({handleVocabUris: 'IGNORE'})"
+            )
+            context.log.info("Initialized n10s graph config (graph was empty).")
 
         session.run("CREATE CONSTRAINT n10s_unique_uri IF NOT EXISTS FOR (r:Resource) REQUIRE r.uri IS UNIQUE")
         
