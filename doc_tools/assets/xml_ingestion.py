@@ -291,6 +291,49 @@ def index_xml_chunks_to_weaviate(
         # safety net for a fresh-cluster prime.
         _ensure_weaviate_collection(weaviate_client, "DocumentChunk")
 
+        # Delete existing chunks for THIS doc_id before re-indexing.
+        # Without this, re-ingest accumulates: each run appends a new
+        # set of objects for the same doc_id+section, and Weaviate
+        # ends up with N copies of each chunk after N re-ingests. The
+        # 2026-06-30 chunk-text fix needed three re-ingests to land
+        # cleanly because old "See the structural panel" objects
+        # remained alongside new "Figure X." objects, with both
+        # candidates in BM25/vector retrieval. Delete-then-insert is
+        # the idempotent contract — same doc_id at the input always
+        # produces the same chunk set at the output, no accretion.
+        #
+        # Per `[[verification-must-fail]]`: this delete MUST be observable.
+        # We log the count deleted so operators can confirm the
+        # cleanup actually fired (a silently-failing delete that
+        # always reports 0 would be a regression).
+        try:
+            from weaviate.classes.query import Filter as _W_Filter
+            collection = weaviate_client.collections.get("DocumentChunk")
+            # delete_many returns a result object; matched count is the
+            # observable signal.
+            del_result = collection.data.delete_many(
+                where=_W_Filter.by_property("doc_id").equal(root_uri),
+            )
+            deleted_count = getattr(del_result, "matches", None)
+            if deleted_count is None:
+                # Older client API path — best-effort log
+                deleted_count = "?"
+            context.log.info(
+                f"index_xml_chunks_to_weaviate: pre-deleted "
+                f"{deleted_count} existing DocumentChunk rows for "
+                f"doc_id={root_uri} (idempotent re-ingest contract)."
+            )
+        except Exception as del_err:
+            # Delete failing should NOT kill the ingest — if delete
+            # errors and insert succeeds, we still get the new chunks
+            # written, just possibly with stale companions. Logged
+            # loudly so observability surfaces the gap.
+            context.log.warning(
+                f"index_xml_chunks_to_weaviate: pre-delete FAILED for "
+                f"doc_id={root_uri} (non-fatal, continuing with insert): "
+                f"{del_err}"
+            )
+
         written = 0
         failed = 0
         for chunk in chunks:
