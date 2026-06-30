@@ -160,68 +160,38 @@ def extract_chunks_from_graph(
     #    chunk is text-only — no broken-image markdown — and the slide-in
     #    panel surfaces the honest placeholder with click-through to
     #    raw `source_s3`.
+    # Figure chunks: LABEL-ONLY references. Per the architect's
+    # 2026-06-30 ruling, the CHUNKER MUST NOT editorialize about
+    # rendering, availability, or where figures can be accessed.
+    # Prior version emitted "See the structural panel for the
+    # source-link affordance" / "is not renderable inline" verbiage
+    # — the LLM faithfully paraphrased it into "available via
+    # structural panel links" in the answer body, which is the LLM
+    # narrating an architectural state it shouldn't speak for. Same
+    # error as the LLM-decides-to-show-an-image trap, one layer down:
+    # the CHUNKER was telling the LLM about rendering state.
+    #
+    # CHUNKER's job: emit a textual reference to the figure so it
+    # surfaces in retrieval (boardno + label are useful search hits).
+    # IMAGE PLACEMENT is the cortex-ui renderer's job, working from
+    # the data module's :hasFigure edges + /data_module/figures
+    # endpoint. The chunk says "Figure X exists in this data module";
+    # the renderer decides whether to inline the image, show an
+    # honest placeholder for unrenderable formats, or surface an
+    # unresolved-badge marker. No prose editorializes about rendering.
+    #
+    # Image markdown (`![label](s3://...)`) is also DELIBERATELY
+    # removed from this path — even for `pipeline` figures. That's
+    # the rolled-back LLM-cooperation approach (architect 2026-06-29);
+    # the renderer is the sole authority for figure placement.
     for figure_uri in g.objects(root, _MIL_HAS_FIGURE):
         if not isinstance(figure_uri, URIRef):
             continue
         label = _first_literal(g, figure_uri, RDFS.label)
-        url = _first_literal(g, figure_uri, _MIL_HAS_URL)
-        origin = _first_literal(g, figure_uri, _MIL_RENDERING_ORIGIN) or ""
-        # `unresolved`-origin figures have NO mil:hasURL by design — the
-        # parser killed the confabulation-on-miss. We still emit a
-        # caption-only chunk so the figure shows up in retrieval (the
-        # boardno may be a useful search hit even if no image renders);
-        # text is honest about why no image accompanies it.
         if not label:
             continue
-        if origin != "unresolved" and not url:
-            # Defensive: a non-unresolved figure with no URL is a
-            # data-integrity gap we don't want to silently skip.
-            continue
         local = _local_name(figure_uri)
-        if origin in _RENDERABLE_ORIGINS:
-            # Renderable: caption + markdown image. The blank line
-            # between caption and image is important — react-markdown
-            # treats them as separate blocks (the image block centers
-            # cleanly in the wrapped <FederatedImage> container).
-            text = f"Figure {label}:\n\n![{label}]({url})"
-        elif origin == "format_not_supported":
-            # Known-unsupported: mention the figure exists, point at
-            # the slide-in panel for the honest placeholder + raw-source
-            # link. Avoid broken markdown that would render a placeholder
-            # icon inline.
-            text = (
-                f"Figure {label} is referenced in this data module but "
-                f"its source format is not renderable inline "
-                f"(rendering_origin=format_not_supported). See the "
-                f"structural panel for the source-link affordance."
-            )
-        elif origin == "unresolved":
-            # No manifest entry was found at ingest time — the upstream
-            # `<graphic boardno>` value couldn't be mapped to an
-            # uploaded file. Honest about the gap rather than emitting
-            # a confabulated URL. The figure node still exists for
-            # provenance/audit; just no image to render.
-            text = (
-                f"Figure {label} is referenced in this data module but "
-                f"its source file could not be resolved at ingest time. "
-                f"This is an honest-miss marker — the figure is recorded "
-                f"in the data module's structural index but no image is "
-                f"available."
-            )
-        elif origin:
-            # Some other origin literal we don't recognize — surface it
-            # rather than silently swallow. New origin values surface
-            # here as obvious dev-time signal, not silent rot.
-            text = (
-                f"Figure {label} has unrecognized "
-                f"rendering_origin={origin}."
-            )
-        else:
-            # No origin info AND has a URL: legacy single-XML ingest path
-            # (pre-manifest). Caption + URL but no markdown image to
-            # avoid shipping broken renders. Should be increasingly rare
-            # post 2026-06-29 fix.
-            text = f"Figure {label} (source: {url})"
+        text = f"Figure {label}."
         chunks.append({
             "text": text,
             "doc_id": root_uri,
