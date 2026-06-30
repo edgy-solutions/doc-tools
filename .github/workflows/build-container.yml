@@ -18,6 +18,25 @@ jobs:
       packages: write
 
     steps:
+      - name: Free GitHub runner disk space (~10 GB)
+        # 2026-06-30: build failed with "No space left on device" during
+        # `uv pip install` of transformers — the image is large (LibreOffice
+        # + Inkscape + Tesseract + transformers + spaCy + pre-downloaded HF
+        # models) and exceeds the ~14 GB free on a default ubuntu-latest
+        # runner. Stripping the pre-baked Android/dotnet/ghc/etc. payloads
+        # frees enough room for the layered image build.
+        run: |
+          set -e
+          echo "=== before ==="; df -h /
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          echo "=== after ==="; df -h /
+
       - name: Checkout code
         uses: actions/checkout@v4
 
