@@ -166,7 +166,16 @@ def extract_chunks_from_graph(
         label = _first_literal(g, figure_uri, RDFS.label)
         url = _first_literal(g, figure_uri, _MIL_HAS_URL)
         origin = _first_literal(g, figure_uri, _MIL_RENDERING_ORIGIN) or ""
-        if not (label and url):
+        # `unresolved`-origin figures have NO mil:hasURL by design — the
+        # parser killed the confabulation-on-miss. We still emit a
+        # caption-only chunk so the figure shows up in retrieval (the
+        # boardno may be a useful search hit even if no image renders);
+        # text is honest about why no image accompanies it.
+        if not label:
+            continue
+        if origin != "unresolved" and not url:
+            # Defensive: a non-unresolved figure with no URL is a
+            # data-integrity gap we don't want to silently skip.
             continue
         local = _local_name(figure_uri)
         if origin in _RENDERABLE_ORIGINS:
@@ -175,22 +184,43 @@ def extract_chunks_from_graph(
             # treats them as separate blocks (the image block centers
             # cleanly in the wrapped <FederatedImage> container).
             text = f"Figure {label}:\n\n![{label}]({url})"
-        elif origin:
-            # Known-unsupported (format_not_supported): mention the
-            # figure exists, point at the slide-in panel for the
-            # honest placeholder + raw-source link. Avoid broken
-            # markdown that would render a placeholder icon inline.
+        elif origin == "format_not_supported":
+            # Known-unsupported: mention the figure exists, point at
+            # the slide-in panel for the honest placeholder + raw-source
+            # link. Avoid broken markdown that would render a placeholder
+            # icon inline.
             text = (
                 f"Figure {label} is referenced in this data module but "
                 f"its source format is not renderable inline "
-                f"(rendering_origin={origin}). See the structural "
-                f"panel for the source-link affordance."
+                f"(rendering_origin=format_not_supported). See the "
+                f"structural panel for the source-link affordance."
+            )
+        elif origin == "unresolved":
+            # No manifest entry was found at ingest time — the upstream
+            # `<graphic boardno>` value couldn't be mapped to an
+            # uploaded file. Honest about the gap rather than emitting
+            # a confabulated URL. The figure node still exists for
+            # provenance/audit; just no image to render.
+            text = (
+                f"Figure {label} is referenced in this data module but "
+                f"its source file could not be resolved at ingest time. "
+                f"This is an honest-miss marker — the figure is recorded "
+                f"in the data module's structural index but no image is "
+                f"available."
+            )
+        elif origin:
+            # Some other origin literal we don't recognize — surface it
+            # rather than silently swallow. New origin values surface
+            # here as obvious dev-time signal, not silent rot.
+            text = (
+                f"Figure {label} has unrecognized "
+                f"rendering_origin={origin}."
             )
         else:
-            # No origin info (legacy single-XML ingest with no
-            # manifest, or manifest entry missing). Conservative:
-            # caption only, no image markdown. Better to miss a
-            # render than to ship a broken one.
+            # No origin info AND has a URL: legacy single-XML ingest path
+            # (pre-manifest). Caption + URL but no markdown image to
+            # avoid shipping broken renders. Should be increasingly rare
+            # post 2026-06-29 fix.
             text = f"Figure {label} (source: {url})"
         chunks.append({
             "text": text,

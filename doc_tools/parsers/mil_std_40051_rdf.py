@@ -36,9 +36,69 @@ class MilStd40051GraphBuilder:
         # graphics_manifest["figures"][boardno] -> {uploaded_filename,
         # rendering_origin, source_format, source_s3, ...}. See
         # iads_ingestion.extract_iads_bundle for the writer.
-        self.graphics_manifest = (graphics_manifest or {}).get("figures", {}) \
+        raw_figures = (graphics_manifest or {}).get("figures", {}) \
             if isinstance(graphics_manifest, dict) and "figures" in graphics_manifest \
             else (graphics_manifest or {})
+        # Build a normalization-tolerant alias index for boardno lookup.
+        # Reason: the IADS extractor writes manifest keys derived from the
+        # actual uploaded filename (which often has spaces, mixed case),
+        # while the 40051 XML's `<graphic boardno="X"/>` element typically
+        # strips spaces and changes case ("tab navigation drop down menu"
+        # in S3 → boardno="tabnavigationdropdownmenu" in XML). The two
+        # pipeline stages don't enforce a canonical key shape, so the
+        # reader (this parser) is tolerant of mismatch. CAVEAT: this is
+        # READER-SIDE tolerance for a producer/consumer contract nobody
+        # enforces — durable fix is boundary-normalization at BOTH stages
+        # to a canonical shape. When the next mismatch appears (different
+        # punctuation, etc.), the right answer is to enforce the contract,
+        # not add another variant here. 2026-06-29 investigation w/
+        # architect-friend's framing: "reader-tolerance is the patch;
+        # boundary-normalization is the fix."
+        self._fig_lookup: dict[str, dict] = {}
+        for k, v in raw_figures.items():
+            for variant in {
+                k,
+                k.lower(),
+                k.replace(' ', ''),
+                k.replace(' ', '').lower(),
+                k.replace('-', '').replace(' ', ''),
+                k.replace('-', '').replace(' ', '').lower(),
+                k.replace('_', '').replace(' ', ''),
+                k.replace('_', '').replace(' ', '').lower(),
+            }:
+                self._fig_lookup.setdefault(variant, v)
+        # Keep raw_figures accessible too for any callers reading
+        # graphics_manifest directly (e.g., tests inspecting the dict).
+        self.graphics_manifest = raw_figures
+
+    def _lookup_figure(self, boardno: str) -> dict | None:
+        """Return the manifest entry for a 40051 `<graphic boardno>` value
+        or None if no key variant matches. Tries: as-is, lowercase, with
+        spaces/punctuation stripped. On miss, the caller MUST emit
+        rendering_origin="unresolved" and OMIT mil:hasURL — see [[fix the
+        writer]]: a parser that confabulates a URL on miss
+        (`f"{boardno}.png"`) flows optimistic-falsehood downstream
+        indistinguishably from truth. This investigation's load-bearing
+        finding was that the previous fallback masked which figures had
+        no manifest entry; now misses are honestly visible.
+        """
+        if not boardno:
+            return None
+        candidates = [
+            boardno,
+            boardno.lower(),
+            boardno.replace(' ', ''),
+            boardno.replace(' ', '').lower(),
+            boardno.replace('-', '').replace(' ', ''),
+            boardno.replace('-', '').replace(' ', '').lower(),
+            boardno.replace('_', '').replace(' ', ''),
+            boardno.replace('_', '').replace(' ', '').lower(),
+        ]
+        for c in candidates:
+            hit = self._fig_lookup.get(c)
+            if hit:
+                return hit
+        return None
 
     def parse_data_module(self, xml_content: bytes) -> str:
         """
@@ -156,35 +216,41 @@ class MilStd40051GraphBuilder:
                 self.graph.add((figure_uri, RDFS.label, Literal(boardno)))
 
                 # Look up the actual uploaded filename + rendering origin
-                # from the manifest. The manifest is keyed by figure_basename
-                # (the part before the source extension); the XML's
-                # `boardno` attribute matches that key. Case-insensitive
-                # fallback handles the helmet TM's "MS098897A.cgm" XML ref
-                # vs the bundle's lowercase "ms098897a.cgm" entry.
-                figure_info = self.graphics_manifest.get(boardno) \
-                    or self.graphics_manifest.get(boardno.lower()) \
-                    or {}
-                actual_filename = figure_info.get(
-                    "uploaded_filename", f"{boardno}.png"
-                )
-                rendering_origin = figure_info.get("rendering_origin", "")
-
-                if self.image_prefix:
-                    full_s3_url = f"{self.image_prefix}{actual_filename}"
-                    self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
+                # from the manifest. The manifest is keyed by figure
+                # basename (the part before the source extension); the
+                # XML's `boardno` attribute often differs in shape
+                # (spaces stripped, case changed). `_lookup_figure` tries
+                # a small alias set to bridge.
+                figure_info = self._lookup_figure(boardno)
+                if figure_info:
+                    actual_filename = figure_info.get("uploaded_filename")
+                    rendering_origin = figure_info.get("rendering_origin", "")
+                    if actual_filename and self.image_prefix:
+                        full_s3_url = f"{self.image_prefix}{actual_filename}"
+                        self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
+                    elif actual_filename:
+                        self.graph.add((figure_uri, self.MIL.hasURL, Literal(actual_filename)))
+                    if rendering_origin:
+                        self.graph.add((
+                            figure_uri,
+                            self.MIL.renderingOrigin,
+                            Literal(rendering_origin),
+                        ))
                 else:
-                    self.graph.add((figure_uri, self.MIL.hasURL, Literal(actual_filename)))
-
-                # Emit rendering_origin as a property — the chunker reads
-                # it to decide whether to inline image markdown (renderable)
-                # or fall back to a text-only mention (format_not_supported).
-                # The cortex-ui slide-in reads it too to choose the
-                # three-state render path.
-                if rendering_origin:
+                    # CONFABULATION-KILL: no manifest entry → emit
+                    # rendering_origin="unresolved" and OMIT mil:hasURL.
+                    # The previous fallback (`f"{boardno}.png"`) was a
+                    # writer manufacturing optimistic falsehood,
+                    # indistinguishable downstream from a real URL.
+                    # Honest unresolved-origin makes the miss visible:
+                    # the slide-in renders an "unresolved" placeholder
+                    # card (not a 404 that looks like a broken pipeline).
+                    # Class-cousin of [[optimistic-defaults-are-dishonest]]
+                    # applied to URLs instead of status enums.
                     self.graph.add((
                         figure_uri,
                         self.MIL.renderingOrigin,
-                        Literal(rendering_origin),
+                        Literal("unresolved"),
                     ))
 
                 self.graph.add((node_uri, self.MIL.hasFigure, figure_uri))
@@ -207,25 +273,33 @@ class MilStd40051GraphBuilder:
                 # rendering_origin property flows through.
                 nested_graphic = fig_el.find(".//graphic")
                 if nested_graphic is not None:
-                    info_entity = nested_graphic.get("boardno", "") or nested_graphic.get("infoEntityIdent", "")
+                    info_entity = (
+                        nested_graphic.get("boardno", "")
+                        or nested_graphic.get("infoEntityIdent", "")
+                    )
                     if info_entity:
-                        nested_info = self.graphics_manifest.get(info_entity) \
-                            or self.graphics_manifest.get(info_entity.lower()) \
-                            or {}
-                        actual_filename = nested_info.get(
-                            "uploaded_filename", f"{info_entity}.png"
-                        )
-                        rendering_origin = nested_info.get("rendering_origin", "")
-                        if self.image_prefix:
-                            full_s3_url = f"{self.image_prefix}{actual_filename}"
-                            self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
+                        nested_info = self._lookup_figure(info_entity)
+                        if nested_info:
+                            actual_filename = nested_info.get("uploaded_filename")
+                            rendering_origin = nested_info.get("rendering_origin", "")
+                            if actual_filename and self.image_prefix:
+                                full_s3_url = f"{self.image_prefix}{actual_filename}"
+                                self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
+                            elif actual_filename:
+                                self.graph.add((figure_uri, self.MIL.hasURL, Literal(actual_filename)))
+                            if rendering_origin:
+                                self.graph.add((
+                                    figure_uri,
+                                    self.MIL.renderingOrigin,
+                                    Literal(rendering_origin),
+                                ))
                         else:
-                            self.graph.add((figure_uri, self.MIL.hasURL, Literal(actual_filename)))
-                        if rendering_origin:
+                            # CONFABULATION-KILL: same rule as the primary
+                            # path. No manifest entry → unresolved + no URL.
                             self.graph.add((
                                 figure_uri,
                                 self.MIL.renderingOrigin,
-                                Literal(rendering_origin),
+                                Literal("unresolved"),
                             ))
                 self.graph.add((node_uri, self.MIL.hasFigure, figure_uri))
 
