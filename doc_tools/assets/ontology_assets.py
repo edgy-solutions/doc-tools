@@ -583,6 +583,14 @@ def sync_jena_ontologies_to_neo4j(
     """
     rows = list(g.query(extract_query))
     classes = []
+    # Diagnostics to distinguish "extraction found nothing" from
+    # "extraction found N but every one was filtered out" — the two
+    # produce identical empty `classes` lists but have very different
+    # meanings. Without this split, a legitimately-filtered
+    # meta-ontology TTL (PROV-O, RDFS, OWL, SKOS...) raises the same
+    # exception as a broken extraction pattern. 2026-07-01 fix.
+    seen_non_blank_uris = 0
+    filtered_meta = 0
     for row in rows:
         # Defense-in-depth: rdflib's BNode subclasses URIRef; isinstance
         # check fires even if SPARQL didn't filter (e.g., future rdflib
@@ -592,21 +600,55 @@ def sync_jena_ontologies_to_neo4j(
         uri = str(row.uri)
         if not uri or uri.startswith("Bnode_") or uri.startswith("_:"):
             continue
+        seen_non_blank_uris += 1
         # Meta-ontology filter — see _META_ONTOLOGY_IRI_PREFIXES /
         # _is_meta_ontology_iri at module top. Mirrors the Weaviate-side
         # filter in sync_ontology_to_weaviate so BOTH stores stay
         # canonical-clean of provenance/RDFS/OWL/SKOS/DC/etc. terms.
         # See [[ontology-class-pool-prov-contamination]].
         if _is_meta_ontology_iri(uri):
+            filtered_meta += 1
             continue
         label = str(row.label) if row.label is not None else uri.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
         definition = str(row.definition) if row.definition is not None else ""
         classes.append({"uri": uri, "label": label, "definition": definition})
 
     if not classes:
-        # Silent-zero is the same failure shape that bit the n10s
-        # attempt. The asset's contract is "TTL classes reach Neo4j" —
-        # zero classes is a contract violation that should turn red.
+        # Distinguish "content drift / broken extraction" (real error)
+        # from "correctly filtered meta-ontology TTL" (deliberate no-op).
+        # The 2026-06 [[ontology-class-pool-prov-contamination]] fix
+        # added the meta-ontology filter, but this zero-check treated
+        # "all filtered" the same as "nothing found" — which broke
+        # substrate init any time PROV-O.ttl (or any other meta-only
+        # TTL) was in the seed set. Now:
+        #   - filtered_meta > 0 AND seen_non_blank_uris == filtered_meta
+        #     → the TTL is entirely meta-ontology content that the
+        #       corpus discipline says should NOT be in Neo4j. Log
+        #       loudly and return an empty class list so the caller
+        #       can decide what to do (skip vs error). Neo4j write
+        #       becomes a no-op.
+        #   - otherwise → real content drift or extraction bug. Raise.
+        if filtered_meta > 0 and seen_non_blank_uris == filtered_meta:
+            context.log.warning(
+                f"Ontology {filename!r} (domain '{domain}') contained "
+                f"{filtered_meta} classes but ALL were filtered as "
+                f"meta-ontology terms per _META_ONTOLOGY_IRI_PREFIXES. "
+                f"Skipping Neo4j write — this TTL should not be in the "
+                f"seed set (its terms are corpus-noise per "
+                f"[[ontology-class-pool-prov-contamination]]). Consider "
+                f"removing it from the ontology upload manifest."
+            )
+            return MaterializeResult(
+                metadata={
+                    "classes_written": 0,
+                    "domain": domain,
+                    "filename": filename,
+                    "skipped_reason": "all_meta_ontology_filtered",
+                    "filtered_meta_count": filtered_meta,
+                }
+            )
+        # Real zero-extraction failure — TTL parsed but no
+        # owl:Class/rdfs:Class triples were found at all.
         raise Exception(
             f"Zero classes extracted from {filename!r} (domain "
             f"'{domain}') — the SPARQL extraction found no "
