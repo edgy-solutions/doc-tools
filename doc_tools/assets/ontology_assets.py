@@ -432,6 +432,15 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
 #      `:OntologyClass` with `domain` set; their rdfs:label becomes the
 #      `label` property. This mirrors the historical shape the Phase-5
 #      scripts and the mystery notebook established.
+#   6. subClassOf edges: MERGE (child)-[:subClassOf]->(parent) for every
+#      named->named rdfs:subClassOf whose parent is a synced (non-meta)
+#      class. THIS is what makes phase5_catalog_verb_migration.py's
+#      docstring claim ("subClassOf edges land at TTL ingest via the
+#      Jena→Neo4j step") TRUE — before, only NODES were synced and the
+#      edges were hand-MERGEd by that one-off, so a fresh cluster's class
+#      set was flat and find_compatible_verbs' subClassOf* walk never
+#      formed. Source-authority per ADR-0006: the ingest owns node AND
+#      hierarchy, so no hand-run is needed and none can silently revert.
 #
 # Idempotency: re-running this asset on the same partition is safe — n10s
 # MERGEs by URI, and the relabeling is set-not-create. Re-ingest of a TTL
@@ -454,12 +463,20 @@ def sync_jena_ontologies_to_neo4j(
     s3: S3Resource,
     neo4j: Neo4jResource,
 ) -> MaterializeResult:
-    """Sync TTL-ingested classes from MinIO to Neo4j via rdflib extraction.
+    """Sync TTL-ingested classes AND their subClassOf hierarchy from MinIO
+    to Neo4j via rdflib extraction.
 
     Closes the Session-1 DAG-wiring break that made TTL→Neo4j the deploy-
     blocker (see module docstring above). Depends only on
     `ingest_ontology_to_jena` so the XML pipeline's sync stays
     independent.
+
+    Materializes BOTH the OntologyClass nodes AND their named-to-named
+    `subClassOf` edges (Step 2.5 / Step 3.5). The edges were previously
+    orphaned to the one-off `scripts/phase5_catalog_verb_migration.py`,
+    whose docstring claimed they land here — a claim this asset now makes
+    true. Without them a fresh cluster's classes are a flat set and the
+    routing compat-walk (`find_compatible_verbs`, subClassOf*) never forms.
 
     Implementation note (Session-2 lesson): the first attempt used
     n10s.rdf.import.fetch against Jena. That ran into three layered
@@ -693,6 +710,34 @@ def sync_jena_ontologies_to_neo4j(
         f"{[c['uri'] for c in classes[:3]]}"
     )
 
+    # ----- Step 2.5: extract subClassOf edges (the routing hierarchy) -----
+    # WHY THIS IS HERE NOW. find_compatible_verbs walks
+    # (subject)-[:subClassOf*]->(ancestor) in Neo4j to reach a verb typed
+    # against an ANCESTOR class (e.g. idp:Dashboard -> idp:Dataset, where the
+    # catalog verbs live). This asset previously MERGEd class NODES but NOT
+    # these edges, so a fresh cluster had a FLAT class set: the compat-walk
+    # never formed and catalog routing silently fell to the generalist. The
+    # edges had to be hand-MERGEd by
+    # scripts/phase5_catalog_verb_migration.py — whose docstring FALSELY
+    # claimed they "land at TTL ingest via the Jena->Neo4j step." This step
+    # makes that claim TRUE (source-authority, ADR-0006): the ingest that
+    # owns the nodes now owns their hierarchy too, so no fresh cluster needs
+    # a hand-run and none can silently revert on the next ingest.
+    #
+    # Named->named only — blank-node restriction/union superclasses are RDF
+    # authoring artifacts, not routing ancestors (same !isBlank discipline
+    # as the class extraction above).
+    subclass_edges = [
+        {"child": str(child), "parent": str(parent)}
+        for child, _p, parent in g.triples((None, rdflib.RDFS.subClassOf, None))
+        if not isinstance(child, rdflib.term.BNode)
+        and not isinstance(parent, rdflib.term.BNode)
+    ]
+    context.log.info(
+        f"Extracted {len(subclass_edges)} named subClassOf edge(s) "
+        f"from {filename!r}"
+    )
+
     # ----- Step 3: MERGE into Neo4j ---------------------------------------
     # Match the validated pattern from seed_mro_extension_runtime.py:
     # MERGE on uri; SET label / definition / domain. Idempotent. Preserves
@@ -724,6 +769,40 @@ def sync_jena_ontologies_to_neo4j(
             f"Neo4j MERGE failed for domain '{domain}' "
             f"({len(classes)} classes): {e}"
         ) from e
+
+    # ----- Step 3.5: MERGE subClassOf edges -------------------------------
+    # MATCH both endpoints (NOT merge the parent). The parent must ALREADY
+    # be a synced OntologyClass node — this is deliberate: it stops
+    # meta-ontology parents that the class extraction filters OUT
+    # (prov:Entity, iof:*) from being fabricated as bare nodes here, so the
+    # idp:Dataset->prov:Entity root stays correctly ABSENT (the meta-filter
+    # discipline holds on the edge side too). Intra-TTL edges (e.g.
+    # idp:Dashboard->idp:Dataset, both synced this run) always form;
+    # cross-TTL edges form on the run after the parent's partition has
+    # synced. Idempotent MERGE — re-runs converge, never duplicate.
+    edges_written = 0
+    if subclass_edges:
+        try:
+            neo4j_client.execute_query(
+                """
+                UNWIND $edges AS e
+                MATCH (c:OntologyClass {uri: e.child})
+                MATCH (p:OntologyClass {uri: e.parent})
+                MERGE (c)-[:subClassOf]->(p)
+                """,
+                {"edges": subclass_edges},
+            )
+            edges_written = len(subclass_edges)
+        except Exception as e:
+            raise Exception(
+                f"Neo4j subClassOf MERGE failed for domain '{domain}' "
+                f"({len(subclass_edges)} edges): {e}"
+            ) from e
+        context.log.info(
+            f"MERGE'd subClassOf edges (idempotent); {edges_written} "
+            f"candidate edge(s) — those whose parent is a synced non-meta "
+            f"class landed, meta/cross-partition parents skipped by design."
+        )
 
     # ----- Step 4: verification read (the seam's standing assertion) ------
     # The asset's contract is "TTL classes reach Neo4j." Verify by
@@ -776,6 +855,7 @@ def sync_jena_ontologies_to_neo4j(
         metadata={
             "domain": domain,
             "classes_merged": len(classes),
+            "subclassof_edges_merged": edges_written,
             "s3_path": f"s3://{bucket}/{obj_key}",
             "partition_key": context.partition_key,
             "first_class_uris": [c["uri"] for c in classes[:5]],
