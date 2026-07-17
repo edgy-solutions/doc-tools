@@ -121,19 +121,47 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
         # for the rationale: code owns the embedding-model contract AND the
         # task-prefix discipline.
         from doc_tools.utils.embed import embed_document
+
+        def _humanize_label(label: str) -> str:
+            """Split underscore/camelCase compounds into words — for the
+            EMBEDDING text only (the stored label is unchanged). A
+            definition-less class's name is its ENTIRE semantic signal,
+            and 'SomeCompoundClassName_specifiedProperty' embeds poorly
+            against the natural-language queries Engine O's hybrid
+            search receives."""
+            import re
+            words = re.sub(r"[_\-]+", " ", label)
+            words = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", words)
+            words = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", words)
+            return re.sub(r"\s+", " ", words).strip()
+
         with collection.batch.dynamic() as batch:
             for cls in domain_classes:
                 # Use the URI to generate a deterministic UUID
                 deterministic_uuid = generate_uuid5(str(cls["uri"]))
 
                 safe_label = str(cls["label"]) if cls.get("label") else str(cls["uri"]).split("#")[-1].split("/")[-1]
-                safe_definition = str(cls["definition"]) if cls.get("definition") else "No definition provided."
+                # NO FILLER, deliberately. The old default ('No definition
+                # provided.') was both EMBEDDED and STORED: hundreds of
+                # definition-less classes shared the same suffix, so their
+                # vectors clustered on the filler instead of their names,
+                # and the stored filler leaked verbatim into Engine O's
+                # candidate prompts (token noise on every /resolve).
+                # Absent stays absent: empty string in the row, label-only
+                # in the vector.
+                safe_definition = str(cls["definition"]) if cls.get("definition") else ""
 
-                # Embed "<label> — <definition>" for richer signal than
-                # label alone. Best-effort: on gateway failure, write
-                # without a vector so ingestion still completes (BM25
-                # still works; backfill can populate later).
-                embed_input = f"{safe_label} — {safe_definition}"
+                # Embed "<humanized label> — <definition>" for richer
+                # signal than label alone; definition-less classes embed
+                # the humanized label by itself. Best-effort: on gateway
+                # failure, write without a vector so ingestion still
+                # completes (BM25 still works; backfill can populate
+                # later).
+                embed_input = (
+                    f"{_humanize_label(safe_label)} — {safe_definition}"
+                    if safe_definition
+                    else _humanize_label(safe_label)
+                )
                 try:
                     cls_vector = embed_document(embed_input)
                 except Exception as e:
