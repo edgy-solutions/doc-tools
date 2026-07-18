@@ -281,6 +281,22 @@ def _ensure_predicate_collection(client, log) -> Any:
         log.info(f"Creating {_PREDICATE_COLLECTION} collection in Weaviate...")
         client.collections.create(
             name=_PREDICATE_COLLECTION,
+            # IndexPropertyLength=true is REQUIRED by Engine O's domain-scope
+            # filter. /classify_predicate ORs `domains contains_any(entitled)`
+            # with a `domains length == 0` clause (to keep domain-agnostic
+            # predicates in scope). Weaviate rejects the length clause unless
+            # the property length is indexed, raising at query time:
+            #   "Property length must be indexed to be filterable! add
+            #    IndexPropertyLength: true to the invertedIndexConfig"
+            # When it raises, the predicate hybrid search returns empty and
+            # routing silently degrades to the generalist for every caller
+            # that carries entitled domains. This mirrors the seed script's
+            # config so the reproducible-ingest path matches the hand-seed
+            # (see the seed's IndexPropertyLength fix; the durable owner of
+            # the collection is this asset per ADR-0006).
+            inverted_index_config=wvc.config.Configure.inverted_index(
+                index_property_length=True,
+            ),
             properties=[
                 # Identity / routing
                 wvc.config.Property(name="verb_iri", data_type=wvc.config.DataType.TEXT),
