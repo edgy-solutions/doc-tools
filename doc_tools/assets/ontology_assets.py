@@ -333,25 +333,34 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
         context.log.error(f"Syntax validation failed for {obj_key}: {e}")
         raise e
 
-    # 3. Push to Jena using Graph Store Protocol (PUT)
-    # Using PUT ensures we overwrite the previous revision of this domain's ontology
+    # 3. Push to Jena using Graph Store Protocol (POST = MERGE/append, NOT PUT).
+    # This asset is partitioned PER FILE, and MANY files map to ONE semantic domain
+    # (e.g. MAINTENANCE = IOF_Core + IOF_MRO + DINEN62264 + mro/maintenance/mil
+    # extensions). PUT REPLACES the whole named graph, so N files PUT to
+    # http://internal/{domain} collapsed to whichever file landed LAST — silently
+    # (found 2026-07-22: MAINTENANCE held only mil_extension's 10 classes, IOF core
+    # destroyed). POST merges each file's triples into the domain graph so they
+    # accumulate. Idempotency across re-runs is guaranteed by the reproducible
+    # orchestrator clearing each domain graph ONCE before the per-file ingests
+    # (invincible-agent setup/prime_databases.py `clear_ontology_graphs`), so
+    # append-only never doubles blank-node structures on a re-prime.
     jena_base = jena.url.rstrip('/')
     jena_ds = jena.dataset
     user = jena.username
     pw = jena.password
-    
+
     # GSP endpoint: {host}/{dataset}/data
     target_url = f"{jena_base}/{jena_ds}/data?graph={graph_uri}"
-    
+
     try:
         with httpx.Client(auth=(user, pw), verify=False) as client:
-            resp = client.put(
+            resp = client.post(
                 target_url,
                 content=rdf_content,
                 headers={"Content-Type": content_type}
             )
             resp.raise_for_status()
-            context.log.info(f"Successfully pushed to Jena Named Graph: {graph_uri}")
+            context.log.info(f"Successfully MERGED into Jena Named Graph: {graph_uri} (POST/append)")
     except Exception as e:
         context.log.error(f"Failed to push to Fuseki: {e}")
         raise e
