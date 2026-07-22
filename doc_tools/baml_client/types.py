@@ -37,7 +37,7 @@ def get_checks(checks: typing.Dict[CheckName, Check]) -> typing.List[Check]:
 def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
     return all(check.status == "succeeded" for check in get_checks(checks))
 # #########################################################################
-# Generated enums (6)
+# Generated enums (7)
 # #########################################################################
 
 class ChangeCategory(str, Enum):
@@ -47,6 +47,10 @@ class ChangeCategory(str, Enum):
     Discontinuation = "Discontinuation"
     Packaging = "Packaging"
     Testing = "Testing"
+
+class DocType(str, Enum):
+    PCN = "PCN"
+    PDN = "PDN"
 
 class HazardClass(str, Enum):
     pass
@@ -64,7 +68,7 @@ class ProcessCategory(str, Enum):
     pass
 
 # #########################################################################
-# Generated classes (14)
+# Generated classes (15)
 # #########################################################################
 
 class ComplianceAugmentation(BaseModel):
@@ -135,13 +139,29 @@ class MatAugmentation(BaseModel):
 class MroAugmentation(BaseModel):
     steps: typing.List["MaintenanceStep"]
 
+class NoticeHeader(BaseModel):
+    doc_id: str = Field(description='The PCN/PDN/notice number exactly as printed, e.g. \'PDN 23_0120\' or \'PCN20250409000.1\'.')
+    doc_type: DocType = Field(description='PCN for process/product changes; PDN for discontinuance / obsolescence / EOL / PTN / product-termination. Pick the PRIMARY class; discontinuation nuance goes in categories.')
+    revision: typing.Optional[str] = Field(default=None, description='Document revision as printed, e.g. \'A\' or \'-\'. Null if the notice shows none.')
+    pub_date: str = Field(description='The notification / publication date in ISO 8601 (YYYY-MM-DD).')
+    pub_date_source: typing.Optional[str] = Field(default=None, description='Verbatim source substring for pub_date - the date string as printed - or null.')
+    mfr: str = Field(description='The issuing manufacturer, e.g. \'Analog Devices, Inc.\'.')
+    mfr_source: typing.Optional[str] = Field(default=None, description='Verbatim source substring for mfr, or null.')
+    categories: typing.List[ChangeCategory] = Field(description='All applicable change categories (judgment call - may be more than one). Empty list only if truly indeterminate.')
+    summary: str = Field(description='A 1-2 sentence high-level impact summary. Derived/paraphrased - it has NO source snippet and is not highlighted.')
+    doc_level_ltb_date: typing.Optional[str] = Field(default=None, description='A SINGLE document-level last-time-buy / last-order date that applies to ALL affected parts (typically stated once in the header or prose), ISO 8601. Null if there is no single doc-level LTB (dates are only per-row, or there is no LTB at all).')
+    doc_level_ltb_date_source: typing.Optional[str] = Field(default=None, description='Verbatim source substring for doc_level_ltb_date, or null.')
+
 class Outline(BaseModel):
     sections: typing.List["Section"]
 
 class PartImpact(BaseModel):
-    affected_mpn: str
-    replacement_mpn: typing.Optional[str] = None
-    ltb_date: typing.Optional[str] = Field(default=None, description='Last Time Buy Date in ISO 8601 (YYYY-MM-DD)')
+    affected_mpn: str = Field(description='The affected/discontinued manufacturer part number, EXACTLY as written - preserve suffixes, slashes, \'#\' reel codes, and module dashes (e.g. \'LTC6226HDC#TRMPBF\', \'BYVB32-200-E3/81\', \'090-44310-31\'). Never normalize, hyphenate, or \'correct\' it.')
+    affected_mpn_source: str = Field(description='The exact substring, VERBATIM and unnormalized, as affected_mpn appears in the OCR text / table cell. Copy character-for-character - this is the provenance join key. Usually identical to affected_mpn.')
+    replacement_mpn: typing.Optional[str] = Field(default=None, description='The recommended replacement/substitute part number for THIS row, exactly as written. Null if the notice lists no replacement for this part.')
+    replacement_mpn_source: typing.Optional[str] = Field(default=None, description='Verbatim source substring for replacement_mpn, or null if none.')
+    ltb_date: typing.Optional[str] = Field(default=None, description='The PER-ROW last-time-buy date for this specific part, ISO 8601 (YYYY-MM-DD), IF the table row carries its own date. Null if this row has no per-row date (a single document-level date lives on the header instead).')
+    ltb_date_source: typing.Optional[str] = Field(default=None, description='Verbatim source substring for a per-row ltb_date, or null.')
 
 class Section(BaseModel):
     title: str
@@ -162,11 +182,13 @@ class StrategicAssessment(BaseModel):
 
 class SustainmentNotice(BaseModel):
     doc_id: str = Field(description='The PCN/PDN number, e.g., 23-002')
-    doc_type: str = Field(description='PCN or PDN')
+    doc_type: DocType = Field(description='PCN or PDN')
+    revision: typing.Optional[str] = Field(default=None, description='Document revision, or null.')
     pub_date: str = Field(description='The notification date')
     mfr: str = Field(description='The manufacturer, e.g., Mini-Circuits')
     categories: typing.List[ChangeCategory]
     summary: str = Field(description='High-level impact summary (1-2 sentences)')
+    doc_level_ltb_date: typing.Optional[str] = Field(default=None, description='Document-level last-time-buy date, or null.')
     impacted_parts: typing.List["PartImpact"]
 
 # #########################################################################

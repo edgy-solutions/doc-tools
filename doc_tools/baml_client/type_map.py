@@ -40,6 +40,9 @@ type_map = {
     "types.MroAugmentation": types.MroAugmentation,
     "stream_types.MroAugmentation": stream_types.MroAugmentation,
 
+    "types.NoticeHeader": types.NoticeHeader,
+    "stream_types.NoticeHeader": stream_types.NoticeHeader,
+
     "types.Outline": types.Outline,
     "stream_types.Outline": stream_types.Outline,
 
@@ -60,6 +63,8 @@ type_map = {
 
 
     "types.ChangeCategory": types.ChangeCategory,
+
+    "types.DocType": types.DocType,
 
     "types.HazardClass": types.HazardClass,
 

@@ -115,6 +115,29 @@ env:
   LLM_NUM_CTX: "8192"
   LLM_API_KEY: "any"
 
+  # --- Vision endpoint (BAML client<llm> Vision) for the PCN/PDN parts pass ---
+  # Same openai-generic provider, configured INDEPENDENTLY of the text model so
+  # it can point at a multimodal model. Covers Ollama gemma / LiteLLM / vLLM
+  # (vision-capable model) / OpenAI. There is NO OPENAI_*->VISION_* alias, so set
+  # all three explicitly. Images are sent as base64 — portable across every
+  # backend. num_ctx is intentionally NOT a Vision option (vLLM fixes context via
+  # --max-model-len; Ollama gemma sizes its own); the per-crop parts design keeps
+  # each call small regardless.
+  #
+  #   LAN Ollama (gemma):  http://192.168.1.126:11434/v1  (ai1) / .169 (ai2)
+  #   LiteLLM -> vLLM:     http://<litellm>:4000/v1  with VISION_LLM_MODEL an alias
+  #
+  # If VISION_LLM_BASE_URL is UNSET, the sustainment router SKIPS the vision
+  # parts pass and flags the doc needs_review (header-only) — it never crashes.
+  VISION_LLM_BASE_URL: "http://192.168.1.126:11434/v1"
+  VISION_LLM_MODEL: "gemma4-32k:31b"
+  VISION_LLM_API_KEY: "any"
+
+  # --- Cropped-table render DPI (unstructured hi_res) for the vision pass ---
+  # The DPI the Table/Image block crops are captured at. >=150 recommended;
+  # raise if table text is small. Default 200.
+  DOC_PARSER_PDF_IMAGE_DPI: "200"
+
   # --- Embedding model for Weaviate vector writes/reads ---
   # doc-tools' semantic_assets.py and any other Weaviate writer
   # (doc_tools/utils/embed.py::embed_text) pull a vector from

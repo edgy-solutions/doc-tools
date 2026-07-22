@@ -36,3 +36,19 @@ client<llm> LLM {
     }
   }
 }
+
+// Vision client for the multimodal PCN/PDN parts pass (Gemma, or any
+// OpenAI-vision-compatible endpoint: Ollama gemma3, LiteLLM, vLLM, OpenAI).
+// Separate env vars so the text model (gpt-oss, client LLM above) and the
+// vision model are configured independently and reproducibly. num_ctx is
+// intentionally omitted — vision models size their own context, so
+// VISION_LLM_NUM_CTX need not exist. There is NO OPENAI_*->VISION_* alias in
+// doc_tools/__init__.py, so these three must be set explicitly at runtime.
+client<llm> Vision {
+  provider "openai-generic"
+  options {
+    base_url env.VISION_LLM_BASE_URL
+    api_key env.VISION_LLM_API_KEY
+    model env.VISION_LLM_MODEL
+  }
+}

@@ -52,6 +52,9 @@ env/
 *~
 .DS_Store
 
+# Local-only / uncommitted working files (proprietary report tooling, scratch)
+local/
+
 # Temporary / testing debug files
 *.log
 out.txt

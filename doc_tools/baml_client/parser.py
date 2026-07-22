@@ -35,6 +35,12 @@ class LlmResponseParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractConcepts", llm_response=llm_response, mode="request")
         return typing.cast(types.SlideAugmentation, __result__)
 
+    def ExtractHeader(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> types.NoticeHeader:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractHeader", llm_response=llm_response, mode="request")
+        return typing.cast(types.NoticeHeader, __result__)
+
     def ExtractMaintenanceProcedures(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> types.MroAugmentation:
@@ -46,6 +52,12 @@ class LlmResponseParser:
     ) -> types.Outline:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractOutline", llm_response=llm_response, mode="request")
         return typing.cast(types.Outline, __result__)
+
+    def ExtractParts(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> typing.List["types.PartImpact"]:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractParts", llm_response=llm_response, mode="request")
+        return typing.cast(typing.List["types.PartImpact"], __result__)
 
     def ExtractSustainment(
         self, llm_response: str, baml_options: BamlCallOptions = {},
@@ -79,6 +91,12 @@ class LlmStreamParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractConcepts", llm_response=llm_response, mode="stream")
         return typing.cast(stream_types.SlideAugmentation, __result__)
 
+    def ExtractHeader(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> stream_types.NoticeHeader:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractHeader", llm_response=llm_response, mode="stream")
+        return typing.cast(stream_types.NoticeHeader, __result__)
+
     def ExtractMaintenanceProcedures(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> stream_types.MroAugmentation:
@@ -90,6 +108,12 @@ class LlmStreamParser:
     ) -> stream_types.Outline:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractOutline", llm_response=llm_response, mode="stream")
         return typing.cast(stream_types.Outline, __result__)
+
+    def ExtractParts(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> typing.List["stream_types.PartImpact"]:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractParts", llm_response=llm_response, mode="stream")
+        return typing.cast(typing.List["stream_types.PartImpact"], __result__)
 
     def ExtractSustainment(
         self, llm_response: str, baml_options: BamlCallOptions = {},
@@ -103,4 +127,4 @@ class LlmStreamParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractWorkInstructions", llm_response=llm_response, mode="stream")
         return typing.cast(stream_types.MatAugmentation, __result__)
 
-    
+    

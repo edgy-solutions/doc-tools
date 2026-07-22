@@ -10,7 +10,7 @@ SKIPPED unless LLM_BASE_URL is set, so CI never depends on a model server.
 Works against any OpenAI-compatible endpoint (Ollama, LiteLLM, vLLM, real
 OpenAI):
 
-    LLM_BASE_URL=http://192.168.1.119:11434/v1 \
+    LLM_BASE_URL=http://192.168.1.126:11434/v1 \
     LLM_MODEL=gpt-oss-128k:120b LLM_NUM_CTX=8192 \
     uv run python -m pytest tests/test_plugin_extraction_ollama.py -q -s
 """

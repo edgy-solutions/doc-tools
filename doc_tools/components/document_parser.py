@@ -94,9 +94,12 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     with tempfile.TemporaryDirectory() as temp_extract_dir:
                         try:
                             elements = extract_text_and_metadata(
-                                file_path, 
-                                extract_images=True, 
-                                image_output_dir=temp_extract_dir
+                                file_path,
+                                extract_images=True,
+                                image_output_dir=temp_extract_dir,
+                                # Config-surfaced render DPI for the cropped Table/Image
+                                # blocks the sustainment vision pass consumes (default 200).
+                                pdf_image_dpi=int(os.getenv("DOC_PARSER_PDF_IMAGE_DPI", "200")),
                             )
 
                             # PPTX Special Handling
@@ -133,6 +136,14 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 
                     if elements:
                         first_meta = elements[0].get("metadata", {})
+                        # This drops coordinates/page_number/image_path ONLY from the
+                        # doc-level manifest SUMMARY dict (first element's leftover
+                        # metadata) — they are meaningless there. The authoritative,
+                        # PER-ELEMENT coordinates/page_number/image_path are retained
+                        # in text.json below (json.dumps(elements)) and are the source
+                        # the Phase-5 provenance resolver reads. DO NOT extend this
+                        # strip to the text.json dump — highlighting depends on those
+                        # per-element boxes.
                         extraction_metadata = {k: v for k, v in first_meta.items() if k not in ["coordinates", "page_number", "image_path"]}
                     
                     # Store text.json via Boto3

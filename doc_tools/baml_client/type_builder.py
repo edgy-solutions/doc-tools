@@ -20,18 +20,22 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["ComplianceAugmentation","ComplianceRule","Concept","LearningObjective","MaintenanceStep","ManufacturingStep","MatAugmentation","MroAugmentation","Outline","PartImpact","Section","SlideAugmentation","StrategicAssessment","SustainmentNotice",]
+          ["ComplianceAugmentation","ComplianceRule","Concept","LearningObjective","MaintenanceStep","ManufacturingStep","MatAugmentation","MroAugmentation","NoticeHeader","Outline","PartImpact","Section","SlideAugmentation","StrategicAssessment","SustainmentNotice",]
         ), enums=set(
-          ["ChangeCategory","HazardClass","InspectionType","MaintenanceLevel","PersonnelRole","ProcessCategory",]
+          ["ChangeCategory","DocType","HazardClass","InspectionType","MaintenanceLevel","PersonnelRole","ProcessCategory",]
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
 
     # #########################################################################
-    # Generated enums 6
+    # Generated enums 7
     # #########################################################################
 
     @property
     def ChangeCategory(self) -> "ChangeCategoryViewer":
         return ChangeCategoryViewer(self)
+
+    @property
+    def DocType(self) -> "DocTypeViewer":
+        return DocTypeViewer(self)
 
     @property
     def HazardClass(self) -> "HazardClassBuilder":
@@ -55,7 +59,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 14
+    # Generated classes 15
     # #########################################################################
 
     @property
@@ -91,6 +95,10 @@ class TypeBuilder(type_builder.TypeBuilder):
         return MroAugmentationViewer(self)
 
     @property
+    def NoticeHeader(self) -> "NoticeHeaderViewer":
+        return NoticeHeaderViewer(self)
+
+    @property
     def Outline(self) -> "OutlineViewer":
         return OutlineViewer(self)
 
@@ -117,7 +125,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
 # #########################################################################
-# Generated enums 6
+# Generated enums 7
 # #########################################################################
 
 class ChangeCategoryAst:
@@ -174,6 +182,48 @@ class ChangeCategoryValues:
     @property
     def Testing(self) -> type_builder.EnumValueViewer:
         return type_builder.EnumValueViewer(self.__bldr.value("Testing"))
+    
+    
+
+
+class DocTypeAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.enum("DocType")
+        self._values: typing.Set[str] = set([  "PCN",  "PDN",  ])
+        self._vals = DocTypeValues(self._bldr, self._values)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def values(self) -> "DocTypeValues":
+        return self._vals
+
+
+class DocTypeViewer(DocTypeAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_values(self) -> typing.List[typing.Tuple[str, type_builder.EnumValueViewer]]:
+        return [(name, type_builder.EnumValueViewer(self._bldr.value(name))) for name in self._values]
+    
+
+class DocTypeValues:
+    def __init__(self, enum_bldr: baml_py.EnumBuilder, values: typing.Set[str]):
+        self.__bldr = enum_bldr
+        self.__values = values # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def PCN(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("PCN"))
+    
+    @property
+    def PDN(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("PDN"))
     
     
 
@@ -400,7 +450,7 @@ class ProcessCategoryValues:
 
 
 # #########################################################################
-# Generated classes 14
+# Generated classes 15
 # #########################################################################
 
 class ComplianceAugmentationAst:
@@ -917,6 +967,85 @@ class MroAugmentationProperties:
     
 
 
+class NoticeHeaderAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("NoticeHeader")
+        self._properties: typing.Set[str] = set([  "doc_id",  "doc_type",  "revision",  "pub_date",  "pub_date_source",  "mfr",  "mfr_source",  "categories",  "summary",  "doc_level_ltb_date",  "doc_level_ltb_date_source",  ])
+        self._props = NoticeHeaderProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "NoticeHeaderProperties":
+        return self._props
+
+
+class NoticeHeaderViewer(NoticeHeaderAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class NoticeHeaderProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def doc_id(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("doc_id"))
+    
+    @property
+    def doc_type(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("doc_type"))
+    
+    @property
+    def revision(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("revision"))
+    
+    @property
+    def pub_date(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("pub_date"))
+    
+    @property
+    def pub_date_source(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("pub_date_source"))
+    
+    @property
+    def mfr(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("mfr"))
+    
+    @property
+    def mfr_source(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("mfr_source"))
+    
+    @property
+    def categories(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("categories"))
+    
+    @property
+    def summary(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("summary"))
+    
+    @property
+    def doc_level_ltb_date(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("doc_level_ltb_date"))
+    
+    @property
+    def doc_level_ltb_date_source(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("doc_level_ltb_date_source"))
+    
+    
+
+
 class OutlineAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
@@ -960,7 +1089,7 @@ class PartImpactAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("PartImpact")
-        self._properties: typing.Set[str] = set([  "affected_mpn",  "replacement_mpn",  "ltb_date",  ])
+        self._properties: typing.Set[str] = set([  "affected_mpn",  "affected_mpn_source",  "replacement_mpn",  "replacement_mpn_source",  "ltb_date",  "ltb_date_source",  ])
         self._props = PartImpactProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -993,12 +1122,24 @@ class PartImpactProperties:
         return type_builder.ClassPropertyViewer(self.__bldr.property("affected_mpn"))
     
     @property
+    def affected_mpn_source(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("affected_mpn_source"))
+    
+    @property
     def replacement_mpn(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("replacement_mpn"))
     
     @property
+    def replacement_mpn_source(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("replacement_mpn_source"))
+    
+    @property
     def ltb_date(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("ltb_date"))
+    
+    @property
+    def ltb_date_source(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("ltb_date_source"))
     
     
 
@@ -1156,7 +1297,7 @@ class SustainmentNoticeAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("SustainmentNotice")
-        self._properties: typing.Set[str] = set([  "doc_id",  "doc_type",  "pub_date",  "mfr",  "categories",  "summary",  "impacted_parts",  ])
+        self._properties: typing.Set[str] = set([  "doc_id",  "doc_type",  "revision",  "pub_date",  "mfr",  "categories",  "summary",  "doc_level_ltb_date",  "impacted_parts",  ])
         self._props = SustainmentNoticeProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -1193,6 +1334,10 @@ class SustainmentNoticeProperties:
         return type_builder.ClassPropertyViewer(self.__bldr.property("doc_type"))
     
     @property
+    def revision(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("revision"))
+    
+    @property
     def pub_date(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("pub_date"))
     
@@ -1209,8 +1354,13 @@ class SustainmentNoticeProperties:
         return type_builder.ClassPropertyViewer(self.__bldr.property("summary"))
     
     @property
+    def doc_level_ltb_date(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("doc_level_ltb_date"))
+    
+    @property
     def impacted_parts(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("impacted_parts"))
     
     
 
+

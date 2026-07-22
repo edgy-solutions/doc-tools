@@ -270,7 +270,15 @@ def build_knowledge_graph(
     document_nodes = []
     try:
         context.log.info(f"Executing global full-text pass for {type(plugin).__name__}...")
-        global_nodes = plugin.process_fulltext(full_text, doc_id, metadata, elements=text_elements)
+        # Sustainment's two-pass extractor also needs the manifest (embedded_images
+        # map, filename -> S3 URL of each cropped table image), an S3 client to
+        # fetch those crops for the vision parts pass, and the bucket. Other
+        # plugins ignore these; pass them only for sustainment so no other
+        # plugin signature changes.
+        _extra = {}
+        if domain_type == "sustainment":
+            _extra = {"manifest": manifest, "s3_client": s3_client, "bucket": config.bucket}
+        global_nodes = plugin.process_fulltext(full_text, doc_id, metadata, elements=text_elements, **_extra)
         if global_nodes:
             document_nodes.extend(global_nodes)
     except Exception as e:
@@ -393,6 +401,38 @@ def build_knowledge_graph(
         )
     except Exception as e:
         context.log.error(f"Failed to write extraction.json: {e}")
+
+    # Phase 5: persist the human-review payload (provenance + needs_review) to
+    # review.json so the review UI has its data contract. Only sustainment
+    # augmentations carry a `review` block; other domains have none and skip
+    # this. needs_review is surfaced as a WARNING in Dagit (a formal asset_check
+    # on the needs_review count is a follow-up).
+    try:
+        review_nodes = [n for n in document_nodes if getattr(n.domain_augmentation, "review", None)]
+        if review_nodes:
+            aug0 = review_nodes[0].domain_augmentation
+            needs_review = any(getattr(n.domain_augmentation, "needs_review", False)
+                               for n in review_nodes)
+            review_payload = dict(aug0.review)
+            review_payload["needs_review"] = needs_review
+            review_payload["review_reasons"] = list(getattr(aug0, "review_reasons", []) or [])
+            review_payload["stats"] = dict(getattr(aug0, "stats", {}) or {})
+            review_key = f"{base_dir}/review.json"
+            s3_client.put_object(
+                Bucket=config.bucket, Key=review_key,
+                Body=json.dumps(review_payload, indent=2, default=str).encode("utf-8"),
+                ContentType="application/json",
+            )
+            n_flag = sum(1 for it in review_payload.get("review_items", []) if it.get("needs_review"))
+            msg = (f"Wrote review payload to s3://{config.bucket}/{review_key} "
+                   f"(needs_review={needs_review}, {n_flag} flagged item(s))")
+            if needs_review:
+                context.log.warning(f"REVIEW REQUIRED for {doc_id}: {msg} — "
+                                    f"reasons: {review_payload['review_reasons'][:5]}")
+            else:
+                context.log.info(msg)
+    except Exception as e:
+        context.log.error(f"Failed to write review.json: {e}")
 
     # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
     context.log.info(f"Generating domain graph queries from {len(document_nodes)} augmented nodes...")

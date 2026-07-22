@@ -1,4 +1,3 @@
-import os
 import requests
 from dagster import asset, AssetExecutionContext, Config
 from pydantic import Field
@@ -54,7 +53,7 @@ def ingest_global_semantic_links(context: AssetExecutionContext, config: GlobalI
     }
     
     try:
-        resp = requests.post(DATAHUB_GMS_URL, json={"query": query, "variables": variables}, headers=headers)
+        resp = requests.post(DATAHUB_GMS_URL, json={"query": query, "variables": variables}, headers=headers, timeout=30)
         resp.raise_for_status()
         search_results = resp.json().get("data", {}).get("search", {}).get("searchResults", [])
     except Exception as e:

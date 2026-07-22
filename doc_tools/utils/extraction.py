@@ -60,7 +60,7 @@ def configure_tesseract():
 # Configure tesseract when module is imported
 configure_tesseract()
 
-def extract_text_and_metadata(file_path: str, extract_images: bool = False, image_output_dir: str = None) -> List[Dict[str, Any]]:
+def extract_text_and_metadata(file_path: str, extract_images: bool = False, image_output_dir: str = None, pdf_image_dpi: int = None) -> List[Dict[str, Any]]:
     """
     Extract text, metadata, and optionally images from a file using unstructured.io.
     Returns a list of dictionaries representing the elements.
@@ -79,6 +79,12 @@ def extract_text_and_metadata(file_path: str, extract_images: bool = False, imag
             kwargs["extract_image_block_types"] = ["Image", "Table"]
             kwargs["extract_image_block_to_payload"] = False # Save to disk
             kwargs["extract_image_block_output_dir"] = image_output_dir
+            if pdf_image_dpi:
+                # Render DPI for hi_res page rasterization -> the DPI the cropped
+                # Table/Image blocks (used by the sustainment vision pass) are
+                # captured at. Surfaced as config (DOC_PARSER_PDF_IMAGE_DPI) for
+                # reproducibility; >=150 recommended, higher if table text is small.
+                kwargs["pdf_image_dpi"] = int(pdf_image_dpi)
 
         elements = partition(filename=file_path, **kwargs)
         

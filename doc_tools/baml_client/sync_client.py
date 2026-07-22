@@ -122,6 +122,20 @@ class BamlSyncClient:
                 "slide_text": slide_text,"system_instructions": system_instructions,
             })
             return typing.cast(types.SlideAugmentation, __result__.cast_to(types, types, stream_types, False, __runtime__))
+    def ExtractHeader(self, doc: str,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> types.NoticeHeader:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            __stream__ = self.stream.ExtractHeader(doc=doc,system_instructions=system_instructions,
+                baml_options=baml_options)
+            return __stream__.get_final_response()
+        else:
+            # Original non-streaming code
+            __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="ExtractHeader", args={
+                "doc": doc,"system_instructions": system_instructions,
+            })
+            return typing.cast(types.NoticeHeader, __result__.cast_to(types, types, stream_types, False, __runtime__))
     def ExtractMaintenanceProcedures(self, text: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> types.MroAugmentation:
@@ -150,6 +164,20 @@ class BamlSyncClient:
                 "document_text": document_text,"system_instructions": system_instructions,
             })
             return typing.cast(types.Outline, __result__.cast_to(types, types, stream_types, False, __runtime__))
+    def ExtractParts(self, ocr_text: str,html_table: str,table_images: typing.List[baml_py.Image],system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> typing.List["types.PartImpact"]:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            __stream__ = self.stream.ExtractParts(ocr_text=ocr_text,html_table=html_table,table_images=table_images,system_instructions=system_instructions,
+                baml_options=baml_options)
+            return __stream__.get_final_response()
+        else:
+            # Original non-streaming code
+            __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="ExtractParts", args={
+                "ocr_text": ocr_text,"html_table": html_table,"table_images": table_images,"system_instructions": system_instructions,
+            })
+            return typing.cast(typing.List["types.PartImpact"], __result__.cast_to(types, types, stream_types, False, __runtime__))
     def ExtractSustainment(self, doc: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> types.SustainmentNotice:
@@ -211,6 +239,18 @@ class BamlStreamClient:
           lambda x: typing.cast(types.SlideAugmentation, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
+    def ExtractHeader(self, doc: str,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlSyncStream[stream_types.NoticeHeader, types.NoticeHeader]:
+        __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="ExtractHeader", args={
+            "doc": doc,"system_instructions": system_instructions,
+        })
+        return baml_py.BamlSyncStream[stream_types.NoticeHeader, types.NoticeHeader](
+          __result__,
+          lambda x: typing.cast(stream_types.NoticeHeader, x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(types.NoticeHeader, x.cast_to(types, types, stream_types, False, __runtime__)),
+          __ctx__,
+        )
     def ExtractMaintenanceProcedures(self, text: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[stream_types.MroAugmentation, types.MroAugmentation]:
@@ -233,6 +273,18 @@ class BamlStreamClient:
           __result__,
           lambda x: typing.cast(stream_types.Outline, x.cast_to(types, types, stream_types, True, __runtime__)),
           lambda x: typing.cast(types.Outline, x.cast_to(types, types, stream_types, False, __runtime__)),
+          __ctx__,
+        )
+    def ExtractParts(self, ocr_text: str,html_table: str,table_images: typing.List[baml_py.Image],system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlSyncStream[typing.List["stream_types.PartImpact"], typing.List["types.PartImpact"]]:
+        __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="ExtractParts", args={
+            "ocr_text": ocr_text,"html_table": html_table,"table_images": table_images,"system_instructions": system_instructions,
+        })
+        return baml_py.BamlSyncStream[typing.List["stream_types.PartImpact"], typing.List["types.PartImpact"]](
+          __result__,
+          lambda x: typing.cast(typing.List["stream_types.PartImpact"], x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(typing.List["types.PartImpact"], x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
     def ExtractSustainment(self, doc: str,system_instructions: str,
@@ -281,6 +333,13 @@ class BamlHttpRequestClient:
             "slide_text": slide_text,"system_instructions": system_instructions,
         }, mode="request")
         return __result__
+    def ExtractHeader(self, doc: str,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractHeader", args={
+            "doc": doc,"system_instructions": system_instructions,
+        }, mode="request")
+        return __result__
     def ExtractMaintenanceProcedures(self, text: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -293,6 +352,13 @@ class BamlHttpRequestClient:
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractOutline", args={
             "document_text": document_text,"system_instructions": system_instructions,
+        }, mode="request")
+        return __result__
+    def ExtractParts(self, ocr_text: str,html_table: str,table_images: typing.List[baml_py.Image],system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractParts", args={
+            "ocr_text": ocr_text,"html_table": html_table,"table_images": table_images,"system_instructions": system_instructions,
         }, mode="request")
         return __result__
     def ExtractSustainment(self, doc: str,system_instructions: str,
@@ -331,6 +397,13 @@ class BamlHttpStreamRequestClient:
             "slide_text": slide_text,"system_instructions": system_instructions,
         }, mode="stream")
         return __result__
+    def ExtractHeader(self, doc: str,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractHeader", args={
+            "doc": doc,"system_instructions": system_instructions,
+        }, mode="stream")
+        return __result__
     def ExtractMaintenanceProcedures(self, text: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -343,6 +416,13 @@ class BamlHttpStreamRequestClient:
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractOutline", args={
             "document_text": document_text,"system_instructions": system_instructions,
+        }, mode="stream")
+        return __result__
+    def ExtractParts(self, ocr_text: str,html_table: str,table_images: typing.List[baml_py.Image],system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractParts", args={
+            "ocr_text": ocr_text,"html_table": html_table,"table_images": table_images,"system_instructions": system_instructions,
         }, mode="stream")
         return __result__
     def ExtractSustainment(self, doc: str,system_instructions: str,
@@ -361,4 +441,4 @@ class BamlHttpStreamRequestClient:
         return __result__
     
 
-b = BamlSyncClient(DoNotUseDirectlyCallManager({}))
+b = BamlSyncClient(DoNotUseDirectlyCallManager({}))

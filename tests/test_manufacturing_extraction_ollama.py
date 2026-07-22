@@ -11,7 +11,7 @@ This test requires a live OpenAI-compatible LLM endpoint (Ollama, LiteLLM,
 vLLM, OpenRouter, or real OpenAI). SKIPPED unless LLM_BASE_URL is set, so
 the normal unit suite is unaffected. Run it with, e.g.:
 
-    LLM_BASE_URL=http://192.168.1.119:11434/v1 \
+    LLM_BASE_URL=http://192.168.1.126:11434/v1 \
     LLM_MODEL=gpt-oss-128k:120b \
     LLM_NUM_CTX=8192 \
     uv run python -m pytest tests/test_manufacturing_extraction_ollama.py -q -s
