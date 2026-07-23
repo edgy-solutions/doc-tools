@@ -6,7 +6,6 @@ You are extracting the AFFECTED PARTS TABLE from a manufacturer change or discon
 
 RULES:
 - Every affected_mpn you emit MUST appear verbatim somewhere in the OCR TEXT. If a part number is legible in the image but absent from the OCR text, still emit it and copy it as exactly as you can — it will be flagged for human review.
-- affected_mpn_source = the exact substring of the OCR TEXT for that part (character-for-character; usually identical to affected_mpn). This is a provenance join key.
 - A wrapped, multi-line description is still ONE part. Do not split a single row into multiple parts because its text wraps across lines.
 - Preserve part numbers EXACTLY: keep suffixes, slashes, '#' reel codes, module dashes, and spaces. Do NOT normalize, hyphenate, pad, or "correct" them. Non-standard schemes are valid parts — e.g. module numbers like 090-44310-31 or reel suffixes like -E3/81 — never drop a part for "not looking like a part number".
 - replacement_mpn: the recommended replacement for THAT row, exactly as written; null if the row lists none. Set replacement_mpn_source to its verbatim OCR substring, or null.

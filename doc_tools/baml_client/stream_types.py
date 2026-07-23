@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (15)
+# Generated classes (16)
 # #########################################################################
 
 class ComplianceAugmentation(BaseModel):
@@ -117,6 +117,11 @@ class PartImpact(BaseModel):
     replacement_mpn_source: typing.Optional[str] = Field(default=None, description='Verbatim source substring for replacement_mpn, or null if none.')
     ltb_date: typing.Optional[str] = Field(default=None, description='The PER-ROW last-time-buy date for this specific part, ISO 8601 (YYYY-MM-DD), IF the table row carries its own date. Null if this row has no per-row date (a single document-level date lives on the header instead).')
     ltb_date_source: typing.Optional[str] = Field(default=None, description='Verbatim source substring for a per-row ltb_date, or null.')
+
+class PartRow(BaseModel):
+    affected_mpn: typing.Optional[str] = Field(default=None, description='The affected/discontinued part number, EXACTLY as written - preserve suffixes, slashes, \'#\' reel codes, module dashes (e.g. \'LTC6226HDC#TRMPBF\', \'090-44310-31\'). Never normalize.')
+    replacement_mpn: typing.Optional[str] = Field(default=None, description='The recommended replacement for THIS row, exactly as written; null if none. Qualification / evaluation vehicles are NOT replacements.')
+    ltb_date: typing.Optional[str] = Field(default=None, description='Per-row last-time-buy date (ISO 8601) if the row carries its own; else null.')
 
 class Section(BaseModel):
     title: typing.Optional[str] = None

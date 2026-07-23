@@ -55,9 +55,9 @@ class LlmResponseParser:
 
     def ExtractParts(
         self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> typing.List["types.PartImpact"]:
+    ) -> typing.List["types.PartRow"]:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractParts", llm_response=llm_response, mode="request")
-        return typing.cast(typing.List["types.PartImpact"], __result__)
+        return typing.cast(typing.List["types.PartRow"], __result__)
 
     def ExtractSustainment(
         self, llm_response: str, baml_options: BamlCallOptions = {},
@@ -111,9 +111,9 @@ class LlmStreamParser:
 
     def ExtractParts(
         self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> typing.List["stream_types.PartImpact"]:
+    ) -> typing.List["stream_types.PartRow"]:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractParts", llm_response=llm_response, mode="stream")
-        return typing.cast(typing.List["stream_types.PartImpact"], __result__)
+        return typing.cast(typing.List["stream_types.PartRow"], __result__)
 
     def ExtractSustainment(
         self, llm_response: str, baml_options: BamlCallOptions = {},

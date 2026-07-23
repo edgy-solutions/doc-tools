@@ -166,7 +166,7 @@ class BamlSyncClient:
             return typing.cast(types.Outline, __result__.cast_to(types, types, stream_types, False, __runtime__))
     def ExtractParts(self, ocr_text: str,html_table: str,table_images: typing.List[baml_py.Image],system_instructions: str,
         baml_options: BamlCallOptions = {},
-    ) -> typing.List["types.PartImpact"]:
+    ) -> typing.List["types.PartRow"]:
         # Check if on_tick is provided
         if 'on_tick' in baml_options:
             __stream__ = self.stream.ExtractParts(ocr_text=ocr_text,html_table=html_table,table_images=table_images,system_instructions=system_instructions,
@@ -177,7 +177,7 @@ class BamlSyncClient:
             __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="ExtractParts", args={
                 "ocr_text": ocr_text,"html_table": html_table,"table_images": table_images,"system_instructions": system_instructions,
             })
-            return typing.cast(typing.List["types.PartImpact"], __result__.cast_to(types, types, stream_types, False, __runtime__))
+            return typing.cast(typing.List["types.PartRow"], __result__.cast_to(types, types, stream_types, False, __runtime__))
     def ExtractSustainment(self, doc: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> types.SustainmentNotice:
@@ -277,14 +277,14 @@ class BamlStreamClient:
         )
     def ExtractParts(self, ocr_text: str,html_table: str,table_images: typing.List[baml_py.Image],system_instructions: str,
         baml_options: BamlCallOptions = {},
-    ) -> baml_py.BamlSyncStream[typing.List["stream_types.PartImpact"], typing.List["types.PartImpact"]]:
+    ) -> baml_py.BamlSyncStream[typing.List["stream_types.PartRow"], typing.List["types.PartRow"]]:
         __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="ExtractParts", args={
             "ocr_text": ocr_text,"html_table": html_table,"table_images": table_images,"system_instructions": system_instructions,
         })
-        return baml_py.BamlSyncStream[typing.List["stream_types.PartImpact"], typing.List["types.PartImpact"]](
+        return baml_py.BamlSyncStream[typing.List["stream_types.PartRow"], typing.List["types.PartRow"]](
           __result__,
-          lambda x: typing.cast(typing.List["stream_types.PartImpact"], x.cast_to(types, types, stream_types, True, __runtime__)),
-          lambda x: typing.cast(typing.List["types.PartImpact"], x.cast_to(types, types, stream_types, False, __runtime__)),
+          lambda x: typing.cast(typing.List["stream_types.PartRow"], x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(typing.List["types.PartRow"], x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
     def ExtractSustainment(self, doc: str,system_instructions: str,

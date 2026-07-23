@@ -49,6 +49,9 @@ type_map = {
     "types.PartImpact": types.PartImpact,
     "stream_types.PartImpact": stream_types.PartImpact,
 
+    "types.PartRow": types.PartRow,
+    "stream_types.PartRow": stream_types.PartRow,
+
     "types.Section": types.Section,
     "stream_types.Section": stream_types.Section,
 

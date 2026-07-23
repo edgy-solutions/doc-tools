@@ -82,12 +82,25 @@ function ExtractHeader(doc: string, system_instructions: string) -> NoticeHeader
   "#
 }
 
+// Lean per-row output for the vision parts pass. Deliberately WITHOUT the
+// _source snippets that PartImpact carries: a table cell's affected_mpn IS its
+// verbatim source, and the provenance resolver matches affected_mpn against the
+// positioned index in code (sustainment_merge.build_review_items) — so making a
+// 31B vision model echo _source back for every row ~doubled its output and made
+// dense tables blow the request timeout (2/19 extracted). Mapped to PartImpact
+// in Python with source == value.
+class PartRow {
+    affected_mpn string @description("The affected/discontinued part number, EXACTLY as written - preserve suffixes, slashes, '#' reel codes, module dashes (e.g. 'LTC6226HDC#TRMPBF', '090-44310-31'). Never normalize.")
+    replacement_mpn string? @description("The recommended replacement for THIS row, exactly as written; null if none. Qualification / evaluation vehicles are NOT replacements.")
+    ltb_date string? @description("Per-row last-time-buy date (ISO 8601) if the row carries its own; else null.")
+}
+
 // -- Pass 2: part rows, multimodal, on Gemma (client Vision). --
 // Authority split lives in the parts prompt file: image is authoritative for
 // row/column structure + affected->replacement pairing; ocr_text is
 // authoritative for the exact characters of every MPN (copy, don't re-read
 // from pixels); html_table is a rough hint only.
-function ExtractParts(ocr_text: string, html_table: string, table_images: image[], system_instructions: string) -> PartImpact[] {
+function ExtractParts(ocr_text: string, html_table: string, table_images: image[], system_instructions: string) -> PartRow[] {
   client Vision
   prompt #"
     {{ system_instructions }}
