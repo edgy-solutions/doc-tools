@@ -62,14 +62,16 @@ env:
   WEAVIATE_HTTP_PORT: "8080"
   WEAVIATE_GRPC_PORT: "50051"
 
-  # Route doc-tools' BAML extraction through the in-cluster LiteLLM
-  # proxy deployed by the iagent helm release (litellm.enabled=true
-  # in invincible-agent/helm/invincible-agent/values-sandbox-litellm-
-  # rehearsal.yaml). LiteLLM fronts the dev ai1 Ollama (and others) at
-  # gpt-oss-128k:120b. Stateless mode → any non-empty api_key works.
-  # Same transport hop as iagent's agent-reasoning path; underlying
-  # model is identical.
-  LLM_BASE_URL: "http://iagent-litellm:4000/v1"
+  # Sandbox default: route doc-tools' BAML extraction DIRECTLY at the dev
+  # ai1 Ollama (192.168.1.126) — the same host iagent's agents and doc-tools'
+  # VISION endpoint already use, serving gpt-oss-128k:120b. LiteLLM is NOT
+  # deployed in the default sandbox (only in the litellm-rehearsal scenario:
+  # invincible-agent values-sandbox-litellm-rehearsal.yaml, litellm.enabled=
+  # true), so pointing at iagent-litellm:4000 here fails DNS. At WORK (or in
+  # the rehearsal), override this back to the LiteLLM proxy
+  # (http://iagent-litellm:4000/v1) — the chart supports both; only this URL
+  # differs. Stateless → any non-empty api_key works.
+  LLM_BASE_URL: "http://192.168.1.126:11434/v1"
   LLM_MODEL: "gpt-oss-128k:120b"
   LLM_NUM_CTX: "8192"
   LLM_API_KEY: "any"
