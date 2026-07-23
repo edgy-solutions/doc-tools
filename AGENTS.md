@@ -78,6 +78,22 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   5. **Post-Sync Domain Labeling**: After n10s import, apply `:MAINTENANCE` label to all imported Resource nodes via `_apply_post_sync_domain_labels()`. This ensures XML tech manuals are visible to downstream agents that filter by Neo4j domain labels.
   6. **In-Memory Triples**: Pass raw Turtle data and root URIs between assets as dictionaries; do not use the local filesystem.
 
+- **Domain Semantic Graph (mesh-visible RDF) — WRITE-CONVENTION, TWO PRODUCERS**: distinct from the
+  per-document graphs above. The mesh resolver (engine-o) scopes EVERY SPARQL read to the per-domain
+  named graph `<http://internal/{DOMAIN}>` (uppercase semantic domain: `MAINTENANCE`, `SUSTAINMENT`,
+  `DATA_ENGINEERING`, `MESH`, …). Any RDF written to Jena's **default graph** (an `INSERT DATA` with
+  no `GRAPH` clause) is **invisible to the mesh** — the graph-name/semantic-domain seam
+  (`feedback_path_vs_semantic_domain`). There are now **two producers into this graph, and both MUST
+  target `<http://internal/{DOMAIN}>`**:
+  1. **Vocabulary** (seed data) — `ingest_ontology_to_jena` (`assets/ontology_assets.py`) POST-merges
+     the class-definition TTLs. (Note: bullet "Jena PUT First" above is the OLD per-document
+     revisioning rule; the domain vocabulary path uses **POST/append** — `71a66f9` — because one
+     domain has many source TTLs and PUT-replace collapses them to the last file.)
+  2. **Runtime instances** — a plugin's `to_graph_queries()` SPARQL (e.g. `SustainmentPlugin`'s
+     PCN/PDN entities) MUST wrap its triples in `GRAPH <http://internal/{self.domain_label}> { … }`.
+     `domain_label` is the uppercase semantic domain. This is legitimate runtime (not seed) data, but
+     it shares the graph, so the convention is written down here once rather than re-derived per plugin.
+
 - **Semantic Binding Plane (Late Binding & URN Standardization)**:
   1. **Phase 7 URN Standard**: Glossary Term URNs MUST use the Short Name (e.g., `urn:li:glossaryTerm:MaintenanceWorkOrder`).
   2. **URI Storage**: The full Ontology URI MUST be stored in the `customProperties` aspect of the `GlossaryTerm` entity under the key `ontology_uri`.

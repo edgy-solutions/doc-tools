@@ -310,11 +310,17 @@ class SustainmentPlugin(AugmentationPlugin):
             else:
                 notice_class = "pcn:ProcessChangeNotification"
 
+            # Scope instance data to the SUSTAINMENT named graph. engine-o queries
+            # <http://internal/{domain}>; an unscoped INSERT DATA lands in Jena's DEFAULT
+            # graph, where the mesh cannot see it (the graph-name/semantic-domain seam —
+            # same class as the mro/MAINTENANCE mismatch). domain_label == 'SUSTAINMENT'.
+            graph_uri = f"http://internal/{self.domain_label}"
             sparql = f"""
             PREFIX pcn: <http://internal/sustainment/pcn#>
             PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
             INSERT DATA {{
+              GRAPH <{graph_uri}> {{
                 <http://internal/sustainment/doc/{safe_notice_id}> a {notice_class} .
             """
             for cat in notice.categories:
@@ -336,7 +342,7 @@ class SustainmentPlugin(AugmentationPlugin):
                     sparql += f"""
                     <http://internal/components/{safe_mpn}> pcn:hasReplacement <http://internal/components/{safe_rep}> .
                     """
-            sparql += "}"
+            sparql += "  }\n}"  # close GRAPH, then INSERT DATA
             sparql_queries.append(sparql)
 
         return cypher_queries, sparql_queries
