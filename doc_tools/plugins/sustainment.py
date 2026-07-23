@@ -310,11 +310,16 @@ class SustainmentPlugin(AugmentationPlugin):
             else:
                 notice_class = "pcn:ProcessChangeNotification"
 
-            # Scope instance data to the SUSTAINMENT named graph. engine-o queries
-            # <http://internal/{domain}>; an unscoped INSERT DATA lands in Jena's DEFAULT
-            # graph, where the mesh cannot see it (the graph-name/semantic-domain seam —
-            # same class as the mro/MAINTENANCE mismatch). domain_label == 'SUSTAINMENT'.
-            graph_uri = f"http://internal/{self.domain_label}"
+            # Scope instance data to the domain's INSTANCE graph, NOT the vocabulary graph.
+            # Two reasons, one invariant: (1) an unscoped INSERT DATA lands in Jena's DEFAULT
+            # graph where the mesh can't see it (the graph-name/semantic-domain seam); (2) the
+            # vocabulary graph <http://internal/{DOMAIN}> is MANIFEST-reproducible and gets
+            # DROP-first wiped on every prime re-ingest — runtime INSTANCE data is NOT
+            # reproducible, so it must live in a graph prime never touches. Producers with
+            # different reproducibility must not share a graph (AGENTS.md). domain_label ==
+            # 'SUSTAINMENT' -> instances land in <http://internal/SUSTAINMENT_INSTANCES>, which
+            # the pcn resolveInstance provider queries and clear_ontology_graphs never drops.
+            graph_uri = f"http://internal/{self.domain_label}_INSTANCES"
             sparql = f"""
             PREFIX pcn: <http://internal/sustainment/pcn#>
             PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>

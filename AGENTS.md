@@ -90,9 +90,18 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
      revisioning rule; the domain vocabulary path uses **POST/append** — `71a66f9` — because one
      domain has many source TTLs and PUT-replace collapses them to the last file.)
   2. **Runtime instances** — a plugin's `to_graph_queries()` SPARQL (e.g. `SustainmentPlugin`'s
-     PCN/PDN entities) MUST wrap its triples in `GRAPH <http://internal/{self.domain_label}> { … }`.
-     `domain_label` is the uppercase semantic domain. This is legitimate runtime (not seed) data, but
-     it shares the graph, so the convention is written down here once rather than re-derived per plugin.
+     PCN/PDN entities) MUST wrap its triples in a `GRAPH <…> { … }` clause targeting the domain's
+     **INSTANCE** graph `<http://internal/{self.domain_label}_INSTANCES>` (NOT the vocabulary graph).
+
+  **THE INVARIANT — producers with different reproducibility must not share a graph.** The vocabulary
+  graph `<http://internal/{DOMAIN}>` is MANIFEST-reproducible, and `invincible-agent`'s prime does
+  **DROP-first** on every re-ingest (`clear_ontology_graphs`, which now drops manifest-listed graphs
+  only). Runtime INSTANCE data is NOT reproducible — if it shared the vocabulary graph, the next prime
+  would wipe it (this actually collided: the prime meant to land `pcn_extension` for the dogfood would
+  have destroyed the extracted parts first). So instances go to a SEPARATE `…_INSTANCES` graph that
+  prime never touches; the resolveInstance provider queries that graph. The rule is enforced on both
+  ends — the plugin writes to `…_INSTANCES`, and the clearer only drops manifest graphs — not by
+  convention alone.
 
 - **Semantic Binding Plane (Late Binding & URN Standardization)**:
   1. **Phase 7 URN Standard**: Glossary Term URNs MUST use the Short Name (e.g., `urn:li:glossaryTerm:MaintenanceWorkOrder`).
