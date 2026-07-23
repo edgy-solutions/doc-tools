@@ -103,8 +103,10 @@ class PartRow {
 function ExtractParts(ocr_text: string, html_table: string, table_images: image[], system_instructions: string) -> PartRow[] {
   client Vision
   prompt #"
+    {{ _.role("system") }}
     {{ system_instructions }}
 
+    {{ _.role("user") }}
     ### OCR TEXT (AUTHORITATIVE for the exact characters of every MPN - copy, do not re-read from pixels) ###
     ---
     {{ ocr_text }}
@@ -124,6 +126,11 @@ function ExtractParts(ocr_text: string, html_table: string, table_images: image[
     {% endfor %}
   "#
 }
+// NOTE: the image MUST be in a user message (via _.role("user")), not the
+// default single system message. vLLM's gemma multimodal template only inserts
+// the image placeholder for images in USER turns; an image in a system message
+// -> "Failed to apply prompt replacement for mm_items['image']" (litellm 500).
+// Ollama tolerates images in system messages; vLLM does not.
 // NOTE: the image block is LAST on purpose. BAML splits the prompt into content
 // blocks at image boundaries; any TEXT AFTER the image makes the request
 // [text, image, text]. vLLM's gemma multimodal template fails to place the image
