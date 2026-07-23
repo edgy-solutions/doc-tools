@@ -90,6 +90,19 @@ def _fetch_image_b64(s3_client, s3_url: str):
     return media, base64.b64encode(data).decode("ascii")
 
 
+def _baml_call_opts() -> dict:
+    """Fresh BAML call options with a generous request timeout.
+
+    Dense-table vision extraction on a 31B model is slow and was 408-timing-out
+    on multi-row crops under the default request ceiling. AbortController is
+    single-use ('once aborted, forever aborted'), so build a fresh one per call.
+    Tunable via LLM_REQUEST_TIMEOUT_MS (default 600000 = 10 min).
+    """
+    from baml_py import AbortController
+    ms = int(os.getenv("LLM_REQUEST_TIMEOUT_MS", "600000"))
+    return {"abort_controller": AbortController(timeout_ms=ms)}
+
+
 # --------------------------------------------------------------------------- #
 # Plugin
 # --------------------------------------------------------------------------- #
@@ -102,7 +115,8 @@ class SustainmentPlugin(AugmentationPlugin):
             prompt_name="sustainment_header_instructions",
             fallback_file="prompts/sustainment_header_instructions.md",
         )
-        return b.ExtractHeader(doc=full_text, system_instructions=prompt)
+        return b.ExtractHeader(doc=full_text, system_instructions=prompt,
+                               baml_options=_baml_call_opts())
 
     def _extract_parts(self, tables: List[dict], manifest: Optional[dict],
                        s3_client, full_text: str) -> Tuple[List[dict], dict]:
@@ -114,7 +128,7 @@ class SustainmentPlugin(AugmentationPlugin):
         )
         embedded = (manifest or {}).get("embedded_images", {}) or {}
         all_parts: List[dict] = []
-        n_crops, missing = 0, 0
+        n_crops, missing, failed = 0, 0, 0
         for el in tables:
             meta = el.get("metadata") or {}
             html = meta.get("text_as_html", "") or ""
@@ -132,19 +146,24 @@ class SustainmentPlugin(AugmentationPlugin):
                 missing += 1  # borderless / undetected-crop table -> OCR+HTML only
             try:
                 res = b.ExtractParts(ocr_text=ocr, html_table=html,
-                                     table_images=images, system_instructions=prompt)
+                                     table_images=images, system_instructions=prompt,
+                                     baml_options=_baml_call_opts())
                 for p in (res or []):
                     all_parts.append(part_to_dict(p))
             except Exception as e:  # noqa: BLE001
+                # A per-crop failure (commonly a vision timeout on a dense table)
+                # loses that crop's rows. Count it so process_fulltext can flag
+                # the doc needs_review — a silent partial must never look clean.
+                failed += 1
                 print(f"[SustainmentPlugin] ExtractParts failed on a table crop: {e}")
-        return all_parts, {"n_crops_used": n_crops, "crops_missing": missing}
+        return all_parts, {"n_crops_used": n_crops, "crops_missing": missing, "crops_failed": failed}
 
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
                          s3_client: Any = None, bucket: str = None) -> List[DocumentNode]:
         index = provenance.build_positioned_index(elements)
         ocr_norm = provenance._norm(full_text)
-        stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "vision_used": False}
+        stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0, "vision_used": False}
         reasons: List[str] = []
         needs_review = False
 
@@ -172,6 +191,11 @@ class SustainmentPlugin(AugmentationPlugin):
                 parts_d, ps = self._extract_parts(tables, manifest, s3_client, full_text)
                 stats.update(ps)
                 stats["vision_used"] = True
+                if ps.get("crops_failed"):
+                    reasons.append(
+                        f"{ps['crops_failed']}/{len(tables)} table crops failed "
+                        f"(e.g. vision timeout) — extracted parts are likely INCOMPLETE")
+                    needs_review = True
             except Exception as e:  # noqa: BLE001
                 reasons.append(f"parts pass failed: {e}")
                 needs_review = True
