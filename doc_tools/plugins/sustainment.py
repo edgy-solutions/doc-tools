@@ -32,7 +32,7 @@ from doc_tools.utils.jena_client import escape_sparql_string
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
 from doc_tools.utils.sustainment_merge import (
-    header_to_dict, part_to_dict, dedup_parts, reconcile_ltb,
+    header_to_dict, part_to_dict, dedup_parts, reconcile_ltb, clean_replacements,
     build_review_items, validate_count, empty_header,
 )
 
@@ -210,7 +210,8 @@ class SustainmentPlugin(AugmentationPlugin):
 
         # dedup across crops, then reconcile per-part LTB (per-row primary,
         # doc-level fallback)
-        parts_d = reconcile_ltb(dedup_parts(parts_d), header_d.get("doc_level_ltb_date"))
+        parts_d = clean_replacements(
+            reconcile_ltb(dedup_parts(parts_d), header_d.get("doc_level_ltb_date")))
 
         # ---- Validation + review payload ----
         items, item_reasons = build_review_items(header_d, parts_d, index, ocr_norm)

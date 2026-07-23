@@ -51,6 +51,20 @@ def is_known_doc_type(raw) -> bool:
             or any(t in s for t in _PCN_TERMS))
 
 
+def clean_replacement(rep: Optional[str]) -> Optional[str]:
+    """A genuine replacement_mpn is ONE part number. A comma-separated value is a
+    list — in practice a 'Qualification Vehicle' column that a vision model
+    mislabeled as a replacement on a PCN (which has no replacements) — so drop it.
+    A real single replacement (e.g. 'AD7873ARUZ') is preserved unchanged.
+    """
+    if not isinstance(rep, str):
+        return rep
+    r = rep.strip()
+    if not r or "," in r:
+        return None
+    return r
+
+
 def effective_ltb(part_ltb: Optional[str], doc_level_ltb: Optional[str]) -> Optional[str]:
     """Per-part LTB ownership: prefer the per-row date, fall back to doc-level.
 

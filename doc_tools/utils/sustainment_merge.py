@@ -73,6 +73,18 @@ def reconcile_ltb(parts: List[dict], doc_level_ltb: Optional[str]) -> List[dict]
     return parts
 
 
+def clean_replacements(parts: List[dict]) -> List[dict]:
+    """Null out replacement_mpn values that are comma-separated lists (a vision
+    model copying a Qualification Vehicle column into replacement on a PCN with
+    no replacements). Keeps a genuine single replacement. In place."""
+    for p in parts:
+        cleaned = norm.clean_replacement(p.get("replacement_mpn"))
+        if cleaned is None and p.get("replacement_mpn"):
+            p["replacement_mpn_source"] = None
+        p["replacement_mpn"] = cleaned
+    return parts
+
+
 def _review_item(field_path, value, source, region, prov=None, needs_review=False, reason=None):
     prov = prov or {}
     return {

@@ -79,6 +79,19 @@ env:
   # Cross-repo agreement on this name is the contract.
   LLM_EMBED_MODEL: "nomic-embed-text"
 
+  # Vision (gemma) endpoint for the PCN/PDN parts pass.
+  # CRITICAL: keep this on a DIFFERENT box than LLM_BASE_URL. Co-locating the
+  # 120B header model and the gemma vision model on ONE Strix Halo starves gemma
+  # of GPU (shared unified memory) -> dense multi-row table crops time out and
+  # only ~2/19 parts extract. Split across boxes:
+  #   header  (gpt-oss 120B) -> ai1  .126   (LLM_BASE_URL above)
+  #   vision  (gemma4-32k)   -> ai2  .169   (gemma runs alone -> full 19/19)
+  # NOTE: .188 is only the OpenWebUI *frontend* (proxies to .169); its own
+  # Ollama at :11434 has no model -> 404. Point at .169 directly.
+  VISION_LLM_BASE_URL: "http://192.168.1.169:11434/v1"
+  VISION_LLM_MODEL: "gemma4-32k:31b"
+  VISION_LLM_API_KEY: "any"
+
 # Doc-tools' unstructured/PDF pipeline is memory-heavy (table parser,
 # layout model, image extraction). Conservative starting point; will
 # need tuning after the first PDF run.

@@ -115,6 +115,18 @@ def test_reconcile_ltb_applies_doc_level_fallback():
     assert parts[1]["ltb_date"] == "2025-12-31"  # doc-level fallback
 
 
+def test_clean_replacement_drops_qualification_vehicle_lists():
+    # single replacement kept; comma-separated list (qual vehicles) dropped
+    assert norm.clean_replacement("AD7873ARUZ") == "AD7873ARUZ"
+    assert norm.clean_replacement("SNSR01F30NXT5G, NSR20F40NXT5G") is None
+    assert norm.clean_replacement("") is None and norm.clean_replacement(None) is None
+    parts = [{"affected_mpn": "X", "replacement_mpn": "A, B", "replacement_mpn_source": "A, B"},
+             {"affected_mpn": "Y", "replacement_mpn": "Z"}]
+    merge.clean_replacements(parts)
+    assert parts[0]["replacement_mpn"] is None and parts[0]["replacement_mpn_source"] is None
+    assert parts[1]["replacement_mpn"] == "Z"
+
+
 # --------------------------------------------------------------------------- #
 # review items (provenance + needs_review flags)
 # --------------------------------------------------------------------------- #
