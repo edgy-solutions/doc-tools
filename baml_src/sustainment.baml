@@ -115,15 +115,21 @@ function ExtractParts(ocr_text: string, html_table: string, table_images: image[
     {{ html_table }}
     ---
 
+    ### OUTPUT FORMAT ###
+    {{ ctx.output_format }}
+
     ### TABLE IMAGE(S) (AUTHORITATIVE for row/column structure and affected->replacement pairing) ###
     {% for img in table_images %}
     {{ img }}
     {% endfor %}
-
-    ### OUTPUT FORMAT ###
-    {{ ctx.output_format }}
   "#
 }
+// NOTE: the image block is LAST on purpose. BAML splits the prompt into content
+// blocks at image boundaries; any TEXT AFTER the image makes the request
+// [text, image, text]. vLLM's gemma multimodal template fails to place the image
+// token in that shape ("Failed to apply prompt replacement for mm_items['image']")
+// though Ollama tolerates it. Image-last yields a clean [text, image] that both
+// backends accept. Do NOT move ctx.output_format below the image.
 
 // -- Legacy single-pass extractor. Retained for backward compat
 //    (scripts/test_fallback_resilience.py, ad-hoc runs); NOT used by the
