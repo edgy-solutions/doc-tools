@@ -70,6 +70,10 @@ secrets:
   JENA_PASSWORD: "password"
   DATAHUB_TOKEN: ""
   GIT_TOKEN: ""
+  # Langfuse secret key. Placeholder: only used at runtime when PROMPT_SOURCE=langfuse.
+  # doc-tools reads EnvVar("LANGFUSE_SECRET_KEY") unconditionally at Dagster run-build, so
+  # it must exist even in file-mode (the prod default) or run-build fails "not set".
+  LANGFUSE_SECRET_KEY: "sk-sandbox-placeholder"
 
 # Non-sensitive environment variables
 # These are injected via env in deployment.yaml
@@ -89,6 +93,10 @@ env:
   #   "langfuse" -> live Langfuse GUI at LANGFUSE_PROMPT_LABEL (dev/SME hot-tuning)
   PROMPT_SOURCE: "file"
   LANGFUSE_PROMPT_LABEL: "production"
+  # Langfuse connection. Unused while PROMPT_SOURCE=file (no runtime Langfuse), but doc-tools
+  # reads them at run-build so they must exist. Real values only needed for PROMPT_SOURCE=langfuse.
+  LANGFUSE_PUBLIC_KEY: "pk-sandbox-placeholder"
+  LANGFUSE_HOST: "http://langfuse.invalid:3000"
 
   # --- LLM endpoint (BAML client<llm> LLM in baml_src/main.baml) ---
   # The BAML client is provider="openai-generic", which speaks the OpenAI
