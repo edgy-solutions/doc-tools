@@ -103,6 +103,15 @@ When working in `doc-tools`, AI agents should adhere to the following workflow a
   ends — the plugin writes to `…_INSTANCES`, and the clearer only drops manifest graphs — not by
   convention alone.
 
+  **READ-SIDE MIRROR (so the split doesn't re-hide instances).** The vocabulary/instance split means a
+  domain's triples now live in TWO graphs. Any consumer that scopes reads to a domain must scope to
+  the UNION `{ <http://internal/{DOMAIN}> <http://internal/{DOMAIN}_INSTANCES> }`, not the vocabulary
+  graph alone — else instances are invisible again (the exact bug the GRAPH-clause fix cured, one
+  graph over). This is enforced in ONE place — engine-o's `execute_sparql` (invincible-agent) injects
+  a `VALUES ?g { …vocab… …instances… } GRAPH ?g` union — so the read rule lives in the consumer's
+  single derivation, not each caller's memory. A new SPARQL reader inherits it for free; a reader that
+  bypasses `execute_sparql` owns re-deriving the union.
+
 - **Semantic Binding Plane (Late Binding & URN Standardization)**:
   1. **Phase 7 URN Standard**: Glossary Term URNs MUST use the Short Name (e.g., `urn:li:glossaryTerm:MaintenanceWorkOrder`).
   2. **URI Storage**: The full Ontology URI MUST be stored in the `customProperties` aspect of the `GlossaryTerm` entity under the key `ontology_uri`.
