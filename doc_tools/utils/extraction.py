@@ -102,3 +102,52 @@ def extract_text_and_metadata(file_path: str, extract_images: bool = False, imag
     except Exception as e:
         print(f"Error extracting from {file_path}: {e}")
         raise
+
+
+def rasterize_pdf_pages(file_path: str, out_dir: str, dpi: int = 150) -> List[Dict[str, Any]]:
+    """Render each PDF page to a full-page JPEG in ``out_dir``.
+
+    This is the CONTEXT half of the evidence card — which table on the page, where
+    it sits, what surrounds it (headers, effectivity dates, footnotes engineers
+    actually check). The table crops (from unstructured's hi_res path) are the
+    DETAIL half. unstructured renders a full-page bitmap internally but only writes
+    the cropped Image/Table blocks to disk, so the page raster must be produced
+    here.
+
+    The render DPI is deliberately INDEPENDENT of the crop DPI: the viewer
+    normalizes each bbox against the element's ``page_dims`` and positions the
+    highlight as a FRACTION of the rendered page, so the overlay lands correctly at
+    any render size (the sealed bbox-scale rule). We render lighter than the crops
+    because the page is context, not the row-level read.
+
+    Returns a list of ``{page (1-based), path, basename, width, height, dpi}`` — one
+    per page. Returns ``[]`` for non-PDF inputs (PPTX etc. have no page raster).
+    """
+    if not file_path.lower().endswith(".pdf"):
+        return []
+    import pypdfium2 as pdfium
+    scale = float(dpi) / 72.0  # PDF user space is 72 units/inch
+    pages_out: List[Dict[str, Any]] = []
+    pdf = pdfium.PdfDocument(file_path)
+    try:
+        for i in range(len(pdf)):
+            page = pdf[i]
+            try:
+                pil = page.render(scale=scale).to_pil().convert("RGB")
+            finally:
+                page.close()
+            n = i + 1
+            basename = f"page-{n}.jpg"
+            local_path = os.path.join(out_dir, basename)
+            pil.save(local_path, format="JPEG", quality=85)
+            pages_out.append({
+                "page": n,
+                "path": local_path,
+                "basename": basename,
+                "width": pil.width,
+                "height": pil.height,
+                "dpi": int(dpi),
+            })
+    finally:
+        pdf.close()
+    return pages_out

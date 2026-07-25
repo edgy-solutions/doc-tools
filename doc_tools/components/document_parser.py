@@ -10,7 +10,7 @@ from dagster.components.resolved.base import Resolvable
 from dagster.components.resolved.model import Model
 from dagster_aws.s3 import S3Resource
 from doc_tools.partitions import pdf_files_partition
-from doc_tools.utils.extraction import extract_text_and_metadata
+from doc_tools.utils.extraction import extract_text_and_metadata, rasterize_pdf_pages
 from dag_tools.components.s3_sensor.file_component import S3FileConfig
 from dag_tools.utils.k8s import resolve_k8s_resource_tags
 
@@ -88,6 +88,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 # === 2. Custom Extraction Logic ===
                 elements = []
                 embedded_images_map = {}
+                pages_list = []  # full-page renders — the context half of the evidence card
                 extraction_metadata = {}
                 
                 try:
@@ -133,7 +134,37 @@ class DocumentParserComponent(Component, Resolvable, Model):
                                         embedded_images_map[img_filename] = url
                                     except Exception as e:
                                         context.log.error(f"Failed to upload image {img_filename}: {e}")
-                
+
+                        # Full-page renders — the CONTEXT half of the evidence card
+                        # (which table, where on the page, what surrounds it). The
+                        # crops above are the DETAIL half. Rendered here in the same
+                        # block that owns file_path + the bucket/key math, uploaded
+                        # under the SAME images/ prefix as the crops. Kept in a
+                        # separate `pages` list (NOT embedded_images) so the
+                        # basename→crop-url map the provenance join reads stays
+                        # crop-only; the page render is looked up by page number.
+                        try:
+                            pages_dir = os.path.join(temp_extract_dir, "_pages")
+                            os.makedirs(pages_dir, exist_ok=True)
+                            rendered = rasterize_pdf_pages(
+                                file_path, pages_dir,
+                                dpi=int(os.getenv("DOC_PARSER_PAGE_RENDER_DPI", "150")),
+                            )
+                            for p in rendered:
+                                object_name = f"{base_dir}/generated/{base_name}/images/{p['basename']}"
+                                try:
+                                    s3_client.upload_file(
+                                        Filename=p["path"], Bucket=bucket, Key=object_name,
+                                        ExtraArgs={"ContentType": "image/jpeg"},
+                                    )
+                                    p["s3_url"] = f"s3://{bucket}/{object_name}"
+                                    p.pop("path", None)
+                                    pages_list.append(p)
+                                except Exception as e:
+                                    context.log.error(f"Failed to upload page image {p['basename']}: {e}")
+                        except Exception as e:
+                            context.log.error(f"Page rasterization failed: {e}")
+
                     if elements:
                         first_meta = elements[0].get("metadata", {})
                         # This drops coordinates/page_number/image_path ONLY from the
@@ -189,6 +220,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     "metadata": manifest_metadata,
                     "extraction_metadata": extraction_metadata,
                     "embedded_images": embedded_images_map,
+                    "pages": pages_list,  # full-page renders: {page, s3_url, basename, width, height, dpi}
                     "text_location": f"{base_dir}/generated/{base_name}/text.json"
                 }
                 
