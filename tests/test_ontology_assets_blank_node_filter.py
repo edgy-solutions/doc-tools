@@ -200,3 +200,95 @@ def test_extract_query_in_source_matches_this_test():
         "This is the belt-and-braces filter. If the removal was "
         "intentional, document why and update this test."
     )
+
+
+# ── Class-less (policy-as-data / rules) ontology discriminator ──
+# History (2026-07-28): the SUSTAINMENT ingest failed at
+# sync_jena_ontologies_to_neo4j on pcn_disposition_rules.ttl — a POLICY-AS-DATA
+# TTL (a flat decision table of pcn:DispositionRule INDIVIDUALS) that
+# DELIBERATELY declares no owl:Class. The Jena load succeeded (the ruleset is in
+# Fuseki, which the proposer queries) and the Weaviate leg warned-and-skipped,
+# but the Neo4j guard's zero-class branch only excused META-ontologies (PROV-O
+# etc.), so a class-less DATA ontology fell through to a hard raise. The fix
+# added a RAW-graph ASK probe: 0 class declarations => class-less ontology =>
+# skip Neo4j (no-op); classes present but extraction returned none => real drift
+# => raise. This test pins the discriminator.
+
+# Mirror of the raw-graph probe in ontology_assets.py:sync_jena_ontologies_to_neo4j.
+# Kept verbatim so this test fails red the moment the source probe diverges.
+_ASK_DECLARES_CLASSES = (
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> "
+    "PREFIX owl:  <http://www.w3.org/2002/07/owl#> "
+    "ASK { ?c a ?t . FILTER(?t IN (owl:Class, rdfs:Class)) }"
+)
+
+
+def _build_rules_graph() -> rdflib.Graph:
+    """A class-less policy-as-data ontology in the shape of
+    pcn_disposition_rules.ttl: an owl:Ontology header + rule INDIVIDUALS
+    (typed as a domain class, carrying data properties), and NOT ONE
+    owl:Class / rdfs:Class declaration."""
+    g = rdflib.Graph()
+    PCN = Namespace("http://internal/sustainment/pcn#")
+    g.bind("pcn", PCN)
+    g.bind("owl", OWL)
+    # owl:Ontology header (present) — but NOT owl:Class.
+    g.add((rdflib.URIRef("http://internal/sustainment/pcn/rules"), RDF.type, OWL.Ontology))
+    # A rule individual: typed as a DOMAIN class (pcn:DispositionRule), which is
+    # NOT owl:Class/rdfs:Class, plus flat data-property rows.
+    rule = PCN.RuleDiscontinuedWithReplacement
+    g.add((rule, RDF.type, PCN.DispositionRule))
+    g.add((rule, RDFS.label, rdflib.Literal("Discontinued w/ replacement -> qualify")))
+    g.add((rule, PCN.whenNoticeType, rdflib.Literal("PDN")))
+    g.add((rule, PCN.proposesDisposition, rdflib.Literal("dispatchQualification")))
+    return g
+
+
+def test_class_less_rules_ontology_is_recognized_not_a_class_ontology():
+    """The raw-graph ASK returns FALSE for a class-less policy/rules ontology
+    (nothing to sync -> the guard skips Neo4j gracefully), and the class
+    extraction correctly yields zero rows — so the two together select the
+    'skip' branch, never the 'raise' branch."""
+    g = _build_rules_graph()
+    # The discriminator: the graph declares NO classes.
+    assert g.query(_ASK_DECLARES_CLASSES).askAnswer is False, (
+        "A class-less rules ontology was reported as declaring classes — the "
+        "ASK probe is wrong and the guard would raise on policy-as-data TTLs."
+    )
+    # And the extraction that precedes the guard genuinely finds nothing.
+    assert list(g.query(_EXTRACT_QUERY)) == [], (
+        "The class extraction returned rows for a class-less rules ontology."
+    )
+
+
+def test_ask_probe_is_true_when_classes_exist_so_real_drift_still_raises():
+    """Positive control: a graph that DOES declare a class makes the ASK true.
+    If extraction returned zero on such a graph it would be genuine drift, and
+    the guard's raise (not the skip) is the correct branch — this asserts the
+    discriminator can't silently swallow that case."""
+    g, EX = _build_mixed_graph()
+    assert g.query(_ASK_DECLARES_CLASSES).askAnswer is True, (
+        "A graph with owl:Class declarations was reported as class-less — the "
+        "ASK probe would route real extraction drift into a silent skip."
+    )
+
+
+def test_class_less_skip_discriminator_present_in_source():
+    """Anti-drift: the raw-graph ASK probe must remain in the source. If it is
+    removed, class-less policy/rules ontologies regress to a hard raise and the
+    SUSTAINMENT ingest breaks again."""
+    import pathlib
+    src = (
+        pathlib.Path(__file__).resolve().parent.parent
+        / "doc_tools" / "assets" / "ontology_assets.py"
+    ).read_text(encoding="utf-8")
+    assert "ASK { ?c a ?t . FILTER(?t IN (owl:Class, rdfs:Class)) }" in src, (
+        "The class-less-ontology ASK discriminator has been removed from "
+        "sync_jena_ontologies_to_neo4j. Class-less policy/rules ontologies "
+        "(e.g. pcn_disposition_rules.ttl) will raise again. If intentional, "
+        "update this test."
+    )
+    assert "class_less_data_ontology" in src, (
+        "The class-less skip branch's skipped_reason marker is gone — the "
+        "graceful no-op for policy-as-data ontologies was likely removed."
+    )

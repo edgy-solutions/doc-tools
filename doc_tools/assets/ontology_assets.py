@@ -701,16 +701,55 @@ def sync_jena_ontologies_to_neo4j(
                     "filtered_meta_count": filtered_meta,
                 }
             )
-        # Real zero-extraction failure — TTL parsed but no
-        # owl:Class/rdfs:Class triples were found at all.
+        # THIRD case: a genuinely class-less ontology — a policy-as-data /
+        # rules / vocabulary TTL (e.g. pcn_disposition_rules.ttl, a FLAT
+        # decision table of rule INDIVIDUALS that DELIBERATELY declares no
+        # owl:Class). Probe the RAW graph for ANY class declaration (named OR
+        # blank, no filters). If it declares NONE, there was nothing to
+        # extract — this is not drift, it is a class-less ontology, and the
+        # Jena named-graph load (which the disposition proposer actually
+        # queries) already succeeded. Skip the Neo4j write gracefully, exactly
+        # as the Weaviate leg already does ("No classes found ... to sync to
+        # Weaviate" is a warning there, not a raise). Only the case where the
+        # graph DOES declare classes but extraction returned none is a real
+        # drift / broken-pattern bug — that still raises below.
+        graph_declares_classes = bool(
+            g.query(
+                "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> "
+                "PREFIX owl:  <http://www.w3.org/2002/07/owl#> "
+                "ASK { ?c a ?t . FILTER(?t IN (owl:Class, rdfs:Class)) }"
+            ).askAnswer
+        )
+        if not graph_declares_classes:
+            context.log.warning(
+                f"Ontology {filename!r} (domain '{domain}') declares NO "
+                f"owl:Class/rdfs:Class in its raw graph ({len(g)} triples) — a "
+                f"class-less ontology (policy-as-data / rules / vocabulary, e.g. "
+                f"a flat decision table of rule individuals). Nothing to sync to "
+                f"Neo4j; the Jena named-graph load already succeeded and is what "
+                f"consumers query. Skipping Neo4j write (no-op), same as the "
+                f"Weaviate leg."
+            )
+            return MaterializeResult(
+                metadata={
+                    "classes_written": 0,
+                    "domain": domain,
+                    "filename": filename,
+                    "skipped_reason": "class_less_data_ontology",
+                    "raw_triples": len(g),
+                }
+            )
+        # Real zero-extraction failure — the graph DOES declare owl:Class /
+        # rdfs:Class triples yet the extraction pattern matched none of them:
+        # a broken SPARQL/filter, or content drift. Genuine bug — raise.
         raise Exception(
             f"Zero classes extracted from {filename!r} (domain "
-            f"'{domain}') — the SPARQL extraction found no "
-            f"owl:Class / rdfs:Class triples. This could be a "
-            f"parse-but-no-types issue, or a content drift. The "
-            f"upstream ingest_ontology_to_jena validated {len(g)} "
-            f"triples; classes among them: 0. Fix the TTL or the "
-            f"extraction pattern."
+            f"'{domain}') despite the graph declaring owl:Class / rdfs:Class "
+            f"triples — the extraction pattern matched none of them. A "
+            f"broken-SPARQL/filter or content-drift bug (a class-less "
+            f"policy/rules ontology is handled above, not here). The upstream "
+            f"ingest_ontology_to_jena validated {len(g)} triples. Fix the TTL "
+            f"or the extraction pattern."
         )
 
     context.log.info(
