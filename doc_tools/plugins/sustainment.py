@@ -233,6 +233,17 @@ class SustainmentPlugin(AugmentationPlugin):
                   # the raw printed notice number ('PCN # 23-002') for DISPLAY;
                   # doc_id above is the normalized key. Display may prefer this.
                   "doc_id_raw": header_d.get("doc_id_raw") or header_d.get("doc_id") or doc_id,
+                  # doc_type + categories DRIVE the disposition proposer's rule match:
+                  # every PCN rule requires a change category, so without these the
+                  # proposer returns UNCLASSIFIABLE for every part and the UI shows
+                  # 'needs a disposition' on all of them. review.json is the sensor's
+                  # ONLY source for the start_review payload (the graph drops per-part
+                  # needs_review), so these MUST live here, not only in the graph.
+                  # Categories stringified to their enum values (== the ruleset's
+                  # pcn:changeClass category keys: 'Material','Process',…).
+                  "doc_type": header_d.get("doc_type") or "PCN",
+                  "categories": [str(getattr(c, "value", c))
+                                 for c in (header_d.get("categories") or [])],
                   "review_items": items,
                   # page rasters for the viewer are Phase 5.8 (needs a renderer);
                   # the data contract carries the field now, populated later.
