@@ -177,6 +177,13 @@ class SustainmentPlugin(AugmentationPlugin):
         header_d = header_to_dict(header) if header is not None else empty_header(doc_id)
         if not header_d.get("doc_id"):
             header_d["doc_id"] = doc_id
+        # ONE authoritative, key-safe doc_id. Both sources are messy — the LLM's
+        # 'as printed' number (spaces / '#') or a path-derived fallback — and
+        # doc_id is a KEY for the workflow id, the MinIO prefix, the graph IRI and
+        # the provenance index. Normalize HERE so every downstream consumer keys
+        # on the SAME clean slug; stash the raw printed form for faithful display.
+        header_d["doc_id_raw"] = header_d.get("doc_id")
+        header_d["doc_id"] = norm.normalize_doc_id(header_d.get("doc_id"))
         if header is not None and not norm.is_known_doc_type(getattr(header, "doc_type", None)):
             reasons.append("doc_type unclassifiable — defaulted to PCN")
             needs_review = True
@@ -222,7 +229,11 @@ class SustainmentPlugin(AugmentationPlugin):
         if any(it["needs_review"] for it in items) or reasons:
             needs_review = True
 
-        review = {"doc_id": header_d.get("doc_id") or doc_id, "review_items": items,
+        review = {"doc_id": header_d.get("doc_id") or doc_id,
+                  # the raw printed notice number ('PCN # 23-002') for DISPLAY;
+                  # doc_id above is the normalized key. Display may prefer this.
+                  "doc_id_raw": header_d.get("doc_id_raw") or header_d.get("doc_id") or doc_id,
+                  "review_items": items,
                   # page rasters for the viewer are Phase 5.8 (needs a renderer);
                   # the data contract carries the field now, populated later.
                   "pages": []}
@@ -305,7 +316,11 @@ class SustainmentPlugin(AugmentationPlugin):
             })
 
             # --- JENA SPARQL/RDF ---
-            safe_notice_id = notice.doc_id.replace(' ', '_').replace('"', '')
+            # notice.doc_id is already normalized at finalization; normalize again
+            # here (idempotent) so the graph IRI keys on the SAME canonical slug as
+            # review.json / the workflow id. (safe_mpn below stays a bare space->_
+            # replace — MPNs keep '#' reel codes verbatim as provenance join keys.)
+            safe_notice_id = norm.normalize_doc_id(notice.doc_id)
             if str(notice.doc_type).upper() == "PDN":
                 notice_class = "pcn:ProductDiscontinuationNotice"
             else:

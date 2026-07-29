@@ -6,6 +6,33 @@ Dagster/BAML stack. All pure functions.
 import re
 from typing import Optional
 
+
+def normalize_doc_id(raw: str) -> str:
+    """Normalize a notice's doc_id into a stable, URL/key-safe identifier.
+
+    doc_id is a KEY everywhere downstream — the grouped-review workflow id, the
+    MinIO artifact-prefix lookup, the SUSTAINMENT graph IRI, the provenance index
+    — but its two sources are messy: the header LLM extracts the number 'exactly
+    as printed' (spaces, '#' reel-style codes, e.g. 'PCN # 23-002') and the path
+    fallback can yield a path fragment ('inbound/adi_23_0120'). Left raw, '#' and
+    spaces break URL keys (a '#' truncates a Restate ingress URL as a fragment ->
+    the review-batch call 502s) and the SAME document keyed two ways never joins.
+
+    Collapse to a clean slug: drop any leading path segments (the path fallback),
+    replace every run of non-[A-Za-z0-9._-] with a single '-', and trim edge
+    punctuation. Human-readable ('PCN # 23-002' -> 'PCN-23-002') and safe as a key
+    everywhere. SCOPE: the doc_id / notice IDENTIFIER only — MPNs and *_source
+    snippets stay VERBATIM (they are provenance join keys matched against the
+    document text; normalizing them would break the page/bbox resolve)."""
+    s = (raw or "").strip()
+    if not s:
+        return "unknown"
+    s = s.rsplit("/", 1)[-1]                       # drop leading path segments
+    s = re.sub(r"[^A-Za-z0-9._-]+", "-", s)        # unsafe runs -> single dash
+    s = re.sub(r"-{2,}", "-", s).strip("-._ ")     # tidy repeats + edge punctuation
+    return s or "unknown"
+
+
 # Vendor label vocabulary -> canonical enum. PDN terms cover discontinuance /
 # obsolescence / EOL / PTN; PCN terms cover process/product change. An explicit
 # "PCN"/"PDN" code is always taken verbatim; otherwise keyword classification.
