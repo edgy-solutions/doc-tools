@@ -353,7 +353,20 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
     target_url = f"{jena_base}/{jena_ds}/data?graph={graph_uri}"
 
     try:
-        with httpx.Client(auth=(user, pw), verify=False) as client:
+        # TIMEOUT: httpx defaults to 5s on ALL phases — far too short for the
+        # large ontologies (IOF_Core ~400KB, S3000L ~280KB) whose merge into
+        # TDB2 exceeds 5s when the prime launches all partitions concurrently
+        # (Fuseki write contention) on a fresh/just-compacted store → ReadTimeout,
+        # a spurious partition failure that succeeds on a quieter rerun. 120s
+        # read/write with a short connect covers the heavy merges without hanging
+        # forever on a genuinely dead Fuseki. NB deliberately NO auto-retry here:
+        # POST is a MERGE/append and a ReadTimeout is AMBIGUOUS (the server may
+        # have applied it), so a blind retry could DOUBLE the graph (esp.
+        # blank-node structures) — the same doubling the clear-once discipline
+        # exists to prevent. A failed partition is re-driven cleanly via a
+        # re-prime (clear-then-single-append), not by re-POSTing here.
+        timeout = httpx.Timeout(120.0, connect=10.0)
+        with httpx.Client(auth=(user, pw), verify=False, timeout=timeout) as client:
             resp = client.post(
                 target_url,
                 content=rdf_content,
