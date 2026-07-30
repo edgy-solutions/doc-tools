@@ -51,15 +51,19 @@ class DocumentParserComponent(Component, Resolvable, Model):
             if not base_dir:
                 base_dir = "unknown"
             
-            if len(parts) >= 2:
-                domain = parts[0]
-                if len(parts) > 2:
-                    doc_id = "/".join(parts[1:-1])
-                else:
-                    doc_id = filename.split('.')[0]
-            else:
-                domain = "unknown"
-                doc_id = filename.split('.')[0]
+            # doc_id fallback = THE FILE'S OWN NAME, always. The directory is a LOCATION,
+            # not an identity: keying on the parent folder gave every PDF dropped flat into
+            # a shared inbox the SAME id — `sustainment/inbound/Diodes_PCN_2683.pdf` ->
+            # parts[1:-1] == ["inbound"] -> doc_id "inbound" for every document in there,
+            # so they collided on one notice_id/workflow_id (live 2026-07-30). The filename
+            # is unique per document by construction and is what a human calls the notice.
+            #
+            # This is only the FALLBACK: when the header pass succeeds, the notice's own
+            # printed number (NoticeHeader.doc_id) wins. It matters precisely when the
+            # header extraction fails — i.e. exactly when things are already going wrong,
+            # which is the worst time to also collapse every document onto one identity.
+            domain = parts[0] if len(parts) >= 2 else "unknown"
+            doc_id = filename.rsplit('.', 1)[0] or filename
             
             context.log.info(f"Processing artifact: {source_object_key} (Bucket: {bucket}, Domain: {domain}, Doc ID: {doc_id}, Base Dir: {base_dir})")
 
