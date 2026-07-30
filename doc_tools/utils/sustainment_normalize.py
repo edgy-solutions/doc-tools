@@ -103,8 +103,20 @@ def effective_ltb(part_ltb: Optional[str], doc_level_ltb: Optional[str]) -> Opti
     return p if p else doc_level_ltb
 
 
+# The LEFT BOUNDARY is LOAD-BEARING: without it the count group starts matching
+# DIGITS INSIDE A PART NUMBER. Real failure (Qorvo PCN # 23-0171, 2026-07-29):
+# summary "EOL of QPB7420 & QPB7425 ... broadband products" matched the 7420 inside
+# QPB7420, skipped 3 tokens, hit "products" -> "summary implies ~7420 parts but 2 were
+# extracted" -> doc flagged for review -> the 2 CLEANLY-extracted parts carried no
+# per-part flag -> REVIEW_STATE_UNSOURCED -> the notice was refused outright.
+#
+# The excluded set is the MPN alphabet, not a generic \b: the BAML contract says part
+# numbers "preserve suffixes, slashes, '#' reel codes, and module dashes" — so
+# 'QPB7420', '090-44310-31', 'SOT-89', 'BYVB32-200-E3/81' and 'LTC6226HDC#TRMPBF' all
+# carry digits that a bare \b would happily read as a count ('E3/81' -> 81). Exclude
+# word chars, '.', '-', '/' and '#' so no interior run of an MPN can start a match.
 _COUNT_RE = re.compile(
-    r"(\d[\d,]{0,6})\s+(?:[\w/.\-]+\s+){0,3}?(?:parts?|devices?|mpns?|products?|items?|skus?)\b",
+    r"(?<![\w.\-/#])(\d[\d,]{0,6})\s+(?:[\w/.\-]+\s+){0,3}?(?:parts?|devices?|mpns?|products?|items?|skus?)\b",
     re.I,
 )
 
