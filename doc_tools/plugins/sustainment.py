@@ -226,7 +226,18 @@ class SustainmentPlugin(AugmentationPlugin):
         cnt = validate_count(header_d, len(parts_d))
         if cnt:
             reasons.append(cnt)
-        if any(it["needs_review"] for it in items) or reasons:
+            # EXPLICIT, not via `or reasons`: a genuine disagreement between the count the
+            # document's own prose asserts and the count we extracted IS worth a human look.
+            needs_review = True
+        # `or reasons` REMOVED (2026-07-29): it promoted EVERY diagnostic — including notes the
+        # code deliberately declines to flag on (the "no Table element detected" instrumentation
+        # above explicitly sets no flag, then this line set it anyway) — into a doc-level review
+        # flag, which downstream becomes a HARD REFUSAL. "We noted something" is not "a human must
+        # review this"; conflating them made the file contradict its own stated intent and turned
+        # one misparsed number into a refused notice (Qorvo 23-0171). Every review-forcing
+        # condition now says so AT ITS OWN SITE; `reasons` stays the full, honest narrative
+        # surfaced as review_reasons.
+        if any(it["needs_review"] for it in items):
             needs_review = True
 
         review = {"doc_id": header_d.get("doc_id") or doc_id,
