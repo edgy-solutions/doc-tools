@@ -166,6 +166,15 @@ class SustainmentPlugin(AugmentationPlugin):
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0, "vision_used": False}
         reasons: List[str] = []
         needs_review = False
+        # The doc-level reasons that FORCE review — i.e. the extraction telling us its own
+        # output is not fully trustworthy (header failed, a vision crop timed out, parts pass
+        # died). These MUST REACH THE REVIEWER: if a review proceeds on degraded extraction,
+        # the human deciding dispositions has to see the degradation, or a partial parts list
+        # reads as a complete one. `reasons` keeps EVERYTHING for the record (advisory notes,
+        # per-item detail); this is the reviewer-facing subset. Live case: Diodes PCN 2683 —
+        # "2/5 table crops failed, extracted parts are likely INCOMPLETE" was recorded and
+        # then reached nobody, because nothing downstream carried review_reasons at all.
+        doc_flags: List[str] = []
 
         # ---- Pass 1: header (text-only, gpt-oss) ----
         header = None
@@ -173,6 +182,7 @@ class SustainmentPlugin(AugmentationPlugin):
             header = self._extract_header(full_text)
         except Exception as e:  # noqa: BLE001
             reasons.append(f"header pass failed: {e}")
+            doc_flags.append(f"header extraction failed: {e}")
             needs_review = True
         header_d = header_to_dict(header) if header is not None else empty_header(doc_id)
         if not header_d.get("doc_id"):
@@ -186,6 +196,8 @@ class SustainmentPlugin(AugmentationPlugin):
         header_d["doc_id"] = norm.normalize_doc_id(header_d.get("doc_id"))
         if header is not None and not norm.is_known_doc_type(getattr(header, "doc_type", None)):
             reasons.append("doc_type unclassifiable — defaulted to PCN")
+            doc_flags.append("notice type could not be classified — defaulted to PCN "
+                             "(dispositions proposed under PCN rules may be wrong)")
             needs_review = True
 
         # ---- Router + Pass 2: parts (multimodal, Gemma) ----
@@ -199,15 +211,22 @@ class SustainmentPlugin(AugmentationPlugin):
                 stats.update(ps)
                 stats["vision_used"] = True
                 if ps.get("crops_failed"):
-                    reasons.append(
-                        f"{ps['crops_failed']}/{len(tables)} table crops failed "
-                        f"(e.g. vision timeout) — extracted parts are likely INCOMPLETE")
+                    msg = (f"{ps['crops_failed']}/{len(tables)} table crops failed "
+                           f"(e.g. vision timeout) — extracted parts are likely INCOMPLETE")
+                    reasons.append(msg)
+                    # THE reviewer-facing case: a partial parts list is indistinguishable from
+                    # a complete one unless we say so. Parts MISSING here get no disposition
+                    # and nobody would know.
+                    doc_flags.append(f"PARTS MAY BE MISSING: {msg}")
                     needs_review = True
             except Exception as e:  # noqa: BLE001
                 reasons.append(f"parts pass failed: {e}")
+                doc_flags.append(f"PARTS MAY BE MISSING: the parts pass failed ({e})")
                 needs_review = True
         elif tables and not vision_ok:
             reasons.append("tables present but VISION_LLM_BASE_URL unset — parts NOT extracted")
+            doc_flags.append("PARTS NOT EXTRACTED: this document has parts tables but the vision "
+                             "model was unavailable")
             needs_review = True
         elif not tables:
             # No table detected -> header-only. Instrumented so the borderless
@@ -261,6 +280,13 @@ class SustainmentPlugin(AugmentationPlugin):
                   "doc_type": header_d.get("doc_type") or "PCN",
                   "categories": [str(getattr(c, "value", c))
                                  for c in (header_d.get("categories") or [])],
+                  # EXTRACTION-QUALITY WARNINGS the reviewer must see (the doc-level reasons
+                  # that forced review). Distinct from `review_reasons`, which is the complete
+                  # record including advisory notes and per-item detail — those either aren't
+                  # trustworthy enough to act on (the count cross-check) or are already visible
+                  # per row (the needs_review badge). If a review proceeds on degraded
+                  # extraction, THIS is what tells the human so.
+                  "doc_review_reasons": doc_flags,
                   "review_items": items,
                   # page rasters for the viewer are Phase 5.8 (needs a renderer);
                   # the data contract carries the field now, populated later.
