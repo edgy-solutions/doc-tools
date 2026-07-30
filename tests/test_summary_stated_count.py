@@ -43,6 +43,39 @@ def test_part_numbers_are_never_read_as_counts(summary):
     )
 
 
+# ── the SECOND live false positive: a YEAR is not a count ───────────────────
+# onsemi PD26044X1 (2026-07-29): "~2024 parts but 25 extracted". These notices are
+# dense with dates ("issued by March 2024", "Issue Date: 22 Feb 2024", LTB dates), and
+# a bare year sails past a left-boundary check — it IS space-delimited. Note this doc
+# reviewed FINE once and failed later: the summary is LLM-generated, so the same
+# document yields different prose per run. A deterministic check over a
+# nondeterministic input is advisory at best; it must never gate.
+@pytest.mark.parametrize("summary", [
+    "An IPCN will be issued by March 2024 for the affected products",
+    "Parts removed from PD26044X; an IPCN will be issued 2024 for these devices",
+    "Issue Date 22 Feb 2024 — removal of the listed parts",
+    "Legacy 1999 vintage parts are discontinued",
+    "Transfer completes in 2026 for all affected products",
+])
+def test_years_are_never_read_as_counts(summary):
+    assert summary_stated_count(summary) is None, (
+        f"a YEAR was read as a part COUNT from: {summary!r} — the onsemi PD26044X1 failure"
+    )
+
+
+def test_a_large_genuine_count_still_parses_the_comma_discriminates():
+    """The year guard must not eat real large counts. A thousands separator is the
+    discriminator: years are written bare, tallies of that size are not."""
+    assert summary_stated_count("1,024 SKUs are affected") == 1024
+    assert summary_stated_count("2,024 parts are discontinued") == 2024   # comma => a count
+    assert summary_stated_count("issued by March 2024 for these parts") is None  # bare => a year
+
+
+def test_implausible_magnitudes_fail_to_none():
+    """A 'count' far past any real notice is a misread identifier, not a tally."""
+    assert summary_stated_count("99,999 parts") is None
+
+
 # ── positive control: real stated counts STILL parse (the fix isn't a lobotomy)
 @pytest.mark.parametrize("summary,expected", [
     ("This notice affects 12 parts", 12),

@@ -121,18 +121,46 @@ _COUNT_RE = re.compile(
 )
 
 
+# A bare 4-digit number in [1900, 2100] written WITHOUT a thousands separator is a
+# YEAR, not a part count — these notices are dense with them ("issued by March 2024",
+# "Issue Date: 22 Feb 2024", "LTB Jul 22, 2024"). Real failure (onsemi PD26044X1,
+# 2026-07-29): the summary's "...by March 2024 for the affected products" gave
+# "~2024 parts but 25 extracted". The comma is the discriminator that keeps a genuine
+# large count ("1,024 SKUs") parseable while excluding years.
+_YEAR_LO, _YEAR_HI = 1900, 2100
+# Above this, a "count" is far likelier to be a misread identifier than a part tally.
+_IMPLAUSIBLE_COUNT = 5000
+
+
 def summary_stated_count(summary: Optional[str]) -> Optional[int]:
     """Best-effort: the part count the summary prose claims, or None.
 
     Feeds the cross-pass sanity check (stated count vs len(impacted_parts)).
     Intentionally lenient and non-authoritative — a miss just means "no check".
+
+    FAILS TO NONE, NEVER TO A WRONG NUMBER. That is the whole contract: this feeds a
+    check that used to REFUSE the notice, so a confident wrong answer is far worse
+    than no answer. Two live false positives taught it — a part number's digits
+    (QPB7420 -> "~7420 parts", Qorvo 23-0171) and a YEAR (onsemi PD26044X1 -> "~2024
+    parts"). Both now return None rather than a number.
+
+    NB the input is LLM-GENERATED prose (the header summary), so it varies run to run
+    for the SAME document — which is why onsemi PD26044X1 reviewed fine once and
+    failed later with nothing about the document changed. A deterministic check over a
+    nondeterministic input can only ever be advisory; it must never gate.
     """
     if not summary:
         return None
     m = _COUNT_RE.search(summary)
     if not m:
         return None
+    raw = m.group(1)
     try:
-        return int(m.group(1).replace(",", ""))
+        n = int(raw.replace(",", ""))
     except ValueError:
         return None
+    if "," not in raw and _YEAR_LO <= n <= _YEAR_HI and len(raw) == 4:
+        return None                      # a year, not a count
+    if n > _IMPLAUSIBLE_COUNT:
+        return None                      # not a part tally; likely a misread identifier
+    return n

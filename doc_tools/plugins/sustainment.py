@@ -225,10 +225,16 @@ class SustainmentPlugin(AugmentationPlugin):
         reasons += item_reasons
         cnt = validate_count(header_d, len(parts_d))
         if cnt:
+            # INFORMATIONAL ONLY — deliberately does NOT set needs_review.
+            # This cross-check reads the LLM-GENERATED summary, so its input varies run to
+            # run for the SAME document: onsemi PD26044X1 reviewed fine once, then failed
+            # later with nothing about the document changed. A gate whose input is
+            # nondeterministic produces FLAKY refusals, and its two observed firings in
+            # production were BOTH false positives (a part number's digits, then a year).
+            # So it degrades to a note a human can read in review_reasons, never a flag.
+            # A real under-extraction check wants a DETERMINISTIC reference — extracted rows
+            # vs the parts TABLE's row count (structure vs structure), not prose vs structure.
             reasons.append(cnt)
-            # EXPLICIT, not via `or reasons`: a genuine disagreement between the count the
-            # document's own prose asserts and the count we extracted IS worth a human look.
-            needs_review = True
         # `or reasons` REMOVED (2026-07-29): it promoted EVERY diagnostic — including notes the
         # code deliberately declines to flag on (the "no Table element detected" instrumentation
         # above explicitly sets no flag, then this line set it anyway) — into a doc-level review
