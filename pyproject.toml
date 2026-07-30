@@ -8,6 +8,13 @@ dependencies = [
     "dagster",
     "dagster-webserver",
     "unstructured[all-docs]",
+    # Tier-1 extraction: reads parts tables straight from a born-digital PDF's TEXT
+    # LAYER (deterministic, sub-second, exact MPNs, per-cell bboxes). Not optional —
+    # without it every born-digital notice falls through to the vision pass, which on
+    # dense tables fabricates (measured on Diodes PCN 2683: 84 invented MPNs, 100 of
+    # 111 real ones missed, after 10.8 minutes). Rides on pdfminer.six, which
+    # unstructured[all-docs] already pulls in.
+    "pdfplumber",
     "neo4j",
     "weaviate-client>=4.0.0",
     "pikepdf",

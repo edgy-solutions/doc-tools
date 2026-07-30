@@ -21,6 +21,7 @@ Design notes:
   * Provenance: every located value carries a verbatim *_source snippet resolved
     to a page + bbox by doc_tools.utils.provenance (Phase 5 review.json).
 """
+import io
 import os
 from typing import List, Optional, Tuple, Any, Dict
 
@@ -31,6 +32,7 @@ from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.jena_client import escape_sparql_string
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
+from doc_tools.utils import table_text_layer as text_layer
 from doc_tools.utils.sustainment_merge import (
     header_to_dict, part_to_dict, dedup_parts, reconcile_ltb, clean_replacements,
     build_review_items, validate_count, empty_header,
@@ -186,6 +188,67 @@ class SustainmentPlugin(AugmentationPlugin):
         return b.ExtractHeader(doc=full_text, system_instructions=prompt,
                                baml_options=_baml_call_opts())
 
+    def _extract_parts_text_layer(self, manifest: Optional[dict], s3_client,
+                                  bucket: Optional[str]) -> Tuple[List[dict], dict]:
+        """TIER 1: read the parts tables from the PDF's own TEXT LAYER (deterministic).
+
+        These notices are born-digital — their tables are not pictures of tables. Measured
+        on Diodes PCN 2683: the vision pass produced ZERO parts at work (runaway decode
+        killed at 60s) while the text layer yielded 402 parts with exact per-cell bboxes
+        in under a second. So vision is the FALLBACK for scans, not the default for text.
+
+        Returns ([], stats) when the tier does not apply — no source PDF, no text layer,
+        or no recognizable parts table — and the caller falls through to vision. Never
+        raises: a tier-1 miss must degrade to tier 2, not fail the document.
+        """
+        stats = {"text_layer_pages": 0, "text_layer_parts": 0, "text_layer_used": False}
+        key = (manifest or {}).get("source_key")
+        if not key or s3_client is None or not bucket:
+            return [], stats
+        try:
+            import pdfplumber  # noqa: PLC0415 — heavy import, only on the text-layer path
+        except Exception as e:  # noqa: BLE001
+            # LOUD, not silent. A missing tier-1 dependency means EVERY born-digital
+            # document silently falls through to the vision path — which on dense tables
+            # fabricates (measured: 84 invented MPNs, 100 of 111 real ones missed). A
+            # quiet degrade here would hide a deployment error behind plausible garbage.
+            print(f"[SustainmentPlugin] TEXT-LAYER TIER UNAVAILABLE — pdfplumber not importable "
+                  f"({e}). Every born-digital notice will fall back to the vision pass, which is "
+                  f"slower AND less accurate on dense tables. Install pdfplumber.")
+            stats["text_layer_unavailable"] = True
+            return [], stats
+        try:
+            body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
+            parts: List[dict] = []
+            with pdfplumber.open(io.BytesIO(body)) as pdf:
+                for pno, page in enumerate(pdf.pages, start=1):
+                    if not text_layer.page_has_text_layer(page):
+                        continue
+                    stats["text_layer_pages"] += 1
+                    parts.extend(text_layer.parts_from_page(page, pno))
+        except Exception as e:  # noqa: BLE001 — degrade to vision, never fail the doc
+            print(f"[SustainmentPlugin] text-layer pass unavailable ({e}); falling back to vision")
+            return [], stats
+        if not parts:
+            return [], stats
+        stats["text_layer_parts"] = len(parts)
+        stats["text_layer_used"] = True
+        # Shape to the same per-part dict the vision pass produces. The bbox/page ride
+        # along as PROVENANCE — strictly better than string-matching an MPN against a
+        # positioned OCR index, and tight to the CELL rather than the whole table.
+        out = [{
+            "affected_mpn": p["affected_mpn"],
+            "affected_mpn_source": p["affected_mpn"],   # verbatim: the cell IS the source
+            "replacement_mpn": p.get("replacement_mpn"),
+            "replacement_mpn_source": p.get("replacement_mpn"),
+            "ltb_date": None,          # per-row dates are not a column in this shape;
+            "ltb_date_source": None,   # the header pass supplies the doc-level date
+            "text_layer_bbox": p.get("bbox"),
+            "text_layer_page": p.get("page_number"),
+            "text_layer_page_dims": p.get("page_dims"),
+        } for p in parts]
+        return out, stats
+
     def _extract_parts(self, tables: List[dict], manifest: Optional[dict],
                        s3_client, full_text: str) -> Tuple[List[dict], dict]:
         from doc_tools.baml_client.sync_client import b
@@ -295,7 +358,14 @@ class SustainmentPlugin(AugmentationPlugin):
         stats["n_tables"] = len(tables)
         parts_d: List[dict] = []
         vision_ok = bool(os.getenv("VISION_LLM_BASE_URL"))
-        if tables and vision_ok and s3_client is not None:
+        # TIER 1 — the text layer, when the document has one. Deterministic, sub-second,
+        # exact MPNs, per-cell provenance. Vision is the FALLBACK for scans; it is not the
+        # default for text that is already machine-readable.
+        tl_parts, tl_stats = self._extract_parts_text_layer(manifest, s3_client, bucket)
+        stats.update(tl_stats)
+        if tl_parts:
+            parts_d = tl_parts
+        elif tables and vision_ok and s3_client is not None:
             try:
                 parts_d, ps = self._extract_parts(tables, manifest, s3_client, full_text)
                 stats.update(ps)

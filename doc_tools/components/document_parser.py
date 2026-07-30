@@ -217,6 +217,12 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 manifest = {
                     "doc_id": doc_id,
                     "filename": filename,
+                    # The SOURCE document's own key. Declared, not derived: downstream
+                    # (the sustainment text-layer pass) must re-open the original PDF to
+                    # read its text layer, and reconstructing this key by string-surgery
+                    # on `text_location` would be a path-derivation guess that breaks the
+                    # first time the layout changes. The producer knows it; it says it.
+                    "source_key": source_object_key,
                     "metadata": manifest_metadata,
                     "extraction_metadata": extraction_metadata,
                     "embedded_images": embedded_images_map,
