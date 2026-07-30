@@ -128,8 +128,29 @@ def build_review_items(header: dict, parts: List[dict], index: List[dict],
     for i, p in enumerate(parts):
         amp = p.get("affected_mpn")
         amp_src = p.get("affected_mpn_source") or amp
-        prov = provenance.resolve_value(amp_src, index, prefer_region="table")
-        in_ocr = (provenance._norm(amp) in ocr_text_norm) if amp else False
+        # TEXT-LAYER parts carry AUTHORITATIVE provenance: the exact bbox of the CELL the
+        # value was read out of. Prefer it over resolve_value's string-match, which is a
+        # best-effort search of a positioned OCR index — it resolves to the enclosing
+        # TABLE region (every part on a page sharing one huge box) and can miss entirely
+        # ("source not located"). Overwriting a known cell with a guessed table was
+        # discarding the whole point of reading the text layer.
+        tl_bbox = p.get("text_layer_bbox")
+        if tl_bbox:
+            prov = {
+                "found": True,
+                "page_number": p.get("text_layer_page"),
+                "bboxes": [tl_bbox],
+                "page_dims": p.get("text_layer_page_dims"),
+                "match_method": "text_layer_cell",
+                "match_confidence": 1.0,
+            }
+        else:
+            prov = provenance.resolve_value(amp_src, index, prefer_region="table")
+        # A text-layer value came OUT of the document, so it cannot be a hallucination —
+        # the OCR-verbatim check exists to catch vision transcription/invention and does
+        # not apply. (It would also false-positive: the OCR text stream and the table cell
+        # can tokenize differently.)
+        in_ocr = True if tl_bbox else ((provenance._norm(amp) in ocr_text_norm) if amp else False)
         reason = None
         if not in_ocr:
             reason = "affected_mpn not found verbatim in OCR text (possible hallucination)"
@@ -141,8 +162,17 @@ def build_review_items(header: dict, parts: List[dict], index: List[dict],
         items.append(_review_item(f"parts[{i}].affected_mpn", amp, amp_src, "table", prov, nr, reason))
 
         if p.get("replacement_mpn"):
-            rprov = provenance.resolve_value(
-                p.get("replacement_mpn_source") or p["replacement_mpn"], index, prefer_region="table")
+            # Same authority rule as the affected MPN. The replacement sits in the paired
+            # cell on the same row; the row's bbox locates it far better than a string
+            # search that would land on the enclosing table (or nothing).
+            rep_bbox = p.get("text_layer_replacement_bbox")
+            if rep_bbox:
+                rprov = {"found": True, "page_number": p.get("text_layer_page"),
+                         "bboxes": [rep_bbox], "page_dims": p.get("text_layer_page_dims"),
+                         "match_method": "text_layer_cell", "match_confidence": 1.0}
+            else:
+                rprov = provenance.resolve_value(
+                    p.get("replacement_mpn_source") or p["replacement_mpn"], index, prefer_region="table")
             rnr = not rprov["found"]
             items.append(_review_item(f"parts[{i}].replacement_mpn", p["replacement_mpn"],
                                       p.get("replacement_mpn_source"), "table", rprov, rnr,

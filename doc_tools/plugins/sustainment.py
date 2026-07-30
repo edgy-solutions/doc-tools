@@ -244,6 +244,7 @@ class SustainmentPlugin(AugmentationPlugin):
             "ltb_date": None,          # per-row dates are not a column in this shape;
             "ltb_date_source": None,   # the header pass supplies the doc-level date
             "text_layer_bbox": p.get("bbox"),
+            "text_layer_replacement_bbox": p.get("replacement_bbox"),
             "text_layer_page": p.get("page_number"),
             "text_layer_page_dims": p.get("page_dims"),
         } for p in parts]

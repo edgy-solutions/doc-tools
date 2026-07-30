@@ -36,7 +36,8 @@ def test_three_column_pairs_are_all_read():
     assert pairs == [(0, 1), (2, 3), (4, 5)], pairs
     parts = parts_from_grid([_CAPTION, _HEADER, _ROW1, _ROW2])
     assert len(parts) == 6, f"expected 3 pairs x 2 rows = 6 parts, got {len(parts)}"
-    assert parts[0] == {"affected_mpn": "FJ3330013", "replacement_mpn": "FJ3330401", "row": 2, "col": 0}
+    assert parts[0] == {"affected_mpn": "FJ3330013", "replacement_mpn": "FJ3330401",
+                        "row": 2, "col": 0, "rep_col": 1}, parts[0]
     assert [p["affected_mpn"] for p in parts[:3]] == ["FJ3330013", "FKA000010", "HX1112202Q"]
 
 
@@ -96,6 +97,17 @@ def test_repeated_header_mid_table_is_skipped():
     parts = parts_from_grid(grid)
     assert all(p["affected_mpn"] != "EOL Devices" for p in parts)
     assert len(parts) == 6
+
+
+def test_replacement_carries_its_own_column_for_per_cell_provenance():
+    """The replacement sits in a DIFFERENT cell from the affected part, so it must carry
+    its own column index — reusing the affected cell's bbox would highlight the wrong cell.
+    Before per-cell provenance every part on a page shared one whole-table box."""
+    parts = parts_from_grid([_CAPTION, _HEADER, _ROW1])
+    assert [(p["col"], p["rep_col"]) for p in parts] == [(0, 1), (2, 3), (4, 5)]
+    # an unpaired affected column has no replacement cell to point at
+    solo = parts_from_grid([["EOL Devices"], ["FJ3330013"]])
+    assert solo[0]["rep_col"] is None and solo[0]["replacement_mpn"] is None
 
 
 def test_values_are_verbatim_never_normalized():

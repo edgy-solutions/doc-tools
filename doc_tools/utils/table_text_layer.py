@@ -193,11 +193,15 @@ def parts_from_grid(
             rep = ""
             if r_col is not None and r_col < len(row):
                 rep = (row[r_col] or "").strip()
+            keep_rep = bool(rep and looks_like_mpn(rep))
             out.append({
                 "affected_mpn": affected,
-                "replacement_mpn": rep if (rep and looks_like_mpn(rep)) else None,
+                "replacement_mpn": rep if keep_rep else None,
                 "row": r,
                 "col": a_col,
+                # the replacement lives in its OWN cell — carried so provenance can
+                # highlight THAT cell rather than reusing the affected one.
+                "rep_col": r_col if keep_rep else None,
             })
     return out
 
@@ -230,20 +234,24 @@ def parts_from_page(page, page_number: int) -> List[Dict[str, Any]]:
         rows = table.rows
         # parts_from_grid decides header-vs-caption itself; short-circuiting on a missing
         # HEADER here would skip the caption-only tables entirely (a whole 43-row page).
-        for p in parts_from_grid(grid):
-            bbox = None
-            r, c = p["row"], p["col"]
+        def _cell_bbox(r: int, c: Optional[int]):
+            """(x0, top, x1, bottom) of one grid cell, or None. A missing cell bbox is an
+            honest absence — never fatal, and never a fabricated coordinate."""
+            if c is None:
+                return None
             try:
                 cell = rows[r].cells[c]
-                if cell:
-                    bbox = [float(v) for v in cell]   # (x0, top, x1, bottom)
-            except Exception:  # noqa: BLE001 — a missing cell bbox is honest-absent, not fatal
-                bbox = None
+                return [float(v) for v in cell] if cell else None
+            except Exception:  # noqa: BLE001
+                return None
+
+        for p in parts_from_grid(grid):
             results.append({
                 "affected_mpn": p["affected_mpn"],
                 "replacement_mpn": p["replacement_mpn"],
                 "page_number": page_number,
-                "bbox": bbox,
+                "bbox": _cell_bbox(p["row"], p["col"]),
+                "replacement_bbox": _cell_bbox(p["row"], p.get("rep_col")),
                 "page_dims": dims,
                 "source": "text_layer",
             })
