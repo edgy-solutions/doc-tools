@@ -90,13 +90,30 @@ def _fetch_image_b64(s3_client, s3_url: str):
     return media, base64.b64encode(data).decode("ascii")
 
 
-# Output BOUND for the vision pass. MEASURED, not guessed (2026-07-29, Diodes PCN 2683):
-# its two dense tables (37 and 41 rows) each generated 6000+ tokens and were STILL GOING
-# when a probe cap stopped them — against a ~1,600-token ceiling for legitimate output
-# (~35 tokens x 41 rows). That is a non-converging decode, and NO timeout fixes it: more
-# time just buys more garbage, later. 4096 leaves ~2.5x headroom over the largest real
-# table seen while killing a runaway in seconds instead of minutes.
-VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "4096"))
+# Output BOUND for the vision pass. MEASURED at both ends (Diodes PCN 2683, 2026-07-29/30):
+#
+#   * RUNAWAY IS REAL: the dense tables (37 and 41 rows) do not converge. Locally they blew
+#     past 6000 tokens still generating; the WORK vLLM log shows ~6.5 MINUTES of continuous
+#     output on one crop (~16,000+ tokens) at `Running: 1 reqs, Waiting: 0` — so it is the
+#     decode, not queueing.
+#   * THE BUDGET IS SMALL: work generates at ~46 tok/s (observed, single-stream 31B), and
+#     LiteLLM cuts the client off at 60s. That is a ceiling of ~2,700 tokens — far less than
+#     the "H200 is fast so tokens are cheap" intuition suggests.
+#
+# So the bound must satisfy: (prefill + max_tokens/throughput) < the infra timeout. At
+# 46 tok/s with a 60s ceiling and a few seconds of prefill, 2048 lands near ~45s and
+# COMPLETES; 4096 would need ~89s and would still be killed — a cap that never fires is
+# not a cap. Tune VISION_MAX_TOKENS per deployment: it is a function of that deployment's
+# throughput and timeout, not a universal constant.
+#
+# NB a legitimately huge table can exceed this (Diodes p3 is THREE (EOL, Replacement)
+# column-pairs per row => ~111 parts => ~3,900 tokens, which simply does not fit in a 60s
+# 46 tok/s budget). That is correct behaviour here: it truncates, is DETECTED, and the
+# reviewer is told parts may be missing — instead of 3x60s of retries and an opaque
+# timeout. Actually EXTRACTING those parts wants the text-layer path (these notices are
+# born-digital; pdfplumber reads the same tables exactly, in under a second), not a
+# bigger token budget.
+VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
 
 
 def _vision_call_opts():
