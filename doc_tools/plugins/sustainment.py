@@ -90,6 +90,57 @@ def _fetch_image_b64(s3_client, s3_url: str):
     return media, base64.b64encode(data).decode("ascii")
 
 
+# Output BOUND for the vision pass. MEASURED, not guessed (2026-07-29, Diodes PCN 2683):
+# its two dense tables (37 and 41 rows) each generated 6000+ tokens and were STILL GOING
+# when a probe cap stopped them — against a ~1,600-token ceiling for legitimate output
+# (~35 tokens x 41 rows). That is a non-converging decode, and NO timeout fixes it: more
+# time just buys more garbage, later. 4096 leaves ~2.5x headroom over the largest real
+# table seen while killing a runaway in seconds instead of minutes.
+VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "4096"))
+
+
+def _vision_call_opts():
+    """(baml_options, collector) for the VISION pass: an output bound + truncation detection.
+
+    Returns a collector because BAML **FAILS OPEN** on a truncated response — verified
+    against the live model: a response cut at the cap raised NOTHING and returned a
+    short/empty list. So a bound WITHOUT a truncation check would silently hand back
+    "25 of 41 parts" as though it were the whole table — fabricated completeness, the
+    exact laundering the review chain exists to prevent. The caller MUST treat a
+    truncated call as a FAILED crop (see _extract_parts).
+
+    `finish_reason` is not exposed by the collector for this provider, so truncation is
+    detected as `usage.output_tokens >= VISION_MAX_TOKENS` — provider-independent and
+    using what IS observable.
+
+    The bound is applied via ClientRegistry rather than in `main.baml` DELIBERATELY: it
+    keeps ONE source of truth (this constant) for both the cap and the check, and avoids
+    the BAML deploy seam where an edited .baml is not live until `baml-cli generate` runs.
+    """
+    from baml_py import AbortController, ClientRegistry, Collector
+    ms = int(os.getenv("LLM_REQUEST_TIMEOUT_MS", "600000"))
+    cr = ClientRegistry()
+    cr.add_llm_client("VisionBounded", "openai-generic", {
+        "base_url": os.environ.get("VISION_LLM_BASE_URL", ""),
+        "api_key": os.environ.get("VISION_LLM_API_KEY", "") or "any",
+        "model": os.environ.get("VISION_LLM_MODEL", ""),
+        "max_tokens": VISION_MAX_TOKENS,
+    })
+    cr.set_primary("VisionBounded")
+    collector = Collector(name="vision")
+    return ({"abort_controller": AbortController(timeout_ms=ms),
+             "client_registry": cr, "collector": collector}, collector)
+
+
+def _vision_output_tokens(collector) -> Optional[int]:
+    """Output tokens of the collector's last call, or None if unavailable (never raises —
+    a missing usage figure must not itself break an extraction)."""
+    try:
+        return collector.last.usage.output_tokens
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _baml_call_opts() -> dict:
     """Fresh BAML call options with a generous request timeout.
 
@@ -128,7 +179,7 @@ class SustainmentPlugin(AugmentationPlugin):
         )
         embedded = (manifest or {}).get("embedded_images", {}) or {}
         all_parts: List[dict] = []
-        n_crops, missing, failed = 0, 0, 0
+        n_crops, missing, failed, truncated = 0, 0, 0, 0
         for el in tables:
             meta = el.get("metadata") or {}
             html = meta.get("text_as_html", "") or ""
@@ -145,9 +196,25 @@ class SustainmentPlugin(AugmentationPlugin):
             else:
                 missing += 1  # borderless / undetected-crop table -> OCR+HTML only
             try:
+                opts, collector = _vision_call_opts()
                 res = b.ExtractParts(ocr_text=ocr, html_table=html,
                                      table_images=images, system_instructions=prompt,
-                                     baml_options=_baml_call_opts())
+                                     baml_options=opts)
+                # TRUNCATION IS A FAILURE, NOT A PARTIAL SUCCESS. BAML fails OPEN here:
+                # a response cut at the cap parses to whatever complete objects it can
+                # and raises nothing, so accepting it would report "25 of 41 parts" as
+                # the whole table — a silent partial that looks clean, which is the one
+                # thing this pipeline must never produce. Drop the rows and count the
+                # crop failed; that flags the doc and the reviewer is TOLD parts may be
+                # missing (doc_flags -> the review card's warning banner).
+                used = _vision_output_tokens(collector)
+                if used is not None and used >= VISION_MAX_TOKENS:
+                    failed += 1
+                    truncated += 1
+                    print(f"[SustainmentPlugin] ExtractParts TRUNCATED at the {VISION_MAX_TOKENS}-token "
+                          f"bound (runaway decode on a dense table) — discarding this crop's "
+                          f"{len(res or [])} partial row(s) rather than reporting them as complete")
+                    continue
                 for p in (res or []):
                     all_parts.append(part_to_dict(p))
             except Exception as e:  # noqa: BLE001
@@ -156,14 +223,20 @@ class SustainmentPlugin(AugmentationPlugin):
                 # the doc needs_review — a silent partial must never look clean.
                 failed += 1
                 print(f"[SustainmentPlugin] ExtractParts failed on a table crop: {e}")
-        return all_parts, {"n_crops_used": n_crops, "crops_missing": missing, "crops_failed": failed}
+        # crops_truncated is a SUBSET of crops_failed, surfaced separately because it names a
+        # DIFFERENT cause with a different fix: not "the model was slow / errored" but "the
+        # decode did not converge on this table". Distinguishing them is how we'll know whether
+        # banding (or a text-layer path) actually helps, instead of inferring it.
+        return all_parts, {"n_crops_used": n_crops, "crops_missing": missing,
+                           "crops_failed": failed, "crops_truncated": truncated}
 
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
                          s3_client: Any = None, bucket: str = None) -> List[DocumentNode]:
         index = provenance.build_positioned_index(elements)
         ocr_norm = provenance._norm(full_text)
-        stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0, "vision_used": False}
+        stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
+                 "crops_truncated": 0, "vision_used": False}
         reasons: List[str] = []
         needs_review = False
         # The doc-level reasons that FORCE review — i.e. the extraction telling us its own
@@ -211,8 +284,12 @@ class SustainmentPlugin(AugmentationPlugin):
                 stats.update(ps)
                 stats["vision_used"] = True
                 if ps.get("crops_failed"):
+                    trunc = ps.get("crops_truncated") or 0
+                    cause = (f"{trunc} of them hit the {VISION_MAX_TOKENS}-token output bound "
+                             f"(the model did not converge on a dense table)" if trunc
+                             else "e.g. vision timeout")
                     msg = (f"{ps['crops_failed']}/{len(tables)} table crops failed "
-                           f"(e.g. vision timeout) — extracted parts are likely INCOMPLETE")
+                           f"({cause}) — extracted parts are likely INCOMPLETE")
                     reasons.append(msg)
                     # THE reviewer-facing case: a partial parts list is indistinguishable from
                     # a complete one unless we say so. Parts MISSING here get no disposition
