@@ -115,8 +115,19 @@ def effective_ltb(part_ltb: Optional[str], doc_level_ltb: Optional[str]) -> Opti
 # 'QPB7420', '090-44310-31', 'SOT-89', 'BYVB32-200-E3/81' and 'LTC6226HDC#TRMPBF' all
 # carry digits that a bare \b would happily read as a count ('E3/81' -> 81). Exclude
 # word chars, '.', '-', '/' and '#' so no interior run of an MPN can start a match.
+# The boundary class must include the UNICODE dashes, not just ASCII '-'. The header summary
+# is LLM-generated prose and routinely uses U+2011 NON-BREAKING HYPHEN: "SOT‑89 package parts"
+# read as 89 (Qorvo PCN-23-0171, live 2026-07-31) because the lookbehind saw no hyphen there.
+# Same for the NARROW NO-BREAK SPACE (U+202F) the model puts inside dates. An identifier is an
+# identifier whichever dash the generator chose.
+# ',' is in here too: without it, a boundary that correctly blocks the HEAD of a grouped
+# number lets the regex match its SUFFIX instead — "12,500 devices" read as 500 when the
+# head position was blocked. Blocking the head of an identifier while leaving its tail
+# matchable is the same defect the class exists to prevent, one character in.
+_ID_BOUNDARY = r"\w.\-/#,‐‑‒–—−"
 _COUNT_RE = re.compile(
-    r"(?<![\w.\-/#])(\d[\d,]{0,6})\s+(?:[\w/.\-]+\s+){0,3}?(?:parts?|devices?|mpns?|products?|items?|skus?)\b",
+    rf"(?<![{_ID_BOUNDARY}])(\d[\d,]{{0,6}})\s+(?:[\w/.\-]+\s+){{0,3}}?"
+    r"(?:parts?|devices?|mpns?|products?|items?|skus?)\b",
     re.I,
 )
 
@@ -154,12 +165,23 @@ def summary_stated_count(summary: Optional[str]) -> Optional[int]:
     m = _COUNT_RE.search(summary)
     if not m:
         return None
-    raw = m.group(1)
+    # STRIP TRAILING SEPARATORS BEFORE ANY GUARD READS THEM. `[\d,]` is greedy enough to
+    # swallow SENTENCE punctuation: "...June 20 2024, after which the part..." matched
+    # raw="2024," — and because the year guard below keys on "is there a comma" (the
+    # thousands-separator discriminator), a TRAILING comma made it conclude "1,024-style
+    # count" and skip the year check entirely. So the guard designed to exclude years was
+    # switched off BY a year (Qorvo PCN-23-0168, live 2026-07-31). A separator only means
+    # "thousands" when it sits BETWEEN digits.
+    raw = m.group(1).rstrip(",")
     try:
         n = int(raw.replace(",", ""))
     except ValueError:
         return None
-    if "," not in raw and _YEAR_LO <= n <= _YEAR_HI and len(raw) == 4:
+    # Positive test for a real thousands-grouped number rather than "contains a comma" —
+    # 1,024 / 12,500 qualify; 2024, and 20,,1 do not. Keeps the guard's intent (a genuine
+    # large count stays parseable) without letting punctuation vote.
+    grouped = bool(re.fullmatch(r"\d{1,3}(?:,\d{3})+", raw))
+    if not grouped and _YEAR_LO <= n <= _YEAR_HI and len(raw) == 4:
         return None                      # a year, not a count
     if n > _IMPLAUSIBLE_COUNT:
         return None                      # not a part tally; likely a misread identifier
