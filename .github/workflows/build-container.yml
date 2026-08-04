@@ -256,7 +256,14 @@ jobs:
           WORKDIR /app
 
           # Create a standard virtual environment and install dependencies
-          RUN uv venv /app/venv
+          # venv lives OUTSIDE WORKDIR /app on purpose. nltk >=3.10.1 ships a CWE-427
+          # guard (nltk/inisec.py) that blocks any import nltk makes which resolves under
+          # Path.cwd(); with the venv inside /app it flagged every site-packages module
+          # (regex, joblib, ...) as a CWD import and aborted the build (and would abort
+          # extraction at runtime). Keeping site-packages at /opt/venv lets the guard do
+          # its job (still blocks a real /app CWD hijack) without the false positive.
+          # -P/PYTHONSAFEPATH does NOT fix this — the finder checks cwd ancestry, not sys.path.
+          RUN uv venv /opt/venv
           COPY requirements.txt /app/
 
           # ADD THE INDEX STRATEGY FLAG HERE
@@ -265,29 +272,25 @@ jobs:
           # sdist. Critical on arm64 where PyPI has no prebuilt cyclonedds
           # wheel and the final runtime image lacks gcc/cmake.
           RUN --mount=type=cache,target=/root/.cache/uv \
-              uv pip install --python /app/venv --find-links /wheels -r /app/requirements.txt \
+              uv pip install --python /opt/venv --find-links /wheels -r /app/requirements.txt \
            && rm -rf /wheels
 
           # Copy the application code
           COPY . /app
 
           # Put the virtual environment in the PATH so 'dagster' commands work natively
-          ENV PATH="/app/venv/bin:$PATH"
+          ENV PATH="/opt/venv/bin:$PATH"
           ENV PYTHONPATH="/app"
 
           # Pre-download spaCy model to avoid runtime SSL issues during NLP extraction
           # Using uv pip install directly instead of `python -m spacy download` because uv environments don't have pip
           RUN --mount=type=cache,target=/root/.cache/uv \
-              uv pip install --python /app/venv https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+              uv pip install --python /opt/venv https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 
           # Pre-download unstructured NLP models to avoid runtime SSL issues
-          RUN uv pip install --python /app/venv nltk huggingface_hub
-          # -P (PYTHONSAFEPATH): nltk >=3.10 installs an import finder that BLOCKS
-          # imports resolvable from the CWD (here /app) as a supply-chain guard, which
-          # aborts a bare `python -c` run from WORKDIR. -P drops CWD from sys.path so
-          # regex &c. load from site-packages. Build-time only; no runtime effect.
-          RUN /app/venv/bin/python -P -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger')"
-          RUN /app/venv/bin/python -P -c "from huggingface_hub import hf_hub_download, snapshot_download; hf_hub_download(repo_id='unstructuredio/yolo_x_layout', filename='yolox_l0.05.onnx'); snapshot_download(repo_id='microsoft/table-transformer-structure-recognition'); snapshot_download(repo_id='timm/resnet18.a1_in1k')"
+          RUN uv pip install --python /opt/venv nltk huggingface_hub
+          RUN /opt/venv/bin/python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger')"
+          RUN /opt/venv/bin/python -c "from huggingface_hub import hf_hub_download, snapshot_download; hf_hub_download(repo_id='unstructuredio/yolo_x_layout', filename='yolox_l0.05.onnx'); snapshot_download(repo_id='microsoft/table-transformer-structure-recognition'); snapshot_download(repo_id='timm/resnet18.a1_in1k')"
 
           # Enforce HF offline mode strictly at runtime, after models are natively baked in
           ENV HF_HUB_OFFLINE=1

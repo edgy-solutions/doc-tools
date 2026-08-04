@@ -9,8 +9,11 @@ image:
 # Dagster gRPC server for user code deployment.
 # Override CMD from the distroless image (which defaults to webserver).
 # Use explicit venv paths since distroless has no shell for PATH resolution.
-command: ["/app/venv/bin/python"]
-args: ["/app/venv/bin/dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "3030", "-m", "doc_tools.definitions"]
+# venv is at /opt/venv (NOT /app/venv): nltk >=3.10.1's CWE-427 import guard blocks
+# imports resolving under the CWD, so a venv inside WORKDIR /app breaks nltk. Keep in
+# lockstep with the Dockerfile in .github/workflows/build-container.yml.
+command: ["/opt/venv/bin/python"]
+args: ["/opt/venv/bin/dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "3030", "-m", "doc_tools.definitions"]
 
 imagePullSecrets: []
 nameOverride: ""
