@@ -11,7 +11,26 @@ on:
       - main
 
 jobs:
+  telemetry-contract:
+    # Fast pre-build gate (ADR-0038): the telemetry mapping must name only fields
+    # doc-tools actually produces. The truth-check loads the thin telemetry seam by
+    # file path, so it needs the provenance-telemetry leaf + pydantic/pyyaml only —
+    # not the full extraction stack — and runs in seconds, ahead of the costly build.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Telemetry mapping truth-check
+        run: |
+          uv run --no-project \
+            --with "provenance-telemetry @ git+https://github.com/edgy-solutions/provenance-telemetry.git" \
+            --with pytest \
+            -- python -m pytest tests/test_telemetry_mapping_truth.py -q
+
   build-and-push:
+    needs: telemetry-contract
     runs-on: ubuntu-latest
     permissions:
       contents: read
