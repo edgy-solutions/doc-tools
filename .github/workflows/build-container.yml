@@ -282,8 +282,12 @@ jobs:
 
           # Pre-download unstructured NLP models to avoid runtime SSL issues
           RUN uv pip install --python /app/venv nltk huggingface_hub
-          RUN /app/venv/bin/python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger')"
-          RUN /app/venv/bin/python -c "from huggingface_hub import hf_hub_download, snapshot_download; hf_hub_download(repo_id='unstructuredio/yolo_x_layout', filename='yolox_l0.05.onnx'); snapshot_download(repo_id='microsoft/table-transformer-structure-recognition'); snapshot_download(repo_id='timm/resnet18.a1_in1k')"
+          # -P (PYTHONSAFEPATH): nltk >=3.10 installs an import finder that BLOCKS
+          # imports resolvable from the CWD (here /app) as a supply-chain guard, which
+          # aborts a bare `python -c` run from WORKDIR. -P drops CWD from sys.path so
+          # regex &c. load from site-packages. Build-time only; no runtime effect.
+          RUN /app/venv/bin/python -P -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger')"
+          RUN /app/venv/bin/python -P -c "from huggingface_hub import hf_hub_download, snapshot_download; hf_hub_download(repo_id='unstructuredio/yolo_x_layout', filename='yolox_l0.05.onnx'); snapshot_download(repo_id='microsoft/table-transformer-structure-recognition'); snapshot_download(repo_id='timm/resnet18.a1_in1k')"
 
           # Enforce HF offline mode strictly at runtime, after models are natively baked in
           ENV HF_HUB_OFFLINE=1
