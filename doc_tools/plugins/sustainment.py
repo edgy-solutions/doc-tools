@@ -38,6 +38,30 @@ from doc_tools.utils.sustainment_merge import (
     build_review_items, validate_count, empty_header,
 )
 
+# Telemetry — the provenance-telemetry leaf (ADR-0038). Optional at runtime:
+# when Langfuse is disabled (file-mode / no creds) `traced`/`set_trace_standard`
+# are no-ops, so extraction keeps its zero-Langfuse-dependency property. The
+# mapping is doc-tools' own vocabulary; the leaf validates only its shape.
+try:
+    from provenance_telemetry import traced, set_trace_standard, load_mapping
+
+    try:
+        _MAPPING = load_mapping(
+            os.path.join(os.path.dirname(__file__), "..", "config", "telemetry-mapping.yaml")
+        )
+    except Exception:  # config absent -> the API stays live, emits nothing
+        _MAPPING = load_mapping({})
+except Exception:  # provenance-telemetry not installed -> pure no-ops
+    def traced(name=None, as_type=None):  # type: ignore[misc]
+        def _deco(fn):
+            return fn
+        return _deco
+
+    def set_trace_standard(*_a, **_k):  # type: ignore[misc]
+        return None
+
+    _MAPPING = None
+
 
 # --------------------------------------------------------------------------- #
 # Mirror models (carry _source, revision, doc_level_ltb_date + the review lane)
@@ -179,6 +203,7 @@ def _baml_call_opts() -> dict:
 class SustainmentPlugin(AugmentationPlugin):
     """PCN/PDN two-pass extraction with a router, merge, validation + review lane."""
 
+    @traced(name="extract header (gpt-oss)")
     def _extract_header(self, full_text: str):
         from doc_tools.baml_client.sync_client import b
         prompt = self._get_dynamic_prompt(
@@ -250,6 +275,7 @@ class SustainmentPlugin(AugmentationPlugin):
         } for p in parts]
         return out, stats
 
+    @traced(name="extract parts vision (gemma)")
     def _extract_parts(self, tables: List[dict], manifest: Optional[dict],
                        s3_client, full_text: str) -> Tuple[List[dict], dict]:
         from doc_tools.baml_client.sync_client import b
@@ -311,6 +337,7 @@ class SustainmentPlugin(AugmentationPlugin):
         return all_parts, {"n_crops_used": n_crops, "crops_missing": missing,
                            "crops_failed": failed, "crops_truncated": truncated}
 
+    @traced(name="sustainment extraction")
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
                          s3_client: Any = None, bucket: str = None) -> List[DocumentNode]:
@@ -430,7 +457,28 @@ class SustainmentPlugin(AugmentationPlugin):
         if any(it["needs_review"] for it in items):
             needs_review = True
 
+        # Telemetry (ADR-0038): project the extraction's provenance onto the trace
+        # `traced` opened above — identity keyed on doc_id, honest-degradation as
+        # scores (needs_review, crops_failed/n_tables). No-op when Langfuse is off;
+        # emission never blocks the extraction (fail-soft-and-counted in the leaf).
+        set_trace_standard(_MAPPING, {
+            "request_key": header_d.get("doc_id") or doc_id,
+            "authz_id": "svc:doc-tools",
+            "engine": "doc-tools",
+            "domain": self.domain_type,
+            "doc_type": header_d.get("doc_type") or "PCN",
+            "doc_id": header_d.get("doc_id") or doc_id,
+            "model": os.getenv("LLM_MODEL"),
+            "vision_used": stats.get("vision_used"),
+            "needs_review": 1.0 if needs_review else 0.0,
+            "crops_failed": [stats.get("crops_failed", 0), stats.get("n_tables") or 1],
+        })
+
         review = {"doc_id": header_d.get("doc_id") or doc_id,
+                  # trace_id links this review.json to the extraction trace above:
+                  # the sensor forwards it as X-Trace-Id so start_review joins the
+                  # same trace (one trace: bucket -> extraction -> review -> queue).
+                  "trace_id": header_d.get("doc_id") or doc_id,
                   # the raw printed notice number ('PCN # 23-002') for DISPLAY;
                   # doc_id above is the normalized key. Display may prefer this.
                   "doc_id_raw": header_d.get("doc_id_raw") or header_d.get("doc_id") or doc_id,

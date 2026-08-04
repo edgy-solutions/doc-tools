@@ -1,0 +1,21 @@
+# doc-tools telemetry mapping (ADR-0038 seed for THIS repo).
+#
+# The provenance-telemetry leaf validates only the SHAPE of this file (the
+# left-hand Langfuse slots + score encodings are a closed set). The field names
+# on the right are doc-tools' OWN vocabulary — doc-tools owns their truth (a CI
+# check that they exist should live here, not in the leaf).
+version: 1
+
+slots:                       # langfuse slot  ->  doc-tools field
+  trace_id: request_key      # doc_id today; becomes the content-addressed ETag+Key when the sensor threads it
+  user_id:  authz_id         # svc:doc-tools (a service identity, not a person)
+
+tags:     [engine, domain, doc_type]
+
+metadata: [doc_id, model, vision_used]
+
+scores:                      # the honest-degradation signals, dashboardable
+  needs_review: {encoding: fraction}      # 1.0 = the extraction flagged its own output for review
+  crops_failed: {encoding: count_total}   # [failed, n_tables] -> fraction of vision crops that failed
+
+content_bearing: [mpn, notice_id, matched_text, override_reason]   # hashed-not-dropped

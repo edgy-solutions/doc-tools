@@ -43,6 +43,7 @@ dependencies = [
     "pandas",
     "tabulate",
     "langfuse>=2.0.0",
+    "provenance-telemetry @ git+https://github.com/edgy-solutions/provenance-telemetry.git",
 ]
 
 
