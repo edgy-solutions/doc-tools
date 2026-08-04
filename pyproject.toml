@@ -60,5 +60,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["doc_tools*"]
 
+[tool.setuptools.package-data]
+# ship the telemetry mapping (read at runtime by doc_tools/telemetry.py) in the wheel
+doc_tools = ["config/*.yaml"]
+
 [tool.dagster]
 module_name = "doc_tools.definitions"
