@@ -1,4 +1,5 @@
 import os
+import hashlib
 from abc import ABC, abstractmethod
 from typing import List, Any, Dict
 from doc_tools.plugins.models import BaseSection, DocumentNode
@@ -18,6 +19,11 @@ class AugmentationPlugin(ABC):
         # Langfuse is initialized lazily (see ``langfuse`` property) so that the
         # default, file-canonical prompt source needs no Langfuse creds/network.
         self._langfuse = None
+        # prompt_name -> content ref: a sha1 of the canonical file for ``file`` mode,
+        # the label version for ``langfuse`` mode. The "ruleset_ref for prompts" —
+        # telemetry stamps these so a trace names WHICH prompt version produced an
+        # extraction (ADR-0038 Phase 4). Populated as prompts are resolved.
+        self._prompt_refs: Dict[str, str] = {}
 
     @property
     def langfuse(self) -> Langfuse:
@@ -51,6 +57,7 @@ class AugmentationPlugin(ABC):
             label = os.getenv("LANGFUSE_PROMPT_LABEL", "production")
             try:
                 lf_prompt = self.langfuse.get_prompt(prompt_name, label=label, cache_ttl_seconds=0)
+                self._prompt_refs[prompt_name] = f"lf:{getattr(lf_prompt, 'version', '?')}"
                 if compile_kwargs:
                     return lf_prompt.compile(**compile_kwargs)
                 return lf_prompt.prompt
@@ -59,25 +66,37 @@ class AugmentationPlugin(ABC):
                     f"PROMPT_SOURCE=langfuse but Langfuse was unreachable for "
                     f"'{prompt_name}' (label='{label}'); using canonical file. Error: {e}"
                 )
-                return self._load_prompt_from_file(fallback_file, **compile_kwargs)
+                return self._load_prompt_from_file(fallback_file, prompt_name=prompt_name, **compile_kwargs)
 
         if source != "file":
             self.logger.warning(
                 f"Unknown PROMPT_SOURCE='{source}'; defaulting to canonical file source."
             )
-        return self._load_prompt_from_file(fallback_file, **compile_kwargs)
+        return self._load_prompt_from_file(fallback_file, prompt_name=prompt_name, **compile_kwargs)
 
-    def _load_prompt_from_file(self, fallback_file: str, **compile_kwargs) -> str:
+    def _load_prompt_from_file(self, fallback_file: str, prompt_name: str = None,
+                               **compile_kwargs) -> str:
         """Read a canonical prompt from disk and substitute ``{{ var }}`` placeholders."""
         try:
             with open(fallback_file, 'r') as file:
                 raw_text = file.read().strip()
+            if prompt_name is not None:
+                # Hash the CANONICAL template (pre-substitution) so the ref identifies
+                # the reviewed prompt version, independent of this call's variables.
+                self._prompt_refs[prompt_name] = "sha1:" + hashlib.sha1(
+                    raw_text.encode("utf-8")).hexdigest()[:12]
             for key, val in compile_kwargs.items():
                 raw_text = raw_text.replace(f"{{{{ {key} }}}}", str(val))
             return raw_text
         except Exception as file_error:
             self.logger.error(f"Could not read canonical prompt file {fallback_file}: {file_error}")
             raise
+
+    @property
+    def prompt_refs(self) -> str:
+        """Compact ``name:ref,name:ref`` of the prompt versions this plugin has
+        resolved this run — for telemetry (which prompt produced an extraction)."""
+        return ",".join(f"{n}:{r}" for n, r in sorted(self._prompt_refs.items()))
 
     @property
     def domain_label(self) -> str:

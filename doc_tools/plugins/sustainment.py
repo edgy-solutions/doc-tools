@@ -464,11 +464,14 @@ class SustainmentPlugin(AugmentationPlugin):
         set_trace_standard(_MAPPING, {
             "request_key": header_d.get("doc_id") or doc_id,
             "authz_id": "svc:doc-tools",
+            "build_sha": os.getenv("LANGFUSE_RELEASE"),   # deployed git SHA (trace release)
+            "environment": os.getenv("DEPLOY_ENV"),       # sandbox|work|prod (trace tag)
             "engine": "doc-tools",
             "domain": self.domain_type,
             "doc_type": header_d.get("doc_type") or "PCN",
             "doc_id": header_d.get("doc_id") or doc_id,
             "model": os.getenv("LLM_MODEL"),
+            "prompt_version": self.prompt_refs,   # sha1 of the header + parts prompts (Phase 4)
             "vision_used": stats.get("vision_used"),
             "needs_review": 1.0 if needs_review else 0.0,
             "crops_failed": [stats.get("crops_failed", 0), stats.get("n_tables") or 1],

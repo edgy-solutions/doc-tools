@@ -9,10 +9,11 @@ version: 1
 slots:                       # langfuse slot  ->  doc-tools field
   trace_id: request_key      # doc_id today; becomes the content-addressed ETag+Key when the sensor threads it
   user_id:  authz_id         # svc:doc-tools (a service identity, not a person)
+  release:  build_sha        # the deployed git SHA — CI bakes it into LANGFUSE_RELEASE
 
-tags:     [engine, domain, doc_type]
+tags:     [engine, domain, doc_type, environment]
 
-metadata: [doc_id, model, vision_used]
+metadata: [doc_id, model, vision_used, prompt_version]
 
 scores:                      # the honest-degradation signals, dashboardable
   needs_review: {encoding: fraction}      # 1.0 = the extraction flagged its own output for review
