@@ -461,6 +461,26 @@ class SustainmentPlugin(AugmentationPlugin):
         ))
 
         review = {"doc_id": header_d.get("doc_id") or doc_id,
+                  # PROVENANCE — the extractor that PRODUCED this artifact (ADR-0034).
+                  #
+                  # WHY IT LIVES IN THE ARTIFACT AND NOT IN THE READER'S ENVIRONMENT. The trust
+                  # table is keyed on (vendor-format x pipeline_version) precisely so a rung
+                  # earned under one extractor does not survive that extractor changing. The
+                  # consumer side implemented that second component as an env var read at
+                  # PROCESSING time — which describes the reader's deployment, not this
+                  # artifact's producer. Re-drive a notice extracted last week on a sensor
+                  # deployed today and it inherits today's version: an old extraction wearing a
+                  # new extractor's trust, which inverts the guard's purpose.
+                  #
+                  # pipeline_version is PRODUCER-SIDE PROVENANCE, so it is stamped HERE, once, by
+                  # the thing it describes — the same category as `requested_by` naming who
+                  # actually decided rather than whoever happened to be running.
+                  #
+                  # Baked at container build (`DOC_TOOLS_VERSION` build-arg), never a deploy-time
+                  # env var: the consumer's env-var attempt was UNSET on every pod, so its whole
+                  # trust axis collapsed to one value. A sentinel default keeps an unstamped
+                  # image visible in the corpus instead of plausible.
+                  "pipeline_version": os.getenv("DOC_TOOLS_VERSION", "doc-tools@unstamped"),
                   # trace_id links this review.json to the extraction trace above:
                   # the sensor forwards it as X-Trace-Id so start_review joins the
                   # same trace (one trace: bucket -> extraction -> review -> queue).

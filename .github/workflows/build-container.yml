@@ -205,6 +205,14 @@ jobs:
           # ============================================================================
           FROM python:3.12-slim
 
+          # PROVENANCE STAMP (ADR-0034) — the extractor's identity, baked into the image.
+          # Written into every review.json as `pipeline_version`; the trust table is KEYED on it,
+          # so a rung earned under one extractor does not survive that extractor changing.
+          # The default is deliberately a LOUD sentinel rather than a plausible-looking version:
+          # an unstamped image must be obvious in the corpus, not blend in.
+          ARG DOC_TOOLS_VERSION=doc-tools@unstamped
+          ENV DOC_TOOLS_VERSION=${DOC_TOOLS_VERSION}
+
           # Set environment variables so Python prints directly to logs
           ENV PYTHONUNBUFFERED=1
           ENV PYTHONDONTWRITEBYTECODE=1
@@ -356,5 +364,16 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
             ${{ steps.meta.outputs.image }}:${{ github.sha }}
+          # PROVENANCE STAMP (ADR-0034). The extractor's own identity, baked at BUILD time so it
+          # cannot be unset, forgotten, or overridden per-deploy. It is written into every
+          # review.json as `pipeline_version`, and the trust table is KEYED on it: a rung is earned
+          # under a specific extractor and must not survive that extractor changing.
+          #
+          # WHY BAKED AND NOT AN ENV VAR. The consumer side already tried env-var versioning
+          # (PIPELINE_VERSION on the Dagster sensor) and it was UNSET on every pod in sandbox — so
+          # every decision record carries "unset" and the trust key's second axis has exactly one
+          # value in it. An env var that must be remembered fails silent; a build-arg sha cannot.
+          build-args: |
+            DOC_TOOLS_VERSION=doc-tools@${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
