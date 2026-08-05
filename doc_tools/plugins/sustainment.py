@@ -42,7 +42,7 @@ from doc_tools.utils.sustainment_merge import (
 # and the projected-values contract can be unit-tested without the plugin's heavy
 # imports (that test is the vocabulary-owner truth check). When the leaf / Langfuse
 # is absent these are no-ops, so file-mode keeps its zero-Langfuse-dependency.
-from doc_tools.telemetry import traced, set_trace_standard, MAPPING, build_trace_values
+from doc_tools.telemetry import traced, set_trace_standard, observed_trace, MAPPING, build_trace_values
 
 
 # --------------------------------------------------------------------------- #
@@ -319,10 +319,21 @@ class SustainmentPlugin(AugmentationPlugin):
         return all_parts, {"n_crops_used": n_crops, "crops_missing": missing,
                            "crops_failed": failed, "crops_truncated": truncated}
 
-    @traced(name="sustainment extraction")
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
                          s3_client: Any = None, bucket: str = None) -> List[DocumentNode]:
+        # v4 extraction-trace JOIN (ADR-0038): open the trace on doc_id via
+        # create_trace_id(seed=doc_id), so THIS extraction and the downstream review (which
+        # seeds on the same doc_id it reads from review.json.trace_id) land ONE unified trace —
+        # bucket -> extraction -> review. The header/parts @traced passes nest as child spans;
+        # the end set_trace_standard enriches. Fail-soft: observed_trace never blocks extraction.
+        with observed_trace(MAPPING, {"request_key": doc_id}, name="sustainment extraction"):
+            return self._extract_fulltext(full_text, doc_id, metadata=metadata, elements=elements,
+                                          manifest=manifest, s3_client=s3_client, bucket=bucket)
+
+    def _extract_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
+                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
+                          s3_client: Any = None, bucket: str = None) -> List[DocumentNode]:
         index = provenance.build_positioned_index(elements)
         ocr_norm = provenance._norm(full_text)
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
@@ -453,7 +464,10 @@ class SustainmentPlugin(AugmentationPlugin):
                   # trace_id links this review.json to the extraction trace above:
                   # the sensor forwards it as X-Trace-Id so start_review joins the
                   # same trace (one trace: bucket -> extraction -> review -> queue).
-                  "trace_id": header_d.get("doc_id") or doc_id,
+                  # doc_id (the INPUT key), NOT the model-extracted header doc_id: it is the
+                  # SAME seed process_fulltext opened observed_trace on, so the review composition
+                  # (which seeds create_trace_id on this value) unifies with the extraction trace.
+                  "trace_id": doc_id,
                   # the raw printed notice number ('PCN # 23-002') for DISPLAY;
                   # doc_id above is the normalized key. Display may prefer this.
                   "doc_id_raw": header_d.get("doc_id_raw") or header_d.get("doc_id") or doc_id,
