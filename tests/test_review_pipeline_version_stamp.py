@@ -59,6 +59,30 @@ def test_version_comes_from_the_BAKED_image_identity_not_a_deploy_env():
     )
 
 
+def test_the_writer_copies_the_plugin_dict_WHOLESALE():
+    """THE HOP BETWEEN THE STAMP AND THE ARTIFACT, pinned.
+
+    The plugin builds the `review` dict; a DIFFERENT module (`assets/semantic_assets.py`) is what
+    actually writes it to S3. A field can therefore be stamped correctly and still never reach the
+    artifact — which is precisely how the consumer side lost `review_state_source` and
+    `extraction_warnings` at cortex-bff's `/reviews`: a hand-enumerating consumer silently dropped
+    what its producer computed.
+
+    The writer copies wholesale (`dict(aug0.review)`), so new plugin fields survive by construction.
+    This pins that shape: if it ever becomes a hand-enumerated dict, `pipeline_version` disappears
+    from the artifact, every promoted format stops matching, and the pipeline degrades to fully
+    supervised — safely, and therefore invisibly.
+    """
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(here, "doc_tools", "assets", "semantic_assets.py"), encoding="utf-8") as fh:
+        writer = fh.read()
+    assert "dict(aug0.review)" in writer, (
+        "the review writer no longer copies the plugin's dict wholesale — a hand-enumerated "
+        "payload drops any field the enumerator forgets, which is how this exact class of bug "
+        "reached production twice on the consumer side"
+    )
+
+
 def test_the_build_bakes_the_arg():
     """VERIFY-THE-PIPE: the code reading the env proves nothing if the build never sets it."""
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
