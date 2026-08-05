@@ -18,7 +18,7 @@ from typing import Any, Dict
 _MAPPING_PATH = os.path.join(os.path.dirname(__file__), "config", "telemetry-mapping.yaml")
 
 try:
-    from provenance_telemetry import traced, set_trace_standard, load_mapping
+    from provenance_telemetry import traced, set_trace_standard, observed_trace, load_mapping
 
     try:
         MAPPING = load_mapping(_MAPPING_PATH)
@@ -32,6 +32,12 @@ except Exception:  # provenance-telemetry not installed -> pure no-ops
 
     def set_trace_standard(*_a, **_k):  # type: ignore[misc]
         return None
+
+    from contextlib import contextmanager as _cm
+
+    @_cm
+    def observed_trace(*_a, **_k):  # type: ignore[misc]
+        yield
 
     MAPPING = None
 
