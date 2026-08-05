@@ -66,3 +66,6 @@ test_import.py
 run_test.py
 convert_error.py
 run_dagster_test.py
+
+# Local secret overlays — real credentials, NEVER commit (ADR-0038 telemetry keys, etc.)
+*.secret.yaml
