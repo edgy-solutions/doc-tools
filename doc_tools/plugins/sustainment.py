@@ -515,6 +515,20 @@ class SustainmentPlugin(AugmentationPlugin):
                   # Categories stringified to their enum values (== the ruleset's
                   # pcn:changeClass category keys: 'Material','Process',…).
                   "doc_type": header_d.get("doc_type") or "PCN",
+                  # ATTESTATION, not a second copy of the value (ADR-0034 normalization).
+                  #
+                  # `doc_type` above DEFAULTS to "PCN" when the header pass extracted none — which
+                  # makes "identified as a PCN" and "we did not know" the SAME VALUE downstream.
+                  # That collision is why the trust key's doc_type segment could not be guarded:
+                  # a check cannot separate identified from defaulted when both read `PCN`.
+                  #
+                  # Emitted as a SEPARATE provenance-bearing field rather than by changing
+                  # `doc_type` to a sentinel, because `doc_type` DRIVES THE DISPOSITION PROPOSER
+                  # (every PCN rule requires a change category keyed on it) — a sentinel there
+                  # would turn every unextracted notice UNCLASSIFIABLE. Same shape as
+                  # `review_state_source`: the classification field keeps its usable value, and a
+                  # provenance field says where that value came from.
+                  "doc_type_source": ("extraction" if header_d.get("doc_type") else "defaulted"),
                   "categories": [str(getattr(c, "value", c))
                                  for c in (header_d.get("categories") or [])],
                   # EXTRACTION-QUALITY WARNINGS the reviewer must see (the doc-level reasons
