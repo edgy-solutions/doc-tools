@@ -327,6 +327,21 @@ class SustainmentPlugin(AugmentationPlugin):
         # seeds on the same doc_id it reads from review.json.trace_id) land ONE unified trace —
         # bucket -> extraction -> review. The header/parts @traced passes nest as child spans;
         # the end set_trace_standard enriches. Fail-soft: observed_trace never blocks extraction.
+        #
+        # RE-RUNS APPEND TO THE SAME TRACE — BY DESIGN, AND IT LOOKS LIKE DATA LOSS.
+        # The seed is the doc_id, so the langfuse trace id is DETERMINISTIC per document:
+        # re-extracting the same doc does not create a new trace, it adds spans to the
+        # existing one. In the Langfuse UI a trace is timestamped by its FIRST observation,
+        # so a re-run never floats to the top of a recency-sorted list — it silently thickens
+        # a trace dated whenever that doc was first processed. Cost a full afternoon on
+        # 2026-08-06: SDK version, dependency locks, worker uptime and the ingestion pipeline
+        # were all investigated for "missing traces" that were never missing.
+        # TO FIND A RE-RUN: search by the seeded trace id (create_trace_id(seed=doc_id)) or by
+        # the doc, NOT by recency.
+        # IF YOU EVER WANT ONE TRACE PER RUN: the lever is the seed (e.g. f"{doc_id}:{run_id}"),
+        # but that BREAKS the review join above unless the review seeds identically — it
+        # re-derives from review.json.trace_id. Prefer tagging/naming spans per run so runs stay
+        # separable INSIDE the unified trace; the join is the reason this seed exists.
         with observed_trace(MAPPING, {"request_key": doc_id}, name="sustainment extraction"):
             return self._extract_fulltext(full_text, doc_id, metadata=metadata, elements=elements,
                                           manifest=manifest, s3_client=s3_client, bucket=bucket)
