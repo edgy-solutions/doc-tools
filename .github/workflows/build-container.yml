@@ -9,6 +9,16 @@ on:
   pull_request:
     branches:
       - main
+  # MANUAL REBUILD, added 2026-08-08 because its absence hid a real gap. Commit 3db8dbb
+  # (`doc_type_source` attestation — the producer half of fingerprint normalization) was pushed to
+  # main and NO build ever ran for it: no run record, no failure, no `[skip ci]` marker. The commit
+  # was merged, the feature read as shipped, and the stamp existed in no image.
+  #
+  # With push as the ONLY trigger there was no way to re-cut an image for a commit whose build was
+  # missed, short of an empty commit — so the recovery path was a fake commit, and the natural
+  # alternative was to assume it had built. That is the believed-built class with the remedy
+  # designed out of reach. A build you cannot re-run on demand is a build you have to take on faith.
+  workflow_dispatch:
 
 jobs:
   telemetry-contract:
