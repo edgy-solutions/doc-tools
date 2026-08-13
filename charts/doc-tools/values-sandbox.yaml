@@ -52,9 +52,16 @@ secrets:
   JENA_PASSWORD: ""
   DATAHUB_TOKEN: ""
   GIT_TOKEN: ""
+  # Must MATCH `docToolsClientSecret` in invincible-agent's values (sandbox default below).
+  # The realm import there creates the `iagent-doc-tools` client with this secret; if the two
+  # drift, the mint fails, logs, and the call proceeds unauthenticated — silently, under OBSERVE.
+  DOC_TOOLS_CLIENT_SECRET: "sandbox-doc-tools-secret"
 
 env:
   S3_ENDPOINT_URL: "http://iagent-minio:9000"
+  # doc-tools' only platform-facing call. Sandbox release name is `iagent`.
+  ONTOLOGY_SERVICE_URL: "http://iagent-engine-o:8084"
+  DOC_TOOLS_CLIENT_ID: "iagent-doc-tools"
   DATAHUB_GMS_URL: "http://datahub-datahub-gms:8080/api/graphql"
   # The Weaviate-host envvars above are split host/port; some code
   # paths in doc-tools may want a single URL — keep this as the

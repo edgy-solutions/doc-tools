@@ -1,3 +1,4 @@
+import logging
 import os
 import requests
 from dagster import asset, AssetExecutionContext, Config
@@ -5,7 +6,27 @@ from typing import Dict, Any
 from doc_tools.utils.dagster_resources import Neo4jResource
 
 # Engine O Endpoint
-ONTOLOGY_SVC_URL = os.getenv("ONTOLOGY_SERVICE_URL", "http://ontology-agent-svc.default.svc.cluster.local:8084")
+# LEGACY DNS REMOVED 2026-08-12. This default was
+# `http://ontology-agent-svc.default.svc.cluster.local:8084` — the exact
+# `*-svc.default.svc.cluster.local` pattern the platform's guard forbids, and it did not resolve
+# in the current cluster, so an unset ONTOLOGY_SERVICE_URL sent every classify call at a host
+# that does not exist. Current convention is `<release>-<component>`.
+#
+# THIS IS THE OFFENDER THE PHANTOM-SCOPE PACKET PREDICTED. That guard declares `doc-tools` in
+# SCANNED_DIRS, but doc-tools is a SIBLING REPO, so the walker skipped it in silence and passed
+# green while the forbidden pattern lived here. The packet's words were "passes green while the
+# forbidden pattern is live in the unscanned tree" — this line was it, and it was the only one.
+ONTOLOGY_SVC_URL = os.getenv("ONTOLOGY_SERVICE_URL", "http://iagent-engine-o:8084")
+
+# svc:doc-tools — this process's own transport identity. Seeded in the platform's
+# policy/users.yaml (instance nine), minted as the `iagent-doc-tools` Keycloak client.
+#
+# THE SEAM LIVES IN utils/, NOT HERE, and the reason is testability rather than tidiness: this
+# module imports dagster, dagster_aws and datahub, so a credential helper defined here can only
+# be exercised where that whole stack installs. A credential seam nothing can exercise is a seam
+# nothing can seal — and this one is the difference between the REQUIRE flip working and every
+# classify call 401ing.
+from doc_tools.utils.mesh_identity import ontology_auth_headers
 DATAHUB_GMS_URL = os.getenv("DATAHUB_GMS_URL", "http://datahub-gms:8080/api/graphql")
 DATAHUB_TOKEN = os.getenv("DATAHUB_TOKEN", "")
 
@@ -96,7 +117,10 @@ def apply_semantic_tags(
         }
         
         try:
-            resp = requests.post(f"{ONTOLOGY_SVC_URL}/classify_legacy_table", json=dossier, timeout=30)
+            resp = requests.post(
+                f"{ONTOLOGY_SVC_URL}/classify_legacy_table", json=dossier, timeout=30,
+                headers=ontology_auth_headers(),
+            )
             resp.raise_for_status()
             classification = resp.json()
             

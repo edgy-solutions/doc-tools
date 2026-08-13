@@ -73,6 +73,12 @@ secrets:
   JENA_PASSWORD: "password"
   DATAHUB_TOKEN: ""
   GIT_TOKEN: ""
+  # svc:doc-tools' client-credentials secret. THE CLIENT IS CREATED BY A DIFFERENT CHART —
+  # invincible-agent's realm import owns the realm (`serviceClients: iagent-doc-tools`), and this
+  # value must MATCH `docToolsClientSecret` there. Two charts, one credential: nothing fails
+  # loudly if they drift, because under OBSERVE a failed mint just logs and the call proceeds.
+  # Empty here means semantic_linker mints nothing and engine-o records caller:none.
+  DOC_TOOLS_CLIENT_SECRET: ""
   # Langfuse secret key. Placeholder: only used at runtime when PROMPT_SOURCE=langfuse.
   # doc-tools reads EnvVar("LANGFUSE_SECRET_KEY") unconditionally at Dagster run-build, so
   # it must exist even in file-mode (the prod default) or run-build fails "not set".
@@ -83,6 +89,13 @@ secrets:
 env:
   S3_ENDPOINT_URL: "minio:9000"
   DATAHUB_GMS_URL: "http://datahub-gms:8080/api/graphql"
+  # doc-tools' ONE platform-facing endpoint. Declared here rather than left to the code default:
+  # the previous default was the legacy `*-svc.default.svc.cluster.local` DNS, which does not
+  # resolve in the current cluster, so this call had been pointing at a non-existent host
+  # whenever the env var was unset — which is always, because it was never in this chart.
+  ONTOLOGY_SERVICE_URL: "http://iagent-engine-o:8084"
+  # Transport identity for the call above (svc:doc-tools). The SECRET rides in `secrets:`.
+  DOC_TOOLS_CLIENT_ID: "iagent-doc-tools"
   RAW_KAFKA_TOPIC: "openddil.sensor.data"
   DDS_GIT_REPO_URL: ""
   DDS_GIT_BRANCH: "main"

@@ -44,6 +44,15 @@ dependencies = [
     "tabulate",
     "langfuse>=3.0.0",
     "provenance-telemetry @ git+https://github.com/edgy-solutions/provenance-telemetry.git",
+    # The mesh's ONE mint implementation, for svc:doc-tools' transport credential on the single
+    # engine-o call in assets/semantic_linker.py. PINNED TO A TAG, never a branch: an unpinned
+    # ref resolves at BUILD time, so one SDK commit would change this service's auth behaviour
+    # on the next rebuild with nobody deciding and no diff here to review.
+    #
+    # Consuming the shared mint rather than inlining client-credentials is the one-implementation
+    # rule: a second mint in this repo would drift from the platform's the way the SDK's and the
+    # platform's already did once (MESH_CLIENT_ID vs REVIEW_STARTER_CLIENT_ID).
+    "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.3.1",
 ]
 
 
