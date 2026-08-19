@@ -46,11 +46,40 @@ def test_upload_to_jena_puts_to_named_graph(mock_client_cls):
     assert client.put.call_args.kwargs["content"] == b"@prefix x: <y> ."
 
 
-@patch("doc_tools.assets.semantic_assets.GraphDatabase.driver")
-def test_init_neo4j_n10s_runs_config_and_constraint(mock_driver):
+def _n10s_session(resource_count: int):
+    """A neo4j session double whose `MATCH (r:Resource) RETURN count(r)` answers
+    with a real integer.
+
+    Idempotency is decided by a PRECONDITION CHECK, not by catching the re-init
+    error — n10s wraps that failure in a ClientError whose `str()` hides the
+    "non-empty" substring, so two successive string-match attempts both missed
+    (see the comment in semantic_assets.init_neo4j_n10s). A bare MagicMock
+    session returns a MagicMock for the count, which the `> 0` comparison cannot
+    order; the mock has to model the query the code actually asks.
+    """
     session = MagicMock()
+
+    def run(query, *a, **k):
+        if "count(r)" in query:
+            return MagicMock(single=lambda: {"c": resource_count})
+        return MagicMock()
+
+    session.run.side_effect = run
+    return session
+
+
+def _driver_for(session):
     driver = MagicMock()
     driver.session.return_value.__enter__.return_value = session
+    return driver
+
+
+@patch("doc_tools.assets.semantic_assets.GraphDatabase.driver")
+def test_init_neo4j_n10s_runs_config_and_constraint(mock_driver):
+    """EMPTY graph: no :Resource nodes yet, so n10s has never been initialized
+    here and init must run."""
+    session = _n10s_session(resource_count=0)
+    driver = _driver_for(session)
     mock_driver.return_value = driver
     neo4j = MagicMock(uri="bolt://x", username="u", password="p")
 
@@ -63,22 +92,30 @@ def test_init_neo4j_n10s_runs_config_and_constraint(mock_driver):
 
 
 @patch("doc_tools.assets.semantic_assets.GraphDatabase.driver")
-def test_init_neo4j_n10s_tolerates_already_exists(mock_driver):
-    session = MagicMock()
+def test_init_neo4j_n10s_skips_init_when_the_graph_is_already_populated(mock_driver):
+    """POPULATED graph: init is SKIPPED rather than attempted-and-swallowed.
 
-    def run_side(query, *a, **k):
-        if "graphconfig.init" in query:
-            raise Exception("Config already exists")
-        return MagicMock()
+    This test was `..._tolerates_already_exists` and asserted the old shape — let
+    graphconfig.init raise, catch it by message. That is the behaviour the
+    precondition check replaced, because the message never matched: the asset
+    now never calls init on a populated graph at all. Asserting init is NOT
+    called is the whole point; a test that only checked the constraint would
+    still pass if the check silently regressed to attempt-and-catch.
+    """
+    session = _n10s_session(resource_count=1234)
+    mock_driver.return_value = _driver_for(session)
 
-    session.run.side_effect = run_side
-    driver = MagicMock()
-    driver.session.return_value.__enter__.return_value = session
-    mock_driver.return_value = driver
-
-    # should swallow the "already exists" error and still create the constraint
     init_neo4j_n10s(build_asset_context(), neo4j=MagicMock(uri="bolt://x", username="u", password="p"))
-    assert any("CONSTRAINT" in c.args[0] for c in session.run.call_args_list)
+
+    ran = [c.args[0] for c in session.run.call_args_list]
+    assert not any("graphconfig.init" in q for q in ran), (
+        "init was attempted on a populated graph — n10s rejects that, and the "
+        "rejection is the error the string-matching approach could not catch"
+    )
+    assert any("CONSTRAINT" in q for q in ran), (
+        "the constraint is created on BOTH paths — it is IF NOT EXISTS and is "
+        "what the n10s import relies on"
+    )
 
 
 def test_sync_jena_to_neo4j_wipes_fetches_and_labels():
@@ -91,6 +128,14 @@ def test_sync_jena_to_neo4j_wipes_fetches_and_labels():
 
     neo4j = MagicMock()
     nclient = MagicMock()
+    # n10s.rdf.import.fetch must answer with a real row. The asset RAISES on an
+    # empty result rather than logging and continuing — an import that loaded
+    # nothing is the endpoint-404 / named-graph-missing failure it must be able
+    # to report honestly, so "no rows" is an outcome the mock has to opt out of
+    # deliberately (see test_sync_raises_when_the_n10s_fetch_reports_nothing).
+    nclient.execute_query.return_value = [
+        {"triplesLoaded": 42, "terminationStatus": "OK", "extraInfo": ""}
+    ]
     neo4j.get_client.return_value = nclient
 
     payload = {"root_uri": "mil#a", "s3_key": "s1000d/m.xml"}
@@ -177,3 +222,53 @@ def test_extraction_payload_serializes_augmentations_and_skips_none():
     assert a["steps"][0]["action_verb"] == "Apply"
     assert a["steps"][0]["tooling"] == ["Wrench"]
     assert a["assessment"]["proprietary_score"] == 0.5
+
+
+# ---------------------------------------------------------------------------
+# The n10s fetch must be able to FAIL
+# ---------------------------------------------------------------------------
+# This step used to swallow a failed import and report success, so a WP that
+# synced zero triples looked identical to one that synced cleanly — the shape
+# that cost hours of debugging an endpoint-404. Both pins below exist so that
+# honesty cannot regress quietly.
+
+def _jena_with_subjects():
+    jena = _jena_resource()
+    jclient = MagicMock()
+    jclient.execute_query.return_value = {
+        "results": {"bindings": [{"s": {"value": "mil#a"}}]}
+    }
+    jena.get_client.return_value = jclient
+    return jena
+
+
+def _sync(nclient):
+    neo4j = MagicMock()
+    neo4j.get_client.return_value = nclient
+    return sync_jena_to_neo4j(
+        build_asset_context(),
+        upload_to_jena={"root_uri": "mil#a", "s3_key": "s1000d/m.xml"},
+        jena=_jena_with_subjects(),
+        neo4j=neo4j,
+    )
+
+
+def test_sync_raises_when_the_n10s_fetch_reports_nothing():
+    """No rows means the procedure never executed — n10s missing, or the fetch
+    URL 404ing. Silent success there leaves Neo4j empty while the asset is
+    green."""
+    import pytest
+    nclient = MagicMock()
+    nclient.execute_query.return_value = []
+    with pytest.raises(RuntimeError, match="no rows"):
+        _sync(nclient)
+
+
+def test_sync_raises_when_n10s_terminates_non_OK():
+    import pytest
+    nclient = MagicMock()
+    nclient.execute_query.return_value = [
+        {"triplesLoaded": 0, "terminationStatus": "KO", "extraInfo": "Could not fetch"}
+    ]
+    with pytest.raises(RuntimeError, match="terminationStatus"):
+        _sync(nclient)

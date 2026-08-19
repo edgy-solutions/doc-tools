@@ -125,6 +125,61 @@ def test_the_legacy_DNS_default_is_GONE():
 # ---------------------------------------------------------------------------
 # Behavioural — the seam imports with nothing but os + the SDK, so these RUN
 # ---------------------------------------------------------------------------
+def _ensure_mesh_sdk():
+    """Make `iagent_mesh.service_identity` importable, with a STUB if the real
+    SDK is not installed here.
+
+    THE SDK IS A SIBLING REPO, not a doc-tools dependency. It lives in
+    invincible-agent (`agent_fleet/utils/service_identity.py`) and is not on this
+    venv's path, so the two tests that monkeypatch `si.mint_token` died at
+    `import iagent_mesh` — and, worse, `test_a_mint_failure_LOGS_AND_PROCEEDS`
+    PASSED for the wrong reason: the seam's broad `except Exception` caught the
+    ModuleNotFoundError, so the pin was reporting green on an import error while
+    claiming to prove that a missing SECRET degrades gracefully. That is exactly
+    the pass-by-vacuum this file's header refuses, arriving through the back door.
+
+    A stub is the honest fix rather than vendoring the sibling. What these pins
+    measure is DOC-TOOLS' behaviour — that it names its own client_id, that it
+    fails locally before opening a socket, that a failure logs and proceeds.
+    None of that is a claim about the SDK's internals; the SDK is a boundary
+    these tests deliberately stop at. Pinning it to a real implementation would
+    make doc-tools' suite unrunnable without a second checkout, which is how a
+    seam stops being tested at all.
+
+    The stub's `mint_token` RAISES if it is ever actually entered. Every test
+    here either monkeypatches it or expects it to be unreachable, so reaching the
+    real body means the seam did something none of them intends — and a stub that
+    politely returned a token would let that pass silently.
+    """
+    try:  # prefer the real SDK wherever it IS installed
+        import iagent_mesh.service_identity  # noqa: F401
+        return
+    except ImportError:
+        pass
+
+    import sys
+    import types
+
+    pkg = types.ModuleType("iagent_mesh")
+    pkg.__path__ = []  # marks it a package so the submodule import resolves
+    si = types.ModuleType("iagent_mesh.service_identity")
+
+    def mint_token(*, client_id, client_secret, **kw):
+        raise AssertionError(
+            "the iagent_mesh stub's mint_token was entered — no test in this "
+            "file intends to reach a real mint; monkeypatch it or expect it "
+            "to be unreachable"
+        )
+
+    si.mint_token = mint_token
+    pkg.service_identity = si
+    sys.modules["iagent_mesh"] = pkg
+    sys.modules["iagent_mesh.service_identity"] = si
+
+
+_ensure_mesh_sdk()
+
+
 def _load_seam():
     """Load `mesh_identity` BY PATH, bypassing the package `__init__`.
 

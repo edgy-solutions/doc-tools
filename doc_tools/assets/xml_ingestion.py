@@ -22,6 +22,24 @@ from doc_tools.utils.xml_chunks import extract_chunks_from_graph
 _XML_INGEST_DOMAIN = "MAINTENANCE"
 
 
+def _is_missing_key(exc: Exception) -> bool:
+    """True when `exc` is S3's "that key is not there", matched by ERROR CODE.
+
+    Deliberately NOT `except s3_client.exceptions.NoSuchKey:`. That form resolves
+    the exception class off the client at match time, which has two costs. It
+    cannot be paired with a defensive fallback clause — a TypeError raised while
+    MATCHING an except clause propagates out of the whole `try`, so a later
+    `except Exception` in the same statement is never consulted. And it misses the
+    404-shaped ClientError boto3 raises in place of NoSuchKey when the caller
+    lacks `s3:ListBucket` on the bucket. Code-based matching covers both.
+    """
+    response = getattr(exc, "response", None)
+    if isinstance(response, dict):
+        code = str(response.get("Error", {}).get("Code", ""))
+        return code in ("NoSuchKey", "404")
+    return type(exc).__name__ == "NoSuchKey"
+
+
 class XmlIngestConfig(Config):
     """Two-shape config for `extract_rdf_from_xml`:
 
@@ -151,12 +169,30 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
                 f"Loaded graphics manifest from s3://{s3_bucket}/{manifest_key} "
                 f"with {len(graphics_manifest.get('figures', {}))} figure entries."
             )
-        except s3_client.exceptions.NoSuchKey:
-            context.log.info(
-                f"No graphics_manifest.json at s3://{s3_bucket}/{manifest_key} — "
-                f"parser falls back to .png-extension prediction (legacy single-XML "
-                f"ingest path)."
-            )
+        except Exception as e:
+            # BEST-EFFORT, NEVER FATAL. The manifest is optional — the parser has
+            # a defined behaviour without one — so no failure reading it may kill
+            # the ingest. Same ruling as `_fetch_override` in
+            # assets/iads_ingestion.py: "don't kill the whole ingest because the
+            # operator's override is momentarily unreachable." A plain miss is the
+            # expected legacy-path case and logs at info; anything else (corrupt
+            # JSON, AccessDenied) is WARNED, so a broken manifest is visible as a
+            # broken manifest rather than reading as "this WP has no figures."
+            graphics_manifest = None
+            if _is_missing_key(e):
+                context.log.info(
+                    f"No graphics_manifest.json at s3://{s3_bucket}/{manifest_key} — "
+                    f'figures resolve to rendering_origin="unresolved" with no '
+                    f"mil:hasURL (legacy single-XML ingest path)."
+                )
+            else:
+                context.log.warning(
+                    f"graphics_manifest.json at s3://{s3_bucket}/{manifest_key} could "
+                    f"not be read ({type(e).__name__}: {e}) — treated as absent, so "
+                    f'every figure in this WP resolves to rendering_origin='
+                    f'"unresolved". This is a MISCONFIGURATION, not the legacy path: '
+                    f"the manifest exists but is unusable."
+                )
 
     builder = PARSERS[doc_type](
         bucket=s3_bucket,

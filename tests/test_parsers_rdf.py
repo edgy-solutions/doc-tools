@@ -170,8 +170,36 @@ def test_milstd_40051_extracts_workpackage_tools_parts_and_figure():
     assert (node, MIL.hasInstructionText, Literal("Install the bracket.")) in g
     # 40051 keeps hyphens in figure ids
     assert (MIL["fig-FIG-9"], RDF.type, MIL.Figure) in g
-    assert (MIL["fig-FIG-9"], MIL.hasURL, Literal(f"{PREFIX}FIG-9.png")) in g
     assert (node, MIL.hasFigure, MIL["fig-FIG-9"]) in g
+    # NO manifest was passed, so the figure is UNRESOLVED and carries no URL.
+    # This assertion used to demand f"{PREFIX}FIG-9.png" — the parser predicted
+    # a filename from the boardno and an assumed extension. That prediction was
+    # a URL the pipeline had no evidence for: downstream it is indistinguishable
+    # from a resolved one, so a figure that was never uploaded rendered as a 404
+    # that reads like a broken pipeline instead of an honest "unresolved" card.
+    # See the CONFABULATION-KILL comment in parsers/mil_std_40051_rdf.py.
+    assert (MIL["fig-FIG-9"], MIL.renderingOrigin, Literal("unresolved")) in g
+    assert not list(g.objects(MIL["fig-FIG-9"], MIL.hasURL)), (
+        "a figure with no manifest entry must carry NO url — a predicted one "
+        "cannot be told apart downstream from a real one"
+    )
+
+
+def test_milstd_40051_figure_url_comes_from_the_manifest():
+    """The resolved half of the contract above. The URL is the manifest's
+    `uploaded_filename` — the name the extractor ACTUALLY wrote to S3, extension
+    and all — never one derived from the boardno."""
+    manifest = {"figures": {"FIG-9": {"uploaded_filename": "FIG-9.svg",
+                                      "rendering_origin": "rendered"}}}
+    b = MilStd40051GraphBuilder(image_prefix=PREFIX, graphics_manifest=manifest)
+    b.parse_data_module(MILSTD_XML)
+    g = b.graph
+
+    assert (MIL["fig-FIG-9"], MIL.hasURL, Literal(f"{PREFIX}FIG-9.svg")) in g
+    assert (MIL["fig-FIG-9"], MIL.renderingOrigin, Literal("rendered")) in g
+    # `rendered` and `unresolved` are the discriminant the UI keys on; a
+    # resolved figure must never also claim unresolved.
+    assert (MIL["fig-FIG-9"], MIL.renderingOrigin, Literal("unresolved")) not in g
 
 
 def test_milstd_40051_falls_back_to_unknown_wp():
