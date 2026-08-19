@@ -120,10 +120,19 @@ with domain-specific config is the right one.
 2. **Decompose the LLM ask by CONCERN into thin, content-only passes** rather than one
    fat per-step object — each keyed by operation number; **join in code**. Thin rows
    remove the sparse-schema starvation; one concern per pass gives high recall.
-3. **Keep whole-doc context when it fits** (it does today). Chunk only by **structure**
-   (per operation) + a shared context header if a doc exceeds the window. Verify
-   `LLM_NUM_CTX` isn't forcing needless char-chunking (its default, 8192, drives the
-   plugin's chunk size even where the backend serves 128k — see §9 today-fix).
+3. **Chunk by STRUCTURE (per operation) + a shared context header — required for the
+   large-doc tail, not optional.** Most WIs fit whole-doc at `LLM_NUM_CTX=128k`, but
+   the char-chunker still fires above `max_chars = (128000-4000)*3 ≈ 372k chars`
+   (~100+ pages): a 122-page WI splits into 2 char-boundary chunks with ~37k overlap
+   (confirmed in production — "two prompts"). That split is doubly bad: (a) the
+   boundary lands mid-operation and the **tail chunk loses all front-matter** (parts
+   list, general notes, operation structure), and (b) it reserves only 4000 tokens for
+   output while verbatim-echo output ≈ input, so each chunk can hit the window ceiling
+   and truncate. Structural chunking + shared context header fixes both; dropping the
+   `instruction_text` echo (§4) relaxes the output-budget half.
+   NOTE: the deterministic layer (§5.1) runs over the WHOLE element list *before* any
+   LLM split, so standards/parts/figures keep full recall on large docs regardless of
+   how the LLM text is chunked — a free robustness win.
 4. **Enumerate-then-enrich** for the genuine judgment fields: small schema per
    call → reliable fill.
 5. **Reconcile deterministic + LLM in code; conflicts and gaps → review lane**
@@ -218,9 +227,14 @@ user-run corpus pass — no production change, no proprietary data in agent hand
 
 **B then A**, with riders:
 
-- **Today-fix (independent of everything):** verify `LLM_NUM_CTX`. If an 8192 default
-  is forcing char-chunking against a 128k backend, that is a declared-but-unwired
-  config lie and a one-line read. (§5.3)
+- **Large-doc chunking is an ACTIVE defect (corrected).** `LLM_NUM_CTX=128k` is
+  confirmed set, so most docs run whole — but the char-chunker still splits docs above
+  ~372k chars (~100+ pages) at an arbitrary char boundary, dropping front-matter from
+  the tail chunk and under-reserving output (4000 tokens vs output≈input). The
+  122-page doc that submits "two prompts" is this. Structural chunking + shared header
+  (§5.3) is therefore required for the large-doc tail, and is the natural test case for
+  experiment arms 3/4 (§7) — needs a large synthetic fixture that crosses the 372k
+  threshold so the split actually triggers.
 - **B — ship the two cheapest, highest-confidence wins first:** (i) deterministic
   standards/part-number/figure extraction added back post-LLM; (ii) structure-
   preserving assembly + furniture collapse. Gate on the deterministic-layer synthetic
