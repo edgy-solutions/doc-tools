@@ -25,6 +25,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 Anomaly = Dict[str, Any]
 
+# Bump when patterns/config semantics change — stamped into corpus reports so a
+# later run can be compared against an earlier one.
+EXTRACTOR_VERSION = "0.1.0"
+
 # --------------------------------------------------------------------------- #
 # Config (committed defaults; override via MANUFACTURING_EXTRACTORS_SPEC)
 # --------------------------------------------------------------------------- #
