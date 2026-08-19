@@ -69,3 +69,6 @@ run_dagster_test.py
 
 # Local secret overlays — real credentials, NEVER commit (ADR-0038 telemetry keys, etc.)
 *.secret.yaml
+
+# Transient repro-harness model outputs (synthetic)
+tests/fixtures/manufacturing/_repro_response_*.json

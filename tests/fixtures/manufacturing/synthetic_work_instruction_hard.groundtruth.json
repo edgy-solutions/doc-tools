@@ -1,0 +1,25 @@
+{
+  "operations": [
+    "0010",
+    "0050",
+    "0150",
+    "0200"
+  ],
+  "n_operations": 4,
+  "n_steps": 18,
+  "n_figures": 11,
+  "figure_files": [
+    "figure-1-1.jpg",
+    "figure-2-2.jpg",
+    "figure-3-3.jpg",
+    "figure-4-4.jpg",
+    "figure-5-5.jpg",
+    "figure-5-6.jpg",
+    "figure-6-7.jpg",
+    "figure-7-8.jpg",
+    "figure-7-9.jpg",
+    "figure-8-10.jpg",
+    "figure-9-11.jpg"
+  ],
+  "n_pages": 9
+}

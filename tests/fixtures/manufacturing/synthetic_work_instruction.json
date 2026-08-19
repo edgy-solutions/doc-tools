@@ -1,0 +1,4904 @@
+[
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0001",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0002",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0003",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0004",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0005",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "CAUTION \u2014 ESD SENSITIVE HARDWARE",
+    "element_id": "el0006",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Image",
+    "text": "Figure: assembled product overview",
+    "element_id": "el0007",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "image_path": "figure-1-1.jpg"
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Primary: Alex Vance \u2013 Engineer \u2013 555-010-1111",
+    "element_id": "el0008",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Alternate: Taylor Smith \u2013 Engineer \u2013 555-010-2222",
+    "element_id": "el0009",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Security: This hardware is Unclassified at all operations.",
+    "element_id": "el0010",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            720
+          ],
+          [
+            1550,
+            720
+          ],
+          [
+            1550,
+            780
+          ],
+          [
+            150,
+            780
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Table",
+    "text": "OPERATION NUMBER OPERATION DESCRIPTION 0010 Kitting 0050 Bracket Sub-Assembly 0100 Final Integration 0150 Functional Test 0200 Adjustment and Final Inspection",
+    "element_id": "el0011",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            810
+          ],
+          [
+            1550,
+            810
+          ],
+          [
+            1550,
+            870
+          ],
+          [
+            150,
+            870
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "text_as_html": "<table><tbody><tr><td>0010</td><td>Kitting Instructions</td></tr><tr><td>0050</td><td>Bracket Sub-Assembly</td></tr><tr><td>0100</td><td>Final Integration</td></tr><tr><td>0150</td><td>Functional Test</td></tr><tr><td>0200</td><td>Adjustment and Final Inspection</td></tr></tbody></table>"
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Route Sheet",
+    "element_id": "el0012",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 1",
+    "element_id": "el0013",
+    "metadata": {
+      "page_number": 1,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0014",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0015",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0016",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0017",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0018",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Configuration Information: Over-build / under-build statement.",
+    "element_id": "el0019",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Table",
+    "text": "REV AUTHORITY DESCRIPTION DATE 2 ECR-40021 Added kitting operation 0010; converted to new template 01/01/24",
+    "element_id": "el0020",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "text_as_html": "<table><thead><tr><th>REV</th><th>AUTHORITY</th><th>DESCRIPTION</th><th>DATE</th></tr></thead><tbody><tr><td>2</td><td>ECR-40021</td><td>Added kitting operation 0010; converted to new template</td><td>01/01/24</td></tr></tbody></table>"
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "REVISION 0002.01",
+    "element_id": "el0021",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Configuration / Revision History",
+    "element_id": "el0022",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 2",
+    "element_id": "el0023",
+    "metadata": {
+      "page_number": 2,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0024",
+    "metadata": {
+      "page_number": 3,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0025",
+    "metadata": {
+      "page_number": 3,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0026",
+    "metadata": {
+      "page_number": 3,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0027",
+    "metadata": {
+      "page_number": 3,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0028",
+    "metadata": {
+      "page_number": 3,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Parts List Notes: A/R denotes as-required consumables.",
+    "element_id": "el0029",
+    "metadata": {
+      "page_number": 3,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Table",
+    "text": "PART NUMBER DESCRIPTION QTY FIND NO PN-1001 Bracket 1 4 PN-1002 EMI Gasket 4 5 PN-1004 Network Assembly 1 7 PN-1005 Housing 1 8 PN-1006 Washer 4 9 PN-1007 Setscrew .250 4 10 PN-1008 Screw 22 11 PN-1009 Screw 4 13 PN-1011 Bullet Connector 3 15 PN-1012 Skin 1 16 ADH-100-A Adhesive Grade A A/R 17 ADH-100-B Adhesive Grade B A/R 18",
+    "element_id": "el0030",
+    "metadata": {
+      "page_number": 3,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "text_as_html": "<table><thead><tr><th>PART NUMBER</th><th>DESCRIPTION</th><th>QTY</th><th>FIND NO</th></tr></thead><tbody><tr><td>PN-1001</td><td>Bracket, Machined</td><td>1</td><td>4</td></tr><tr><td>PN-1002</td><td>EMI Gasket</td><td>4</td><td>5</td></tr><tr><td>PN-1004</td><td>Network Assembly</td><td>1</td><td>7</td></tr><tr><td>PN-1005</td><td>Housing</td><td>1</td><td>8</td></tr><tr><td>PN-1006</td><td>Washer</td><td>4</td><td>9</td></tr><tr><td>PN-1007</td><td>Setscrew .250</td><td>4</td><td>10</td></tr><tr><td>PN-1008</td><td>Screw</td><td>22</td><td>11</td></tr><tr><td>PN-1009</td><td>Screw</td><td>4</td><td>13</td></tr><tr><td>PN-1011</td><td>Bullet Connector</td><td>3</td><td>15</td></tr><tr><td>PN-1012</td><td>Skin</td><td>1</td><td>16</td></tr><tr><td>ADH-100-A</td><td>Adhesive, Grade A</td><td>A/R</td><td>17</td></tr><tr><td>ADH-100-B</td><td>Adhesive, Grade B</td><td>A/R</td><td>18</td></tr></tbody></table>"
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Assembly Parts List",
+    "element_id": "el0031",
+    "metadata": {
+      "page_number": 3,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 3",
+    "element_id": "el0032",
+    "metadata": {
+      "page_number": 3,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0033",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0034",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0035",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0036",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0037",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Title",
+    "text": "GENERAL NOTES",
+    "element_id": "el0038",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Security: This hardware is Unclassified at all operations.",
+    "element_id": "el0039",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Foreign Object Debris (FOD): If FOD is detected, notify the responsible inspector and complete form 99999-XYZ per STD-1200.",
+    "element_id": "el0040",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "General process instruction requirements: STD-1000 STD-1100 STD-1200",
+    "element_id": "el0041",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "General Instructions",
+    "element_id": "el0042",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 4",
+    "element_id": "el0043",
+    "metadata": {
+      "page_number": 4,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0044",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0045",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0046",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0047",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0048",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Title",
+    "text": "GENERAL INSTRUCTIONS (HANDLING AND COMMON TOOLING)",
+    "element_id": "el0049",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "The following shall be followed at all times by all personnel:",
+    "element_id": "el0050",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "ListItem",
+    "text": "Finger cots or gloves shall be worn when handling hardware.",
+    "element_id": "el0051",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "ListItem",
+    "text": "All screws shall be cleaned and primed before installation.",
+    "element_id": "el0052",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "ListItem",
+    "text": "All tools and gauges shall be clean and calibrated.",
+    "element_id": "el0053",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            720
+          ],
+          [
+            1550,
+            720
+          ],
+          [
+            1550,
+            780
+          ],
+          [
+            150,
+            780
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "ListItem",
+    "text": "Record date and time in the format MM/DD/YY HH:MM.",
+    "element_id": "el0054",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            810
+          ],
+          [
+            1550,
+            810
+          ],
+          [
+            1550,
+            870
+          ],
+          [
+            150,
+            870
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "General Instructions",
+    "element_id": "el0055",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 5",
+    "element_id": "el0056",
+    "metadata": {
+      "page_number": 5,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0057",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0058",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0059",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0060",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0061",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Title",
+    "text": "Operation 0010 \u2014 Kitting Instructions",
+    "element_id": "el0062",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Obtain one clean ESD kitting tray for the Widget Mount Assembly (DWG-4500-01) per STD-1000.",
+    "element_id": "el0063",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Place a layer of anti-static foam into the kitting tray.",
+    "element_id": "el0064",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Verify the tray is free of foreign object debris (FOD) per STD-1200.",
+    "element_id": "el0065",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Insert the parts listed in the Assembly Parts List into the tray.",
+    "element_id": "el0066",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            720
+          ],
+          [
+            1550,
+            720
+          ],
+          [
+            1550,
+            780
+          ],
+          [
+            150,
+            780
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0010",
+    "element_id": "el0067",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 6",
+    "element_id": "el0068",
+    "metadata": {
+      "page_number": 6,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0069",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0070",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0071",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0072",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0073",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Create a license-plate label for each kitted assembly per STD-1300, containing the assembly part number as a 2D barcode, the production order number, and the serial number (see Figure 1).",
+    "element_id": "el0074",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Image",
+    "text": "Figure 1: completed kit label example",
+    "element_id": "el0075",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "image_path": "figure-2-2.jpg"
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Attach the license plate to the tray and deliver the completed kit to the assembly area.",
+    "element_id": "el0076",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0010",
+    "element_id": "el0077",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 7",
+    "element_id": "el0078",
+    "metadata": {
+      "page_number": 7,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0079",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0080",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0081",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0082",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0083",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Title",
+    "text": "Operation 0050 \u2014 Bracket Sub-Assembly",
+    "element_id": "el0084",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Obtain the Bracket (PN-1001). Inspect for dents, cuts, and scratches. If damaged, contact supervision.",
+    "element_id": "el0085",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "If required, clean the Bracket with isopropyl alcohol per STD-1400. Do not immerse. Blow dry.",
+    "element_id": "el0086",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Clean (do not prime) four (4) setscrews (PN-1007). Install the four setscrews into the bracket cavities using a 2.5 mm hex key until snug, then back them out five (5) full turns.",
+    "element_id": "el0087",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0050",
+    "element_id": "el0088",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 8",
+    "element_id": "el0089",
+    "metadata": {
+      "page_number": 8,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0090",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0091",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0092",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0093",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0094",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Place four (4) adhesive-backed EMI gaskets (PN-1002) onto the bracket flanges as shown; center each gasket over the opening. Alignment fixture FIX-2200 may be used.",
+    "element_id": "el0095",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Image",
+    "text": "gasket placement detail",
+    "element_id": "el0096",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "image_path": "figure-3-3.jpg"
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Clean and apply threadlocker (Loctite 242) to twenty-two (22) screws (PN-1008) per STD-1500 using Adhesive Grade A (ADH-100-A) or Grade B (ADH-100-B). Record cure time in operator comments.",
+    "element_id": "el0097",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0050",
+    "element_id": "el0098",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 9",
+    "element_id": "el0099",
+    "metadata": {
+      "page_number": 9,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0100",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0101",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0102",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0103",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0104",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Place the Network Assembly (PN-1004) onto the skin (PN-1012). Verify orientation by aligning the screw holes.",
+    "element_id": "el0105",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Image",
+    "text": "network assembly orientation",
+    "element_id": "el0106",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "image_path": "figure-4-4.jpg"
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Install the Network Assembly to the skin using twenty-two (22) screws. Torque screws to 4.0 in-lbs using calibrated torque wrench TOOL-TQ-05.",
+    "element_id": "el0107",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Image",
+    "text": "torque sequence",
+    "element_id": "el0108",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "image_path": "figure-4-5.jpg"
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0050",
+    "element_id": "el0109",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 10",
+    "element_id": "el0110",
+    "metadata": {
+      "page_number": 10,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0111",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0112",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0113",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0114",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0115",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Title",
+    "text": "Operation 0100 \u2014 Final Integration",
+    "element_id": "el0116",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Install three (3) bullet connectors (PN-1011) to the Housing (PN-1005) using tool TOOL-INS-01 or equivalent.",
+    "element_id": "el0117",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Loosely attach the two brackets to the Housing using four (4) screws (PN-1009) and four (4) washers (PN-1006). Do not tighten at this time.",
+    "element_id": "el0118",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Image",
+    "text": "bracket attachment",
+    "element_id": "el0119",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "image_path": "figure-5-6.jpg"
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0100",
+    "element_id": "el0120",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 11",
+    "element_id": "el0121",
+    "metadata": {
+      "page_number": 11,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0122",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0123",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0124",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0125",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0126",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Remove the backing from two (2) gaskets. Align and install the two gaskets to the Network Assembly, adhesive side toward the assembly.",
+    "element_id": "el0127",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Install the Housing to the Network Assembly by aligning the three bullet connectors; press until fully engaged.",
+    "element_id": "el0128",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Image",
+    "text": "housing engagement",
+    "element_id": "el0129",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "image_path": "figure-6-7.jpg"
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Attach the brackets to the Network Assembly using four (4) screws and four (4) washers. Torque these four screws to 6.0 in-lbs, then torque the four previously installed screws to 6.0 in-lbs using torque wrench TOOL-TQ-05.",
+    "element_id": "el0130",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0100",
+    "element_id": "el0131",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 12",
+    "element_id": "el0132",
+    "metadata": {
+      "page_number": 12,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0133",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0134",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0135",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0136",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0137",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Title",
+    "text": "Operation 0150 \u2014 Functional Test",
+    "element_id": "el0138",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Connect the assembly to the functional test station per STD-1600.",
+    "element_id": "el0139",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Image",
+    "text": "functional test setup",
+    "element_id": "el0140",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "image_path": "figure-7-8.jpg"
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Record the functional test results in SYS-TRACK.",
+    "element_id": "el0141",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0150",
+    "element_id": "el0142",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 13",
+    "element_id": "el0143",
+    "metadata": {
+      "page_number": 13,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0144",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0145",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0146",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0147",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0148",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Title",
+    "text": "Operation 0200 \u2014 Adjustment and Final Inspection",
+    "element_id": "el0149",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Apply threadlocker to the four (4) skin setscrews per STD-1500 using Adhesive Grade C (ADH-100-C). Do not prime the screws.",
+    "element_id": "el0150",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Inspect the assembly for conformance to these work instructions.",
+    "element_id": "el0151",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            540
+          ],
+          [
+            1550,
+            540
+          ],
+          [
+            1550,
+            600
+          ],
+          [
+            150,
+            600
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Inspect workmanship per STD-1700 and STD-1750. Verify the sealing compound cure time for the tuning screws is recorded in operator comments per STD-1500.",
+    "element_id": "el0152",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            630
+          ],
+          [
+            1550,
+            630
+          ],
+          [
+            1550,
+            690
+          ],
+          [
+            150,
+            690
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0200",
+    "element_id": "el0153",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 14",
+    "element_id": "el0154",
+    "metadata": {
+      "page_number": 14,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "PROPRIETARY \u2014 CONTROLLED DISTRIBUTION \u2014 See Distribution Statement",
+    "element_id": "el0155",
+    "metadata": {
+      "page_number": 15,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            90
+          ],
+          [
+            1550,
+            90
+          ],
+          [
+            1550,
+            130
+          ],
+          [
+            150,
+            130
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "ACME WIDGET CORP CONFIDENTIAL",
+    "element_id": "el0156",
+    "metadata": {
+      "page_number": 15,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            138
+          ],
+          [
+            1550,
+            138
+          ],
+          [
+            1550,
+            178
+          ],
+          [
+            150,
+            178
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "DWG-4500-01",
+    "element_id": "el0157",
+    "metadata": {
+      "page_number": 15,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            186
+          ],
+          [
+            1550,
+            186
+          ],
+          [
+            1550,
+            226
+          ],
+          [
+            150,
+            226
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Widget Mount Assembly",
+    "element_id": "el0158",
+    "metadata": {
+      "page_number": 15,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            234
+          ],
+          [
+            1550,
+            234
+          ],
+          [
+            1550,
+            274
+          ],
+          [
+            150,
+            274
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Header",
+    "text": "Revision: 0002 (Redline 01)",
+    "element_id": "el0159",
+    "metadata": {
+      "page_number": 15,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            282
+          ],
+          [
+            1550,
+            282
+          ],
+          [
+            1550,
+            322
+          ],
+          [
+            150,
+            322
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "NarrativeText",
+    "text": "Inspect the skin surface finish: gouges and scratches in Zone A shall not exceed 0.060 in. When in doubt, contact the Project Engineer.",
+    "element_id": "el0160",
+    "metadata": {
+      "page_number": 15,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            360
+          ],
+          [
+            1550,
+            360
+          ],
+          [
+            1550,
+            420
+          ],
+          [
+            150,
+            420
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Image",
+    "text": "skin inspection zones",
+    "element_id": "el0161",
+    "metadata": {
+      "page_number": 15,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            450
+          ],
+          [
+            1550,
+            450
+          ],
+          [
+            1550,
+            510
+          ],
+          [
+            150,
+            510
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      },
+      "image_path": "figure-8-9.jpg"
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Operation 0200",
+    "element_id": "el0162",
+    "metadata": {
+      "page_number": 15,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2060
+          ],
+          [
+            1550,
+            2060
+          ],
+          [
+            1550,
+            2100
+          ],
+          [
+            150,
+            2100
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  },
+  {
+    "type": "Footer",
+    "text": "Page 15",
+    "element_id": "el0163",
+    "metadata": {
+      "page_number": 15,
+      "coordinates": {
+        "points": [
+          [
+            150,
+            2110
+          ],
+          [
+            1550,
+            2110
+          ],
+          [
+            1550,
+            2150
+          ],
+          [
+            150,
+            2150
+          ]
+        ],
+        "layout_width": 1700,
+        "layout_height": 2200
+      }
+    }
+  }
+]
