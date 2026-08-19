@@ -37,5 +37,15 @@ CRITICAL: For every step, identify:
 - Whether it `is_value_added` and `is_safety_critical` based on the strict limits above.
 - The `process_category` of the fundamental physics.
 - The chain-of-thought `justification`.
-- Any explicit `figure_references` (e.g., 'Figure 3', 'Fig. 12A'). Only extract resolvable identifiers, never vague references.
+- Any explicit `figure_references`. TWO kinds count, and BOTH are resolvable identifiers:
+  1. **Prose callouts** the document makes itself — 'Figure 3', 'Fig. 12A'.
+  2. **`[FIGURE: <filename>]` placeholders** that appear inline in the text. These mark the
+     position of a real extracted diagram, and `<filename>` (e.g. `figure-1-1.jpg`) is the
+     identifier that resolves to the actual image. When a step is illustrated by a figure
+     placeholder appearing within or adjacent to it, cite that filename VERBATIM — do not
+     renumber it, strip the extension, or rewrite it as 'Figure 1'. The filename is the only
+     form that resolves; a renumbered reference resolves to nothing.
+  A bare `[FIGURE]` with no filename marks a figure whose identifier could not be recovered —
+  note it in the justification if relevant, but do NOT invent a filename for it.
+  Still never extract vague references ('the diagram above') that name nothing.
 - Any `estimated_duration_minutes` (e.g., cure times, labor time).

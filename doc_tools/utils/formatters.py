@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from io import StringIO
 import logging
@@ -14,6 +15,45 @@ def convert_element_to_markdown(element: Union[Dict[str, Any], Any]) -> str:
     el_type = element.get("type") if isinstance(element, dict) else getattr(element, "type", "")
     el_text = element.get("text", "") if isinstance(element, dict) else getattr(element, "text", "")
     
+    if el_type in ("Image", "Figure"):
+        # FIGURE PLACEHOLDER — the LLM cannot see bitmaps, and an unstructured
+        # `Image` element carries its content in `metadata.image_path`, NOT in
+        # `.text` (which is empty or a stray OCR fragment). Before this branch
+        # existed every figure converted to "" and the assembled markdown had no
+        # trace that a figure was ever there — so `figure_references` could only
+        # be populated when the PROSE happened to say "see Figure 3", and a page
+        # whose figures carry no inline callout produced an empty list even
+        # though the document was full of diagrams.
+        #
+        # THE BASENAME IS THE JOIN KEY. `embedded_images_map` in
+        # components/document_parser.py is keyed by the filenames of
+        # `os.listdir(temp_extract_dir)`, and `metadata.image_path` points at a
+        # file in THAT SAME directory — so `basename(image_path)` is exactly the
+        # key whose value is the `s3://` URL. Emitting it here is what lets a
+        # model-extracted `figure_references` entry be resolved to an actual
+        # image downstream (s3:// -> FederatedImage -> bff /federated_image).
+        # The document's own numbering ("Figure 3") is a DIFFERENT namespace and
+        # joins to nothing; this one joins.
+        #
+        # Emitted IN READING ORDER, so the placeholder lands between the steps it
+        # sits between on the page — that positional fact is what lets a figure be
+        # attached to the right step rather than to the document as a whole.
+        metadata = element.get("metadata", {}) if isinstance(element, dict) else getattr(element, "metadata", None)
+        image_path = None
+        if isinstance(metadata, dict):
+            image_path = metadata.get("image_path")
+        elif metadata:
+            image_path = getattr(metadata, "image_path", None)
+
+        # No image_path (some producers omit it) still emits a marker: the
+        # POSITION of a figure is useful to the model even when the crop cannot
+        # be joined. Deliberately no fabricated name — a placeholder with an
+        # invented key would resolve to nothing and read as if it had.
+        name = os.path.basename(image_path) if image_path else ""
+        marker = f"[FIGURE: {name}]" if name else "[FIGURE]"
+        caption = el_text.strip() if isinstance(el_text, str) else ""
+        return marker + '\n' + caption if caption else marker
+
     if el_type == "Table":
         metadata = element.get("metadata", {}) if isinstance(element, dict) else getattr(element, "metadata", None)
         
