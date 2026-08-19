@@ -166,9 +166,20 @@ def build():
                 operations.add(text.split()[1])
             y += 90
         b.footer(page_idx, section)
+    # Author-declared (NOT regex-derived, so recall measurement is non-circular).
+    expected_standards = ["STD-1000", "STD-1300", "STD-1400", "STD-1500",
+                          "STD-1600", "STD-1700", "STD-1750"]
+    expected_parts = ["PN-1001", "PN-1002", "PN-1004", "PN-1005", "PN-1006",
+                      "PN-1008", "PN-1009", "PN-1011",
+                      "ADH-100-A", "ADH-100-B", "ADH-100-C"]
+    # figure-1-1.jpg is cover art on a page with no step -> deliberately unbindable
+    # (a miss-path witness: it must be flagged for review, not dropped or misbound).
     gt = {"operations": sorted(operations), "n_operations": len(operations),
           "n_steps": steps, "n_figures": len(figures), "figure_files": figures,
-          "n_pages": len(PAGES)}
+          "n_pages": len(PAGES),
+          "expected_standards": expected_standards,
+          "expected_parts": expected_parts,
+          "unbindable_figures": ["figure-1-1.jpg"]}
     return b.els, gt
 
 

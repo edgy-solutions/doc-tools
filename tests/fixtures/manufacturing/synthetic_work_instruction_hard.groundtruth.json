@@ -21,5 +21,30 @@
     "figure-8-10.jpg",
     "figure-9-11.jpg"
   ],
-  "n_pages": 9
+  "n_pages": 9,
+  "expected_standards": [
+    "STD-1000",
+    "STD-1300",
+    "STD-1400",
+    "STD-1500",
+    "STD-1600",
+    "STD-1700",
+    "STD-1750"
+  ],
+  "expected_parts": [
+    "PN-1001",
+    "PN-1002",
+    "PN-1004",
+    "PN-1005",
+    "PN-1006",
+    "PN-1008",
+    "PN-1009",
+    "PN-1011",
+    "ADH-100-A",
+    "ADH-100-B",
+    "ADH-100-C"
+  ],
+  "unbindable_figures": [
+    "figure-1-1.jpg"
+  ]
 }
