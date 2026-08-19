@@ -82,6 +82,13 @@ DEFAULT_EXTRACTOR_CONFIG: Dict[str, Any] = {
                       "silicone", "isopropyl alcohol", "alcohol", "ipa",
                       "anti-static foam", "threadlocker", "sealant"],
     },
+    # Operation (procedure) numbers read STRUCTURALLY from heading elements — the
+    # positional fact, not an LLM guess. An LLM procedure_id that is NOT in this set
+    # is a pollution candidate (e.g. a document number grabbed from page furniture).
+    "operations": {
+        "title_types": ["Title"],   # add "Header"/"NarrativeText" via override if needed
+        "patterns": [r"\bOperation\s+(\d{3,4})\b", r"^\s*(\d{4})\b"],
+    },
     # Bind a [FIGURE]/Image element to the nearest step element on the SAME page,
     # preferring the nearest preceding step (fall back to the nearest following).
     "figure_binder": {
@@ -204,6 +211,28 @@ def extract_slang(text: str, cfg: Dict[str, Any]) -> List[str]:
         if re.search(rf"\b{re.escape(g)}\b", text or "", re.I):
             hits.append(g)
     return hits
+
+
+# --------------------------------------------------------------------------- #
+# Operations (procedure numbers) — structural
+# --------------------------------------------------------------------------- #
+def extract_operations(elements: List[dict], cfg: Dict[str, Any]) -> Tuple[List[str], List[Anomaly]]:
+    """Operation numbers read from heading elements (structural, not LLM)."""
+    oc = cfg["operations"]
+    ttypes = set(oc["title_types"])
+    ops: List[str] = []
+    seen = set()
+    for el in elements:
+        if el.get("type") not in ttypes:
+            continue
+        text = el.get("text", "") or ""
+        for pat in oc["patterns"]:
+            for m in re.finditer(pat, text):
+                v = m.group(1)
+                if v not in seen:
+                    seen.add(v)
+                    ops.append(v)
+    return sorted(ops), []
 
 
 # --------------------------------------------------------------------------- #
