@@ -466,3 +466,98 @@ def test_a_row_with_NO_tool_kind_takes_the_verb_path(monkeypatch):
     }
     out, _ = _run_linker(monkeypatch, props)
     assert out["status"] != "rejected"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UNREACHABLE IS NOT A SKIP (2026-08-21)
+#
+# The doc-tools pod held an invalid DATAHUB_TOKEN. Every GMS call returned HTTP
+# 401. `raise_for_status()` raised, a blanket `except Exception` swallowed it,
+# `_fetch_tool_properties` returned None, and the asset logged "not a mesh tool
+# registration or not reachable ... the next poll will retry" and returned
+# {"status": "skipped"} -- so the Dagster run reported SUCCESS.
+#
+# A manual materialization of one presentation URN went green while writing
+# nothing. That is the expensive shape: a dead path dressed as a working
+# fallback, which the next operator falls back TO, watches succeed, and trusts.
+#
+# The two conditions are now distinct:
+#   * DataHub unreadable (auth/transport/GraphQL errors) -> RAISE. The question
+#     went unanswered; no poll can fix a bad credential.
+#   * DataHub read fine, URN simply isn't a registration -> skip, as before.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class _Resp:
+    def __init__(self, status=200, body=None):
+        self.status_code = status
+        self._body = body or {}
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+    def json(self):
+        return self._body
+
+
+def test_a_401_raises_instead_of_reporting_a_skip(monkeypatch):
+    """THE REGRESSION. An auth failure must not be indistinguishable from
+    'this URN is not a registration'."""
+    monkeypatch.setattr(
+        aitool_linker.requests, "post",
+        lambda *a, **k: _Resp(status=401),
+    )
+    with pytest.raises(aitool_linker.MeshToolUnreachableError) as exc:
+        aitool_linker._fetch_tool_properties("urn:li:mlModel:(x,y,PROD)")
+    assert "unreadable" in str(exc.value).lower()
+
+
+def test_transport_failure_raises(monkeypatch):
+    """A connection error is also an unanswered question, not a negative answer."""
+    def _boom(*a, **k):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(aitool_linker.requests, "post", _boom)
+    with pytest.raises(aitool_linker.MeshToolUnreachableError):
+        aitool_linker._fetch_tool_properties("urn:li:mlModel:(x,y,PROD)")
+
+
+def test_graphql_errors_raise(monkeypatch):
+    """Schema drift returns HTTP 200 with data:null and an errors array. Silently
+    retrying that is how drift survives for months."""
+    monkeypatch.setattr(
+        aitool_linker.requests, "post",
+        lambda *a, **k: _Resp(body={"data": None, "errors": [{"message": "no field"}]}),
+    )
+    with pytest.raises(aitool_linker.MeshToolUnreachableError):
+        aitool_linker._fetch_tool_properties("urn:li:mlModel:(x,y,PROD)")
+
+
+def test_a_genuine_non_registration_still_skips(monkeypatch):
+    """THE POSITIVE CONTROL. If everything raised, the asset could never skip a
+    legitimately unrelated URN -- and a seal that only raises is not a seal."""
+    monkeypatch.setattr(
+        aitool_linker.requests, "post",
+        lambda *a, **k: _Resp(body={"data": {"mlModel": {"properties": {
+            "description": "a dataset, not a mesh tool",
+            "customProperties": [{"key": "mesh_is_registration", "value": "false"}],
+        }}}}),
+    )
+    assert aitool_linker._fetch_tool_properties("urn:li:mlModel:(x,y,PROD)") is None
+
+
+def test_a_real_registration_still_returns_props(monkeypatch):
+    """The happy path must survive the change."""
+    monkeypatch.setattr(
+        aitool_linker.requests, "post",
+        lambda *a, **k: _Resp(body={"data": {"mlModel": {"properties": {
+            "description": "renders ownership facts",
+            "customProperties": [
+                {"key": "mesh_is_registration", "value": "true"},
+                {"key": "mesh_tool_kind", "value": "Presentation"},
+            ],
+        }}}}),
+    )
+    props = aitool_linker._fetch_tool_properties("urn:li:mlModel:(x,y,PROD)")
+    assert props["mesh_tool_kind"] == "Presentation"
+    assert props["_mesh_description"] == "renders ownership facts"

@@ -55,6 +55,22 @@ def get_verb_local_name(verb_iri: str) -> str:
     return verb_iri.split(":")[-1] if ":" in verb_iri else verb_iri
 
 
+class MeshToolUnreachableError(RuntimeError):
+    """DataHub could not be READ -- auth rejected, transport failed, or the API
+    returned GraphQL errors.
+
+    Distinct from "this URN is not a mesh tool registration", which is a
+    legitimate skip. Conflating the two is what made this asset report SUCCESS
+    while writing nothing: on 2026-08-21 the doc-tools pod held an invalid
+    DATAHUB_TOKEN, every GMS call returned HTTP 401, `raise_for_status` raised,
+    the blanket `except Exception` swallowed it, and the caller logged a
+    reassuring "the next poll will retry" -- for a condition no poll can fix.
+
+    A dead path that reports success is worse than a dead path, because the
+    next operator falls back to it, watches it go green, and trusts a no-op.
+    """
+
+
 def _fetch_tool_properties(tool_urn: str) -> Optional[Dict[str, str]]:
     """Read the mesh tool's customProperties bag from DataHub GMS.
 
@@ -96,8 +112,14 @@ def _fetch_tool_properties(tool_urn: str) -> Optional[Dict[str, str]]:
         )
         resp.raise_for_status()
         body = resp.json() or {}
-    except Exception:
-        return None
+    except Exception as exc:
+        # NOT a skip. The URN was never evaluated -- we could not read DataHub
+        # at all -- so claiming "not a registration" would be a false negative
+        # dressed as a routine skip.
+        raise MeshToolUnreachableError(
+            f"DataHub GMS unreadable while fetching {tool_urn}: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
 
     # DataHub returns HTTP 200 with `data: null` and an `errors` array
     # on schema mismatches or per-URN failures. dict.get("data", {})
@@ -107,10 +129,13 @@ def _fetch_tool_properties(tool_urn: str) -> Optional[Dict[str, str]]:
     # instead of dropping into an AttributeError caught by Dagster's
     # broad except.
     if body.get("errors"):
-        # Returning None here triggers the "skipped" branch in the
-        # caller, which logs the URN and warns the operator. The next
-        # sensor tick retries.
-        return None
+        # Schema drift or a per-URN failure. Also NOT a skip: the question
+        # "is this a mesh registration?" went unanswered, and a retry loop
+        # that never surfaces the cause is how schema drift survives for
+        # months. Fail loud; the message carries the GraphQL error.
+        raise MeshToolUnreachableError(
+            f"DataHub returned GraphQL errors for {tool_urn}: {body['errors']}"
+        )
     model = (
         ((body.get("data") or {}).get("mlModel") or {}).get(
             "properties"
@@ -469,10 +494,13 @@ def sync_aitool_predicate_to_neo4j(
     """
     props = _fetch_tool_properties(config.tool_urn)
     if not props:
+        # Reaching here now means exactly ONE thing: DataHub was read
+        # successfully and this URN is not a mesh tool registration. Anything
+        # that prevented us from READING raises above rather than landing here,
+        # so this message can no longer describe a broken path as a stale one.
         context.log.warning(
-            f"Skipping {config.tool_urn}: not a mesh tool registration or not "
-            f"reachable in DataHub. The sensor may have fired stale; the next "
-            f"poll will retry."
+            f"Skipping {config.tool_urn}: DataHub was reachable and this URN is "
+            f"not a mesh tool registration (mesh_is_registration != 'true')."
         )
         return {"status": "skipped", "tool_urn": config.tool_urn}
 
