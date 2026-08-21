@@ -195,7 +195,12 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     # for a `mesh_*` prefix pass-through (whitelist by convention,
     # not enumeration) and kill this bug class entirely.
     return {
-        "iri": props["mesh_verb_iri"],
+        # TWO SPECIES, ONE EDGE PROPERTY. An engine registration names its edge with
+        # `mesh_verb_iri`; a presentation names it with `mesh_predicate_iri` (always
+        # mesh:rendersAs, per ADR-0017). Both are "the IRI of this edge", so both land in
+        # `iri`. This was a HARD KeyError for presentations -- found 2026-08-21 by the
+        # break-on-purpose test, not in production, which is the point of writing it.
+        "iri": props.get("mesh_verb_iri") or props.get("mesh_predicate_iri", ""),
         "synonyms": synonyms,
         "anti_synonyms": anti_synonyms,
         "endpoint_url": props.get("mesh_endpoint_url", ""),
@@ -471,14 +476,45 @@ def sync_aitool_predicate_to_neo4j(
         )
         return {"status": "skipped", "tool_urn": config.tool_urn}
 
-    verb_iri = props.get("mesh_verb_iri")
-    input_uri = props.get("mesh_input_uri")
-    output_uri = props.get("mesh_output_uri")
+    # ── TWO SPECIES SHARE THIS TABLE (2026-08-21) ─────────────────────────────────────
+    # An ENGINE registration is verb-shaped: (input_uri) -[verb_iri]-> (output_uri).
+    # A PRESENTATION registration is triple-shaped: (subject_uri) -[mesh:rendersAs]->
+    # (object_uri). Both are edges between two OntologyClass nodes, so both materialize
+    # through the same Cypher below -- only the property NAMES differ.
+    #
+    # Before this branch the field check demanded mesh_verb_iri / mesh_input_uri /
+    # mesh_output_uri unconditionally, so EVERY presentation was rejected as "incomplete"
+    # -- at ERROR level, telling the author to "re-register", A REMEDY THAT CANNOT WORK
+    # because re-registering produces the same fields. The guard was correct for everything
+    # it was built to carry; Presentation was never in its population.
+    #
+    # `mesh_tool_kind` was ALREADY on every row and already read into rel_props below. The
+    # discriminator existed in the data and nothing branched on it -- declared but unwired.
+    tool_kind = (props.get("mesh_tool_kind") or "").strip()
+    is_presentation = tool_kind == "Presentation"
+
+    if is_presentation:
+        verb_iri = props.get("mesh_predicate_iri")
+        input_uri = props.get("mesh_subject_uri")
+        output_uri = props.get("mesh_object_uri")
+        missing_desc = (
+            f"predicate_iri={verb_iri!r}, subject_uri={input_uri!r}, "
+            f"object_uri={output_uri!r}"
+        )
+    else:
+        verb_iri = props.get("mesh_verb_iri")
+        input_uri = props.get("mesh_input_uri")
+        output_uri = props.get("mesh_output_uri")
+        missing_desc = (
+            f"verb_iri={verb_iri!r}, input_uri={input_uri!r}, output_uri={output_uri!r}"
+        )
+
     if not (verb_iri and input_uri and output_uri):
         context.log.error(
-            f"Mesh tool {config.tool_urn} is missing required predicate fields "
-            f"(verb_iri={verb_iri!r}, input_uri={input_uri!r}, output_uri={output_uri!r}). "
-            f"Refusing to materialize; tool author must re-register."
+            f"Mesh tool {config.tool_urn} (kind={tool_kind or 'AITool'}) is missing required "
+            f"predicate fields ({missing_desc}). Refusing to materialize. "
+            f"If the fields are present under DIFFERENT names, this linker does not yet know "
+            f"that species -- re-registering will NOT help."
         )
         return {"status": "rejected", "tool_urn": config.tool_urn, "reason": "incomplete"}
 

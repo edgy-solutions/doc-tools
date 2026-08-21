@@ -362,3 +362,107 @@ def test_sync_propagates_neo4j_errors(monkeypatch):
             config=AIToolSyncConfig(tool_urn="urn:li:mlModel:(urn:li:dataPlatform:mesh,x,PROD)"),
             neo4j=_BrokenNeo4j(),
         )
+
+
+# ---------------------------------------------------------------------------
+# Two species share this table: engine verbs and presentation triples
+# ---------------------------------------------------------------------------
+#
+# Measured 2026-08-21 against a live cluster: DataHub held 11 presentation
+# registrations and Weaviate's Predicate collection held ZERO rendersAs rows.
+# The field check demanded mesh_verb_iri / mesh_input_uri / mesh_output_uri
+# unconditionally, so every presentation was rejected as "incomplete" -- at
+# ERROR level, instructing the author to "re-register", A REMEDY THAT CANNOT
+# WORK because re-registering produces the same fields.
+#
+# `mesh_tool_kind` was already on every row and already read into rel_props.
+# The discriminator existed in the data and nothing branched on it.
+
+_PRESENTATION_PROPS = {
+    "mesh_is_registration": "true",
+    "mesh_tool_kind": "Presentation",
+    "mesh_subject_uri": "http://invincible-agent/mesh#DatasetAnalysisReport",
+    "mesh_predicate_iri": "mesh:rendersAs",
+    "mesh_object_uri": "http://invincible-agent/mesh#ChartWidget",
+    "mesh_archetype": "CHART_WIDGET",
+    "mesh_expected_fields": '["dataset_id", "metrics", "viz_type"]',
+}
+
+
+def _run_linker(monkeypatch, props):
+    """Drive the asset with DataHub stubbed and Neo4j/Weaviate mocked."""
+    monkeypatch.setattr(aitool_linker, "_fetch_tool_properties", lambda urn: props)
+    monkeypatch.setattr(aitool_linker, "sync_predicate_to_weaviate",
+                        lambda *a, **k: None)
+
+    captured = {}
+
+    class _Session:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def run(self, cypher, **params):
+            captured.update(params)
+            r = MagicMock()
+            r.single.return_value = {"rel_type": params.get("verb_local"),
+                                     "iri": params.get("verb_iri")}
+            return r
+
+    class _Driver:
+        def session(self): return _Session()
+
+    neo4j = MagicMock()
+    neo4j.get_driver.return_value = _Driver()
+
+    cfg = aitool_linker.AIToolSyncConfig(tool_urn="urn:li:mlModel:(x,presentation_probe,PROD)")
+    out = aitool_linker.sync_aitool_predicate_to_neo4j(
+        build_asset_context(), cfg, neo4j)
+    return out, captured
+
+
+def test_a_PRESENTATION_registration_materializes(monkeypatch):
+    """The break-on-purpose: this exact payload was REJECTED before the tool_kind branch."""
+    out, captured = _run_linker(monkeypatch, dict(_PRESENTATION_PROPS))
+    assert out["status"] != "rejected", f"presentation rejected: {out}"
+    # subject -> predicate -> object maps onto the existing input -> verb -> output slots,
+    # because a Predicate row IS a triple and so is a presentation.
+    assert captured["input_uri"] == _PRESENTATION_PROPS["mesh_subject_uri"]
+    assert captured["output_uri"] == _PRESENTATION_PROPS["mesh_object_uri"]
+    assert captured["verb_local"] == "rendersAs"
+
+
+def test_a_presentation_MISSING_its_own_fields_is_still_rejected(monkeypatch):
+    """The branch must not become a bypass. A Presentation lacking subject/object is as
+    unmaterializable as a verb lacking input/output."""
+    props = dict(_PRESENTATION_PROPS)
+    del props["mesh_object_uri"]
+    out, _ = _run_linker(monkeypatch, props)
+    assert out["status"] == "rejected" and out["reason"] == "incomplete"
+
+
+def test_ENGINE_registrations_are_UNCHANGED_by_the_branch(monkeypatch):
+    """The verb path is the population the guard was built for. It must be untouched."""
+    props = {
+        "mesh_is_registration": "true",
+        "mesh_tool_kind": "Engine",
+        "mesh_verb_iri": "mesh:lookupOwnership",
+        "mesh_input_uri": "http://invincible-agent/idp#Dataset",
+        "mesh_output_uri": "http://invincible-agent/mesh#OwnershipFact",
+    }
+    out, captured = _run_linker(monkeypatch, props)
+    assert out["status"] != "rejected"
+    assert captured["input_uri"] == props["mesh_input_uri"]
+    assert captured["verb_local"] == "lookupOwnership"
+
+
+def test_a_row_with_NO_tool_kind_takes_the_verb_path(monkeypatch):
+    """Absent kind defaults to the verb species, matching the pre-existing default
+    (`props.get("mesh_tool_kind", "AITool")`). A missing discriminator must not silently
+    change which fields are required."""
+    props = {
+        "mesh_is_registration": "true",
+        "mesh_verb_iri": "mesh:describeAsset",
+        "mesh_input_uri": "http://invincible-agent/idp#Dataset",
+        "mesh_output_uri": "http://invincible-agent/mesh#AssetProfile",
+    }
+    out, _ = _run_linker(monkeypatch, props)
+    assert out["status"] != "rejected"
