@@ -52,10 +52,23 @@ hand-transcribed — the enum values are read out of the `Literal`):
 [
   {"name": "group_by", "kind": "spoken-optional", "type": "enum",
    "required": false, "values": ["org", "initiative"], "default": "org"},
-  {"name": "window", "kind": "spoken-optional", "type": "str", "required": false},
+  {"name": "window", "kind": "spoken-optional", "type": "list[str]", "required": false},
   {"name": "baseline_state", "kind": "handle", "type": "PlanState", "required": true}
 ]
 ```
+
+> **Corrected 2026-08-28.** `window` was shown here as `"str"`. It is `list[str]`, and the
+> earlier version was not a typo in this document — it was what the producer actually
+> emitted. The derivation unwrapped `Optional[X]` by taking the single non-`None` arm, which
+> silently unwrapped `Optional[list[str]]` twice and reported the element type. A consumer
+> believing that declaration sends `"FY26-Q4"` where a list is required, and the engine
+> replies `422 unknown fiscal period(s): F, Y, 2, 6, -, Q, 4` — it iterated the string.
+>
+> Fixed producer-side (`invincible-agent@bd233cf`); union origins are now distinguished from
+> container origins, and enum values are read from *inside* a container so a multi-select
+> keeps its vocabulary. **No change is required on the doc-tools side** — the field was
+> always an opaque string in an opaque record — but the shape is stated correctly here
+> because this document is the contract another team reads.
 
 `kind` is one of `spoken-mandatory | spoken-optional | handle | ceremony`. It is the only fact no
 type system carries: `baseline_state: str` and `site_id: str` are identical shapes with opposite
