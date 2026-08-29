@@ -193,6 +193,43 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     except json.JSONDecodeError:
         domains = []
 
+    # WHAT THE VERB TAKES — one record per parameter, so the router can know a slot is
+    # missing (rather than only that nothing cleared threshold) and can refuse a spoken
+    # value for an argument the ROUTE supplies. Registered by iagent as `mesh_slots`;
+    # consumed by the supervisor as the acceptance schema for extracted slots.
+    #
+    # KEPT AS ITS JSON STRING, NOT DECODED, AND THIS IS NOT A SHORTCUT. `slots` is a list
+    # of MAPS, and Neo4j property values may only be primitives or arrays of primitives.
+    # Decoding it the way `domains` is decoded makes the relationship write fail outright.
+    # Measured against the sandbox Neo4j (in a rolled-back transaction), same property, one
+    # value shape apart:
+    #
+    #   [{"name": "group_by", ...}]   REJECTED  Neo.ClientError.Statement.TypeError:
+    #                                           "Property values can only be of primitive
+    #                                            types or arrays thereof"
+    #   '[{"name": "group_by", ...}]' ACCEPTED  (a string is a primitive)
+    #   ["A", "B"]                    ACCEPTED  (control — the `domains` idiom)
+    #
+    # So this follows `openapi_schema` (the other structured payload, also a raw string)
+    # rather than `domains`/`synonyms` (arrays of strings, correctly decoded). Anyone
+    # tempted to "fix the inconsistency" by adding a json.loads here will break registration
+    # for every verb that declares a slot — hence the evidence, in place.
+    #
+    # The JSON is still VALIDATED, just not kept decoded: malformed input becomes "[]", the
+    # same never-raise contract `mesh_domains` has. Validating here means a consumer's
+    # json.loads cannot be handed garbage this function chose to pass along.
+    #
+    # A properly modelled alternative — one :Slot node per parameter, edged to the verb —
+    # would be queryable in Cypher, which this is not. It is not needed for the consuming
+    # use case (the router wants the whole list, never a filtered subset) and it is a far
+    # larger change to the graph schema. Noted as the shape to reach for if slot-level
+    # Cypher ever becomes a requirement.
+    slots_json = props.get("mesh_slots", "[]") or "[]"
+    try:
+        json.loads(slots_json)
+    except json.JSONDecodeError:
+        slots_json = "[]"
+
     # Per-provider fan-out budget declared by the engine at
     # registration. The router (Engine O) reads this and uses it
     # as the timeout for /resolve_instance calls — Engine D wants
@@ -242,6 +279,9 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
         # Recipe v2 / Gate-6 additions — router uses these.
         "provider": props.get("mesh_provider", ""),
         "timeout_s": timeout_s,
+        # The slot declarations, as a JSON STRING — see the block above for why it is not
+        # decoded, and what breaks if someone decodes it.
+        "slots": slots_json,
     }
 
 

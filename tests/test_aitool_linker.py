@@ -561,3 +561,108 @@ def test_a_real_registration_still_returns_props(monkeypatch):
     props = aitool_linker._fetch_tool_properties("urn:li:mlModel:(x,y,PROD)")
     assert props["mesh_tool_kind"] == "Presentation"
     assert props["_mesh_description"] == "renders ownership facts"
+
+
+# ---------------------------------------------------------------------------
+# mesh_slots — the verb's parameter declarations (iagent slot pipeline)
+# ---------------------------------------------------------------------------
+# Requested in docs/mesh-slots-projection-request.md. The producer emits the key
+# today and it was being SILENTLY dropped, which is the bug class the allowlist's
+# own architectural note already names.
+
+
+def test_mesh_slots_projects_as_a_json_string():
+    """Present and intact, verbatim.
+
+    The shape here is the CORRECTED one: `window` is `list[str]`, not `str`. The original
+    request document showed `str`, and that was not a typo in the document — it was what
+    the producer emitted, because its derivation unwrapped `Optional[list[str]]` twice and
+    reported the element type. Fixed upstream; the shape is pinned here so this repo's
+    expectation cannot quietly drift back."""
+    declarations = (
+        '[{"name": "group_by", "kind": "spoken-optional", "type": "enum", '
+        '"required": false, "values": ["org", "initiative"], "default": "org"}, '
+        '{"name": "window", "kind": "spoken-optional", "type": "list[str]", "required": false}, '
+        '{"name": "baseline_state", "kind": "handle", "type": "PlanState", "required": true}]'
+    )
+    props = _build_relationship_properties(
+        {"mesh_verb_iri": "mesh:foo", "mesh_slots": declarations}
+    )
+    assert props["slots"] == declarations, "the declarations must survive byte for byte"
+
+    # ...and the string is real JSON the consumer can decode, with the kinds intact —
+    # asserting on the string alone would pass for a string that says anything at all.
+    decoded = json.loads(props["slots"])
+    assert [d["name"] for d in decoded] == ["group_by", "window", "baseline_state"]
+    assert decoded[2]["kind"] == "handle"
+
+
+def test_mesh_slots_is_a_STRING_because_neo4j_cannot_hold_a_list_of_maps():
+    """THE CONSTRAINT THAT SHAPED THIS FIELD, pinned so it survives a tidy-up.
+
+    `slots` is a list of MAPS. Neo4j property values may only be primitives or arrays of
+    primitives, so decoding this the way `domains` is decoded makes the relationship write
+    fail with `Neo.ClientError.Statement.TypeError`. Measured against the sandbox Neo4j in a
+    rolled-back transaction before this field was written.
+
+    The inconsistency with `domains` is therefore deliberate, and it looks exactly like a
+    bug to a reader who does not know the constraint — which is why it is asserted rather
+    than only commented."""
+    props = _build_relationship_properties(
+        {"mesh_verb_iri": "mesh:foo", "mesh_slots": '[{"name": "group_by"}]'}
+    )
+    assert isinstance(props["slots"], str), (
+        "slots was decoded into a list — the Neo4j write will now fail for every verb "
+        "that declares a slot. See the comment in _build_relationship_properties."
+    )
+    # The sibling that IS a list, so this test cannot pass by everything being a string.
+    domains = _build_relationship_properties(
+        {"mesh_verb_iri": "mesh:foo", "mesh_domains": '["PORTFOLIO_PLANNING"]'}
+    )
+    assert isinstance(domains["domains"], list)
+
+
+def test_missing_mesh_slots_defaults_to_an_empty_list():
+    """Absent means `[]` means today's behaviour — the same contract `mesh_domains` has.
+
+    The iagent side fails CLOSED on empty declarations (every spoken slot refused), so this
+    default is what keeps the whole slot pipeline dark until a producer actually declares."""
+    props = _build_relationship_properties({"mesh_verb_iri": "mesh:foo"})
+    assert props["slots"] == "[]"
+    assert json.loads(props["slots"]) == []
+
+
+def test_malformed_mesh_slots_json_falls_back_to_empty():
+    """Never raised, per the idiom. Validated-but-not-decoded: this function checks the JSON
+    parses precisely so a consumer's own `json.loads` cannot be handed garbage that this
+    function chose to pass along."""
+    props = _build_relationship_properties(
+        {"mesh_verb_iri": "mesh:foo", "mesh_slots": "[not valid json"}
+    )
+    assert props["slots"] == "[]"
+
+
+def test_a_key_outside_the_allowlist_DOES_NOT_PROJECT():
+    """THE NEGATIVE, and the reason this file gained tests at all.
+
+    The discard is currently INCIDENTAL — it falls out of the return value being a literal
+    dict, and nothing states it is intended. That is exactly what let `mesh_slots` be
+    dropped without a signal for as long as it was: the producer emitted it, the projection
+    ignored it, and no error was raised at any layer.
+
+    Pinning the discard as a DECISION means the next producer that invents a key learns it
+    from a red test instead of rediscovering the silence. The allowlist's own architectural
+    note calls this out as its own bug class, and names mesh_provider + mesh_timeout_s as
+    the pair it nearly hid once already."""
+    props = _build_relationship_properties(
+        {"mesh_verb_iri": "mesh:foo", "mesh_not_a_real_key": "x"}
+    )
+    assert "mesh_not_a_real_key" not in props
+    assert "not_a_real_key" not in props
+    assert "x" not in props.values(), "the value leaked in under some other name"
+
+    # Non-vacuity: a key that IS on the allowlist projects, so the assertions above are
+    # detecting the allowlist rather than an empty return.
+    assert _build_relationship_properties(
+        {"mesh_verb_iri": "mesh:foo", "mesh_provider": "engine_d"}
+    )["provider"] == "engine_d"

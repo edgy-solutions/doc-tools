@@ -3,6 +3,48 @@
 **Raised by:** invincible-agent, Lane 1 · **Date:** 2026-08-28 · **Size:** one allowlist row + two tests
 **Producer side:** landed and inert — `invincible-agent@7f3e225`
 
+> ## BUILT 2026-08-29 — AND THE REQUESTED IMPLEMENTATION WAS WRONG
+>
+> The ask stands; the code it specified does not. **This request asked for `mesh_slots` to be
+> `json.loads`-ed into a list of dicts and passed through like `mesh_domains`. That would have
+> failed the Neo4j write for every verb that declares a slot.**
+>
+> `slots` is a list of **maps**, and a Neo4j property value may only be a primitive or an
+> array of primitives. Measured against the sandbox Neo4j in a rolled-back transaction — one
+> property, three value shapes:
+>
+> ```
+> [{"name": "group_by", ...}]     REJECTED   Neo.ClientError.Statement.TypeError:
+>                                            "Property values can only be of primitive
+>                                             types or arrays thereof"
+> '[{"name": "group_by", ...}]'   ACCEPTED   (a string is a primitive)
+> ["A", "B"]                      ACCEPTED   (control — the `domains` idiom this asked to copy)
+> ```
+>
+> **The tell was in this file the whole time and the request read past it.** Of the projected
+> properties, three are `json.loads`-ed — `synonyms`, `anti_synonyms`, `domains` — and every
+> one of them is a list of **strings**. The single structured payload, `openapi_schema`, is
+> passed through as a **raw string** with no decode. That asymmetry is not an oversight in
+> doc-tools; it is the constraint showing through, and `mesh_slots` belongs on the
+> `openapi_schema` side of it.
+>
+> **As built:** `"slots": slots_json` — the JSON text, validated but not decoded, malformed
+> input becoming `"[]"` so the never-raise contract still holds and a consumer's own
+> `json.loads` cannot be handed garbage this function chose to pass along.
+>
+> **Consumer side corrected too** (`invincible-agent`): the supervisor did
+> `list(truth.get("slots") or [])`, which on a JSON string yields one entry **per character**
+> — every declaration a one-character string. That is the same container-traded-for-elements
+> defect that produced `422 unknown fiscal period(s): F, Y, 2, 6, -, Q, 4` a day earlier.
+> Decoding now happens in one place, `iagent_pure.slot_acceptance.decode_declarations`, and
+> anything unparseable becomes `[]`, which the guard treats as "declare nothing, accept
+> nothing" — a corrupt declaration fails **closed**.
+>
+> **Noted for later, not done:** one `:Slot` node per parameter would be queryable in Cypher,
+> which a JSON string is not. Not needed by the consuming use case (the router always wants
+> the whole list, never a filtered subset) and a much larger graph-schema change. The shape to
+> reach for if slot-level Cypher ever becomes a requirement.
+
 ## What is being asked
 
 `_build_relationship_properties()` in `doc_tools/assets/aitool_linker.py` translates DataHub's flat
@@ -10,16 +52,19 @@
 producer key, `mesh_slots`, is now emitted and needs a row:
 
 ```python
-"slots": slots,   # alongside "domains", "cost_class", …
+"slots": slots_json,   # alongside "domains", "cost_class", …
 ```
 
-decoded the same way `mesh_verb_synonyms` and `mesh_domains` already are:
+~~decoded the same way `mesh_verb_synonyms` and `mesh_domains` already are~~ — **NO. See the
+correction at the top: decoding this into a list of dicts fails the Neo4j write.** Validated
+but kept as text, following `openapi_schema`:
 
 ```python
+slots_json = props.get("mesh_slots", "[]") or "[]"
 try:
-    slots: List[dict] = json.loads(props.get("mesh_slots", "[]"))
+    json.loads(slots_json)          # validate only — a Neo4j property cannot hold maps
 except json.JSONDecodeError:
-    slots = []
+    slots_json = "[]"
 ```
 
 **Absent means `[]`, and `[]` means today's behaviour** — exactly the contract `mesh_domains`
@@ -86,7 +131,13 @@ exactly as `domains` is. Decode, default to `[]`, pass through.
 2. **malformed JSON falls back** — `{"mesh_slots": "[not valid json"}` → `props["slots"] == []`,
    never raised
 
-**And please add the negative, which we could not find an equivalent of:**
+**A third was added beyond what this asked for**, pinning the string-ness itself:
+`test_mesh_slots_is_a_STRING_because_neo4j_cannot_hold_a_list_of_maps`, with the `domains`
+list as its non-vacuity control. The inconsistency with `domains` looks exactly like a bug to
+a reader who does not know the constraint, so it is asserted rather than only commented — a
+tidy-up that "fixes" it breaks registration for every verb that declares a slot.
+
+**And the negative, which we could not find an equivalent of:**
 
 3. **a key NOT in the allowlist demonstrably does not project** — e.g.
    `{"mesh_not_a_real_key": "x"}` → that key is absent from the returned dict.
