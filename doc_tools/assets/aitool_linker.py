@@ -1,5 +1,31 @@
 """AITool binding plane — propose / sync side.
 
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  RETIRED 2026-06-13 (ADR-0006 §Addendum). THIS IS NOT THE LIVE PATH.         ║
+║                                                                              ║
+║  `agent_fleet/mesh_registrar` (invincible-agent) is the SOLE WRITER of       ║
+║  AITool predicate edges into Neo4j and Weaviate. It writes them              ║
+║  synchronously in the registration request path, with saga compensation.     ║
+║                                                                              ║
+║  A CHANGE HERE DOES NOT REACH A LIVE EDGE. This module is retained only so   ║
+║  a one-off manual re-sync of a specific tool_urn stays possible through the  ║
+║  Dagster launchpad. The SENSOR that used to drive it is gone — nothing polls ║
+║  DataHub for mlModel MCPs any more.                                          ║
+║                                                                              ║
+║  WHY THIS BANNER EXISTS, and it is worth the space: the retirement was       ║
+║  recorded in an ADR addendum and in a comment at the `Definitions(...)` call ║
+║  in definitions.py — ONE FILE OVER from here. Neither was findable from      ║
+║  where a reader actually lands. Twice, agents tracing "where does this       ║
+║  property get written" arrived in this module, read a plausible, complete,   ║
+║  working projection, and spent a day building against a corpse. The second   ║
+║  of them filed a cross-repo request calling this "the single gate" on a      ║
+║  feature it could not gate. A note one file over is a note nobody reads.     ║
+║                                                                              ║
+║  ADDING A NEW REGISTRATION PROPERTY? It must be enumerated at SEVEN sites,   ║
+║  of which this file is the retired one. See, in invincible-agent,            ║
+║  docs/plans/a-registration-property-must-be-enumerated-seven-times.md        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
 Mirror of ``semantic_linker`` for AITool registrations rather than Datasets.
 Per ADR-0004 (predicate-graph routing) and ADR-0006 (DataHub inbox, Neo4j
 substrate), a mesh tool registers itself to DataHub as an ``mlModel`` entity
@@ -161,6 +187,15 @@ def _fetch_tool_properties(tool_urn: str) -> Optional[Dict[str, str]]:
 def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     """Translate DataHub's flat string customProperties into typed Neo4j
     relationship properties.
+
+    ** RETIRED PATH — see the module banner. ** `agent_fleet/mesh_registrar`'s
+    `_build_rel_props_for_saga` is what actually lands properties on a live edge; this
+    function feeds the manual re-sync path only. The two are deliberate duplicates and
+    BOTH must gain a key when a registration property is added, or the manual re-sync
+    silently writes an edge poorer than the registrar's.
+
+    A reader arriving here to answer "why is my new property not in the graph?" is in the
+    wrong file, and this is the sentence that says so.
 
     DataHub requires custom-property values to be strings; the SDK
     JSON-encodes lists and bools (``"true"`` / ``"false"``). We restore the

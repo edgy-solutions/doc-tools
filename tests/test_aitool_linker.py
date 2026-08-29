@@ -666,3 +666,83 @@ def test_a_key_outside_the_allowlist_DOES_NOT_PROJECT():
     assert _build_relationship_properties(
         {"mesh_verb_iri": "mesh:foo", "mesh_provider": "engine_d"}
     )["provider"] == "engine_d"
+
+
+# ---------------------------------------------------------------------------
+# The retirement, asserted rather than narrated
+# ---------------------------------------------------------------------------
+
+_RETIREMENT = (
+    "ADR-0006 §Addendum retired this path on 2026-06-13. "
+    "`agent_fleet/mesh_registrar` (invincible-agent) is the SOLE WRITER of AITool "
+    "predicate edges to the live graph; this module exists only for one-off manual "
+    "re-syncs through the Dagster launchpad. Re-wiring it into automatic registration "
+    "gives the substrate TWO writers with different property sets — which is the "
+    "allowlist-drift bug class the retirement was performed to end."
+)
+
+
+def test_the_aitool_sensor_STAYS_RETIRED():
+    """Fails if anyone wires this path back into automatic registration.
+
+    Read from the source with AST rather than by importing `definitions` — that import
+    pulls the whole Dagster + torch dependency chain, and a test that cannot run is not a
+    guard. What is asserted is narrow and exact: no name mentioning `aitool` may appear in
+    the arguments of the `Definitions(...)` call.
+
+    WHY A TEST AND NOT THE COMMENT THAT IS ALREADY THERE. The retirement WAS documented —
+    in an ADR addendum, and in a comment at the `Definitions(...)` call, one file over from
+    the projection everyone reads. Two agents in two days traced a property into
+    `aitool_linker.py`, found a plausible working projection, and built against it; the
+    second filed a cross-repo request calling it "the single gate" on a feature it could
+    not gate. Prose one file over is prose nobody reads. A test fails in the reader's face.
+    """
+    import ast
+    import pathlib
+
+    src = (pathlib.Path(__file__).resolve().parents[1] / "doc_tools" / "definitions.py")
+    tree = ast.parse(src.read_text(encoding="utf-8"))
+
+    call = next(
+        (n for n in ast.walk(tree)
+         if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "Definitions"),
+        None,
+    )
+    assert call is not None, "the Definitions(...) call moved — this guard points at nothing"
+
+    mentioned = {
+        n.id for n in ast.walk(call) if isinstance(n, ast.Name)
+    } | {
+        n.attr for n in ast.walk(call) if isinstance(n, ast.Attribute)
+    }
+    offenders = sorted(m for m in mentioned if "aitool" in m.lower())
+    assert not offenders, f"{offenders} wired back into Definitions(). {_RETIREMENT}"
+
+    # Non-vacuity: the call really does reference the sensors that ARE live, so an empty
+    # `mentioned` set cannot make this pass silently.
+    assert any("sensor" in m.lower() for m in mentioned), (
+        "no sensor names found in Definitions(...) — the AST walk is not seeing the "
+        "arguments, so the assertion above proved nothing"
+    )
+
+
+def test_the_module_says_it_is_retired_where_a_reader_LANDS():
+    """The banner is load-bearing, not decoration.
+
+    An agent tracing "where does this property get written" opens this module, not
+    `definitions.py` and not the ADR. The retirement has to be legible from the first
+    screen or it is not legible at all — which is exactly how it was missed twice."""
+    import pathlib
+
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "doc_tools" / "assets" / "aitool_linker.py").read_text(encoding="utf-8")
+    head = src[:2500]
+    assert "RETIRED" in head, "the retirement banner left the top of the module"
+    assert "mesh_registrar" in head, "the banner no longer names the live writer"
+    assert "ADR-0006" in head, "the banner no longer cites the ruling that retired this"
+
+    fn = src[src.index("def _build_relationship_properties"):][:1400]
+    assert "RETIRED" in fn, (
+        "the projection function no longer says it is retired — a reader who jumps "
+        "straight to it (which is what a search for the property does) sees nothing"
+    )
