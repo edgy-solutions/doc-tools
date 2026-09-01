@@ -61,7 +61,76 @@ def _is_meta_ontology_iri(uri: str) -> bool:
     return any(uri.startswith(p) for p in _META_ONTOLOGY_IRI_PREFIXES)
 
 
-def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, context: AssetExecutionContext):
+# --------------------------------------------------------------------------
+# RESPONSE SHAPES ARE NOT GROUNDABLE SUBJECTS
+# --------------------------------------------------------------------------
+#: The declared roots of "this class is an ANSWER, not a thing to ask about".
+#:
+#: THE DEFECT (measured 2026-09-01, a one-cell PROGRAM_FINANCE user, 12/20).
+#: ADR-0019 Contract D requires BOTH ends of a verb edge to pre-exist as
+#: owl:Class, so every verb's OUTPUT shape becomes an OntologyClass — and every
+#: OntologyClass is a candidate in Engine O's /resolve grounding pool. A verb's
+#: output therefore competes with its own input subject for the very question
+#: that invokes it:
+#:
+#:     "what is our burn rate"  ->  fin:BurnRateSeries   (no predicate edge: DEAD END)
+#:                              ->  fin:PerformanceMeasurementBaseline -> finBurnRate
+#:
+#: Right concept, wrong END of Contract D. Routing then finds no predicate edge
+#: and dies — while /resolve reports success, the class genuinely exists, and the
+#: engine is healthy with all eight verb edges live. Nothing anywhere errors.
+#:
+#: WHY PROSE COULD NOT FIX IT. Two hypotheses died first. Pool width: narrowing
+#: seven domains to one changed nothing (12/20 both). Definition language: all six
+#: fin: output definitions had been written as descriptions of the QUESTION and
+#: were rewritten to describe answer STRUCTURE — worth only 11 -> 12. The residue
+#: is the class NAME. fin:BurnRateSeries is labelled "Burn Rate Series" and will
+#: always match "what is our burn rate". A name cannot be written around, so the
+#: fix has to be structural.
+#:
+#: SAME SHAPE AS THE PROV-O FILTER ABOVE, one category further: a kind of class
+#: whose definitions vector-outcompete the domain classes a user actually means.
+#: This one is predicate-based rather than prefix-based, because a response shape
+#: is identified by what it IS (rdfs:subClassOf mesh:Response) and not by which
+#: namespace it happens to live in — fin:, mesh: and any future engine's
+#: namespace all declare them.
+_RESPONSE_SHAPE_ROOTS: tuple[str, ...] = (
+    "http://invincible-agent/mesh#Response",   # any engine output payload
+    "http://invincible-agent/mesh#Archetype",  # presentation archetypes
+)
+
+
+def response_shape_uris(g) -> set[str]:
+    """Every class declared as an engine RESPONSE or a presentation ARCHETYPE.
+
+    Transitive (``rdfs:subClassOf+``) so a subclass of a response shape is one
+    too. Evaluated per-TTL against the graph being ingested, which is sound
+    because every response shape declares its root DIRECTLY — a chain that
+    crossed file boundaries would not be seen here, and the cross-check seal in
+    invincible-agent (tests/routing/test_response_shapes_are_not_groundable.py)
+    is what would catch that, by comparing this declared set against the set
+    derived from the engines' registration tables.
+
+    Returns URIs as plain strings, matching ``_is_meta_ontology_iri``'s contract.
+    """
+    query = """
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    SELECT DISTINCT ?uri
+    WHERE {
+        ?uri rdfs:subClassOf+ ?root .
+        FILTER(?root IN (%s))
+    }
+    """ % ", ".join(f"<{r}>" for r in _RESPONSE_SHAPE_ROOTS)
+    try:
+        return {str(row.uri) for row in g.query(query)}
+    except Exception:
+        # A malformed or empty graph must not take the whole sync down. An empty
+        # set means "filter nothing", which is the pre-2026-09-01 behaviour —
+        # degraded, never destructive.
+        return set()
+
+
+def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, context: AssetExecutionContext, response_shapes: set[str] | None = None):
     """
     Takes parsed ontology classes (from rdflib/Jena) and dual-writes them to Weaviate.
     extracted_classes should be a list of dicts: {"uri": str, "label": str, "definition": str}
@@ -74,11 +143,33 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
     # entries we'd skip anyway, and so the log line below is honest
     # about how many classes are actually written.
     filtered_meta: list[dict] = []
+    filtered_response: list[dict] = []
     domain_classes: list[dict] = []
+    _shapes = response_shapes or set()
     for cls in extracted_classes:
         uri = str(cls.get("uri", ""))
         if _is_meta_ontology_iri(uri):
             filtered_meta.append(cls)
+        elif uri in _shapes:
+            # ⚠️ WEAVIATE ONLY. THIS FILTER MUST NEVER BE MIRRORED INTO THE NEO4J
+            # SYNC, which is the one difference between it and the meta-ontology
+            # filter above — and the difference is load-bearing enough that
+            # copying that symmetry here would take down all routing.
+            #
+            # Neo4j MUST keep every response shape as an :OntologyClass node:
+            #   * ADR-0019 Contract D refuses a registration whose OUTPUT class
+            #     does not pre-exist as one, so filtering Neo4j un-registers
+            #     every verb at its next registration; and
+            #   * find_compatible_verbs matches `(scope)-[r]->(o:OntologyClass)`
+            #     and returns `o.uri AS output_uri`. With the output node gone
+            #     the pattern does not match, so EVERY verb silently vanishes
+            #     from the compat walk — including the ones whose subjects are
+            #     perfectly groundable.
+            #
+            # Response shapes are also still needed for provenance, rendersAs
+            # and archetype bindings. Nothing about them stops being DECLARED.
+            # The only thing that changes is what the RESOLVER may ground to.
+            filtered_response.append(cls)
         else:
             domain_classes.append(cls)
     if filtered_meta:
@@ -106,9 +197,18 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
         collection = client.collections.get("OntologyClass")
         context.log.info(
             f"Syncing {len(domain_classes)} domain classes to Weaviate "
-            f"for domain {domain} ({len(filtered_meta)} meta-ontology "
-            f"classes filtered)..."
+            f"for domain {domain} ({len(filtered_meta)} meta-ontology, "
+            f"{len(filtered_response)} response-shape classes filtered)..."
         )
+        if filtered_response:
+            context.log.info(
+                f"Filtered {len(filtered_response)} response-shape class(es) "
+                f"from the Weaviate grounding pool (e.g. "
+                f"{filtered_response[0].get('uri','<?>')}). They REMAIN in Neo4j "
+                f"— Contract D and the compat walk both require them there. See "
+                f"_RESPONSE_SHAPE_ROOTS and "
+                f"[[response-classes-compete-for-grounding]]."
+            )
 
         # Batch insert for high performance (Idempotent Upsert).
         # Computes the vector via doc_tools.utils.embed.embed_document()
@@ -408,7 +508,14 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
             })
         
         if extracted_classes:
-            sync_ontology_to_weaviate(extracted_classes, domain, context)
+            # Computed HERE because this is where the rdflib graph lives; the
+            # SPARQL above deliberately selects only uri/label/definition and a
+            # response shape is identified by its subClassOf root, not by any
+            # column in that projection.
+            sync_ontology_to_weaviate(
+                extracted_classes, domain, context,
+                response_shapes=response_shape_uris(g),
+            )
         else:
             context.log.warning("No classes found in ontology to sync to Weaviate.")
             
