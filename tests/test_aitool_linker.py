@@ -746,3 +746,114 @@ def test_the_module_says_it_is_retired_where_a_reader_LANDS():
         "the projection function no longer says it is retired — a reader who jumps "
         "straight to it (which is what a search for the property does) sees nothing"
     )
+
+
+# ---------------------------------------------------------------------------
+# `_tool_urn` is three-state — the identity defect, and the guard that names it
+# ---------------------------------------------------------------------------
+# The edge identity is (verb_iri x tool_urn), converted 2026-06-12 after
+# engine_e_resolve_instance silently overwrote engine_d_resolve_instance's row.
+# A `""` tool_urn restores that defect by another route: it matches nothing the
+# gateway v0.2 saga wrote, so apoc.merge.relationship CREATES an edge carrying
+# `_tool_urn: ""`, and two providers of one verb both lacking a URN collapse into
+# a single edge again. Four such keyless edges exist in the sandbox graph and
+# cannot be repaired by re-registration — the repair is keyed on the NEW identity,
+# so it cannot see edges that have none.
+#
+# These pin the writer, which is the half that stops the graph needing cleaning.
+
+def test_read_tool_urn_distinguishes_all_three_states():
+    """The distinction that a default destroys. ABSENT and UNREAD have OPPOSITE
+    remedies — fix the registration vs. fix the caller — so a guard that cannot
+    tell them apart sends the operator to the wrong one."""
+    assert aitool_linker._read_tool_urn({"_tool_urn": "urn:li:mlModel:(x,foo,PROD)"}) == (
+        "urn:li:mlModel:(x,foo,PROD)", aitool_linker.TOOL_URN_PRESENT)
+    assert aitool_linker._read_tool_urn({"_tool_urn": None}) == (
+        None, aitool_linker.TOOL_URN_ABSENT)
+    assert aitool_linker._read_tool_urn({}) == (None, aitool_linker.TOOL_URN_UNREAD)
+
+
+def test_the_empty_string_classifies_as_UNREAD_not_as_a_value():
+    """THE ARTIFACT ITSELF. `""` is what `.get(k, "")` manufactures, so it cannot be
+    told apart from "we looked and found none" — it is classified UNREAD, whose
+    remedy names the CALLER, which is where the bug actually is."""
+    for blank in ("", "   "):
+        assert aitool_linker._read_tool_urn({"_tool_urn": blank}) == (
+            None, aitool_linker.TOOL_URN_UNREAD)
+
+
+def test_the_projection_never_manufactures_an_empty_tool_urn():
+    """Site one of two. `_build_relationship_properties` used to default to `""`;
+    it now yields None, so a keyless URN cannot be invented by the projection."""
+    props = _build_relationship_properties({"mesh_verb_iri": "mesh:foo"})
+    assert props["tool_urn"] is None, (
+        'the projection re-manufactured a tool_urn — `""` here is the keyless '
+        "identity, and it reaches the match key one line later"
+    )
+
+
+def _sync_with(monkeypatch, urn, extra=None):
+    props = {
+        "mesh_is_registration": "true",
+        "mesh_verb_iri":        "mro:applyDiagnostics",
+        "mesh_input_uri":       "mro:Symptom",
+        "mesh_output_uri":      "mro:FaultReport",
+    }
+    props.update(extra or {})
+    monkeypatch.setattr(aitool_linker, "_fetch_tool_properties", lambda u: props)
+    monkeypatch.setattr(aitool_linker, "sync_predicate_to_weaviate", lambda **kw: None)
+    neo4j = _FakeNeo4jResource()
+    result = sync_aitool_predicate_to_neo4j(
+        _ctx(), config=AIToolSyncConfig(tool_urn=urn), neo4j=neo4j
+    )
+    return result, neo4j
+
+
+def test_a_blank_tool_urn_is_REFUSED_and_writes_no_edge(monkeypatch):
+    """THE REGRESSION THIS EXISTS FOR. Refusal, not a default — and critically, NO
+    Cypher runs. A guard that logged and proceeded would still mint the fifth
+    keyless edge."""
+    result, neo4j = _sync_with(monkeypatch, urn="")
+
+    assert result["status"] == "rejected"
+    assert result["reason"] == f"tool_urn_{aitool_linker.TOOL_URN_UNREAD}"
+    assert neo4j.driver.session_obj.executed is None, (
+        "an edge was written despite an unusable URN — this is the mechanism that "
+        "minted the four keyless edges in the sandbox graph"
+    )
+
+
+def test_the_refusal_NAMES_WHICH_STATE(monkeypatch):
+    """A refusal that says only "unusable" is necessary but insufficient: the
+    operator still cannot tell whether to fix the registration or the reader."""
+    result, _ = _sync_with(monkeypatch, urn="")
+    assert result["reason"].endswith(aitool_linker.TOOL_URN_UNREAD)
+    # The two states carry DIFFERENT remedies — non-vacuity for the naming.
+    assert (aitool_linker._TOOL_URN_REMEDY[aitool_linker.TOOL_URN_ABSENT]
+            != aitool_linker._TOOL_URN_REMEDY[aitool_linker.TOOL_URN_UNREAD])
+
+
+def test_a_real_urn_still_keys_the_edge_on_the_v0_2_identity(monkeypatch):
+    """NON-VACUITY, and the v0.2 contract. The happy path must still write, and the
+    match key must still be (iri x _tool_urn) — a guard that broke registration
+    would "fix" the collapse by stopping all writes."""
+    urn = "urn:li:mlModel:(urn:li:dataPlatform:mesh,engine_d,PROD)"
+    result, neo4j = _sync_with(monkeypatch, urn=urn)
+
+    assert result["status"] == "synced"
+    _, params = neo4j.driver.session_obj.executed
+    assert params["match_key"] == {"iri": "mro:applyDiagnostics", "_tool_urn": urn}
+
+
+def test_two_providers_of_one_verb_get_TWO_edges(monkeypatch):
+    """The 2026-06-12 bug, stated as the property it broke: distinct providers of
+    the SAME predicate must produce distinct match keys. With the old `""` default
+    both keys were identical and the second registration overwrote the first."""
+    keys = []
+    for provider in ("engine_d", "engine_e"):
+        urn = f"urn:li:mlModel:(urn:li:dataPlatform:mesh,{provider},PROD)"
+        _, neo4j = _sync_with(monkeypatch, urn=urn)
+        keys.append(neo4j.driver.session_obj.executed[1]["match_key"])
+
+    assert keys[0] != keys[1], "two providers collapsed to one identity"
+    assert keys[0]["iri"] == keys[1]["iri"], "non-vacuous: same verb, different tool_urn"

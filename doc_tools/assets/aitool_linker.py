@@ -184,6 +184,70 @@ def _fetch_tool_properties(tool_urn: str) -> Optional[Dict[str, str]]:
     return props
 
 
+# ---------------------------------------------------------------------------
+# `_tool_urn` is THREE-STATE, and collapsing the third into the second is the
+# identity defect this asset already fixed once.
+# ---------------------------------------------------------------------------
+# The edge identity is (verb_iri x tool_urn) — see the match-key comment in
+# `sync_aitool_predicate_to_neo4j` for why, and what N-providers-collapsing-to-one
+# cost on 2026-06-12. A `""` tool_urn re-creates that defect by another route: it
+# matches nothing the gateway v0.2 saga wrote, so apoc.merge.relationship CREATES,
+# and the edge it creates carries `_tool_urn: ""` — the pre-v0.2 shape. Two
+# providers of one verb both lacking a URN collapse into a single edge again.
+#
+# Refusing on `""` is necessary but NOT sufficient, and that is the point of three
+# states rather than two. A refusal that only knows "the URN is not usable" cannot
+# tell the operator whether the tool genuinely HAS no URN or whether the read never
+# happened — and those have opposite fixes. Same distinction as returning None for
+# "could not look" versus False for "the answer is no": a default collapses them,
+# and the collapse IS the defect.
+#
+# The dict's own present/absent axis carries the third state, so there are no
+# sentinel strings that could collide with a real URN:
+#   key missing          -> UNREAD  (nobody injected it; the lookup did not happen)
+#   key present, None    -> ABSENT  (the caller looked; this tool has none)
+#   key present, ""      -> UNREAD  (the legacy default — an empty string IS the
+#                                    collapse artifact, and by construction we
+#                                    cannot tell which of the two it meant)
+#   key present, a value -> PRESENT
+TOOL_URN_PRESENT = "present"
+TOOL_URN_ABSENT = "absent"
+TOOL_URN_UNREAD = "unread"
+
+#: Operator-facing remedies, keyed by state. The refusal names WHICH, because the
+#: two non-present states do not share a fix.
+_TOOL_URN_REMEDY = {
+    TOOL_URN_ABSENT: (
+        "the tool was read and genuinely carries no URN — it cannot take part in a "
+        "(verb_iri x tool_urn) identity, so register it with a URN or do not register "
+        "it as a mesh provider"
+    ),
+    TOOL_URN_UNREAD: (
+        "the URN was never read — the caller did not inject `_tool_urn`, or injected an "
+        "empty string. This is a DEFECT IN THE CALLER, not in the registration: fix the "
+        "read, then re-materialize. Do NOT supply a placeholder, which is how the keyless "
+        "edges this guard exists to prevent were minted"
+    ),
+}
+
+
+def _read_tool_urn(props: Dict[str, Any]) -> Tuple[Optional[str], str]:
+    """Classify `_tool_urn` into (value, state). See the block above.
+
+    Returns `None` for the value in BOTH non-present states — never `""`. The empty
+    string is exactly what this function exists to stop manufacturing.
+    """
+    if "_tool_urn" not in props:
+        return None, TOOL_URN_UNREAD
+    raw = props["_tool_urn"]
+    if raw is None:
+        return None, TOOL_URN_ABSENT
+    value = raw.strip() if isinstance(raw, str) else raw
+    if not value:
+        return None, TOOL_URN_UNREAD
+    return value, TOOL_URN_PRESENT
+
+
 def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     """Translate DataHub's flat string customProperties into typed Neo4j
     relationship properties.
@@ -307,7 +371,11 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
         "cost_class": props.get("mesh_cost_class", "fast"),
         "requires_human_approval": props.get("mesh_requires_human_approval", "false") == "true",
         "namespace_authority": props.get("mesh_namespace_authority", "domain"),
-        "tool_urn": props.get("_tool_urn", ""),
+        # NOT `.get("_tool_urn", "")`. That default is where the keyless identity was
+        # manufactured; `_read_tool_urn` yields None for both non-present states and
+        # the asset refuses on either, so no edge is ever written from a URN this
+        # projection invented.
+        "tool_urn": _read_tool_urn(props)[0],
         "tool_kind": props.get("mesh_tool_kind", "AITool"),
         "version": props.get("mesh_tool_version", "0.0.0"),
         "sdk_version": props.get("mesh_sdk_version", ""),
@@ -626,6 +694,9 @@ def sync_aitool_predicate_to_neo4j(
     # detect orphans).
     props_with_urn = dict(props)
     props_with_urn["_tool_urn"] = config.tool_urn
+    # Classified once, consumed twice: the projection below puts the value on the edge,
+    # and the match-key guard further down refuses unless the state is PRESENT.
+    tool_urn_value, tool_urn_state = _read_tool_urn(props_with_urn)
     rel_props = _build_relationship_properties(props_with_urn)
 
     # Stash the input/output URIs on rel_props so the Weaviate sync below
@@ -669,7 +740,24 @@ def sync_aitool_predicate_to_neo4j(
     # key makes the identity (verb_iri × tool_urn), one edge per
     # registration. Found 2026-06-12 when engine_e_resolve_instance
     # silently overwrote engine_d_resolve_instance's row.
-    match_key = {"iri": verb_iri, "_tool_urn": rel_props.get("tool_urn", "")}
+    # The identity is well-formed only if the URN is actually known. Refusing HERE
+    # rather than defaulting is what keeps the 2026-06-12 fix from being undone by a
+    # fallback, and the state is named so the operator gets the right remedy.
+    if tool_urn_state != TOOL_URN_PRESENT:
+        context.log.error(
+            f"Mesh tool {config.tool_urn} (kind={tool_kind or 'AITool'}) has an unusable "
+            f"tool_urn (state={tool_urn_state}). Refusing to materialize: the edge identity "
+            f"is (verb_iri x tool_urn), so writing this would create an edge keyed on no URN "
+            f"— the shape that let one provider silently overwrite another before "
+            f"2026-06-12. Remedy: {_TOOL_URN_REMEDY[tool_urn_state]}."
+        )
+        return {
+            "status": "rejected",
+            "tool_urn": config.tool_urn,
+            "reason": f"tool_urn_{tool_urn_state}",
+        }
+
+    match_key = {"iri": verb_iri, "_tool_urn": tool_urn_value}
     cypher = """
     MATCH (s:OntologyClass {uri: $input_uri})
     MATCH (o:OntologyClass {uri: $output_uri})
