@@ -1,3 +1,4 @@
+import re
 import os
 import urllib.parse
 import httpx
@@ -45,6 +46,183 @@ _META_ONTOLOGY_IRI_PREFIXES: tuple[str, ...] = (
     "http://www.w3.org/ns/dcat#",          # DCAT (data catalog vocabulary)
     "http://www.w3.org/2006/vcard/ns#",    # vCard
 )
+
+
+# ---------------------------------------------------------------------------
+# Derived class labels — S3000L is primed, loads, and is invisible
+# ---------------------------------------------------------------------------
+# `/classes` (and everything behind it: the SPO interview's authorized-subject
+# menu, /operable_subjects, the router's OntologyClass candidate pool) selects
+# `?cls a owl:Class ; rdfs:label ?label` with the LABEL REQUIRED. S3000L declares
+# no labels at all — measured from source, not taken from a packet: 6206 triples,
+# 773 URIRef owl:Class subjects all in http://www.lksoft.com/s3kl#, and ZERO
+# rdfs:label / skos:prefLabel / dcterms:title / rdfs:comment among them. So the
+# domain's largest standard loads correctly and reaches no consumer. Nothing
+# errors; a caller asking about a failure mode gets a clean "no such subject",
+# which is indistinguishable from the term genuinely not existing.
+#
+# THE FIX IS NOT LOOSENING THE QUERY. A menu needs names; admitting an unlabelled
+# class puts a bare IRI in front of a user and degrades every consumer in order to
+# raise one consumer's count. The label is DERIVED HERE, at the seed step, and
+# written as a triple carrying its own provenance — so a reader can always tell a
+# name the spec authored from one this function made up.
+#
+# THREE STATES, because two would relabel a real limit as a success. Same
+# discipline as PRESENT/ABSENT/UNREAD on `_tool_urn` in assets/aitool_linker.py:
+#
+#   authored        the ontology gave the name. Never overwritten. Without this
+#                   state a seal cannot tell "derivation worked" from "derivation
+#                   overwrote everything" — it is the positive control.
+#   derived         no authored name; the URI fragment yields a real one.
+#                   `LSAFailureMode` -> "LSA Failure Mode".
+#   derived-opaque  no authored name, and the fragment CANNOT yield one, because a
+#                   segment is a bare code whose meaning lives in another triple.
+#                   `BreakdownElementEssentiality_1` humanizes to "Breakdown
+#                   Element Essentiality 1", which READS informative and tells the
+#                   reader nothing. Marking it separately is the honest move: the
+#                   class becomes visible (better than invisible) while saying out
+#                   loud that its name is a placeholder, not a definition.
+#
+# MEASURED SHAPES, because the obvious heuristic is wrong for the majority case.
+# Of the 773 fragments: 377 contain an underscore (the DOMINANT shape, e.g.
+# `AggregatedElementType_Family`); only 396 are plain camelCase; 36 carry a leading
+# acronym (`ASDSystemHardwareBreakdown`, `LSACandidate...`) which a naive camel
+# splitter mangles; 3 are bare boolean operators (`AND`, `OR`, `NOT`). No fragment
+# is empty and none is duplicated, so derivation is total and collision-free —
+# that is what makes this viable rather than a guess.
+#
+# NOTE ON xsdCode: 384 of the 773 carry `s3kl:xsdCode`, but their fragments are
+# overwhelmingly informative (`DocumentType_Drawing` xsdCode='DRW'). "Has a code"
+# is therefore NOT the opaqueness test — only 7 fragments actually hide their
+# meaning in the code (3 numeric tails `_1/_2/_3`, 4 single-letter tails `_A`..`_D`).
+# Testing on the code would have marked 384 good names as placeholders.
+
+#: Provenance predicate for the above. CROSS-REPO CONTRACT — the seal in
+#: invincible-agent queries this IRI. `http://internal/` matches the graph-URI
+#: convention this asset already writes (`http://internal/{domain}`).
+LABEL_SOURCE_PREDICATE = rdflib.URIRef("http://internal/mesh#labelSource")
+
+LABEL_SOURCE_AUTHORED = "authored"
+LABEL_SOURCE_DERIVED = "derived"
+LABEL_SOURCE_DERIVED_OPAQUE = "derived-opaque"
+
+#: Annotations that count as an AUTHORED name. First hit wins and derivation is
+#: skipped entirely.
+_AUTHORED_LABEL_PREDICATES = (
+    rdflib.RDFS.label,
+    rdflib.URIRef("http://www.w3.org/2004/02/skos/core#prefLabel"),
+    rdflib.URIRef("http://purl.org/dc/terms/title"),
+)
+
+#: Splits camelCase without mangling the two shapes a naive splitter destroys.
+#: ORDER IS LOAD-BEARING — each special alternative must be tried before the
+#: generic camel one, or it never fires and the bug is silent:
+#:   1. alphanumeric standard codes   `S1000D` -> S1000D   (not "S1000 D")
+#:   2. a leading acronym             `LSAFailureMode` -> LSA | Failure | Mode
+#:   3. an all-caps run               `AND` -> AND         (not "A N D")
+#:   4. ordinary camel / lower words
+#: 2 and 3 are DISTINCT and both are needed: 2 uses a lookahead to stop before the
+#: next word's capital, 3 must NOT require a following word. An earlier version
+#: had only 2 and the generic alternative, so every bare operator came out spelled
+#: letter by letter. Measured populations: 36 fragments carry a leading acronym,
+#: 3 are bare boolean operators.
+_CAMEL = re.compile(
+    r"[A-Z]+\d+[A-Z]*"
+    r"|[A-Z]+(?=[A-Z][a-z])"
+    r"|[A-Z]+(?![a-z])"
+    r"|[A-Z][a-z0-9]*"
+    r"|[a-z0-9]+"
+)
+
+
+def _segment_is_bare_code(segment: str) -> bool:
+    """True when an underscore-segment carries no name, only an identifier.
+
+    Two shapes, both measured in S3000L: a purely numeric tail (`..._1`) and a
+    single-letter tail (`..._A`). In both, the meaning sits in a sibling triple
+    (`s3kl:xsdCode`) and the fragment segment is just an index.
+    """
+    return segment.isdigit() or (len(segment) == 1 and segment.isalpha())
+
+
+def humanize_uri_fragment(fragment: str):
+    """Derive a human label from a URI fragment. Returns ``(label, is_opaque)``.
+
+    ``is_opaque`` is True when a segment is a bare code — the caller must NOT
+    present the result as if it were a name the ontology authored.
+    """
+    segments = [s for s in fragment.split("_") if s]
+    if not segments:
+        return "", True
+
+    opaque = any(_segment_is_bare_code(s) for s in segments)
+
+    words = []
+    for seg in segments:
+        for tok in _CAMEL.findall(seg):
+            # An all-caps token is an acronym (LSA, ASD, AND) — leave it alone.
+            words.append(tok if tok.isupper() else tok[:1].upper() + tok[1:])
+    return " ".join(words), opaque
+
+
+def derive_missing_class_labels(g, context=None):
+    """Give every unlabelled owl:Class a label, and stamp where the name came from.
+
+    Mutates ``g`` in place BEFORE the Jena push and before the Weaviate extraction,
+    so both consumers see the same labels from one insertion point.
+
+    Idempotent: a second run finds the labels the first wrote, counts them as
+    authored-by-presence, and adds nothing. Authored labels are never overwritten
+    — that is the positive control a seal needs to tell derivation from
+    obliteration.
+    """
+    counts = {
+        LABEL_SOURCE_AUTHORED: 0,
+        LABEL_SOURCE_DERIVED: 0,
+        LABEL_SOURCE_DERIVED_OPAQUE: 0,
+        "skipped_blank_node": 0,
+        "skipped_no_fragment": 0,
+    }
+
+    subjects = set(g.subjects(rdflib.RDF.type, rdflib.OWL.Class))
+    subjects |= set(g.subjects(rdflib.RDF.type, rdflib.RDFS.Class))
+
+    for cls in subjects:
+        # Blank-node owl:Class entries are anonymous restrictions, not vocabulary.
+        # They are already excluded downstream and have no fragment to derive from;
+        # naming them would invent thousands of hex-id "classes".
+        if not isinstance(cls, rdflib.URIRef):
+            counts["skipped_blank_node"] += 1
+            continue
+
+        if any((cls, p, None) in g for p in _AUTHORED_LABEL_PREDICATES):
+            counts[LABEL_SOURCE_AUTHORED] += 1
+            continue
+
+        uri = str(cls)
+        fragment = uri.split("#")[-1].split("/")[-1]
+        label, opaque = humanize_uri_fragment(fragment)
+        if not label:
+            # Nothing to work with. Refuse rather than write an empty name: an
+            # empty rdfs:label SATISFIES the consumer's query and renders as a
+            # blank menu row, which is worse than the class staying absent.
+            counts["skipped_no_fragment"] += 1
+            continue
+
+        source = LABEL_SOURCE_DERIVED_OPAQUE if opaque else LABEL_SOURCE_DERIVED
+        g.add((cls, rdflib.RDFS.label, rdflib.Literal(label)))
+        g.add((cls, LABEL_SOURCE_PREDICATE, rdflib.Literal(source)))
+        counts[source] += 1
+
+    if context is not None:
+        context.log.info(
+            f"Class labels: {counts[LABEL_SOURCE_AUTHORED]} authored (kept), "
+            f"{counts[LABEL_SOURCE_DERIVED]} derived, "
+            f"{counts[LABEL_SOURCE_DERIVED_OPAQUE]} derived-opaque (fragment is a "
+            f"bare code — the name is a placeholder and the meaning lives in a "
+            f"sibling triple), {counts['skipped_blank_node']} blank nodes skipped."
+        )
+    return counts
 
 
 def _is_meta_ontology_iri(uri: str) -> bool:
@@ -432,6 +610,12 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
     except Exception as e:
         context.log.error(f"Syntax validation failed for {obj_key}: {e}")
         raise e
+
+    # 2b. Derive labels for classes the ontology never named. MUST run here —
+    # after parse, before BOTH the Jena push below and the Weaviate extraction
+    # further down, which read the same `g`. See the block above for why this is
+    # a seed-step concern and not a query-side one.
+    derive_missing_class_labels(g, context)
 
     # 3. Push to Jena using Graph Store Protocol (POST = MERGE/append, NOT PUT).
     # This asset is partitioned PER FILE, and MANY files map to ONE semantic domain
