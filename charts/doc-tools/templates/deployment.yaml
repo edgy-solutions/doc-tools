@@ -34,7 +34,23 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          {{/*
+            `required`, NOT `| default`. The previous form silently substituted
+            .Chart.AppVersion for an unset tag — and that value was untouched
+            `helm create` scaffolding ("1.16.0"), an image that has never been
+            published and CANNOT be: CI's tag set is closed to `latest`, a `v*`
+            git tag, and the commit sha, and "1.16.0" matches none of them. So
+            "remove the default from values.yaml" — the obvious fix — would have
+            swapped a MUTABLE pull for a NONEXISTENT one, surfacing as an
+            ImagePullBackOff on the cluster at deploy time, on a tag no human
+            chose, while values.yaml looked exactly as specified.
+
+            A `| default` is the same move as a `.get(key, "")`: it manufactures
+            a plausible value where an absence should have stopped something.
+            Failing at RENDER is the point — the error arrives before anything
+            is applied, and names its own remedy.
+          */}}
+          image: "{{ .Values.image.repository }}:{{ required "image.tag is required — pin an image sha (see values-sandbox.yaml). The chart has no safe default: an unset tag used to fall back to the scaffold appVersion, which is not a publishable image." .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.command }}
           command:

@@ -36,8 +36,28 @@ Common labels
 {{- define "doc-tools.labels" -}}
 helm.sh/chart: {{ include "doc-tools.chart" . }}
 {{ include "doc-tools.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{/*
+  VERSION COMES FROM THE DEPLOYED IMAGE, NOT FROM .Chart.AppVersion.
+
+  This label previously read .Chart.AppVersion, which was untouched `helm create`
+  scaffolding ("1.16.0") — so every doc-tools pod in the namespace has been
+  asserting a version that has never existed and cannot be built, since the chart
+  was scaffolded. That is not a harmless leftover: app.kubernetes.io/version is a
+  standard label read by inventory tooling, dashboards and selectors, so the
+  cluster has been carrying a false statement about what is running.
+
+  Any STATIC replacement would have been false again on the next build — a
+  chart-level constant cannot track a per-commit image. Deriving it from
+  image.tag makes the label true by construction: it is exactly the identifier
+  the pod is running. Same law as pinning the tag itself — the declaration has
+  to be the fact, not a restatement of intent.
+
+  SAFE TO CHANGE: this lives in the common labels only. selectorLabels (below) is
+  name + instance, so the Deployment's immutable spec.selector is untouched and
+  an upgrade does not hit a field-is-immutable error.
+*/}}
+{{- if .Values.image.tag }}
+app.kubernetes.io/version: {{ .Values.image.tag | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}

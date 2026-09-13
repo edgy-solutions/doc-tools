@@ -1,6 +1,6 @@
 apiVersion: v2
 name: doc-tools
-description: A Helm chart for Kubernetes
+description: doc-tools Dagster code-location server — document extraction, ontology ingest, and the mesh predicate linker
 
 # A chart can be either an 'application' or a 'library' chart.
 #
@@ -17,8 +17,23 @@ type: application
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
 version: 0.1.5
 
-# This is the version number of the application being deployed. This version number should be
-# incremented each time you make changes to the application. Versions are not expected to
-# follow Semantic Versioning. They should reflect the version the application is using.
-# It is recommended to use it with quotes.
-appVersion: "1.16.0"
+# NO appVersion, DELIBERATELY. doc-tools has no application version — it ships
+# per-commit, identified by the image sha, so any value here would be false by the
+# next build.
+#
+# It used to say "1.16.0": untouched `helm create` scaffolding for an image that
+# has never been published and cannot be (CI's tag set is closed to `latest`, a
+# `v*` git tag, and the commit sha). That value was NOT inert. It had two live
+# consumers, and both were lying:
+#
+#   1. templates/deployment.yaml — `| default .Chart.AppVersion` selected it as
+#      the IMAGE TAG whenever image.tag was unset. Now `required`.
+#   2. templates/_helpers.tpl — it populated `app.kubernetes.io/version`, so every
+#      doc-tools pod in the namespace advertised version 1.16.0 to every inventory
+#      tool, dashboard and selector that reads that label. Now derived from
+#      .Values.image.tag, which is true by construction.
+#
+# Neither consumer reads it any more, so re-adding a value here would be inert
+# rather than harmful — but it would also be meaningless, and a plausible-looking
+# version sitting in a chart is how the last one acquired two consumers. Leave it
+# out; the image sha is the version.

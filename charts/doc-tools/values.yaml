@@ -4,7 +4,19 @@ replicaCount: 1
 image:
   repository: ghcr.io/edgy-solutions/doc-tools
   pullPolicy: IfNotPresent
-  tag: "latest"
+  # NO `tag` DEFAULT, DELIBERATELY. Every install must name the image it runs.
+  # A default of "latest" made this file say the same word it said six months
+  # ago, so no reader — and no `helm get values` — could answer "which code is
+  # this?". CI publishes `:${{ github.sha }}` on every build, so an exact
+  # identifier always exists; there is no reason to choose a mutable one.
+  #
+  # Omitting it here is only half the fix and is a FOOTGUN ON ITS OWN: it works
+  # solely because templates/deployment.yaml uses `required`. It previously used
+  # `| default .Chart.AppVersion`, which would have quietly filled this gap with
+  # scaffold boilerplate. Do not reintroduce a default here, and do not relax
+  # the `required` there — either alone restores the silent-substitution bug.
+  #
+  # Set it per environment: see values-sandbox.yaml.
 
 # Dagster gRPC server for user code deployment.
 # Override CMD from the distroless image (which defaults to webserver).
