@@ -233,3 +233,101 @@ def test_an_undeclared_prefix_refuses_rather_than_inventing_an_expansion():
     finally:
         mod.PREFIXES.clear()
         mod.PREFIXES.update(original)
+
+
+# ---------------------------------------------------------------------------
+# The graph half — the invented-IRI rule, and BOTH resolution questions
+# ---------------------------------------------------------------------------
+from unittest.mock import MagicMock
+
+from doc_tools.utils.runbook_ingest import check_explains_targets
+
+CLASS_TARGET = "http://invincible-agent/mesh#DispositionReview"
+VERB_TARGET = "http://invincible-agent/mesh#resolveInstance"
+
+
+def _graph(*, classes=(), relationships=()):
+    """A neo4j session double that answers BOTH questions independently.
+
+    Modelling them as two separate sets is the point: a double that returns one
+    boolean could not express the state where a target exists as a relationship
+    and not as a class, which is exactly the state that breaks a single-question
+    probe. A fixture that cannot represent the bug cannot catch it.
+    """
+    session = MagicMock()
+
+    def run(_cypher, uri=None, **_kw):
+        return MagicMock(single=lambda: {
+            "as_class": uri in classes,
+            "as_relationship": uri in relationships,
+        })
+
+    session.run.side_effect = run
+    return session
+
+
+def test_a_target_that_is_a_CLASS_resolves():
+    session = _graph(classes={CLASS_TARGET})
+    assert check_explains_targets(session, [CLASS_TARGET], page="p.md") == {
+        CLASS_TARGET: "class"
+    }
+
+
+def test_a_target_that_is_a_RELATIONSHIP_resolves():
+    """THE ONE A SINGLE-QUESTION PROBE GETS WRONG, and it gets it wrong as a
+    clean finding rather than a crash.
+
+    Measured in-cluster: 8/8 targets resolved, 4 as classes and 4 as relationship
+    types (seedCanvas, seedPortfolioCanvas, resolveInstance, enumerateInstances).
+    A probe asking only the class question would have reported four REAL targets
+    as dangling, with total confidence — refusing half a valid corpus and calling
+    it a dangling-reference finding."""
+    session = _graph(relationships={VERB_TARGET})
+    assert check_explains_targets(session, [VERB_TARGET], page="p.md") == {
+        VERB_TARGET: "relationship"
+    }
+
+
+def test_a_mixed_corpus_resolves_BOTH_KINDS_in_one_pass():
+    """Non-vacuity for the pair above: the real corpus is mixed, so a check that
+    handled either kind alone would still fail on the actual data."""
+    session = _graph(classes={CLASS_TARGET}, relationships={VERB_TARGET})
+    assert check_explains_targets(session, [CLASS_TARGET, VERB_TARGET], page="p.md") == {
+        CLASS_TARGET: "class",
+        VERB_TARGET: "relationship",
+    }
+
+
+def test_a_dangling_target_is_REFUSED_and_says_both_questions_were_asked():
+    """The invented-IRI rule. The message has to state what was looked for —
+    "not found" is only trustworthy when the reader can see the search."""
+    session = _graph(classes={CLASS_TARGET})
+    with pytest.raises(RunbookRefused) as e:
+        check_explains_targets(session, ["http://invincible-agent/mesh#neverDefined"],
+                               page="claims-too-much.md")
+    msg = str(e.value)
+    assert "claims-too-much.md" in msg and "neverDefined" in msg
+    assert "OntologyClass" in msg and "relationship" in msg, (
+        "a dangling refusal that does not name both questions cannot be trusted "
+        "as a finding — it may be a single-question probe reporting a real target"
+    )
+
+
+def test_the_relationship_question_is_asked_on_r_iri_not_on_the_type_name():
+    """Neo4j relationship TYPES cannot contain colons, so aitool_linker stores the
+    full namespaced IRI as `r.iri` and uses the LOCAL NAME as the type. Matching
+    on type name would compare a local name against a full IRI and find nothing —
+    the same confident false negative, one layer down."""
+    session = _graph(relationships={VERB_TARGET})
+    check_explains_targets(session, [VERB_TARGET], page="p.md")
+    cypher = session.run.call_args.args[0]
+    assert "r.iri" in cypher, "the relationship question must key on the IRI property"
+    assert "c.uri" in cypher, "the class question must key on the node's uri"
+
+
+def test_an_edgeless_page_needs_no_graph_at_all():
+    """R-015 again, at this layer: no targets means no queries, so an edgeless
+    runbook cannot be refused by a graph that is empty or unreachable."""
+    session = _graph()
+    assert check_explains_targets(session, [], page="rolling-a-service.md") == {}
+    session.run.assert_not_called()

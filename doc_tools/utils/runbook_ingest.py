@@ -17,27 +17,14 @@ So the rule is SEAL THE PASS-THROUGH, NOT JUST THE EXPANSION. A resolver that
 expands what it knows and returns the input unchanged otherwise is the bug; the
 unknown case has to refuse.
 
-WHAT THIS MODULE DELIBERATELY DOES NOT DO. It does not check that an `explains`
-target EXISTS IN THE GRAPH. That is the invented-IRI rule (ADR-0037 §1) — "a doc
-that claims to explain `mesh:composeReviewBatch` fails ingest if that IRI doesn't
-exist" — and it is a graph query, not a string operation. It belongs at the asset
-layer where a Neo4j/Jena session exists. Resolution here is the PRECONDITION for
-that check: you cannot look up a target you have not expanded. Splitting them
-keeps this half testable without a live graph, and keeps the graph half honest
-about needing one.
-
-WHOEVER WRITES THAT HALF: ASK BOTH RESOLUTION QUESTIONS, NOT ONE. An `explains`
-target may exist as an `:OntologyClass` NODE **or** as a RELATIONSHIP TYPE, and a
-probe that asks only the node question reports the relationship-typed ones as
-dangling — with total confidence, as a clean finding, which is the worst shape a
-wrong answer can take. Measured in-cluster by invincible-agent-f3: 8/8 targets
-resolved, 4 as classes (DispositionReview, Archetype, InstanceResolution,
-InstanceEnumeration) and 4 as relationship types (seedCanvas, seedPortfolioCanvas,
-resolveInstance, enumerateInstances). A single-question probe would have refused
-half of a fully valid corpus and called it a dangling-reference finding. This repo
-has already met that instrument failure once on its verbs, which is why the
-knowledge lives in `tests/_mesh_verbs.py` — and a work-side page explaining a VERB
-rather than a class meets it again on the first try.
+TWO HALVES, DELIBERATELY SEPARATE. Resolution (above) is a string operation and
+needs no graph. EXISTENCE — the invented-IRI rule, "a doc that claims to explain
+`mesh:composeReviewBatch` fails ingest if that IRI doesn't exist" (ADR-0037 §1) —
+is a graph query and needs a session. `check_explains_targets` below is that half.
+Keeping them apart is what lets the resolution rules be tested without standing up
+Neo4j, and stops the graph half quietly pretending it does not need one.
+Resolution is the PRECONDITION for existence: you cannot look up a target you have
+not expanded.
 """
 from __future__ import annotations
 
@@ -216,3 +203,72 @@ def ingest_page(text: str, *, page: str) -> Tuple[str, List[str], Dict[str, Any]
         explains.append(resolve_iri(target, page=page))
 
     return page_iri, explains, data
+
+
+# ---------------------------------------------------------------------------
+# The graph half — the invented-IRI rule
+# ---------------------------------------------------------------------------
+
+#: ASK BOTH QUESTIONS. AN `explains` TARGET MAY BE A NODE **OR** A RELATIONSHIP.
+#:
+#: A probe that asks only the class question reports every relationship-typed
+#: target as dangling — with total confidence, as a clean finding, which is the
+#: worst shape a wrong answer can take. Measured in-cluster by
+#: invincible-agent-f3: 8/8 targets resolved, 4 as :OntologyClass nodes
+#: (DispositionReview, Archetype, InstanceResolution, InstanceEnumeration) and 4
+#: as relationship types (seedCanvas, seedPortfolioCanvas, resolveInstance,
+#: enumerateInstances). The single-question version would have refused half a
+#: fully valid corpus and called it a dangling-reference finding. This repo has
+#: already met that instrument failure once on its verbs — which is why the
+#: knowledge lives in `tests/_mesh_verbs.py` — and a work-side page explaining a
+#: VERB rather than a class meets it again on the first try.
+#:
+#: THE SECOND QUESTION IS ASKED ON `r.iri`, NOT ON THE RELATIONSHIP TYPE. Neo4j
+#: relationship types cannot contain colons, so `aitool_linker` stores the full
+#: namespaced IRI as a property and uses the LOCAL NAME as the type (see
+#: `get_verb_local_name`). Matching on type name would therefore compare a local
+#: name against a full IRI and find nothing — a second way to produce the same
+#: confident false negative, one layer down.
+#:
+#: Both answers are RETURNED, not collapsed to a boolean, so a refusal can state
+#: that both questions were asked. "Not found" is only trustworthy when the
+#: reader can see what was looked for.
+_EXPLAINS_EXISTS_CYPHER = """
+RETURN
+  EXISTS { MATCH (c:OntologyClass) WHERE c.uri = $uri }   AS as_class,
+  EXISTS { MATCH ()-[r]->() WHERE r.iri = $uri }          AS as_relationship
+"""
+
+
+def check_explains_targets(session, targets: List[str], *, page: str) -> Dict[str, str]:
+    """Refuse any `explains` target that does not exist in the graph.
+
+    `targets` must already be FULL IRIs — pass the output of `ingest_page`, never
+    raw frontmatter. A compact IRI reaching here matches nothing and would be
+    reported as dangling, which is the pass-through bug wearing the invented-IRI
+    rule's clothes.
+
+    Returns `{target: "class" | "relationship"}` for the targets that resolved, so
+    a caller can record HOW each one resolved rather than only that it did.
+    Raises `RunbookRefused`, naming the page and the target, on the first miss.
+    """
+    resolved: Dict[str, str] = {}
+    for target in targets:
+        record = session.run(_EXPLAINS_EXISTS_CYPHER, uri=target).single()
+        as_class = bool(record["as_class"]) if record else False
+        as_relationship = bool(record["as_relationship"]) if record else False
+
+        if as_class:
+            resolved[target] = "class"
+        elif as_relationship:
+            resolved[target] = "relationship"
+        else:
+            raise RunbookRefused(
+                f"{page}: `explains` target {target} exists in the graph as "
+                f"neither an :OntologyClass node nor a relationship (checked "
+                f"both: node by c.uri, relationship by r.iri). The invented-IRI "
+                f"rule refuses a page that claims to explain something that is "
+                f"not there — a doc pointing at a target nobody defined is worse "
+                f"than an edgeless page, because it reads as coverage."
+            )
+    return resolved
