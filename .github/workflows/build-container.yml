@@ -39,8 +39,60 @@ jobs:
             --with pytest \
             -- python -m pytest tests/test_telemetry_mapping_truth.py -q
 
+  tests:
+    # THE SUITE GATES THE IMAGE. Until this job existed, CI ran exactly ONE test
+    # file — the telemetry truth-check above — and the other ~300 tests ran only
+    # on whichever machine last happened to run them. An image could be built and
+    # pushed with the suite red, and nothing anywhere would say so.
+    #
+    # That is the same shape this repo has spent a week finding elsewhere: a check
+    # that exists, is honest, and gates nothing. `telemetry-contract` was already
+    # the correct pattern sitting right above it — a job that `build-and-push`
+    # DECLARES A DEPENDENCY ON, so a failure stops the artifact rather than
+    # reporting beside it. This job is that pattern applied to the rest of the
+    # suite. A red test now means no image, which is the only arrangement in which
+    # the suite is load-bearing rather than advisory.
+    #
+    # COST, STATED HONESTLY: unlike the telemetry check this cannot use
+    # `--no-project` — the suite imports the real package, so it needs the real
+    # dependency set, and `unstructured[all-docs]` is heavy. setup-uv's cache
+    # makes repeat runs cheap. It runs in PARALLEL with telemetry-contract, so the
+    # added wall-clock is whatever it exceeds that job by, not its full duration.
+    #
+    # `uv sync` WITHOUT `--frozen`, DELIBERATELY, AND THIS IS NOT THE TIDY CHOICE.
+    # `uv lock --check` currently reports uv.lock as out of date with respect to
+    # pyproject.toml, so `--frozen` would fail this job on its first run — and it
+    # would read as "the new test gate is broken" rather than "the lockfile
+    # drifted", which is the worst way for a new gate to arrive. Resolving fresh
+    # also matches what the IMAGE gets: build-and-push below runs
+    # `uv export --format requirements-txt`, which resolves rather than reading a
+    # pinned set, so the tests run against the dependency set that actually ships.
+    # The cost is that a dependency can change under CI without a commit saying so.
+    # Reconciling uv.lock is a real fix and a SEPARATE one — running `uv lock`
+    # moves versions in the shipped image, which is not a change to make as a side
+    # effect of adding a test job.
+    #
+    # Live-service tests (LLM endpoint, Jena) skip cleanly without configuration
+    # and are expected to skip here — see their pytest.mark.skipif reasons. A
+    # SKIP is not a pass, and if that set ever grows this job quietly weakens;
+    # `-rs` prints the skip reasons in the log so the set stays visible.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync
+      - name: Run the test suite
+        run: uv run -- python -m pytest -q -rs
+
   build-and-push:
-    needs: telemetry-contract
+    # BOTH gates, not one. `needs` is what makes them gates rather than reports:
+    # a failure in either stops the image from being built or pushed.
+    needs: [telemetry-contract, tests]
     runs-on: ubuntu-latest
     permissions:
       contents: read
