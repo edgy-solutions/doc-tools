@@ -13,10 +13,30 @@
 
 image:
   repository: ghcr.io/edgy-solutions/doc-tools
-  tag: "latest"
-  # `Always` because :latest is mutable. CI publishes multi-arch
-  # (linux/amd64 + linux/arm64) per build-container.yml so arm nodes
-  # (worker1, worker6) get the right binary.
+  # PINNED TO A SHA, NOT `latest`. THE TAG IS AN INSTRUCTION; THE SHA IS THE
+  # DECLARATION. With `latest` this line said the same word it said six months
+  # ago, so the tracked file declared NOTHING about which code was running and
+  # `helm get values` could not answer "is this current?". Confirming a deployed
+  # fix meant reading source inside a running pod — on 2026-09-12 that is
+  # literally what it took: grepping /app/doc_tools/assets/aitool_linker.py:310
+  # in the pod to discover the cluster was serving a writer two days older than
+  # the fix, while the tag reported the same "latest" either way.
+  #
+  # NOTHING WAS MISSING TO MAKE THIS WORK. build-container.yml already pushes
+  # BOTH tags on every build (`:latest` and `:${{ github.sha }}`) — an exact,
+  # immutable identifier has existed for every commit all along and the
+  # deployment chose the mutable one anyway. Framing that as absent
+  # infrastructure is what keeps a one-line fix permanently unscheduled.
+  #
+  # RE-PIN ON EVERY DEPLOY. That is the real cost and it is deliberate: it is
+  # the same cost the iagent chart already pays, and it buys "is it current?"
+  # as a command instead of an archaeology exercise.
+  tag: "d3ca169091854add1223589201784e146c027e2d"
+  # `Always` retained DELIBERATELY. With a sha tag it is no longer necessary
+  # (the tag is immutable) but it is harmless, and changing it in the same edit
+  # would give a rollback two variables instead of one. Drop it in a separate
+  # change if ever wanted. CI publishes multi-arch (linux/amd64 + linux/arm64)
+  # per build-container.yml so arm nodes (worker1, worker6) get the right binary.
   pullPolicy: Always
 
 imagePullSecrets:
