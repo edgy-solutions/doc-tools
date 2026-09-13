@@ -25,6 +25,7 @@ from doc_tools.assets.ontology_assets import (
     LABEL_SOURCE_AUTHORED,
     LABEL_SOURCE_DERIVED,
     LABEL_SOURCE_DERIVED_OPAQUE,
+    _REJECTED_LABEL_SOURCE_NAMESPACE,
 )
 
 S3KL = "http://www.lksoft.com/s3kl#"
@@ -185,12 +186,43 @@ def test_skos_prefLabel_and_dcterms_title_also_count_as_authored():
 
 
 def test_the_provenance_triple_uses_the_contract_predicate():
-    """CROSS-REPO CONTRACT. The seal in invincible-agent queries this IRI; changing
-    it silently makes the seal read zero and report a clean graph."""
-    assert str(LABEL_SOURCE_PREDICATE) == "http://internal/mesh#labelSource"
+    """CROSS-REPO CONTRACT. The seal in invincible-agent queries this IRI; a
+    mismatch does not fail loudly — it reads zero and reports a clean graph.
+
+    THIS ASSERTION IS DELIBERATELY TWO-SIDED, per R-026. Checking only
+    `str(PREDICATE) == <the constant's own value>` is a tautology: it restates the
+    constant instead of defending the choice, so it cannot tell the canonical
+    namespace from the rejected one and would stay green if someone "corrected"
+    the IRI back to `http://internal/mesh#`. Mutation testing does not find that,
+    because the mutant and the original agree on the fixture. Naming the REJECTED
+    namespace is what makes this a check rather than an echo."""
+    assert str(LABEL_SOURCE_PREDICATE) == "http://invincible-agent/mesh#labelSource"
+    assert not str(LABEL_SOURCE_PREDICATE).startswith(_REJECTED_LABEL_SOURCE_NAMESPACE), (
+        "the label-source contract drifted back to http://internal/mesh# — an "
+        "unknown prefix passes through verbatim, so the seal would read zero and "
+        "report a clean graph with nothing red at any layer"
+    )
     g = _graph("LSAFailureMode")
     derive_missing_class_labels(g)
     assert _source(g, "LSAFailureMode") == LABEL_SOURCE_DERIVED
+
+
+def test_authored_and_derived_are_DISTINGUISHED_by_the_same_fixture():
+    """R-026 applied to the provenance states themselves.
+
+    A seal asserting "S3000L classes are marked derived" passes just as well under
+    a rule that marks EVERYTHING derived — the fixture cannot tell the two apart,
+    and no mutation of the derived path reveals it, because both rules agree on a
+    graph that contains only derived classes. The fixture has to carry both sides:
+    an authored class and a derived one, asserted as DIFFERENT in a single run."""
+    g = _graph("LSAFailureMode", "CuratedClass", authored={"CuratedClass": "Curated Class"})
+    derive_missing_class_labels(g)
+
+    derived_src = _source(g, "LSAFailureMode")
+    assert derived_src == LABEL_SOURCE_DERIVED
+    # The authored one carries NO seeder provenance at all — that is the distinction.
+    assert not list(g.objects(rdflib.URIRef(S3KL + "CuratedClass"), LABEL_SOURCE_PREDICATE))
+    assert _label(g, "CuratedClass") != _label(g, "LSAFailureMode")
 
 
 def test_blank_node_classes_are_skipped():

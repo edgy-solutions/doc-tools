@@ -98,9 +98,30 @@ _META_ONTOLOGY_IRI_PREFIXES: tuple[str, ...] = (
 # Testing on the code would have marked 384 good names as placeholders.
 
 #: Provenance predicate for the above. CROSS-REPO CONTRACT — the seal in
-#: invincible-agent queries this IRI. `http://internal/` matches the graph-URI
-#: convention this asset already writes (`http://internal/{domain}`).
-LABEL_SOURCE_PREDICATE = rdflib.URIRef("http://internal/mesh#labelSource")
+#: invincible-agent queries this IRI, so a mismatch does not fail: it reads zero
+#: and reports a clean graph.
+#:
+#: THE NAMESPACE IS `http://invincible-agent/mesh#`, NOT `http://internal/mesh#`,
+#: and the difference is not cosmetic. The served graph uses
+#: `http://invincible-agent/{domain}#` everywhere the HUD renders it
+#: (`cost#ProductionLot`, `mesh#ContributionSequence`); that is canonical. An
+#: earlier version of this constant used `http://internal/mesh#` by analogy with
+#: the NAMED-GRAPH uris this asset writes (`http://internal/{domain}`) — but a
+#: graph NAME and a vocabulary NAMESPACE are different axes, and reasoning from
+#: one to the other is how this drift keeps happening.
+#:
+#: WHY IT KEEPS COSTING: an unknown prefix passes through verbatim. The triple
+#: parses, the row registers, the write reports accepted, and it never matches
+#: anything. Nothing goes red at any layer. This is the fourth instance of the
+#: same class in this codebase; `setup/ontologies/safety_extension.ttl` in
+#: invincible-agent carries a header warning about it, and
+#: `product_structure_extension.ttl` in that same directory still declares the
+#: wrong one.
+LABEL_SOURCE_PREDICATE = rdflib.URIRef("http://invincible-agent/mesh#labelSource")
+
+#: The namespace this contract is NOT under. Named so the pin below can assert a
+#: DISTINCTION rather than a tautology — see the test for why that matters.
+_REJECTED_LABEL_SOURCE_NAMESPACE = "http://internal/mesh#"
 
 LABEL_SOURCE_AUTHORED = "authored"
 LABEL_SOURCE_DERIVED = "derived"
