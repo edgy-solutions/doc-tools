@@ -23,8 +23,12 @@ Usage::
 """
 from __future__ import annotations
 
+import logging
 import os
+
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 # Must stay byte-identical to invincible-agent/agent_fleet/utils/embed.py's
@@ -51,6 +55,35 @@ def _resolve_endpoint() -> tuple[str, str, str]:
     return base_url, api_key, model
 
 
+#: Requested/served pairs already reported, so a 21k-class ingest logs a swap ONCE
+#: rather than 21,000 times. Process-local and deliberately not cleared: the point
+#: is one loud line per run, not a counter.
+_REPORTED_MODEL_SWAPS: set = set()
+
+
+def served_model(payload: dict, requested: str) -> str:
+    """What the endpoint says it ACTUALLY SERVED, per the response body.
+
+    THE REQUEST IS WHAT WE ASKED FOR; THE RESPONSE IS WHAT WE GOT, and only the
+    second one describes the vectors. Every OpenAI-compatible `/v1/embeddings`
+    response carries a top-level `model` — measured in-cluster 2026-09-15:
+    ``{"object": "list", "model": "nomic-embed-text", "usage": {...}, "data": [...]}``
+    — and this module discarded it one line from where it was needed.
+
+    That discard hid the defect this function exists to surface. A same-dimension
+    model swap writes cleanly, reads cleanly, and returns neighbours computed in a
+    different space: `EXPECTED_EMBED_DIM` catches a DIM change loudly and is blind
+    to a MODEL change at the same dim, and nothing else was looking. `LLM_EMBED_MODEL`
+    is env-overridable at runtime, so the constant below describes what the code
+    believes rather than what the process did — the same drift the constant was
+    meant to prevent, one layer in.
+
+    Falls back to the requested name when a provider omits the field, because a
+    missing identity must not read as a mismatch.
+    """
+    return str(payload.get("model") or requested)
+
+
 def _post_embedding(input_payload, timeout: float) -> list:
     base_url, api_key, model = _resolve_endpoint()
     r = httpx.post(
@@ -66,6 +99,24 @@ def _post_embedding(input_payload, timeout: float) -> list:
         raise RuntimeError(
             f"Embedding endpoint {base_url} returned an empty response for "
             f"model={model!r}: {payload!r}"
+        )
+
+    # WARN, DO NOT RAISE. A proxy legitimately rewrites names (LiteLLM may serve
+    # `nomic-embed-text` as `ollama/nomic-embed-text`), so refusing here would
+    # turn a routine aliasing into a failed ingest — and a check that breaks
+    # working deployments is a check that gets deleted. Loud and once is the
+    # honest setting: it makes a real swap visible without making an alias fatal.
+    actual = served_model(payload, model)
+    if actual != model and (model, actual) not in _REPORTED_MODEL_SWAPS:
+        _REPORTED_MODEL_SWAPS.add((model, actual))
+        logger.warning(
+            "EMBEDDING MODEL MISMATCH: requested %r, endpoint served %r (%s). "
+            "Vectors written in this run describe the SERVED model. If this is a "
+            "proxy alias it is harmless; if it is a real swap, vectors already "
+            "stored under the previous model are not numerically comparable to "
+            "these EVEN AT THE SAME DIMENSION, and nothing else in this pipeline "
+            "will notice — the dimension check is blind to a same-dim swap.",
+            model, actual, base_url,
         )
     return data
 
