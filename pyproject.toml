@@ -52,7 +52,31 @@ dependencies = [
     # Consuming the shared mint rather than inlining client-credentials is the one-implementation
     # rule: a second mint in this repo would drift from the platform's the way the SDK's and the
     # platform's already did once (MESH_CLIENT_ID vs REVIEW_STARTER_CLIENT_ID).
-    "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.3.1",
+    #
+    # v0.3.1 -> v0.9.0 (2026-09-15). Six tags, and the blast radius is NOT six releases — it is
+    # whatever surface this repo actually consumes, measured rather than assumed:
+    #
+    #   SURFACE CENSUS — every `iagent_mesh` import in doc-tools, partitioned:
+    #     production   utils/mesh_identity.py:59   from iagent_mesh.service_identity import mint_token
+    #     tests        doc_tools_tests/test_semantic_linker_mints.py  same module, monkeypatched
+    #   ONE SYMBOL. And `iagent_mesh/service_identity.py` is BYTE-IDENTICAL between v0.3.1 and
+    #   v0.9.0 — `git diff v0.3.1 v0.9.0 -- iagent_mesh/service_identity.py` is empty. So the
+    #   consumed surface did not move at all across the range.
+    #
+    #   WHAT DID MOVE IS THE IMPORT PATH, and that is the real risk a tag-distance reading misses.
+    #   `from iagent_mesh.service_identity import ...` executes `iagent_mesh/__init__.py` first,
+    #   and that file grew: v0.3.1 imports .client and .shapes; v0.9.0 also imports
+    #   .transport_auth and .graph_manifest. `transport_auth.py:72` is an UNGUARDED
+    #   `from fastapi import HTTPException, Request`, so the identity seam now cannot import
+    #   without a web framework present. That is the weight, and it is filed with ca as an SDK
+    #   packaging matter — noting here that an extra alone does not fix it: while `__init__`
+    #   imports transport_auth unconditionally, installing without the extra makes
+    #   `import iagent_mesh` fail outright rather than merely lose a feature.
+    #
+    # Bumped as its own change, before the MeshCollectionMeta writer, because CollectionMarker
+    # does not exist at v0.3.1 — the marker work was blocked on this pin regardless of what the
+    # contract rules about `version`.
+    "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.9.0",
 ]
 
 
