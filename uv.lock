@@ -1780,7 +1780,7 @@ requires-dist = [
     { name = "grpcio-health-checking", specifier = "!=1.78.1" },
     { name = "grpcio-status", specifier = "!=1.78.1" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "iagent-mesh", git = "https://github.com/edgy-solutions/iagent-mesh-sdk.git?rev=v0.9.0" },
+    { name = "iagent-mesh", git = "https://github.com/edgy-solutions/iagent-mesh-sdk.git?rev=v0.9.1" },
     { name = "langchain" },
     { name = "langfuse", specifier = ">=3.0.0" },
     { name = "lxml", specifier = ">=6.0.2" },
@@ -2608,8 +2608,8 @@ wheels = [
 
 [[package]]
 name = "iagent-mesh"
-version = "0.9.0"
-source = { git = "https://github.com/edgy-solutions/iagent-mesh-sdk.git?rev=v0.9.0#8e972f96cab3401d44f276c05bb09e09dcabc79e" }
+version = "0.9.1"
+source = { git = "https://github.com/edgy-solutions/iagent-mesh-sdk.git?rev=v0.9.1#557976d2f1d4ef27584d305fd9ac0d50d9b51d15" }
 dependencies = [
     { name = "acryl-datahub" },
     { name = "fastapi" },
