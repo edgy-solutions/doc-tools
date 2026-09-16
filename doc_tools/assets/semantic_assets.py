@@ -30,6 +30,13 @@ def _ensure_weaviate_collection(client, name: str) -> None:
                 wvc.config.Property(name="domain", data_type=wvc.config.DataType.TEXT),
             ],
         )
+        # FOLD, NOT HAND-RUN — inside the `if`, in the same act that creates the
+        # collection. A marker written by a separate step can be forgotten, and a
+        # forgotten marker reads as ABSENT while the collection is perfectly real.
+        # Best-effort: never raises, so a diagnostic cannot take down the ingest.
+        from doc_tools.utils.collection_marker import write_collection_marker
+
+        write_collection_marker(client, name)
 
 
 def _index_chunk(client, name: str, properties: dict) -> None:

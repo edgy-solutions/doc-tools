@@ -392,7 +392,14 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
                     wvc.config.Property(name="domain", data_type=wvc.config.DataType.TEXT),
                 ],
             )
-            
+            # FOLD, NOT HAND-RUN — same act as the create. Records what actually
+            # embedded these vectors (the SERVED model and the OBSERVED dimension,
+            # never the constants), so the two hand-copied embed.py constants stop
+            # being the cross-repo contract. Best-effort; never raises.
+            from doc_tools.utils.collection_marker import write_collection_marker
+
+            write_collection_marker(client, "OntologyClass")
+
         collection = client.collections.get("OntologyClass")
         context.log.info(
             f"Syncing {len(domain_classes)} domain classes to Weaviate "

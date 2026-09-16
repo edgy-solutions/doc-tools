@@ -84,7 +84,7 @@ def served_model(payload: dict, requested: str) -> str:
     return str(payload.get("model") or requested)
 
 
-def _post_embedding(input_payload, timeout: float) -> list:
+def _post_embedding(input_payload, timeout: float) -> tuple[list, str]:
     base_url, api_key, model = _resolve_endpoint()
     r = httpx.post(
         f"{base_url.rstrip('/')}/embeddings",
@@ -118,11 +118,11 @@ def _post_embedding(input_payload, timeout: float) -> list:
             "will notice — the dimension check is blind to a same-dim swap.",
             model, actual, base_url,
         )
-    return data
+    return data, actual
 
 
 def embed_document(text: str, timeout: float = 30.0) -> list[float]:
-    data = _post_embedding(f"{DOCUMENT_PREFIX}{text}", timeout=timeout)
+    data, _ = _post_embedding(f"{DOCUMENT_PREFIX}{text}", timeout=timeout)
     if "embedding" not in data[0]:
         raise RuntimeError(f"Embedding response missing 'embedding' key: {data[0]!r}")
     return list(data[0]["embedding"])
@@ -130,7 +130,7 @@ def embed_document(text: str, timeout: float = 30.0) -> list[float]:
 
 def embed_documents(texts: list[str], timeout: float = 60.0) -> list[list[float]]:
     prefixed = [f"{DOCUMENT_PREFIX}{t}" for t in texts]
-    data = _post_embedding(prefixed, timeout=timeout)
+    data, _ = _post_embedding(prefixed, timeout=timeout)
     if len(data) != len(texts):
         raise RuntimeError(
             f"Embedding endpoint returned {len(data)} vectors for "
@@ -140,7 +140,7 @@ def embed_documents(texts: list[str], timeout: float = 60.0) -> list[list[float]
 
 
 def embed_query(text: str, timeout: float = 30.0) -> list[float]:
-    data = _post_embedding(f"{QUERY_PREFIX}{text}", timeout=timeout)
+    data, _ = _post_embedding(f"{QUERY_PREFIX}{text}", timeout=timeout)
     if "embedding" not in data[0]:
         raise RuntimeError(f"Embedding response missing 'embedding' key: {data[0]!r}")
     return list(data[0]["embedding"])
@@ -163,3 +163,25 @@ def probe_embedding_dim(probe_text: str = "doc-tools embed probe") -> int:
             f"Weaviate collection that stores vectors."
         )
     return dim
+
+
+def probe_embedding_identity(probe_text: str = "doc-tools marker probe") -> tuple[str, int]:
+    """ONE call, BOTH observations: the model the endpoint served and the vector length it returned.
+
+    This is what a collection marker stamps, and both halves are deliberately
+    OBSERVATIONS rather than the constants above. A marker built from
+    DEFAULT_EMBED_MODEL and EXPECTED_EMBED_DIM records what this code believes;
+    the reader on the other side compares ITS constants, and the two agree with
+    each other while both disagree with the vectors on disk. That is the defect
+    the marker exists to remove, so the marker must not be built out of it.
+
+    Deliberately NOT reusing `probe_embedding_dim`: that raises when the dimension
+    disagrees with EXPECTED_EMBED_DIM, which is right for a pre-flight check and
+    wrong here. A marker's job is to record what IS, including a dimension nobody
+    expected — refusing to write the marker in exactly the case it was built to
+    make visible would be the check muting itself.
+    """
+    data, served = _post_embedding(f"{QUERY_PREFIX}{probe_text}", timeout=30.0)
+    if "embedding" not in data[0]:
+        raise RuntimeError(f"Embedding response missing 'embedding' key: {data[0]!r}")
+    return served, len(data[0]["embedding"])

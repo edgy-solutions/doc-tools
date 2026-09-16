@@ -506,6 +506,14 @@ def _ensure_predicate_collection(client, log) -> Any:
                 wvc.config.Property(name="tool_urn", data_type=wvc.config.DataType.TEXT),
             ],
         )
+        # FOLD, NOT HAND-RUN — same act as the create, inside the `if`. Records the
+        # SERVED model and OBSERVED dimension beside the vectors, so the cross-repo
+        # embedding contract is a witness rather than two hand-copied constants.
+        # Best-effort; never raises.
+        from doc_tools.utils.collection_marker import write_collection_marker
+
+        write_collection_marker(client, _PREDICATE_COLLECTION)
+
     collection = client.collections.get(_PREDICATE_COLLECTION)
     # Forward-compat: add anti_synonyms to a pre-existing collection that
     # was created before this property landed. config.add_property is a
