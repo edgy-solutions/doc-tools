@@ -1,0 +1,81 @@
+# Deterministic-extractor override — deep-merged over DEFAULT_EXTRACTOR_CONFIG
+# (doc_tools/utils/mfg_extractors.py). Point MANUFACTURING_EXTRACTORS_SPEC at a
+# copy of this file:
+#
+#   export MANUFACTURING_EXTRACTORS_SPEC=/etc/doc-tools/mfg_extractors.yaml
+#
+# WHY THIS FILE EXISTS. The committed defaults carry only PUBLIC, industry-wide
+# families (MIL-, J-STD, IPC, ISO, ASTM, AMS, NAS, ...). Site- and
+# customer-specific document families must NOT be committed to this repo, so they
+# are configured here instead. The corpus report tells you exactly which ones you
+# need: run it, then read
+#
+#   report["llm_standards_unknown_family_shapes"]
+#
+# Every shape listed there is a family the LLM recognised and the deterministic
+# arm did not — i.e. a standard the script is currently missing. Each one you add
+# below converts an `llm_only` miss into an `agree`, and the NEXT run measures it.
+#
+# The shapes are redacted (digits -> '#'), so e.g. 'ACME-EHS-PRO-###' tells you
+# the family and the digit count without the report having carried a real id.
+#
+# NOTE: `families` is a LIST, and lists REPLACE wholesale on merge (a family list
+# is one reviewable unit, not a patch series). So if you override `families` you
+# must restate the defaults you still want. Copy them from
+# DEFAULT_EXTRACTOR_CONFIG and append yours.
+
+standards:
+  # Restate the defaults you want to keep, then append your site families.
+  families:
+    - {canonical: MIL-PRF, pattern: 'MIL[\s\-]?PRF[\s\-]?([0-9]{3,6}[A-Z0-9\-/]*)'}
+    - {canonical: MIL-STD, pattern: 'MIL[\s\-]?STD[\s\-]?([0-9]{3,6}[A-Z0-9\-/]*)'}
+    - {canonical: MIL-DTL, pattern: 'MIL[\s\-]?DTL[\s\-]?([0-9]{3,6}[A-Z0-9\-/]*)'}
+    - {canonical: J-STD,   pattern: 'J[\s\-]?STD[\s\-]?([0-9]{2,4}[A-Z0-9\-/]*)'}
+    - {canonical: IPC,     pattern: 'IPC[\s\-]?([A-Z]?[0-9]{2,4}[A-Z0-9\-/]*)'}
+    - {canonical: ISO,     pattern: 'ISO[\s\-]?([0-9]{3,5}[A-Z0-9\-/:]*)'}
+    - {canonical: ASTM,    pattern: 'ASTM[\s\-]?([A-Z]?[0-9]{2,4}[A-Z0-9\-/]*)'}
+    - {canonical: AMS,     pattern: 'AMS[\s\-]?([0-9]{3,5}[A-Z0-9\-/]*)'}
+    - {canonical: NAS,     pattern: 'NAS[\s\-]?([0-9]{2,5}[A-Z0-9\-/]*)'}
+    - {canonical: STD,     pattern: '\bSTD[\s\-]?([0-9]{3,5}[A-Z0-9\-/]*)'}
+    - {canonical: SPEC,    pattern: '\bSPEC[\s\-]?([0-9]{3,5}[A-Z0-9\-/]*)'}
+    - {canonical: MP,      pattern: '\bMP[\s\-]?([0-9]{3,6}[A-Z0-9\-/]*)'}
+
+    # ---- YOUR SITE FAMILIES (examples — replace with your own) -------------
+    # A three-segment internal procedure, e.g. shape 'ACME-EHS-PRO-###':
+    # - {canonical: ACME-EHS-PRO, pattern: 'ACME[\s\-]?EHS[\s\-]?PRO[\s\-]?([0-9]{2,4})'}
+    #
+    # A two-letter internal series, e.g. shapes 'TI-#######' / 'TD#######':
+    # - {canonical: TI, pattern: '\bTI[\s\-]?([0-9]{5,8}(?:[\s\-][0-9]{2,4})?)'}
+    # - {canonical: TD, pattern: '\bTD[\s\-]?([0-9]{5,8})'}
+    #
+    # A sketch/drawing series, e.g. shape 'SK-#####':
+    # - {canonical: SK, pattern: '\bSK[\s\-]?([0-9]{4,6})'}
+    #
+    # A dotted internal spec, e.g. shape 'MPS##.##':
+    # - {canonical: MPS, pattern: '\bMPS[\s\-]?([0-9]{2}\.[0-9]{2})'}
+
+  # Prefixes that, seen WITHOUT a number after them, become a near-miss anomaly
+  # (matched-but-malformed) instead of being silently ignored. Add your prefixes
+  # so a mangled internal id is flagged for review rather than dropped.
+  near_miss: '\b(MIL|J[\s\-]?STD|IPC|ISO|ASTM|AMS|NAS|STD|SPEC|MP)[\s\-]+(?![0-9])'
+
+# Operation (procedure) heading detection. If the corpus report shows
+# `structural_arm_found: 0` for your documents, look at
+# per_doc[].parse.heading_candidate_shapes — it prints, per element type, the
+# redacted shape of every heading-ish line. Add the element types and patterns
+# that match YOUR documents' printed form here.
+operations:
+  title_types: [Title, Header, NarrativeText, UncategorizedText, ListItem]
+  patterns:
+    - '\bOPERATION\s*[#:.\-]?\s*([0-9]{3,4})\b'
+    - '\bOP\.?\s*[#:.\-]?\s*([0-9]{3,4})\b'
+    - '^\s*([0-9]{4})\s*[-–—:.]\s*\S'
+    - '^\s*([0-9]{4})\s*$'
+
+# Figure -> step binding. Widen `step_types` if your parses tag instruction text
+# with a type not listed (the report's parse.element_types shows what exists).
+figure_binder:
+  same_page_only: true
+  prefer: preceding
+  marker_types: [Image, Figure]
+  step_types: [NarrativeText, ListItem]

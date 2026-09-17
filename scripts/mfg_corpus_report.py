@@ -1,49 +1,74 @@
-"""Run the deterministic extractors over a corpus of parsed WIs and emit a
-report that is safe to carry back to an agent that must never see the documents.
+"""Corpus report: the pipeline's own LLM output vs the deterministic extractors.
 
-Operating model (see docs/manufacturing-extraction-findings.md, "corpus not
-agent-accessible"): the agent builds this instrument; the USER runs it against the
-real corpus and returns the report. So the report is a CONTRACT WITH A HUMAN
+Operating model (docs/manufacturing-extraction-findings.md, "corpus not
+agent-accessible"): the agent builds this instrument; the USER runs it against
+the real corpus and returns the report. So the report is a CONTRACT WITH A HUMAN
 COURIER — small, self-describing, and safe *by construction*:
 
   * The report code NEVER writes document text into the report. It emits COUNTS,
     redacted SHAPES (digits -> '#', e.g. 'PN-1001' -> 'PN-####'), and anomaly
-    KINDS. Values are shown only if you pass --include-values (your judgement on
-    a slice you deem safe).
-  * Documents are identified by index + a short filename hash. The index->path
-    map is written to a SEPARATE *.local-map.json you keep locally and do NOT
-    share — so anomalies are traceable to a document on your side without any
-    path leaving your machine.
-  * The report is STAMPED: extractor version, config hash, corpus label, doc
-    count, timestamp — so run N+1 can be compared to run N.
-
-The first run's product is the ANOMALY distribution, not the recall number: it
-tells the agent how the real corpus differs from the synthetic fixtures. Each
-anomaly class becomes a new fixture variant or a real extractor fix.
-
-Input: a directory of parsed element lists (unstructured `text.json` shape:
-a JSON list of element dicts). Deterministic only — no LLM, no network.
+    KINDS. Free text is redacted token-wise (letters -> 'a') with only a small
+    allowlist of STRUCTURAL keywords preserved, so a heading's *format* is
+    legible while its content is not. Values appear only with --include-values.
+  * Documents are identified by index + a short hash. The index->object-key map
+    goes to a SEPARATE *.local-map.json you keep locally (object keys only, never
+    document text).
+  * STAMPED: extractor version, config hash, bucket/prefix, doc count, the
+    generation range of the parses, timestamp — so run N+1 compares to run N.
 
 Two modes:
   LOCAL (--input DIR): deterministic-only over a directory of text.json files.
-  MINIO COMPARISON (--minio-prefix): the real instrument. Pairs each doc's
-    persisted extraction.json (arm 1 = the pipeline's LLM output) with its
-    text.json (input to both) and diffs it against the deterministic extractors
-    (arm 2 = the script) over the SAME elements. Three-way per field:
-    script_only = LLM MISSED it, llm_only = script MISSED it, agree. Only fields
-    with a deterministic arm are scored (standards, parts, figures, operations,
-    hazard); judgment fields (is_value_added, process_category, ...) are reported
-    as LLM-only coverage, NEVER as wins. Read-only S3 (list + get); endpoint/creds
-    from the standard env (S3_ENDPOINT_URL / AWS_ACCESS_KEY_ID /
-    AWS_SECRET_ACCESS_KEY / MINIO_SECURE) — no new env name invented. Same elision
-    (never writes document text; --include-values opts in per safe slice).
+  MINIO COMPARISON (--minio-prefix): the real instrument. For each document it
+    pairs the pipeline's persisted extraction.json (arm 1 = the LLM) with its
+    text.json (the input BOTH arms read) and diffs that against the deterministic
+    extractors (arm 2 = the script). Three-way per field: script_only = LLM
+    MISSED it, llm_only = script MISSED it, agree.
+
+WHAT CHANGED AFTER THE FIRST REAL CORPUS RUN (2026-09-17, 6 docs). That run was
+the product it was supposed to be: it confirmed one prediction overwhelmingly
+and exposed three defects IN THIS INSTRUMENT. Reading a broken measurement as a
+finding is the failure this round exists to prevent.
+
+  1. ARTIFACT PAIRING WAS WRONG. It assumed text.json lived at
+     {base}/generated/*/text.json. In the real bucket it sits BESIDE
+     extraction.json, so the operator had to hand-patch the script. Pairing is
+     now LAYOUT-AGNOSTIC (sibling, generated/, any nested) and REPORTS which
+     layout it found, so the truth is measured instead of assumed. It also walks
+     text.json-only and extraction.json-only documents instead of skipping them
+     silently — an unpaired doc is a finding (the LLM stage never ran), not a gap
+     in the denominator.
+  2. THE OPERATIONS DISCRIMINANT CLAIMED A CAUSE IT COULD NOT SUPPORT. It
+     reported 57 "procedure_pollution_candidates" while the structural arm found
+     ONE operation in six documents. With a blind structural arm, an llm_only
+     operation is indistinguishable from a real operation the script missed —
+     so the pollution claim is now CONDITIONAL on the structural arm having
+     recall, and says so in the report when it abstains. A discriminator that
+     misclassifies is worse than none.
+  3. TWO COMPARISONS WERE COUNTING IDENTICAL VALUES AS DISAGREEMENTS. The script
+     canonicalises 'MP 1234' -> 'MP-1234'; the LLM emitted 'MP1234'; the naive
+     normaliser called that a mutual miss. And the LLM packs several standards
+     into one string ('MP-123, MP-456', '[MP-123-K, MP-456]'). Both sides now go
+     through the SAME family canonicalisation after multi-value splitting. Parts
+     compare on a PREFIX-STRIPPED CORE, because agree==0 was an artifact of the
+     script keeping 'PN-' while the LLM emits the bare number.
+
+  Also added: NAS/MS cross-field collision measurement (aerospace tokens are
+  simultaneously spec numbers and fastener part numbers — the arms were filing
+  them in different fields and both were being counted as misses), three-state
+  judgment coverage (a bool False is NOT an unanswered field — the old metric
+  conflated them), and parse-side diagnostics so an empty document can be
+  attributed to an OOM'd/truncated parse rather than blamed on the LLM.
+
+Read-only S3 (list + get). Endpoint/creds from the standard env
+(S3_ENDPOINT_URL / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / MINIO_SECURE) —
+no new env name invented.
 
 Run (PowerShell):
-  # deterministic-only over local text.json
-  <python> scripts/mfg_corpus_report.py --input <dir> --label <slice> [--include-values]
-  # LLM-vs-script comparison over a MinIO prefix (drop docs -> pipeline runs -> point here)
+  # LLM-vs-script comparison over a MinIO prefix
   <python> scripts/mfg_corpus_report.py --minio-prefix manufacturing/ \
-      [--bucket processing-artifacts] [--include-values] [--out report.json]
+      [--bucket processing-artifacts] [--limit N] [--include-values] [--out report.json]
+  # deterministic-only over local text.json files
+  <python> scripts/mfg_corpus_report.py --input <dir> --label <slice>
 """
 import argparse
 import collections
@@ -67,69 +92,141 @@ def _load_extractors():
     return mod
 
 
-def _shape(tok: str) -> str:
-    """Redact a token to its structure: digits -> '#', letters/sep preserved."""
+# --------------------------------------------------------------------------- #
+# Redaction helpers — the report's safety is that text is never written, only
+# shapes. Digits -> '#'. Free text additionally has letters -> 'a', EXCEPT a
+# small allowlist of structural words, so "Operation 0020 - Install Bracket"
+# reads as "OPERATION #### - aaaaaaa aaaaaaa": the format is legible, the
+# content is not.
+# --------------------------------------------------------------------------- #
+_KEEP_WORDS = {
+    "OPERATION", "OP", "STEP", "TASK", "SECTION", "FIGURE", "FIG", "TABLE",
+    "NOTE", "WARNING", "CAUTION", "PAGE", "REV", "REVISION", "SHEET", "ITEM",
+    "PROCEDURE", "FINAL", "INSPECT", "INSPECTION", "ASSY", "ASSEMBLY",
+}
+
+
+def _shape(tok) -> str:
+    """Redact a token to its structure: digits -> '#'."""
     return re.sub(r"\d", "#", str(tok))
 
 
-def _shapes(tokens):
+def _shapes(tokens) -> dict:
     return dict(collections.Counter(_shape(t) for t in tokens))
+
+
+def _safe_text_shape(text, cap: int = 56) -> str:
+    """Redact FREE TEXT: digits -> '#', letters -> 'a', structural words kept."""
+    out = []
+    for tok in re.findall(r"\S+|\s+", (text or "").strip()[:cap]):
+        if tok.isspace():
+            out.append(" ")
+            continue
+        bare = re.sub(r"[^A-Za-z]", "", tok).upper()
+        if bare in _KEEP_WORDS:
+            out.append(re.sub(r"\d", "#", tok).upper())
+        else:
+            out.append(re.sub(r"[A-Za-z]", "a", re.sub(r"\d", "#", tok)))
+    return "".join(out)
+
+
+def _topn(counter: collections.Counter, n: int = 8) -> dict:
+    return dict(counter.most_common(n))
 
 
 def _config_hash(cfg) -> str:
     return hashlib.sha1(json.dumps(cfg, sort_keys=True, default=str).encode()).hexdigest()[:12]
 
 
-def _iter_docs(input_dir, pattern):
-    for path in sorted(globmod.glob(os.path.join(input_dir, pattern), recursive=True)):
-        base = os.path.basename(path).lower()
-        if "groundtruth" in base or "_repro_response" in base:
-            continue
-        try:
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:  # noqa: BLE001
-            continue
-        if isinstance(data, list):
-            yield path, data
-
-
 # --------------------------------------------------------------------------- #
-# MinIO comparison mode: LLM (persisted extraction.json) vs deterministic script,
-# over the SAME text.json. The pipeline already runs this A/B on every ingest.
+# Value canonicalisation — both arms must be normalised THE SAME WAY or
+# identical values are scored as mutual misses (defect #3 above).
 # --------------------------------------------------------------------------- #
-import re as _re
-
-_FILENAME_RE = _re.compile(r"figure-\d+-\d+\.jpg$", _re.I)
+_FILENAME_RE = re.compile(r"figure-\d+-\d+\.jpg$", re.I)
+_PART_PREFIX = re.compile(r"^(?:P/?N|PART|ASS?Y)[\s\-.]*", re.I)
 _JUDGMENT_FIELDS = ["is_value_added", "is_safety_critical", "process_category",
                     "action_verb", "justification"]
-# Only these have a deterministic arm — the ONLY fields the comparison can score.
 _COMPARED_FIELDS = ["standards", "parts", "figures", "operations", "hazard"]
 
 
-def _norm_tok(s: str) -> str:
-    return _re.sub(r"[\s\-]+", "-", str(s).strip().upper()).strip("-")
+def _split_multi(value) -> list:
+    """The LLM packs several ids into one string: 'MP-123, MP-456',
+    '[MP-123-K, MP-456]', 'MP123; MP456'. Split before canonicalising."""
+    s = str(value or "").strip().strip("[]{}()")
+    return [p.strip() for p in re.split(r"[;,]", s) if p.strip()]
 
 
-def _filled(v) -> bool:
-    if v is None:
-        return False
-    if isinstance(v, str):
-        return v.strip() != ""
-    if isinstance(v, list):
-        return len(v) > 0
-    if isinstance(v, bool):
-        return v
-    return True
+def _norm_tok(s) -> str:
+    return re.sub(r"[\s\-]+", "-", str(s).strip().upper()).strip("-")
 
 
-def _llm_steps(extraction: dict):
+def _loose(s) -> str:
+    """Namespace-free key for cross-field collision detection."""
+    return re.sub(r"[^A-Z0-9]", "", str(s).upper())
+
+
+_HAZ_PREFIX = re.compile(r"^CLASS[\s\-]*", re.I)
+
+
+def _haz_core(v) -> str:
+    """Script emits 'Class 1.1D', the LLM emits bare '1.1D' — same namespace
+    mismatch as parts, same fix, or identical hazards score as mutual misses."""
+    return _HAZ_PREFIX.sub("", _norm_tok(v))
+
+
+def _part_core(v) -> str:
+    """Strip the PN/ASSY namespace so 'PN-1234567-YYY' and the bare
+    '1234567-YYY' the LLM emits compare equal (defect #3)."""
+    s = re.sub(r"\s+", "-", str(v).strip().upper())
+    s = _PART_PREFIX.sub("", s)
+    return re.sub(r"-{2,}", "-", s).strip("-")
+
+
+def _canon_standards(values, cfg, mx):
+    """Put arbitrary standard strings through the SAME family canonicalisation
+    the script uses. Returns (canonical_set, unrecognised_pieces)."""
+    canon, unknown = set(), []
+    for raw in values:
+        for piece in _split_multi(raw):
+            found, _ = mx.extract_standards(piece, cfg)
+            if found:
+                canon.update(found)
+            else:
+                unknown.append(_norm_tok(piece))
+    return canon, unknown
+
+
+# --------------------------------------------------------------------------- #
+# Arms
+# --------------------------------------------------------------------------- #
+def _llm_steps(extraction: dict) -> list:
     return [s for aug in (extraction.get("augmentations") or [])
             for s in (aug.get("steps") or [])]
 
 
-def llm_doc_sets(extraction: dict) -> dict:
-    """Doc-level value sets from a persisted extraction.json (arm 1 = the LLM)."""
+def _tri_state(steps, field) -> dict:
+    """Three-state coverage. A bool False is an ANSWER, not an absence — the old
+    two-state metric conflated them and made 'starvation' unfalsifiable."""
+    n = len(steps)
+    absent = true = false = answered = 0
+    for s in steps:
+        v = s.get(field, None)
+        if v is None or (isinstance(v, (str, list, dict)) and len(v) == 0):
+            absent += 1
+        elif isinstance(v, bool):
+            answered += 1
+            true += 1 if v else 0
+            false += 0 if v else 1
+        else:
+            answered += 1
+    out = {"n": n, "answered": answered, "absent": absent}
+    if true or false:
+        out["true"], out["false"] = true, false
+    return out
+
+
+def llm_doc_sets(extraction: dict, cfg, mx) -> dict:
+    """Doc-level value sets from the persisted extraction.json (arm 1 = LLM)."""
     steps = _llm_steps(extraction)
 
     def coll(field):
@@ -146,72 +243,190 @@ def llm_doc_sets(extraction: dict) -> dict:
 
     figs_all = coll("figure_references")
     figs = {f for f in figs_all if _FILENAME_RE.search(f)}
-    stds = coll("standard_ref") | coll("military_and_industry_standards")
-    cov = {f: round(sum(1 for s in steps if _filled(s.get(f))) / (len(steps) or 1), 2)
-           for f in _JUDGMENT_FIELDS}
+    raw_std = coll("standard_ref") | coll("military_and_industry_standards")
+    std_canon, std_unknown = _canon_standards(raw_std, cfg, mx)
+    raw_parts = {p for v in coll("internal_part_numbers") for p in _split_multi(v)}
     return {
-        "standards": {_norm_tok(x) for x in stds},
-        "parts": {_norm_tok(x) for x in coll("internal_part_numbers")},
+        "standards": std_canon,
+        "standards_unknown_family": std_unknown,
+        "parts": {_part_core(p) for p in raw_parts if _part_core(p)},
+        "parts_raw": raw_parts,
         "figures": figs,
-        "operations": coll("procedure_id"),
-        "hazard": {_norm_tok(x) for x in coll("hazard_class")},
+        "operations": {_norm_tok(o) for o in coll("procedure_id")},
+        "hazard": {_haz_core(h) for h in coll("hazard_class")},
         "_prose_figrefs": len(figs_all - figs),
         "_n_steps": len(steps),
-        "_judgment_coverage": cov,
+        "_judgment": {f: _tri_state(steps, f) for f in _JUDGMENT_FIELDS},
     }
 
 
-def script_doc_sets(mx, cfg, elements: list) -> dict:
-    """Doc-level value sets from the deterministic extractors (arm 2 = the script)."""
+def script_doc_sets(elements: list, cfg, mx) -> dict:
+    """Doc-level value sets from the deterministic extractors (arm 2 = script)."""
     full = "\n".join(e.get("text", "") or "" for e in elements)
-    stds, _ = mx.extract_standards(full, cfg)
+    stds, std_anom = mx.extract_standards(full, cfg)
     parts, _ = mx.extract_part_numbers(full, cfg)
     ops, _ = mx.extract_operations(elements, cfg)
     binds, fanom = mx.bind_figures_to_steps(elements, cfg)
-    haz = {f"CLASS-{m.upper()}" for m in _re.findall(cfg["hazard"]["pattern"], full, _re.I)}
+    haz = {_haz_core(h) for h in mx.extract_hazard_all(full, cfg)}
     return {
-        "standards": {_norm_tok(s) for s in stds},
-        "parts": {_norm_tok(p) for p in parts},
+        "standards": set(stds),
+        "parts": {_part_core(p) for p in parts if _part_core(p)},
+        "parts_raw": set(parts),
         "figures": {b["figure"] for b in binds},
-        "operations": set(ops),
+        "operations": {_norm_tok(o) for o in ops},
         "hazard": haz,
-        "_fig_anomalies": len(fanom),
+        "_bindings": binds,
+        "_fig_anomalies": fanom,
+        "_std_anomalies": std_anom,
     }
 
 
 def _three_way(sset: set, lset: set) -> dict:
     return {"agree": sorted(sset & lset),
             "script_only": sorted(sset - lset),   # LLM missed it
-            "llm_only": sorted(lset - sset)}       # script missed it
+            "llm_only": sorted(lset - sset)}      # script missed it
 
 
-def compare_doc(mx, cfg, elements: list, extraction: dict, include_values: bool) -> dict:
-    ss = script_doc_sets(mx, cfg, elements)
-    ls = llm_doc_sets(extraction)
-    fields = {}
+# --------------------------------------------------------------------------- #
+# Parse-side diagnostics — so an empty document can be ATTRIBUTED (an OOM'd or
+# truncated parse) instead of blamed on the LLM.
+# --------------------------------------------------------------------------- #
+def element_diagnostics(elements: list) -> dict:
+    types = collections.Counter(e.get("type") for e in elements)
+    pages, with_coords, with_imgpath = set(), 0, 0
+    heading_candidates = collections.defaultdict(collections.Counter)
+    for e in elements:
+        meta = e.get("metadata") or {}
+        p = meta.get("page_number")
+        if p is not None:
+            pages.add(p)
+        if meta.get("coordinates"):
+            with_coords += 1
+        if meta.get("image_path"):
+            with_imgpath += 1
+        text = (e.get("text") or "").strip()
+        # Where DO operation headings live? Short, numeric-or-'operation'-ish
+        # text, grouped by element type, redacted to shape. This is what tells
+        # the next round which types/patterns the structural arm must accept.
+        if text and len(text) <= 80 and re.search(r"(?i)\b(op|operation)\b|\b\d{3,4}\b", text):
+            heading_candidates[e.get("type")][_safe_text_shape(text)] += 1
+    return {
+        "n_elements": len(elements),
+        "element_types": _topn(types, 15),
+        "n_pages": len(pages),
+        "max_page": max(pages) if pages else None,
+        "elements_with_coordinates": with_coords,
+        "elements_with_image_path": with_imgpath,
+        "heading_candidate_shapes": {k: _topn(v, 6) for k, v in
+                                     sorted(heading_candidates.items(),
+                                            key=lambda kv: -sum(kv[1].values()))[:6]},
+    }
+
+
+def figure_diagnostics(script: dict, elements: list) -> dict:
+    binds = script["_bindings"]
+    per_step = collections.Counter(b["step_element_id"] for b in binds)
+    directions = collections.Counter(b.get("direction") for b in binds)
+    markers = sum(1 for e in elements if e.get("type") in ("Image", "Figure"))
+    return {
+        "markers": markers,
+        "bound": len(binds),
+        "flagged": len(script["_fig_anomalies"]),
+        "distinct_steps_bound_to": len(per_step),
+        "max_figures_on_one_step": max(per_step.values()) if per_step else 0,
+        "bind_direction": dict(directions),
+        "anomaly_kinds": dict(collections.Counter(a["kind"] for a in script["_fig_anomalies"])),
+    }
+
+
+def _diagnose(elements, n_steps_llm, manifest, elem_diag) -> dict:
+    """Name WHERE a document failed, so an empty result is attributed."""
+    flags = []
+    if not elements:
+        flags.append("parse_empty")
+    elif n_steps_llm == 0:
+        flags.append("llm_empty")
+    mf_pages = None
+    if isinstance(manifest, dict):
+        mf_pages = len(manifest.get("pages") or []) or None
+        if mf_pages and elem_diag["max_page"] and elem_diag["max_page"] < mf_pages:
+            # elements stop before the last rendered page -> truncated parse,
+            # the shape a memory-bounded/OOM'd hi-res run leaves behind.
+            flags.append("parse_truncated_vs_manifest")
+    if elements and elem_diag["elements_with_coordinates"] == 0:
+        flags.append("no_coordinates")  # geometry figure-binding degraded
+    return {"flags": flags or ["ok"], "manifest_pages": mf_pages}
+
+
+def compare_doc(elements, extraction, manifest, cfg, mx, include_values) -> dict:
+    ss = script_doc_sets(elements, cfg, mx)
+    ls = llm_doc_sets(extraction, cfg, mx)
+    elem_diag = element_diagnostics(elements)
+
+    fields, tws = {}, {}
     for f in _COMPARED_FIELDS:
         tw = _three_way(ss[f], ls[f])
+        tws[f] = tw
         entry = {"agree": len(tw["agree"]),
-                 "script_only": len(tw["script_only"]),   # LLM missed
-                 "llm_only": len(tw["llm_only"]),          # script missed
+                 "script_only": len(tw["script_only"]),
+                 "llm_only": len(tw["llm_only"]),
                  "script_only_shapes": _shapes(tw["script_only"]),
                  "llm_only_shapes": _shapes(tw["llm_only"])}
         if include_values:
             entry["values"] = tw
         fields[f] = entry
+
+    # NAS/MS et al are BOTH spec numbers and fastener part numbers. When the two
+    # arms file the same token in different fields, both sides score it a miss
+    # and the disagreement is a taxonomy artifact, not an extraction failure.
+    cross = {
+        "script_standard_is_llm_part": sorted(
+            {_shape(s) for s in ss["standards"] if _loose(s) in {_loose(p) for p in ls["parts"]}}),
+        "script_part_is_llm_standard": sorted(
+            {_shape(p) for p in ss["parts"] if _loose(p) in {_loose(s) for s in ls["standards"]}}),
+    }
+
+    # The pollution claim is CONDITIONAL: with a blind structural arm an
+    # llm_only operation cannot be distinguished from a real one the script
+    # missed. Abstain loudly rather than assert a cause (defect #2).
+    structural_recall = len(ss["operations"])
+    ops_llm_only = tws["operations"]["llm_only"]          # the LIST, not the count
+    pollution = {
+        "llm_only_count": len(ops_llm_only),
+        "llm_only_shapes": _shapes(ops_llm_only),
+        "structural_arm_found": structural_recall,
+    }
+    if structural_recall == 0:
+        pollution["claim"] = ("UNSUPPORTED — the structural arm found no operations in "
+                              "this document, so an llm_only operation is indistinguishable "
+                              "from one the script missed. Not counted as pollution.")
+        pollution["pollution_candidates"] = None
+    else:
+        pollution["claim"] = "supported — structural arm has recall on this document"
+        pollution["pollution_candidates"] = ops_llm_only
+    if include_values:
+        pollution["llm_only_values"] = ops_llm_only
+
     return {
         "n_steps_llm": ls["_n_steps"],
-        "llm_prose_figrefs": ls["_prose_figrefs"],   # non-resolvable 'Figure 3'/'1' refs
-        "script_figure_anomalies": ss["_fig_anomalies"],
-        # llm_only operations = procedure_id pollution candidates (furniture)
-        "procedure_pollution_candidates": fields["operations"]["llm_only"],
+        "llm_prose_figrefs": ls["_prose_figrefs"],
+        "parse": elem_diag,
+        "figures_diag": figure_diagnostics(ss, elements),
         "fields": fields,
-        "llm_judgment_coverage": ls["_judgment_coverage"],  # LLM-only; NOT a win
+        "cross_field_collisions": cross,
+        "llm_standards_unknown_family_shapes": _topn(
+            collections.Counter(_shape(u) for u in ls["standards_unknown_family"]), 10),
+        "operations_pollution": pollution,
+        "llm_judgment_coverage": ls["_judgment"],
+        "diagnosis": _diagnose(elements, ls["_n_steps"], manifest, elem_diag),
     }
 
 
+# --------------------------------------------------------------------------- #
+# MinIO: layout-agnostic artifact discovery (defect #1)
+# --------------------------------------------------------------------------- #
 def _s3_client():
-    import boto3  # lazy: only needed in MinIO mode, present in the deployment env
+    import boto3  # lazy: only needed in MinIO mode
     return boto3.client(
         "s3",
         endpoint_url=os.environ["S3_ENDPOINT_URL"],
@@ -226,52 +441,108 @@ def _get_json(s3, bucket, key):
     return json.loads(s3.get_object(Bucket=bucket, Key=key)["Body"].read().decode("utf-8"))
 
 
-def _iter_minio(s3, bucket, prefix):
-    """Yield (extraction_key, text_key, last_modified) for each doc with both
-    artifacts. Read-only: list + get, nothing else."""
+def discover_docs(s3, bucket, prefix):
+    """Pair text.json / extraction.json / manifest.json WITHOUT assuming a layout.
+
+    Tries, in order: sibling (same directory), {base}/generated/*/, any nested
+    path under {base}. Records which layout matched so the real one is MEASURED.
+    Documents missing either artifact are yielded too — an extraction-less parse
+    means the LLM stage never ran, which is a finding, not a gap.
+    """
     paginator = s3.get_paginator("list_objects_v2")
-    keys, lastmod = [], {}
+    keys, lastmod, sizes = [], {}, {}
     for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
         for o in page.get("Contents", []):
             keys.append(o["Key"])
             lastmod[o["Key"]] = o.get("LastModified")
-    keyset = set(keys)
-    for ek in sorted(k for k in keys if k.endswith("/extraction.json")):
-        base_dir = ek[: -len("/extraction.json")]
-        tjs = sorted(k for k in keyset
-                     if k.startswith(base_dir + "/generated/") and k.endswith("/text.json"))
-        yield ek, (tjs[0] if tjs else None), lastmod.get(ek)
+            sizes[o["Key"]] = o.get("Size")
+    texts = {k.rsplit("/", 1)[0]: k for k in keys if k.endswith("/text.json")}
+    extrs = {k.rsplit("/", 1)[0]: k for k in keys if k.endswith("/extraction.json")}
+    mans = {k.rsplit("/", 1)[0]: k for k in keys if k.endswith("/manifest.json")}
+
+    used_text = set()
+    docs = []
+    for edir, ekey in sorted(extrs.items()):
+        tkey, layout = None, None
+        if edir in texts:
+            tkey, layout = texts[edir], "sibling"
+        else:
+            gen = sorted(d for d in texts if d.startswith(edir + "/generated/"))
+            nested = sorted(d for d in texts if d.startswith(edir + "/"))
+            if gen:
+                tkey, layout = texts[gen[0]], "generated"
+            elif nested:
+                tkey, layout = texts[nested[0]], "nested"
+        if tkey:
+            used_text.add(tkey)
+        mkey = mans.get(edir) or (mans.get(tkey.rsplit("/", 1)[0]) if tkey else None)
+        docs.append({"extraction_key": ekey, "text_key": tkey, "manifest_key": mkey,
+                     "layout": layout or "unpaired_no_text",
+                     "last_modified": lastmod.get(ekey),
+                     "text_bytes": sizes.get(tkey), "extraction_bytes": sizes.get(ekey)})
+    # parses with no extraction at all — the LLM stage never produced anything
+    for tdir, tkey in sorted(texts.items()):
+        if tkey in used_text:
+            continue
+        docs.append({"extraction_key": None, "text_key": tkey,
+                     "manifest_key": mans.get(tdir), "layout": "unpaired_no_extraction",
+                     "last_modified": lastmod.get(tkey),
+                     "text_bytes": sizes.get(tkey), "extraction_bytes": None})
+    return docs
 
 
 def run_minio(args, mx, cfg):
     s3 = _s3_client()
-    per_doc, local_map = [], {}
+    found = discover_docs(s3, args.bucket, args.minio_prefix)
+    if args.limit:
+        found = found[: args.limit]
+
+    per_doc, local_map, gen = [], {}, []
     agg = {f: collections.Counter() for f in _COMPARED_FIELDS}
-    gen = []
-    skipped = collections.Counter()
-    for i, (ek, tk, lm) in enumerate(_iter_minio(s3, args.bucket, args.minio_prefix)):
+    layouts, diagnoses, skipped = collections.Counter(), collections.Counter(), collections.Counter()
+    unknown_fam, cross_tot = collections.Counter(), collections.Counter()
+
+    for i, d in enumerate(found):
         doc_id = f"doc_{i:04d}"
-        if tk is None:
-            skipped["no_text_json"] += 1
-            continue
-        extraction = _get_json(s3, args.bucket, ek)
-        if (extraction.get("domain_type") or "").lower() != "manufacturing":
+        local_map[doc_id] = {k: d[k] for k in ("extraction_key", "text_key", "manifest_key")}
+        layouts[d["layout"]] += 1
+
+        elements = _get_json(s3, args.bucket, d["text_key"]) if d["text_key"] else []
+        if not isinstance(elements, list):
+            elements = []
+        extraction = (_get_json(s3, args.bucket, d["extraction_key"])
+                      if d["extraction_key"] else {"augmentations": []})
+        domain = (extraction.get("domain_type") or "").lower()
+        if d["extraction_key"] and domain and domain != "manufacturing":
             skipped["non_manufacturing"] += 1
             continue
-        elements = _get_json(s3, args.bucket, tk)
-        rec = compare_doc(mx, cfg, elements, extraction, args.include_values)
-        rec["doc"] = doc_id
-        rec["generated_at"] = lm.isoformat() if lm else None
+        manifest = None
+        if d["manifest_key"]:
+            try:
+                manifest = _get_json(s3, args.bucket, d["manifest_key"])
+            except Exception:  # noqa: BLE001 — a missing manifest is a diag, not a crash
+                manifest = None
+
+        rec = compare_doc(elements, extraction, manifest, cfg, mx, args.include_values)
+        rec.update({"doc": doc_id, "layout": d["layout"],
+                    "generated_at": d["last_modified"].isoformat() if d["last_modified"] else None,
+                    "text_bytes": d["text_bytes"], "extraction_bytes": d["extraction_bytes"]})
         per_doc.append(rec)
-        local_map[doc_id] = {"extraction_key": ek, "text_key": tk}  # object keys only
-        if lm:
-            gen.append(lm.isoformat())
+        if d["last_modified"]:
+            gen.append(d["last_modified"].isoformat())
         for f in _COMPARED_FIELDS:
             for cls in ("agree", "script_only", "llm_only"):
                 agg[f][cls] += rec["fields"][f][cls]
+        for flag in rec["diagnosis"]["flags"]:
+            diagnoses[flag] += 1
+        unknown_fam.update(rec["llm_standards_unknown_family_shapes"])
+        cross_tot["script_standard_is_llm_part"] += len(rec["cross_field_collisions"]["script_standard_is_llm_part"])
+        cross_tot["script_part_is_llm_standard"] += len(rec["cross_field_collisions"]["script_part_is_llm_standard"])
 
+    blind = sum(1 for r in per_doc if r["operations_pollution"]["structural_arm_found"] == 0)
     stamp = {
         "mode": "minio-comparison",
+        "report_version": "0.2.0",
         "extractor_version": mx.EXTRACTOR_VERSION,
         "config_hash": _config_hash(cfg),
         "bucket": args.bucket, "prefix": args.minio_prefix,
@@ -279,16 +550,26 @@ def run_minio(args, mx, cfg):
         "generation_range": [min(gen), max(gen)] if gen else None,
         "generated_at": args.stamp_date or datetime.date.today().isoformat(),
         "values_included": args.include_values,
+        "layouts": dict(layouts),
+        "diagnoses": dict(diagnoses),
         "skipped": dict(skipped),
     }
     report = {
         "stamp": stamp,
-        "legend": {"script_only": "LLM MISSED it (script found)",
-                   "llm_only": "script MISSED it (LLM found)",
-                   "note": "only these fields have a deterministic arm: "
-                           + ", ".join(_COMPARED_FIELDS)
-                           + ". Judgment fields are LLM-only coverage, NOT wins."},
+        "legend": {
+            "script_only": "LLM MISSED it (script found)",
+            "llm_only": "script MISSED it (LLM found)",
+            "scored_fields": _COMPARED_FIELDS,
+            "note": "Judgment fields are LLM-only coverage, NOT wins. Both arms are "
+                    "canonicalised identically before diffing; parts compare on a "
+                    "prefix-stripped core.",
+            "operations_caveat": f"{blind}/{len(per_doc)} documents had ZERO structural "
+                                 f"operations, so their llm_only operations are NOT counted "
+                                 f"as pollution — see per_doc[].operations_pollution.claim",
+        },
         "field_totals": {f: dict(agg[f]) for f in _COMPARED_FIELDS},
+        "cross_field_collision_totals": dict(cross_tot),
+        "llm_standards_unknown_family_shapes": _topn(unknown_fam, 25),
         "per_doc": per_doc,
     }
     with open(args.out, "w", encoding="utf-8") as f:
@@ -298,124 +579,96 @@ def run_minio(args, mx, cfg):
         json.dump(local_map, f, indent=2)
 
     print(f"MinIO comparison  bucket={args.bucket}  prefix={args.minio_prefix}  "
-          f"docs={len(per_doc)}  extractor v{mx.EXTRACTOR_VERSION}")
+          f"docs={len(per_doc)}  extractor v{mx.EXTRACTOR_VERSION}  report v{stamp['report_version']}")
+    print(f"  layouts   : {dict(layouts)}")
+    print(f"  diagnoses : {dict(diagnoses)}")
     if stamp["generation_range"]:
-        print(f"  parse/extraction generation range: {stamp['generation_range'][0]} .. "
-              f"{stamp['generation_range'][1]}  (aggregate by generation, not across)")
-    print("  field: agree | script_only(LLM missed) | llm_only(script missed)")
+        print(f"  generation: {stamp['generation_range'][0]} .. {stamp['generation_range'][1]}")
+    print("  field       agree | LLM-missed | script-missed")
     for f in _COMPARED_FIELDS:
         c = agg[f]
-        print(f"    {f:11s} agree={c['agree']:4d}  LLM-missed={c['script_only']:4d}  "
-              f"script-missed={c['llm_only']:4d}")
-    if skipped:
-        print(f"  skipped: {dict(skipped)}")
-    print(f"  report -> {args.out}  (SHAREABLE, elided)")
-    print(f"  local map -> {map_path}  (KEEP LOCAL — doc_id -> object keys)")
-    print("  NOTE: llm_only operations are procedure_id pollution candidates; "
-          "judgment fields are LLM-only coverage, not wins.")
+        print(f"    {f:11s} {c['agree']:5d} | {c['script_only']:10d} | {c['llm_only']:13d}")
+    print(f"  cross-field collisions: {dict(cross_tot)}")
+    if blind:
+        print(f"  NOTE: {blind}/{len(per_doc)} docs had a BLIND structural arm — their "
+              f"llm_only operations are NOT claimed as pollution.")
+    print(f"  report -> {args.out}   (SHAREABLE, elided)")
+    print(f"  local map -> {map_path}   (KEEP LOCAL — object keys only)")
+
+
+# --------------------------------------------------------------------------- #
+# Local mode (deterministic only, no LLM arm)
+# --------------------------------------------------------------------------- #
+def _iter_local(input_dir, pattern):
+    for path in sorted(globmod.glob(os.path.join(input_dir, pattern), recursive=True)):
+        base = os.path.basename(path).lower()
+        if "groundtruth" in base or "_repro_response" in base or "report" in base:
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:  # noqa: BLE001
+            continue
+        if isinstance(data, list):
+            yield path, data
+
+
+def run_local(args, mx, cfg):
+    per_doc, local_map = [], {}
+    totals = collections.Counter()
+    for idx, (path, els) in enumerate(_iter_local(args.input, args.glob)):
+        doc_id = f"doc_{idx:04d}"
+        local_map[doc_id] = path
+        ss = script_doc_sets(els, cfg, mx)
+        diag = element_diagnostics(els)
+        totals["standards"] += len(ss["standards"])
+        totals["parts"] += len(ss["parts"])
+        totals["figures"] += len(ss["figures"])
+        totals["operations"] += len(ss["operations"])
+        per_doc.append({
+            "doc": doc_id,
+            "hash": hashlib.sha1(os.path.basename(path).encode()).hexdigest()[:8],
+            "parse": diag,
+            "standards": {"count": len(ss["standards"]), "shapes": _shapes(ss["standards"])},
+            "parts": {"count": len(ss["parts"]), "shapes": _shapes(ss["parts"])},
+            "operations": {"count": len(ss["operations"]), "shapes": _shapes(ss["operations"])},
+            "figures_diag": figure_diagnostics(ss, els),
+        })
+    report = {"stamp": {"mode": "local-deterministic", "report_version": "0.2.0",
+                        "extractor_version": mx.EXTRACTOR_VERSION,
+                        "config_hash": _config_hash(cfg), "corpus_label": args.label,
+                        "doc_count": len(per_doc),
+                        "generated_at": args.stamp_date or datetime.date.today().isoformat()},
+              "totals": dict(totals), "per_doc": per_doc}
+    with open(args.out, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+    with open(os.path.splitext(args.out)[0] + ".local-map.json", "w", encoding="utf-8") as f:
+        json.dump(local_map, f, indent=2)
+    print(f"local deterministic  docs={len(per_doc)}  totals={dict(totals)}")
+    print(f"  report -> {args.out}")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input", help="LOCAL mode: directory of parsed element-list JSON files")
+    ap.add_argument("--input", help="LOCAL mode: directory of element-list JSON files")
     ap.add_argument("--minio-prefix", help="MINIO comparison mode: S3 prefix to scan")
-    ap.add_argument("--bucket", default=os.getenv("DAGSTER_STORAGE_BUCKET", "processing-artifacts"),
-                    help="MINIO mode bucket (default $DAGSTER_STORAGE_BUCKET or processing-artifacts)")
-    ap.add_argument("--glob", default="**/*text.json", help="glob under --input (default **/*text.json)")
-    ap.add_argument("--label", default="unlabeled", help="corpus slice label (stamped)")
+    ap.add_argument("--bucket", default=os.getenv("DAGSTER_STORAGE_BUCKET", "processing-artifacts"))
+    ap.add_argument("--glob", default="**/*text.json")
+    ap.add_argument("--label", default="unlabeled")
+    ap.add_argument("--limit", type=int, default=0, help="cap documents (smoke runs)")
     ap.add_argument("--include-values", action="store_true",
-                    help="include actual extracted values (use only on a slice you deem safe)")
+                    help="include actual values (only on a slice you deem safe)")
     ap.add_argument("--out", default="mfg_corpus_report.json")
-    ap.add_argument("--stamp-date", default="", help="ISO date override (else today)")
+    ap.add_argument("--stamp-date", default="")
     args = ap.parse_args()
 
     mx = _load_extractors()
     cfg = mx.load_extractor_config()
-
     if args.minio_prefix:
         return run_minio(args, mx, cfg)
     if not args.input:
-        ap.error("--input is required for local mode (or pass --minio-prefix for comparison mode)")
-
-    per_doc = []
-    local_map = {}
-    agg_std_shapes = collections.Counter()
-    agg_part_shapes = collections.Counter()
-    agg_anom = collections.Counter()
-    totals = collections.Counter()
-
-    for idx, (path, els) in enumerate(_iter_docs(args.input, args.glob)):
-        doc_id = f"doc_{idx:04d}"
-        local_map[doc_id] = path
-        full_text = "\n".join(e.get("text", "") or "" for e in els)
-        pages = {(e.get("metadata") or {}).get("page_number") for e in els}
-
-        stds, std_anom = mx.extract_standards(full_text, cfg)
-        parts, _ = mx.extract_part_numbers(full_text, cfg)
-        binds, fig_anom = mx.bind_figures_to_steps(els, cfg)
-        n_markers = sum(1 for e in els if e.get("type") in ("Image", "Figure"))
-
-        anomalies = std_anom + fig_anom
-        for a in anomalies:
-            agg_anom[a["kind"]] += 1
-        agg_std_shapes.update(_shape(s) for s in stds)
-        agg_part_shapes.update(_shape(p) for p in parts)
-        totals["standards"] += len(stds)
-        totals["parts"] += len(parts)
-        totals["figures_markers"] += n_markers
-        totals["figures_bound"] += len(binds)
-        totals["figures_flagged"] += len(fig_anom)
-
-        rec = {
-            "doc": doc_id,
-            "hash": hashlib.sha1(os.path.basename(path).encode()).hexdigest()[:8],
-            "n_elements": len(els), "n_pages": len([p for p in pages if p is not None]),
-            "standards": {"count": len(stds), "shapes": _shapes(stds)},
-            "part_numbers": {"count": len(parts), "shapes": _shapes(parts)},
-            "figures": {"markers": n_markers, "bound": len(binds), "flagged": len(fig_anom)},
-            "anomaly_kinds": dict(collections.Counter(a["kind"] for a in anomalies)),
-        }
-        if args.include_values:
-            rec["values"] = {"standards": sorted(stds), "part_numbers": sorted(parts),
-                             "anomalies": anomalies}
-        per_doc.append(rec)
-
-    stamp = {
-        "extractor_version": mx.EXTRACTOR_VERSION,
-        "config_hash": _config_hash(cfg),
-        "corpus_label": args.label,
-        "doc_count": len(per_doc),
-        "generated_at": args.stamp_date or datetime.date.today().isoformat(),
-        "input_glob": args.glob,
-        "values_included": args.include_values,
-    }
-    report = {
-        "stamp": stamp,
-        "totals": dict(totals),
-        "standard_shape_distribution": dict(agg_std_shapes),
-        "part_shape_distribution": dict(agg_part_shapes),
-        "anomaly_distribution": dict(agg_anom),
-        "per_doc": per_doc,
-    }
-
-    with open(args.out, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
-    map_path = os.path.splitext(args.out)[0] + ".local-map.json"
-    with open(map_path, "w", encoding="utf-8") as f:
-        json.dump(local_map, f, indent=2)
-
-    # human summary
-    print(f"corpus '{stamp['corpus_label']}'  docs={stamp['doc_count']}  "
-          f"extractor v{stamp['extractor_version']}  cfg {stamp['config_hash']}  "
-          f"{stamp['generated_at']}")
-    print(f"  totals: {dict(totals)}")
-    print(f"  standard shapes : {dict(agg_std_shapes)}")
-    print(f"  part shapes     : {dict(agg_part_shapes)}")
-    print(f"  anomaly kinds   : {dict(agg_anom) if agg_anom else '(none)'}")
-    print(f"  report -> {args.out}   (SHAREABLE, elided)")
-    print(f"  local map -> {map_path}   (KEEP LOCAL — maps doc_id -> path, do not share)")
-    if not args.include_values:
-        print("  values elided (counts + shapes only). Re-run --include-values on a safe slice to see them.")
+        ap.error("--input is required for local mode (or pass --minio-prefix)")
+    return run_local(args, mx, cfg)
 
 
 if __name__ == "__main__":

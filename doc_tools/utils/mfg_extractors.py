@@ -27,7 +27,7 @@ Anomaly = Dict[str, Any]
 
 # Bump when patterns/config semantics change — stamped into corpus reports so a
 # later run can be compared against an earlier one.
-EXTRACTOR_VERSION = "0.1.0"
+EXTRACTOR_VERSION = "0.2.0"   # 0.2.0: operations recall + hazard bare-form (2026-09-17 corpus run)
 
 # --------------------------------------------------------------------------- #
 # Config (committed defaults; override via MANUFACTURING_EXTRACTORS_SPEC)
@@ -73,8 +73,18 @@ DEFAULT_EXTRACTOR_CONFIG: Dict[str, Any] = {
         "to_minutes": {"min": 1, "minute": 1, "minutes": 1, "hr": 60, "hrs": 60,
                        "hour": 60, "hours": 60, "day": 1440, "days": 1440},
     },
+    # MEASURED 2026-09-17: script recall was ZERO across six documents while the LLM
+    # found hazard classes — the single pattern demanded the literal word "Class"
+    # adjacent. The bare form is added, but ONLY with a division letter
+    # (1.1D, 1.3C): a bare '1.3' is indistinguishable from a dimension or a version
+    # and would trade a false negative for a false positive. `pattern` is kept for
+    # callers that pass the singular key.
     "hazard": {
         "pattern": r"\bClass\s?([0-9]\.[0-9][A-Z]?)\b",
+        "patterns": [
+            r"\bClass\s?([0-9]\.[0-9][A-Z]?)\b",
+            r"\b(1\.[1-6][A-HJKLNS])\b",
+        ],
         "lexicon": ["ESD", "static", "explosive", "hazmat", "biohazard", "FOD"],
     },
     "slang": {
@@ -85,9 +95,21 @@ DEFAULT_EXTRACTOR_CONFIG: Dict[str, Any] = {
     # Operation (procedure) numbers read STRUCTURALLY from heading elements — the
     # positional fact, not an LLM guess. An LLM procedure_id that is NOT in this set
     # is a pollution candidate (e.g. a document number grabbed from page furniture).
+    # MEASURED 2026-09-17: the first real corpus run found ONE operation across six
+    # documents — the structural arm was effectively blind, which also invalidated
+    # the pollution discriminant built on top of it. Cause: real headings are not
+    # reliably typed `Title`, and "Operation 0020" is only one of several printed
+    # forms. Types are widened and the patterns are ANCHORED (they require the word
+    # OPERATION/OP, or a line that IS the number) so widening does not let page
+    # furniture like a 'DWG-4500-01' document number in through the back door.
     "operations": {
-        "title_types": ["Title"],   # add "Header"/"NarrativeText" via override if needed
-        "patterns": [r"\bOperation\s+(\d{3,4})\b", r"^\s*(\d{4})\b"],
+        "title_types": ["Title", "Header", "NarrativeText", "UncategorizedText", "ListItem"],
+        "patterns": [
+            r"\bOPERATION\s*[#:.\-]?\s*(\d{3,4})\b",
+            r"\bOP\.?\s*[#:.\-]?\s*(\d{3,4})\b",
+            r"^\s*(\d{4})\s*[-–—:.]\s*\S",   # '0020 - Final Inspect'
+            r"^\s*(\d{4})\s*$",              # a line that is only the number
+        ],
     },
     # Bind a [FIGURE]/Image element to the nearest step element on the SAME page,
     # preferring the nearest preceding step (fall back to the nearest following).
@@ -195,14 +217,32 @@ def extract_duration_minutes(text: str, cfg: Dict[str, Any]) -> Optional[int]:
     return int(qty * mult) if mult else None
 
 
+def _hazard_patterns(cfg: Dict[str, Any]) -> List[str]:
+    hc = cfg["hazard"]
+    return list(hc.get("patterns") or ([hc["pattern"]] if hc.get("pattern") else []))
+
+
 def extract_hazard(text: str, cfg: Dict[str, Any]) -> Optional[str]:
-    m = re.search(cfg["hazard"]["pattern"], text or "", re.I)
-    if m:
-        return f"Class {m.group(1).upper()}"
+    for pat in _hazard_patterns(cfg):
+        m = re.search(pat, text or "", re.I)
+        if m:
+            return f"Class {m.group(1).upper()}"
     for term in cfg["hazard"]["lexicon"]:
         if re.search(rf"\b{re.escape(term)}\b", text or "", re.I):
             return term.upper()
     return None
+
+
+def extract_hazard_all(text: str, cfg: Dict[str, Any]) -> List[str]:
+    """Every hazard class in the text (doc-level). Kept HERE rather than
+    re-implemented by callers so the pattern list has exactly one home."""
+    out: List[str] = []
+    for pat in _hazard_patterns(cfg):
+        for m in re.finditer(pat, text or "", re.I):
+            val = f"Class {m.group(1).upper()}"
+            if val not in out:
+                out.append(val)
+    return out
 
 
 def extract_slang(text: str, cfg: Dict[str, Any]) -> List[str]:
@@ -227,7 +267,7 @@ def extract_operations(elements: List[dict], cfg: Dict[str, Any]) -> Tuple[List[
             continue
         text = el.get("text", "") or ""
         for pat in oc["patterns"]:
-            for m in re.finditer(pat, text):
+            for m in re.finditer(pat, text, re.I | re.M):
                 v = m.group(1)
                 if v not in seen:
                     seen.add(v)
