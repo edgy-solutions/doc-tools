@@ -27,7 +27,7 @@ Anomaly = Dict[str, Any]
 
 # Bump when patterns/config semantics change — stamped into corpus reports so a
 # later run can be compared against an earlier one.
-EXTRACTOR_VERSION = "0.3.0"   # 0.3.0: unicode-dash folding, operations precision + Footer, provenance
+EXTRACTOR_VERSION = "0.4.0"   # 0.4.0: overlapping-family double-count fix + hazard corroboration
 
 # --------------------------------------------------------------------------- #
 # Config (committed defaults; override via MANUFACTURING_EXTRACTORS_SPEC)
@@ -199,15 +199,27 @@ def extract_standards(text: str, cfg: Dict[str, Any]) -> Tuple[List[str], List[A
     'MIL PRF 81733' -> 'MIL-PRF-81733'; 'J STD 001'/'JSTD001' -> 'J-STD-001'.
     """
     sc = cfg["standards"]
-    found: List[str] = []
-    seen = set()
     up = normalize_text(text)
+
+    # Collect every family hit WITH ITS SPAN first. Families overlap by design —
+    # 'MIL-STD-1234' matches the MIL-STD family AND the generic STD family (on the
+    # 'STD-1234' substring), which silently counted one real standard as two and
+    # inflated every script total. Keep the WIDEST span at a position and discard
+    # anything strictly contained in it.
+    hits = []
     for fam in sc["families"]:
         for m in re.finditer(fam["pattern"], up, re.I):
-            canon = f"{fam['canonical']}-{_norm_number(m.group(1))}"
-            if canon not in seen:
-                seen.add(canon)
-                found.append(canon)
+            hits.append((m.start(), m.end(),
+                         f"{fam['canonical']}-{_norm_number(m.group(1))}"))
+    found: List[str] = []
+    seen = set()
+    for i, (s, e, canon) in enumerate(hits):
+        contained = any(s2 <= s and e2 >= e and (e2 - s2) > (e - s)
+                        for j, (s2, e2, _) in enumerate(hits) if j != i)
+        if contained or canon in seen:
+            continue
+        seen.add(canon)
+        found.append(canon)
     anomalies: List[Anomaly] = []
     if sc.get("near_miss"):
         for m in re.finditer(sc["near_miss"], up, re.I):
@@ -260,6 +272,42 @@ def extract_hazard(text: str, cfg: Dict[str, Any]) -> Optional[str]:
         if re.search(rf"\b{re.escape(term)}\b", text or "", re.I):
             return term.upper()
     return None
+
+
+def corroborate_hazard(value: str, text: str) -> str:
+    """Is an LLM-claimed hazard class ACTUALLY PRINTED in the document?
+
+    Returns 'exact' | 'base_only' | 'absent'.
+
+    WHY THIS EXISTS INSTEAD OF A SCORED REGEX ARM. Operator review of the corpus
+    found the LLM emitting '1.1D' where the document says '1.1 -1.3' and, later,
+    '1.4'. So the model is not extracting the class, it is CLASSIFYING — and it
+    invented the division letter. A recall comparison is meaningless for a field
+    the document may not print; what matters is whether each claimed value is
+    corroborated by the text.
+
+    The three-way answer is the useful one:
+      exact     — the full class (with its division letter) is in the text
+      base_only — the numeric class is there but the LETTER is not: the shape of
+                  an invented division letter, and the case actually observed
+      absent    — nothing resembling it is in the text: wholly inferred
+
+    Matching is deliberately tolerant (dashes folded, whitespace/newline allowed
+    between the number and the letter) so a hyphenated range like '1.1 -1.3' or a
+    class split across a line break still corroborates. A manual Ctrl-F cannot be
+    trusted on scanned text; this can be run over every document at once.
+    """
+    t = normalize_text(text)
+    v = re.sub(r"(?i)^class\s*", "", normalize_text(value)).strip().upper()
+    m = re.match(r"(\d\.\d)\s*([A-Z]?)", v)
+    if not m:
+        return "absent"
+    base, letter = m.group(1), m.group(2)
+    if letter and re.search(rf"{re.escape(base)}\s*{letter}\b", t, re.I):
+        return "exact"
+    if re.search(rf"{re.escape(base)}(?![.\d])", t):
+        return "exact" if not letter else "base_only"
+    return "absent"
 
 
 def extract_hazard_all(text: str, cfg: Dict[str, Any]) -> List[str]:

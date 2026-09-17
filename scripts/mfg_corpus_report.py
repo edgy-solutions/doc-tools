@@ -311,7 +311,71 @@ def script_doc_sets(elements: list, cfg, mx) -> dict:
         "_fig_anomalies": fanom,
         "_std_anomalies": std_anom,
         "_ops_detailed": ops_detailed,
+        "_full_text": full,
     }
+
+
+def _public_family_prefixes(cfg) -> set:
+    """Canonical prefixes from the COMMITTED config — public by construction, so
+    safe to render verbatim. Anything else is site-specific and gets redacted."""
+    return {f["canonical"].upper() for f in cfg["standards"]["families"]}
+
+
+def _safe_shape(tok, public: set) -> str:
+    head = re.match(r"[A-Za-z\-]+", str(tok))
+    prefix = head.group(0).upper().strip("-") if head else ""
+    return _shape(tok) if prefix in public else _shape_alpha(tok)
+
+
+def corroborate_llm_values(ls, ss, elements, cfg, mx) -> dict:
+    """For EVERY value the LLM emitted, is it actually in the document?
+
+    This is the absolute measure the script-vs-script diff cannot give: a field
+    can disagree because the script missed it, OR because the LLM invented it,
+    and only the document settles which. It is the same guard the sustainment
+    extractor already runs ('affected_mpn not found verbatim in OCR text
+    (possible hallucination)'), generalised to every field.
+
+    Verdicts:
+      exact    — the value appears verbatim in the text
+      loose    — it appears once separators/spacing/case are folded away (the
+                 same identifier written differently, or split by a line break)
+      absent   — nothing matching is in the document: INVENTED
+      base_only (hazard only) — the number is printed but the division letter is not
+
+    Figures are checked against the document's actual crop FILENAMES rather than
+    its text, because a filename is never printed in the prose.
+    """
+    text = ss["_full_text"]
+    norm_text = mx.normalize_text(text).upper()
+    loose_text = re.sub(r"[^A-Z0-9]", "", norm_text)
+    doc_figures = {os.path.basename(str((e.get("metadata") or {}).get("image_path") or "")
+                                    .replace("\\", "/")).upper()
+                   for e in elements if (e.get("metadata") or {}).get("image_path")}
+    public = _public_family_prefixes(cfg)
+
+    out = {}
+    for field in ("standards", "parts", "operations", "figures", "hazard"):
+        counts, absent_shapes = collections.Counter(), collections.Counter()
+        for v in sorted(ls.get(field) or ()):
+            if field == "hazard":
+                verdict = mx.corroborate_hazard(v, text)
+            elif field == "figures":
+                verdict = "exact" if str(v).upper() in doc_figures else "absent"
+            else:
+                nv = mx.normalize_text(v).upper().strip()
+                lv = re.sub(r"[^A-Z0-9]", "", nv)
+                if nv and nv in norm_text:
+                    verdict = "exact"
+                elif lv and lv in loose_text:
+                    verdict = "loose"
+                else:
+                    verdict = "absent"
+            counts[verdict] += 1
+            if verdict == "absent":
+                absent_shapes[_safe_shape(v, public)] += 1
+        out[field] = {"counts": dict(counts), "absent_shapes": _topn(absent_shapes, 8)}
+    return out
 
 
 def _three_way(sset: set, lset: set) -> dict:
@@ -444,6 +508,24 @@ def compare_doc(elements, extraction, manifest, cfg, mx, include_values) -> dict
                "shapes": _shapes(ls.get(name) or ())}
         for name, reason in _LLM_ONLY_FIELDS.items()
     }
+    # Hazard is not scored, but every claimed value IS checked against the text.
+    # exact = printed; base_only = the number is there but the division letter is
+    # NOT (an invented letter); absent = wholly inferred. This is the fabrication
+    # measurement, run over every document instead of one manual search.
+    haz_corr = collections.Counter()
+    haz_detail = []
+    for v in sorted(ls.get("hazard") or ()):
+        verdict = mx.corroborate_hazard(v, ss["_full_text"])
+        haz_corr[verdict] += 1
+        haz_detail.append({"shape": _shape(v), "corroboration": verdict})
+    if "hazard" in llm_only_fields:
+        llm_only_fields["hazard"]["corroboration"] = dict(haz_corr)
+        llm_only_fields["hazard"]["per_value"] = haz_detail
+        llm_only_fields["hazard"]["corroboration_legend"] = {
+            "exact": "the full class incl. division letter IS printed in the document",
+            "base_only": "the numeric class is printed but the LETTER is not — invented letter",
+            "absent": "nothing resembling it is in the text — wholly inferred",
+        }
 
     # Which rule produced each structural operation — so an over-matching pattern
     # names itself instead of hiding among real hits.
@@ -492,6 +574,7 @@ def compare_doc(elements, extraction, manifest, cfg, mx, include_values) -> dict
         "parse": elem_diag,
         "figures_diag": figure_diagnostics(ss, elements),
         "fields": fields,
+        "llm_grounding": corroborate_llm_values(ls, ss, elements, cfg, mx),
         "llm_only_fields": llm_only_fields,
         "cross_field_collisions": cross,
         "llm_standards_unknown_family_shapes": _topn(
@@ -583,6 +666,7 @@ def run_minio(args, mx, cfg):
     agg = {f: collections.Counter() for f in _COMPARED_FIELDS}
     layouts, diagnoses, skipped = collections.Counter(), collections.Counter(), collections.Counter()
     unknown_fam, cross_tot = collections.Counter(), collections.Counter()
+    haz_tot, ground_tot = collections.Counter(), collections.Counter()
 
     for i, d in enumerate(found):
         doc_id = f"doc_{i:04d}"
@@ -618,6 +702,10 @@ def run_minio(args, mx, cfg):
         for flag in rec["diagnosis"]["flags"]:
             diagnoses[flag] += 1
         unknown_fam.update(rec["llm_standards_unknown_family_shapes"])
+        haz_tot.update(rec["llm_only_fields"].get("hazard", {}).get("corroboration", {}))
+        for fld, g in rec["llm_grounding"].items():
+            for verdict, n in g["counts"].items():
+                ground_tot[f"{fld}.{verdict}"] += n
         cross_tot["script_standard_is_llm_part"] += len(rec["cross_field_collisions"]["script_standard_is_llm_part"])
         cross_tot["script_part_is_llm_standard"] += len(rec["cross_field_collisions"]["script_part_is_llm_standard"])
 
@@ -650,6 +738,16 @@ def run_minio(args, mx, cfg):
                                  f"as pollution — see per_doc[].operations_pollution.claim",
         },
         "field_totals": {f: dict(agg[f]) for f in _COMPARED_FIELDS},
+        "llm_grounding_totals": dict(ground_tot),
+        "llm_grounding_legend": {
+            "exact": "the LLM's value appears verbatim in the document",
+            "loose": "appears once separators/spacing/case are folded (same id, written differently)",
+            "absent": "NOT in the document — invented",
+            "base_only": "hazard only: the number is printed, the division letter is not",
+            "note": "this is the ABSOLUTE hallucination measure; the script-vs-LLM diff "
+                    "cannot tell 'script missed it' from 'LLM invented it', the document can.",
+        },
+        "hazard_corroboration_totals": dict(haz_tot),
         "cross_field_collision_totals": dict(cross_tot),
         "llm_standards_unknown_family_shapes": _topn(unknown_fam, 25),
         "per_doc": per_doc,
@@ -670,6 +768,13 @@ def run_minio(args, mx, cfg):
     for f in _COMPARED_FIELDS:
         c = agg[f]
         print(f"    {f:11s} {c['agree']:5d} | {c['script_only']:10d} | {c['llm_only']:13d}")
+    print("  LLM GROUNDING (is each LLM value actually in the document?):")
+    for fld in ("standards", "parts", "operations", "figures", "hazard"):
+        row = {k.split(".", 1)[1]: v for k, v in ground_tot.items() if k.startswith(fld + ".")}
+        if row:
+            absent = row.get("absent", 0)
+            tot = sum(row.values())
+            print(f"    {fld:11s} {row}   -> {absent}/{tot} NOT in the document")
     print(f"  cross-field collisions: {dict(cross_tot)}")
     if blind:
         print(f"  NOTE: {blind}/{len(per_doc)} docs had a BLIND structural arm — their "
