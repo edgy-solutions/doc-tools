@@ -23,6 +23,7 @@ Design notes:
 """
 import io
 import os
+import re
 from typing import List, Optional, Tuple, Any, Dict
 
 from pydantic import BaseModel, Field
@@ -122,6 +123,48 @@ def _fetch_image_b64(s3_client, s3_url: str):
 # born-digital; pdfplumber reads the same tables exactly, in under a second), not a
 # bigger token budget.
 VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
+
+
+def _declares_parts_table(html: str, text: str) -> bool:
+    """Does this table's HEADER declare it a parts table?
+
+    The discriminant for an EMPTY crop. A PCN carries qualification,
+    test-condition and revision-history tables that legitimately contain no
+    parts, so treating every empty crop as a loss would cry wolf on most
+    notices — but a parts table that yields nothing HAS lost parts.
+
+    DECIDED FROM HEADER VOCABULARY, NOT CELL SHAPE. Counting part-SHAPED cells
+    was tried first and measured wrong on this corpus: a `Test | Specification |
+    Condition | Interval` table scores EIGHT 'part-shaped' cells, because
+    'JESD22-A103', '1008 hrs' and '150C' all satisfy "short, contains a digit".
+    Shape cannot separate a spec number from a part number, so it would have
+    flagged exactly the tables the discriminant exists to protect. The header
+    can: 'Part Number | Qualification Vehicle' declares parts, 'Test |
+    Specification' does not.
+
+    Only the HEADER REGION is inspected (the grid's first row, else the opening
+    text) so a part number appearing deep inside a test table cannot trigger it.
+    Reuses table_text_layer's vocabulary so "which columns mean parts" has one
+    definition in this codebase.
+
+    KNOWN LIMIT: a headerless bare list of part numbers does not declare itself
+    and will not be flagged. That is deliberate — precision over recall on the
+    flag — and such crops are still COUNTED in crops_empty_ok, so the diagnostic
+    can see them even when the pipeline does not raise them.
+    """
+    # BOTH signals, not either/or: unstructured's HTML first row is frequently a
+    # spanning/title row rather than the column header (measured — a table whose
+    # TEXT opens 'Part Number Qualification Vehicle ...' had none of that in its
+    # first <tr>), so looking only at the grid misses real parts tables.
+    parts = []
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html or "", re.S | re.I)
+    if rows:
+        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", rows[0], re.S | re.I)
+        parts.append(" ".join(re.sub(r"<[^>]+>", " ", c) for c in cells))
+    parts.append((text or "")[:120])   # the opening text, where a caption/header lands
+    header = re.sub(r"\s+", " ", " ".join(parts)).strip().lower()
+    vocab = tuple(text_layer.AFFECTED_HEADERS) + tuple(text_layer.REPLACEMENT_HEADERS)
+    return any(h in header for h in vocab)
 
 
 def _vision_call_opts():
@@ -269,6 +312,7 @@ class SustainmentPlugin(AugmentationPlugin):
         embedded = (manifest or {}).get("embedded_images", {}) or {}
         all_parts: List[dict] = []
         n_crops, missing, failed, truncated = 0, 0, 0, 0
+        empty_lost, empty_ok = 0, 0
         for el in tables:
             meta = el.get("metadata") or {}
             html = meta.get("text_as_html", "") or ""
@@ -304,7 +348,30 @@ class SustainmentPlugin(AugmentationPlugin):
                           f"bound (runaway decode on a dense table) — discarding this crop's "
                           f"{len(res or [])} partial row(s) rather than reporting them as complete")
                     continue
-                for p in (res or []):
+                rows = list(res or [])
+                if not rows:
+                    # AN EMPTY-BUT-SUCCESSFUL CROP WAS INVISIBLE. crops_failed counts
+                    # exceptions and truncations only, so a crop that returned [] added
+                    # nothing and incremented nothing: the run reported clean while most
+                    # of a parts table was gone. Measured on one notice in this corpus —
+                    # the SAME document extracted 19 parts in one run and 2 in another,
+                    # with no failure recorded either time. That is precisely the silent
+                    # partial this pipeline is not allowed to produce.
+                    #
+                    # Empty is not automatically wrong, though: a PCN's qualification and
+                    # test-condition tables correctly yield no parts. So the table itself
+                    # decides — if it holds part-SHAPED cells and we got nothing, parts
+                    # were lost; otherwise the empty answer was right.
+                    if _declares_parts_table(html, ocr):
+                        empty_lost += 1
+                        failed += 1     # so the existing needs_review path fires
+                        print("[SustainmentPlugin] ExtractParts returned NO parts for a table "
+                              "whose header DECLARES parts columns — parts LOST on this crop "
+                              "(counted as a failed crop)")
+                    else:
+                        empty_ok += 1   # not a parts table: empty is the right answer
+                    continue
+                for p in rows:
                     all_parts.append(part_to_dict(p))
             except Exception as e:  # noqa: BLE001
                 # A per-crop failure (commonly a vision timeout on a dense table)
@@ -316,8 +383,13 @@ class SustainmentPlugin(AugmentationPlugin):
         # DIFFERENT cause with a different fix: not "the model was slow / errored" but "the
         # decode did not converge on this table". Distinguishing them is how we'll know whether
         # banding (or a text-layer path) actually helps, instead of inferring it.
+        # crops_empty_lost is a SUBSET of crops_failed (like crops_truncated) and names a
+        # THIRD distinct cause: not "errored", not "did not converge", but "answered
+        # nothing about a table that plainly holds parts". crops_empty_ok is the benign
+        # counterpart, reported so the ratio is visible rather than inferred.
         return all_parts, {"n_crops_used": n_crops, "crops_missing": missing,
-                           "crops_failed": failed, "crops_truncated": truncated}
+                           "crops_failed": failed, "crops_truncated": truncated,
+                           "crops_empty_lost": empty_lost, "crops_empty_ok": empty_ok}
 
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
@@ -352,7 +424,8 @@ class SustainmentPlugin(AugmentationPlugin):
         index = provenance.build_positioned_index(elements)
         ocr_norm = provenance._norm(full_text)
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
-                 "crops_truncated": 0, "vision_used": False}
+                 "crops_truncated": 0, "crops_empty_lost": 0, "crops_empty_ok": 0,
+                 "vision_used": False}
         reasons: List[str] = []
         needs_review = False
         # The doc-level reasons that FORCE review — i.e. the extraction telling us its own
@@ -408,9 +481,16 @@ class SustainmentPlugin(AugmentationPlugin):
                 stats["vision_used"] = True
                 if ps.get("crops_failed"):
                     trunc = ps.get("crops_truncated") or 0
-                    cause = (f"{trunc} of them hit the {VISION_MAX_TOKENS}-token output bound "
-                             f"(the model did not converge on a dense table)" if trunc
-                             else "e.g. vision timeout")
+                    empty_lost = ps.get("crops_empty_lost") or 0
+                    if empty_lost:
+                        cause = (f"{empty_lost} of them returned NO parts for a table that "
+                                 f"plainly holds part numbers (the pass answered nothing "
+                                 f"rather than failing)")
+                    elif trunc:
+                        cause = (f"{trunc} of them hit the {VISION_MAX_TOKENS}-token output bound "
+                                 f"(the model did not converge on a dense table)")
+                    else:
+                        cause = "e.g. vision timeout"
                     msg = (f"{ps['crops_failed']}/{len(tables)} table crops failed "
                            f"({cause}) — extracted parts are likely INCOMPLETE")
                     reasons.append(msg)
