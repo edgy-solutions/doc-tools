@@ -66,6 +66,37 @@ def _norm(v) -> str:
     return re.sub(r"\s+", " ", str(v or "")).strip().upper()
 
 
+# --------------------------------------------------------------------------- #
+# Redaction. Sandbox runs are against PUBLISHED manufacturer notices, where raw
+# values are fine. A work corpus is not, and an instrument that leaks by default
+# is an instrument you cannot point at the thing you actually need to measure.
+# So values are SHAPES unless the operator opts in per slice.
+# --------------------------------------------------------------------------- #
+REDACT_VALUES = True
+REDACT_HEADERS = False
+
+
+def shape(v) -> str:
+    """digits -> '#', letters -> 'A'. A part number's STRUCTURE is what a
+    diagnosis needs ('AAA-####-A' says everything); its identity is not."""
+    return re.sub(r"[A-Za-z]", "A", re.sub(r"\d", "#", str(v)))
+
+
+def fmt(v):
+    """How a part-number-ish value is rendered into the report."""
+    return str(v) if not REDACT_VALUES else shape(v)
+
+
+def fmt_header(v):
+    """Column headers are the DIAGNOSTIC PAYLOAD — 'Product Family',
+    'Replacement Part', 'EOL Devices' are the vocabulary that tells us which
+    columns mean what, and they are generic industry language rather than
+    anyone's identifiers. They are therefore kept verbatim by default, with
+    --redact-headers for a corpus where even a column label is sensitive.
+    """
+    return shape(v) if REDACT_HEADERS else str(v)
+
+
 def classify_columns(header_row, tl):
     """affected | replacement | alias | other, per column.
 
@@ -102,7 +133,8 @@ def index_tables(elements, tl):
         # it) has UNKNOWN column semantics — that is itself a finding, because
         # affected/replacement cannot be told apart at all.
         tables.append({"table": ti, "rows": len(grid), "header_row": hrow,
-                       "header": header, "col_classes": classes,
+                       "header": [fmt_header(h) for h in (header or [])],
+                       "col_classes": classes,
                        "header_found": hrow is not None})
         start = (hrow + 1) if hrow is not None else 0
         for ri in range(start, len(grid)):
@@ -143,7 +175,7 @@ def diagnose(elements, llm_parts, tl):
         how, hits = locate(mpn, cell_index)
         if how == "absent":
             by_source["not_in_any_table"] += 1
-            findings.append({"kind": "not_in_any_table", "value": mpn})
+            findings.append({"kind": "not_in_any_table", "value": fmt(mpn)})
             continue
         classes = {h["col_class"] for h in hits}
         # Worst-case classification: if it appears ONLY in a non-affected column
@@ -153,18 +185,18 @@ def diagnose(elements, llm_parts, tl):
             by_source[f"affected_{how}"] += 1
         elif "replacement" in classes:
             by_source["from_replacement_column"] += 1
-            findings.append({"kind": "from_replacement_column", "value": mpn,
+            findings.append({"kind": "from_replacement_column", "value": fmt(mpn),
                              "cols": sorted(classes)})
         elif "alias" in classes:
             by_source["from_alias_column"] += 1
-            findings.append({"kind": "from_alias_column", "value": mpn,
+            findings.append({"kind": "from_alias_column", "value": fmt(mpn),
                              "cols": sorted(classes)})
         elif "unknown" in classes:
             by_source["from_unheadered_table"] += 1
-            findings.append({"kind": "from_unheadered_table", "value": mpn})
+            findings.append({"kind": "from_unheadered_table", "value": fmt(mpn)})
         else:
             by_source["from_other_column"] += 1
-            findings.append({"kind": "from_other_column", "value": mpn,
+            findings.append({"kind": "from_other_column", "value": fmt(mpn),
                              "cols": sorted(classes)})
 
     # Recall: part-shaped cells in an AFFECTED column that were never extracted.
@@ -182,7 +214,7 @@ def diagnose(elements, llm_parts, tl):
 
     return {"tables": tables, "by_source": dict(by_source),
             "n_extracted": len(extracted_norm),
-            "missing_from_affected_columns": sorted(missing),
+            "missing_from_affected_columns": [fmt(x) for x in sorted(missing)],
             "findings": findings}
 
 
@@ -208,7 +240,17 @@ def main():
     ap.add_argument("--doc", action="append", help="only these doc roots (repeatable)")
     ap.add_argument("--tl-path", default="/app/doc_tools/utils/table_text_layer.py")
     ap.add_argument("--out", default="")
+    ap.add_argument("--include-values", action="store_true",
+                    help="emit raw part numbers instead of shapes (published notices, "
+                         "or a slice you have judged safe)")
+    ap.add_argument("--redact-headers", action="store_true",
+                    help="also shape column headers (they are kept verbatim by default "
+                         "because they ARE the diagnostic payload)")
     args = ap.parse_args()
+
+    global REDACT_VALUES, REDACT_HEADERS
+    REDACT_VALUES = not args.include_values
+    REDACT_HEADERS = args.redact_headers
 
     import boto3
     s3 = boto3.client("s3", endpoint_url=os.environ["S3_ENDPOINT_URL"],
@@ -227,6 +269,10 @@ def main():
             if name in ("text.json", "extraction.json", "review.json"):
                 root = "/".join(k.split("/")[:3])
                 found[root][name] = k
+
+    print(f"redaction: values={'SHAPES' if REDACT_VALUES else 'RAW'}, "
+          f"headers={'shaped' if REDACT_HEADERS else 'verbatim'}"
+          f"{'' if REDACT_VALUES else '   <-- raw values: confirm this slice is safe to carry'}")
 
     report = {}
     for root in sorted(found):
