@@ -115,6 +115,22 @@ def _shapes(tokens) -> dict:
     return dict(collections.Counter(_shape(t) for t in tokens))
 
 
+def _shape_alpha(tok) -> str:
+    """FULLY redacted shape: letters -> 'A', digits -> '#'.
+
+    Used for document families the committed config does NOT know — which are by
+    definition site/customer-specific. `_shape` redacts only digits, so it would
+    carry an internal family prefix out of the operator's machine verbatim. That
+    is enough to write a pattern from ('AAA-AAA-AAA-###' says everything a regex
+    needs) without the report ever naming anyone's scheme.
+    """
+    return re.sub(r"[A-Za-z]", "A", re.sub(r"\d", "#", str(tok)))
+
+
+def _shapes_alpha(tokens) -> dict:
+    return dict(collections.Counter(_shape_alpha(t) for t in tokens))
+
+
 def _safe_text_shape(text, cap: int = 56) -> str:
     """Redact FREE TEXT: digits -> '#', letters -> 'a', structural words kept."""
     out = []
@@ -146,7 +162,22 @@ _FILENAME_RE = re.compile(r"figure-\d+-\d+\.jpg$", re.I)
 _PART_PREFIX = re.compile(r"^(?:P/?N|PART|ASS?Y)[\s\-.]*", re.I)
 _JUDGMENT_FIELDS = ["is_value_added", "is_safety_critical", "process_category",
                     "action_verb", "justification"]
-_COMPARED_FIELDS = ["standards", "parts", "figures", "operations", "hazard"]
+# Scored fields = those with a LEGITIMATE deterministic arm.
+#
+# `hazard` was REMOVED after the operator checked run 2's values: the LLM emits
+# '1.1D' where the document actually says '1.1 -1.3' and, elsewhere, '1.4'. It is
+# INFERRING a hazard classification — and inventing the division letter — not
+# quoting one. A field the document does not print cannot have a regex arm, and
+# scoring it reports the script "missing" text that was never there. It is
+# reported unscored, with the reason, so the judgement is visible rather than
+# quietly dropped.
+_COMPARED_FIELDS = ["standards", "parts", "figures", "operations"]
+_LLM_ONLY_FIELDS = {
+    "hazard": "NOT SCORED — the LLM infers this; the document does not print it "
+              "verbatim (observed: document says '1.1 -1.3' / '1.4', LLM emits "
+              "'1.1D', adding a division letter that is not in the text). Treat "
+              "LLM hazard values as unverified classifications, not extractions.",
+}
 
 
 def _split_multi(value) -> list:
@@ -265,7 +296,8 @@ def script_doc_sets(elements: list, cfg, mx) -> dict:
     full = "\n".join(e.get("text", "") or "" for e in elements)
     stds, std_anom = mx.extract_standards(full, cfg)
     parts, _ = mx.extract_part_numbers(full, cfg)
-    ops, _ = mx.extract_operations(elements, cfg)
+    ops_detailed, _ = mx.extract_operations_detailed(elements, cfg)
+    ops = [h["id"] for h in ops_detailed]
     binds, fanom = mx.bind_figures_to_steps(elements, cfg)
     haz = {_haz_core(h) for h in mx.extract_hazard_all(full, cfg)}
     return {
@@ -278,6 +310,7 @@ def script_doc_sets(elements: list, cfg, mx) -> dict:
         "_bindings": binds,
         "_fig_anomalies": fanom,
         "_std_anomalies": std_anom,
+        "_ops_detailed": ops_detailed,
     }
 
 
@@ -329,6 +362,14 @@ def figure_diagnostics(script: dict, elements: list) -> dict:
     directions = collections.Counter(b.get("direction") for b in binds)
     markers = sum(1 for e in elements if e.get("type") in ("Image", "Figure"))
     return {
+        "_legend": {
+            "markers": "figure crops unstructured found in this document",
+            "bound": "markers the geometry binder attached to a step (bound + flagged = markers)",
+            "flagged": "markers that could NOT be attached -> review lane",
+            "distinct_steps_bound_to": "how many different steps received >=1 figure (spread)",
+            "max_figures_on_one_step": "worst pile-up on a single step",
+            "bind_direction": "attached to the step BEFORE (preceding) or AFTER (following) it",
+        },
         "markers": markers,
         "bound": len(binds),
         "flagged": len(script["_fig_anomalies"]),
@@ -339,13 +380,23 @@ def figure_diagnostics(script: dict, elements: list) -> dict:
     }
 
 
-def _diagnose(elements, n_steps_llm, manifest, elem_diag) -> dict:
-    """Name WHERE a document failed, so an empty result is attributed."""
+def _diagnose(elements, n_steps_llm, manifest, elem_diag, structural_ops=0) -> dict:
+    """Name WHERE a document failed, so an empty result is attributed.
+
+    'no steps' is TWO different events and run 2 conflated them. A document with
+    no procedural content SHOULD yield zero steps — that is the extractor being
+    right, not failing. Only zero steps DESPITE procedural content is a defect.
+    Operator-confirmed on run 2: the one `llm_empty` document is a 3-page PDF
+    with no steps in it at all, so the flag was accusing a correct result.
+    """
     flags = []
     if not elements:
         flags.append("parse_empty")
     elif n_steps_llm == 0:
-        flags.append("llm_empty")
+        # structural operations present => the document HAS procedure structure
+        # and the LLM still produced nothing. That is the real failure shape.
+        flags.append("llm_empty_despite_content" if structural_ops
+                     else "no_steps_no_procedural_content")
     mf_pages = None
     if isinstance(manifest, dict):
         mf_pages = len(manifest.get("pages") or []) or None
@@ -375,6 +426,34 @@ def compare_doc(elements, extraction, manifest, cfg, mx, include_values) -> dict
         if include_values:
             entry["values"] = tw
         fields[f] = entry
+
+    # Standards the LLM found in a family the committed config does NOT know are
+    # script MISSES. Run 2 routed them out of the diff entirely, which is why it
+    # reported standards llm_only=0 while the script was in fact missing real ids.
+    unk = ls["standards_unknown_family"]
+    if unk:
+        fields["standards"]["llm_only"] += len(set(unk))
+        fields["standards"]["llm_only_unknown_family"] = len(set(unk))
+        fields["standards"]["llm_only_shapes"] = {
+            **fields["standards"]["llm_only_shapes"], **_shapes_alpha(unk)}
+
+    # Fields with NO legitimate deterministic arm: reported, never scored, and
+    # carrying the reason so the exclusion is a visible judgement.
+    llm_only_fields = {
+        name: {"reason": reason, "count": len(ls.get(name) or ()),
+               "shapes": _shapes(ls.get(name) or ())}
+        for name, reason in _LLM_ONLY_FIELDS.items()
+    }
+
+    # Which rule produced each structural operation — so an over-matching pattern
+    # names itself instead of hiding among real hits.
+    ops_prov = {
+        "by_pattern_index": dict(collections.Counter(
+            h["pattern_index"] for h in ss["_ops_detailed"])),
+        "by_element_type": dict(collections.Counter(
+            h["element_type"] for h in ss["_ops_detailed"])),
+        "pattern_legend": {i: p for i, p in enumerate(cfg["operations"]["patterns"])},
+    }
 
     # NAS/MS et al are BOTH spec numbers and fastener part numbers. When the two
     # arms file the same token in different fields, both sides score it a miss
@@ -413,12 +492,15 @@ def compare_doc(elements, extraction, manifest, cfg, mx, include_values) -> dict
         "parse": elem_diag,
         "figures_diag": figure_diagnostics(ss, elements),
         "fields": fields,
+        "llm_only_fields": llm_only_fields,
         "cross_field_collisions": cross,
         "llm_standards_unknown_family_shapes": _topn(
-            collections.Counter(_shape(u) for u in ls["standards_unknown_family"]), 10),
+            collections.Counter(_shape_alpha(u) for u in ls["standards_unknown_family"]), 10),
         "operations_pollution": pollution,
+        "operations_provenance": ops_prov,
         "llm_judgment_coverage": ls["_judgment"],
-        "diagnosis": _diagnose(elements, ls["_n_steps"], manifest, elem_diag),
+        "diagnosis": _diagnose(elements, ls["_n_steps"], manifest, elem_diag,
+                               len(ss["operations"])),
     }
 
 

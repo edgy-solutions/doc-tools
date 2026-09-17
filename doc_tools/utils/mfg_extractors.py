@@ -27,7 +27,7 @@ Anomaly = Dict[str, Any]
 
 # Bump when patterns/config semantics change — stamped into corpus reports so a
 # later run can be compared against an earlier one.
-EXTRACTOR_VERSION = "0.2.0"   # 0.2.0: operations recall + hazard bare-form (2026-09-17 corpus run)
+EXTRACTOR_VERSION = "0.3.0"   # 0.3.0: unicode-dash folding, operations precision + Footer, provenance
 
 # --------------------------------------------------------------------------- #
 # Config (committed defaults; override via MANUFACTURING_EXTRACTORS_SPEC)
@@ -102,13 +102,24 @@ DEFAULT_EXTRACTOR_CONFIG: Dict[str, Any] = {
     # forms. Types are widened and the patterns are ANCHORED (they require the word
     # OPERATION/OP, or a line that IS the number) so widening does not let page
     # furniture like a 'DWG-4500-01' document number in through the back door.
+    # MEASURED 2026-09-17 (run 2, values reviewed by the operator):
+    #   * Footer ADDED — an operation whose number is printed only in the page's
+    #     bottom block was missed entirely, and footers carry 'OPERATION ####'
+    #     hundreds of times per document.
+    #   * 3-digit match REMOVED — it pulled a part number's trailing '-305' in as
+    #     an operation. Operations in this corpus are 4-digit; the looser rule
+    #     bought nothing and cost a false positive.
+    #   * The bare-dash rule now requires WHITESPACE around the separator, so
+    #     '0020 - Final Inspect' still matches while the part number '7685-1234'
+    #     no longer does. That single space is the whole discriminant.
     "operations": {
-        "title_types": ["Title", "Header", "NarrativeText", "UncategorizedText", "ListItem"],
+        "title_types": ["Title", "Header", "Footer", "NarrativeText",
+                        "UncategorizedText", "ListItem"],
         "patterns": [
-            r"\bOPERATION\s*[#:.\-]?\s*(\d{3,4})\b",
-            r"\bOP\.?\s*[#:.\-]?\s*(\d{3,4})\b",
-            r"^\s*(\d{4})\s*[-–—:.]\s*\S",   # '0020 - Final Inspect'
-            r"^\s*(\d{4})\s*$",              # a line that is only the number
+            r"\bOPERATION\s*[#:.\-]?\s*(\d{4})\b",
+            r"\bOP\.?\s*[#:.\-]?\s*(\d{4})\b",
+            r"^\s*(\d{4})\s+[-–—:]\s+\S",   # '0020 - Final Inspect' (spaced!)
+            r"^\s*(\d{4})\s*$",             # a line that is only the number
         ],
     },
     # Bind a [FIGURE]/Image element to the nearest step element on the SAME page,
@@ -120,6 +131,23 @@ DEFAULT_EXTRACTOR_CONFIG: Dict[str, Any] = {
         "step_types": ["NarrativeText", "ListItem"],
     },
 }
+
+
+#: Unicode dashes / spaces that real documents use and ASCII-only patterns miss.
+_DASHES = dict.fromkeys(map(ord, "‐‑‒–—―−"), "-")
+_SPACES = dict.fromkeys(map(ord, "   "), " ")
+
+
+def normalize_text(s) -> str:
+    """Fold Unicode dashes/spaces to ASCII before matching.
+
+    MEASURED 2026-09-17: a site document family appears in the corpus written
+    with U+2011 NON-BREAKING HYPHENS. Every ASCII-only pattern missed it, and the
+    same identifier written with ASCII hyphens matched — so ONE real family was
+    reported as two different ones and half of it counted as a miss. Folding is
+    done at the extractor boundary so no individual pattern has to remember.
+    """
+    return str(s or "").translate(_DASHES).translate(_SPACES)
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
@@ -173,7 +201,7 @@ def extract_standards(text: str, cfg: Dict[str, Any]) -> Tuple[List[str], List[A
     sc = cfg["standards"]
     found: List[str] = []
     seen = set()
-    up = text or ""
+    up = normalize_text(text)
     for fam in sc["families"]:
         for m in re.finditer(fam["pattern"], up, re.I):
             canon = f"{fam['canonical']}-{_norm_number(m.group(1))}"
@@ -194,8 +222,9 @@ def extract_standards(text: str, cfg: Dict[str, Any]) -> Tuple[List[str], List[A
 def extract_part_numbers(text: str, cfg: Dict[str, Any]) -> Tuple[List[str], List[Anomaly]]:
     out: List[str] = []
     seen = set()
+    text = normalize_text(text)
     for pat in cfg["part_numbers"]["patterns"]:
-        for m in re.finditer(pat, text or "", re.I):
+        for m in re.finditer(pat, text, re.I):
             val = re.sub(r"\s+", "-", m.group(0).strip().upper())
             val = re.sub(r"-{2,}", "-", val)
             if val and val not in seen:
@@ -256,23 +285,36 @@ def extract_slang(text: str, cfg: Dict[str, Any]) -> List[str]:
 # --------------------------------------------------------------------------- #
 # Operations (procedure numbers) — structural
 # --------------------------------------------------------------------------- #
-def extract_operations(elements: List[dict], cfg: Dict[str, Any]) -> Tuple[List[str], List[Anomaly]]:
-    """Operation numbers read from heading elements (structural, not LLM)."""
+def extract_operations_detailed(elements: List[dict],
+                                cfg: Dict[str, Any]) -> Tuple[List[dict], List[Anomaly]]:
+    """Operations WITH provenance: which element type and which pattern produced
+    each hit.
+
+    Provenance exists because a widened pattern set is only trustworthy if its
+    hits are auditable. When the operator reviewed run 2 they found two false
+    positives hiding among real operation numbers; without knowing WHICH rule
+    fired, the only remedy is to re-guess. With it, an over-matching pattern
+    names itself.
+    """
     oc = cfg["operations"]
     ttypes = set(oc["title_types"])
-    ops: List[str] = []
-    seen = set()
+    hits: Dict[str, dict] = {}
     for el in elements:
         if el.get("type") not in ttypes:
             continue
-        text = el.get("text", "") or ""
-        for pat in oc["patterns"]:
+        text = normalize_text(el.get("text", ""))
+        for pi, pat in enumerate(oc["patterns"]):
             for m in re.finditer(pat, text, re.I | re.M):
                 v = m.group(1)
-                if v not in seen:
-                    seen.add(v)
-                    ops.append(v)
-    return sorted(ops), []
+                if v not in hits:
+                    hits[v] = {"id": v, "element_type": el.get("type"), "pattern_index": pi}
+    return sorted(hits.values(), key=lambda h: h["id"]), []
+
+
+def extract_operations(elements: List[dict], cfg: Dict[str, Any]) -> Tuple[List[str], List[Anomaly]]:
+    """Operation numbers read from heading elements (structural, not LLM)."""
+    detailed, anomalies = extract_operations_detailed(elements, cfg)
+    return [h["id"] for h in detailed], anomalies
 
 
 # --------------------------------------------------------------------------- #

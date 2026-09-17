@@ -41,6 +41,17 @@ standards:
     - {canonical: MP,      pattern: '\bMP[\s\-]?([0-9]{3,6}[A-Z0-9\-/]*)'}
 
     # ---- YOUR SITE FAMILIES (examples — replace with your own) -------------
+    # A three-segment internal procedure code, shape 'AAA-AAA-AAA-###' (three
+    # 3-letter segments then three digits). Uncomment and set `canonical` to
+    # your own prefix — it is intentionally NOT written here, because site and
+    # customer document schemes do not belong in this repository.
+    # NOTE the character class allows Unicode hyphens: these identifiers appear
+    # in real documents written with U+2011 non-breaking hyphens, and an
+    # ASCII-only '-' silently misses them. (The extractor also folds dashes
+    # before matching, so this is belt-and-braces.)
+    # - {canonical: AAA-AAA-AAA, pattern: '\b[A-Z]{3}[\s\-‑–—]?[A-Z]{3}[\s\-‑–—]?[A-Z]{3}[\s\-‑–—]?([0-9]{3})\b'}
+    #
+
     # A three-segment internal procedure, e.g. shape 'ACME-EHS-PRO-###':
     # - {canonical: ACME-EHS-PRO, pattern: 'ACME[\s\-]?EHS[\s\-]?PRO[\s\-]?([0-9]{2,4})'}
     #
