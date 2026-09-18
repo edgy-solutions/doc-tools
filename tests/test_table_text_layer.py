@@ -355,6 +355,20 @@ def test_header_is_inherited_ACROSS_pages_not_just_within_one():
     assert all(p["bbox"] and p["replacement_bbox"] for p in parts), "per-cell provenance"
 
 
+def test_a_page_with_no_tables_ends_the_run():
+    """A spanning table has demonstrably finished if a whole page carries no table at all.
+    Without this the header survives the gap and a later, unrelated grid that merely
+    happens to have the same column count inherits it — confident mislabelling, which is
+    worse than the defect being fixed."""
+    page1 = _FakePage([_HEADER, _ROW1])      # declares 6 paired columns
+    prose = _FakePage()                       # no tables
+    later = _FakePage([_CONT_ROW])            # unrelated 6-column grid, no header
+
+    parts = parts_from_pages([(1, page1), (2, prose), (3, later)])
+    assert [p["page_number"] for p in parts] == [1, 1, 1], "page 3 must not inherit"
+    assert len(parts) == 3
+
+
 def test_a_new_headed_table_replaces_what_is_carried_forward():
     """Inheritance must not outlive its table. A later table that declares its OWN columns
     becomes the thing subsequent continuations inherit."""

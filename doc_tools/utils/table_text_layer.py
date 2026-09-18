@@ -372,6 +372,15 @@ def parts_from_pages(numbered_pages: Iterable[Tuple[int, Any]]) -> List[Dict[str
     return results
 
 
+def _tables_of(page) -> List[Any]:
+    """This page's tables, or [] if pdfplumber cannot read it. Never raises: one
+    unreadable page must not lose the whole document."""
+    try:
+        return list(page.find_tables())
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def _parts_from_page(
     page, page_number: int, inherited: Optional[InheritedHeader],
 ) -> Tuple[List[Dict[str, Any]], Optional[InheritedHeader]]:
@@ -383,8 +392,16 @@ def _parts_from_page(
     instead of the whole table.
     """
     results: List[Dict[str, Any]] = []
+    tables = _tables_of(page)
+    if not tables:
+        # A page with NO table at all ends the run: whatever table was spanning pages has
+        # finished, so its header must not carry across the gap to some later grid that
+        # merely happens to have the same column count. Declining is the safe direction —
+        # a vendor who really does resume a headerless table after a prose page gets no
+        # parts from it, rather than parts attributed to guessed columns.
+        return results, None
     dims = {"width": float(page.width), "height": float(page.height)}
-    for table in page.find_tables():
+    for table in tables:
         grid = table.extract()
         rows = table.rows
         # parts_from_grid decides header-vs-caption itself; short-circuiting on a missing
