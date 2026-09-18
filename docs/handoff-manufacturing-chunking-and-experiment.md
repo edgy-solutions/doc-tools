@@ -176,9 +176,26 @@ only") is therefore too generous as it stands — it validates a segmenter for a
 layout that is not the production one. Anything built against these fixtures and
 keyed on page structure is being confirmed by a document shape that does not occur.
 
-Fixing this is cheap and is the mock's legitimate use: the generators
-(`tests/fixtures/manufacturing/make_synthetic_wi*.py`) already exist, so a
-title-page variant is a fixture change, not new machinery.
+**DONE (`308f365`):** `make_synthetic_wi_reallayout.py` +
+`synthetic_work_instruction_reallayout.json`. Added alongside the old fixtures, not
+replacing them — the overnight measurements and the 8/9-vs-0/11 figure result are
+pinned to those. 109 pages, 18 operations, 1550 elements, headings as
+`UncategorizedText` at 0.58/page, 46% UncategorizedText overall, `REVISION: ####`
+in every footer. `--verify` prints its shape against the corpus numbers.
+
+It is verified to DISCRIMINATE between segmenter designs, which is the only reason
+to keep a fixture like this — cross-references to other operations sit on the
+heading-less pages, so:
+
+```
+naive page-text regex        73/109 pages correct
+standalone OPERATION elem   109/109 pages correct
+```
+
+Ground truth carries `page_to_operation`, which the old fixtures cannot score at
+all. **Caveat that does not go away:** this validates segmenter LOGIC against
+measured SHAPE. It is still invented content, so it cannot say anything about
+extraction quality.
 
 ### What the REAL corpus actually looks like (from `mfg_corpus_report2.json`)
 
@@ -204,11 +221,18 @@ Four things follow, and each one invalidates something currently assumed:
    the fixtures encode operation boundaries as `Title` elements. **A segmenter
    keyed on `Title` finds nothing in production.** This is the single most
    important mismatch.
-3. **The heading repeats per page.** `OPERATION ####` occurs 70–100 times against
-   18–27 actual operations — roughly 4–5× — which is consistent with the operation
-   number being restated on every page of its operation. If that holds,
-   page→operation assignment is nearly free and needs no inference at all. It is
-   also exactly what `page_operation_sequence` should confirm or kill.
+3. **The heading repeats — but NOT on every page, and the gap is large.** Measured
+   `OPERATION ####` per page: doc_0000 **0.87**, doc_0001 **0.70**, doc_0002
+   **0.29**, doc_0003 **0.36**, doc_0005 **0.00** (six operations, not one
+   OPERATION line). So in half the corpus barely a third of pages declare their
+   operation, and one document marks them some other way entirely.
+
+   **A segmenter must CARRY FORWARD across silent pages** — it cannot ask each page
+   which operation it belongs to, and it must not require a heading to start a run.
+   doc_0005 additionally shows the heading cannot be the ONLY accepted marker; it
+   has 5 bare `####` and no OPERATION lines. This is the thing
+   `page_operation_sequence` needs to report per document, not as a single
+   corpus-wide yes/no.
 4. **The `4500` capture has a real analogue.** doc_0000's footer is
    `REVISION: #### (...)` on all 106 pages — a 4-digit token in page furniture,
    repeated document-wide, competing with the real operation numbers. The mock's
