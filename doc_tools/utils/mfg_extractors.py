@@ -370,6 +370,33 @@ def extract_operations_detailed(elements: List[dict],
     return sorted(hits.values(), key=lambda h: h["id"]), []
 
 
+def extract_operation_occurrences(elements: List[dict], cfg: Dict[str, Any]) -> List[dict]:
+    """EVERY occurrence of an operation id, with its page and element position.
+
+    extract_operations_detailed dedupes by id, which is right for "which
+    operations exist" and useless for "where does each operation's section
+    begin and end". Per-operation chunking needs spans, and spans need every
+    occurrence: the ids repeat in page footers/headers (measured: 94-136 times
+    per document), and that repetition is the signal — it says which PAGE
+    belongs to which operation.
+    """
+    oc = cfg["operations"]
+    ttypes = set(oc["title_types"])
+    out: List[dict] = []
+    for idx, el in enumerate(elements):
+        if el.get("type") not in ttypes:
+            continue
+        text = normalize_text(el.get("text", ""))
+        for pi, pat in enumerate(oc["patterns"]):
+            for m in re.finditer(pat, text, re.I | re.M):
+                out.append({"id": m.group(1),
+                            "page": (el.get("metadata") or {}).get("page_number"),
+                            "element_index": idx,
+                            "element_type": el.get("type"),
+                            "pattern_index": pi})
+    return out
+
+
 def extract_operations(elements: List[dict], cfg: Dict[str, Any]) -> Tuple[List[str], List[Anomaly]]:
     """Operation numbers read from heading elements (structural, not LLM)."""
     detailed, anomalies = extract_operations_detailed(elements, cfg)

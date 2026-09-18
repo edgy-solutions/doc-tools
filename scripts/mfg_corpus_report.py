@@ -390,6 +390,79 @@ def corroborate_llm_values(ls, ss, elements, cfg, mx) -> dict:
     return out
 
 
+def page_operation_sequence(elements, cfg, mx) -> dict:
+    """Does the corpus actually support per-operation chunking?
+
+    The segmenter's core assumption is that each operation occupies a CONTIGUOUS
+    RUN OF PAGES, so a section = a maximal run. That assumption is about the real
+    documents, and a synthetic fixture cannot test it — I would be writing both
+    the question and the answer. So it is measured here instead.
+
+    Operation ids are reported as per-document INDICES, never raw values, so the
+    answer travels without the document. Emits the four facts the design needs:
+      contiguity   — does each operation occupy exactly one run of pages?
+      ordering     — do operations appear in document order?
+      front burst  — do the opening pages list many operations (a route sheet /
+                     TOC, which naive first-occurrence logic mistakes for
+                     section starts and collapses every boundary onto page 1)?
+      coverage     — what fraction of pages can be assigned at all?
+    """
+    occ = mx.extract_operation_occurrences(elements, cfg)
+    pages = sorted({(e.get("metadata") or {}).get("page_number")
+                    for e in elements
+                    if (e.get("metadata") or {}).get("page_number") is not None})
+    if not occ or not pages:
+        return {"n_pages": len(pages), "pages_with_operation": 0, "supported": False,
+                "reason": "no operation occurrences — page-run segmentation cannot apply"}
+
+    order = []                                   # ids by first appearance
+    for o in occ:
+        if o["id"] not in order:
+            order.append(o["id"])
+        idx = {v: i for i, v in enumerate(order)}
+
+    by_page = collections.defaultdict(set)
+    for o in occ:
+        if o["page"] is not None:
+            by_page[o["page"]].add(idx[o["id"]])
+
+    # front burst: opening pages carrying several distinct operations at once
+    front_burst = sum(1 for p in pages[:5] if len(by_page.get(p, ())) > 1)
+
+    # runs over pages that carry exactly one operation (the assignable ones)
+    runs, cur = [], None
+    for p in pages:
+        ids = by_page.get(p, set())
+        one = next(iter(ids)) if len(ids) == 1 else None
+        if one is not None and cur and cur["op"] == one and p == cur["end"] + 1:
+            cur["end"] = p
+        elif one is not None:
+            cur = {"op": one, "start": p, "end": p}
+            runs.append(cur)
+        else:
+            cur = None
+    runs_per_op = collections.Counter(r["op"] for r in runs)
+    contiguous = all(v == 1 for v in runs_per_op.values()) if runs_per_op else False
+    starts = [r["start"] for r in runs]
+    out_of_order = sum(1 for a, b in zip(starts, starts[1:]) if b < a)
+
+    return {
+        "n_pages": len(pages),
+        "pages_with_operation": len(by_page),
+        "pages_with_multiple_operations": sum(1 for v in by_page.values() if len(v) > 1),
+        "n_operations": len(order),
+        "n_runs": len(runs),
+        "operations_with_one_run": sum(1 for v in runs_per_op.values() if v == 1),
+        "operations_with_multiple_runs": sum(1 for v in runs_per_op.values() if v > 1),
+        "contiguous": contiguous,
+        "runs_out_of_order": out_of_order,
+        "front_burst_pages": front_burst,
+        "coverage": round(len(by_page) / len(pages), 3),
+        "run_lengths": sorted((r["end"] - r["start"] + 1) for r in runs)[-10:],
+        "supported": contiguous and front_burst == 0 and len(by_page) / len(pages) >= 0.5,
+    }
+
+
 def _three_way(sset: set, lset: set) -> dict:
     return {"agree": sorted(sset & lset),
             "script_only": sorted(sset - lset),   # LLM missed it
@@ -606,6 +679,7 @@ def compare_doc(elements, extraction, manifest, cfg, mx, include_values,
         "n_steps_llm": ls["_n_steps"],
         "llm_prose_figrefs": ls["_prose_figrefs"],
         "parse": elem_diag,
+        "page_operation_sequence": page_operation_sequence(elements, cfg, mx),
         "figures_diag": figure_diagnostics(ss, elements),
         "fields": fields,
         "llm_grounding": corroborate_llm_values(ls, ss, elements, cfg, mx),
