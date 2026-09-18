@@ -242,6 +242,18 @@ def test_an_inherited_header_carries_the_alias_veto_too():
     assert [p["affected_mpn"] for p in cont] == ["AD7879ACPZ"]
 
 
+def test_an_mpn_containing_an_alias_WORD_is_not_dropped_as_a_header():
+    """The alias vocabulary describes HEADERS. Applying it to a cell that is a VALUE would
+    silently drop real part numbers that merely contain one of those words — the terms are
+    ordinary English ("series", "generic", "family"), and a dropped part is invisible."""
+    grid = [["Affected Part", "Replacement"],
+            ["GENERIC-1000", "SERIES-2000"],
+            ["FAMILY-30A", "SIMILAR-40B"]]
+    parts = parts_from_grid(grid)
+    assert [p["affected_mpn"] for p in parts] == ["GENERIC-1000", "FAMILY-30A"], parts
+    assert [p["replacement_mpn"] for p in parts] == ["SERIES-2000", "SIMILAR-40B"]
+
+
 def test_the_alias_vocabulary_matches_the_one_the_measurement_used():
     """Anti-drift. The 34% and 14-instance figures were measured with
     pdn_parts_diagnostic.ALIAS_HEADERS; if production quietly diverges, the next corpus

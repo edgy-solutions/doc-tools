@@ -93,15 +93,6 @@ def _is_replacement(cell: Optional[str]) -> bool:
     return any(k in h for k in REPLACEMENT_HEADERS)
 
 
-def _is_column_label(cell: Optional[str]) -> bool:
-    """Does this cell READ as a column label of any kind (including an alias column)?
-
-    Used to drop a header repeated mid-table. It must know about alias columns too, or a
-    repeated `Alias Part Number(s)` cell would be considered for extraction.
-    """
-    return _is_alias(cell) or _is_affected(cell) or _is_replacement(cell)
-
-
 # An MPN is a short token carrying digits. find_tables() also returns prose blocks that
 # merely look tabular (a 130-char "Unless a Sales representative is contacted..." paragraph
 # was emitted as a part before this guard), so a plausibility floor is required. Real MPNs
@@ -315,8 +306,12 @@ def parts_from_grid(
             affected = (row[a_col] or "").strip()
             if not affected:
                 continue
-            # A repeated header (tables continued across pages) is not a part.
-            if _is_column_label(affected):
+            # A repeated header (tables continued across pages) is not a part. Deliberately
+            # does NOT consult ALIAS_HEADERS: alias header text carries no digits, so the
+            # MPN floor below already rejects it, while matching those terms HERE — against
+            # a cell that is a VALUE, not a header — would drop a real part number that
+            # merely contains "series", "generic" or "family" as a substring.
+            if _is_affected(affected) or _is_replacement(affected):
                 continue
             # find_tables() also returns prose blocks that merely look tabular; a sentence
             # is not a part number.
