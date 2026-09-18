@@ -9,7 +9,8 @@ The column logic is pure (grids of strings), so it tests without pdfplumber or a
 import pytest
 
 from doc_tools.utils.table_text_layer import (
-    find_header_row, find_title_row, looks_like_mpn, pair_columns, parts_from_grid,
+    find_header_row, find_title_row, header_pairing, looks_like_mpn, pair_columns,
+    parts_from_grid, parts_from_pages,
 )
 
 # The real page-3 shape: a CAPTION, then a header declaring THREE (EOL, Replacement) pairs.
@@ -110,12 +111,165 @@ def test_replacement_carries_its_own_column_for_per_cell_provenance():
     assert solo[0]["rep_col"] is None and solo[0]["replacement_mpn"] is None
 
 
+# --------------------------------------------------------------------------- #
+# CONTINUATION TABLES. A parts table that spans pages prints its header once, so every
+# page after the first is an anonymous grid. Read in isolation it hits the caption rule
+# and EVERY column becomes an affected part — including the replacement half of an
+# `EOL | Replacement` table. Measured on a real notice: 136 of 402 extracted "affected
+# parts" (34%) appeared ONLY in replacement columns.
+#
+# The whole risk here is trading one wrong assumption for another, so BOTH directions
+# are pinned: a genuine bare list must still read all-affected, and a continuation of a
+# paired table must not.
+# --------------------------------------------------------------------------- #
+
+# The continuation page: same six columns, same meaning, no header printed.
+_CONT_ROW = ["FJ4800016", "FJ4800400", "FKA000028Q", "HX3AA0006Q", "HX1110001Q", "HX1A10001Q"]
+
+
+def test_a_headed_table_offers_its_pairing_for_inheritance():
+    """Only a table that DECLARES its columns can lend them to the next page."""
+    inherited = header_pairing([_HEADER, _ROW1])
+    assert inherited is not None
+    assert inherited.pairs == [(0, 1), (2, 3), (4, 5)]
+    assert inherited.width == 6, "the column count is the guard against a stale header"
+
+
+def test_a_caption_only_table_is_NOT_inheritable():
+    """A caption states what THIS table holds. Carrying "every column is affected"
+    forward to the next grid would assert it about columns nobody labelled — the exact
+    unguarded guess this module declines to make."""
+    assert header_pairing([["Table 3 - EOL Devices", "", ""], ["A1", "B2", "C3"]]) is None
+
+
+def test_continuation_of_a_paired_table_does_not_emit_replacements_as_affected():
+    """THE defect. Without the inherited header this grid reads as six affected parts,
+    three of which are replacements being reported as discontinued."""
+    inherited = header_pairing([_HEADER, _ROW1])
+    grid = [["Table 1 - EOL Devices", "", "", "", "", ""], _CONT_ROW]
+
+    defect = parts_from_grid(grid)
+    assert [p["affected_mpn"] for p in defect] == _CONT_ROW, "precondition: the old shape"
+
+    fixed = parts_from_grid(grid, inherited=inherited)
+    assert [p["affected_mpn"] for p in fixed] == ["FJ4800016", "FKA000028Q", "HX1110001Q"]
+    assert [p["replacement_mpn"] for p in fixed] == ["FJ4800400", "HX3AA0006Q", "HX1A10001Q"]
+    for mpn in ("FJ4800400", "HX3AA0006Q", "HX1A10001Q"):
+        assert mpn not in [p["affected_mpn"] for p in fixed], f"{mpn} is a replacement"
+
+
+def test_headerless_continuation_without_a_caption_is_now_READ_not_dropped():
+    """The other half of the same defect: with no caption to fall back on, a continuation
+    page was declined outright and its parts were lost. The header makes it readable."""
+    assert parts_from_grid([_CONT_ROW]) == [], "precondition: dropped without a header"
+    fixed = parts_from_grid([_CONT_ROW], inherited=header_pairing([_HEADER, _ROW1]))
+    assert [(p["affected_mpn"], p["replacement_mpn"]) for p in fixed] == [
+        ("FJ4800016", "FJ4800400"), ("FKA000028Q", "HX3AA0006Q"), ("HX1110001Q", "HX1A10001Q")]
+
+
+def test_column_count_mismatch_must_not_inherit_a_stale_header():
+    """The guard. An unrelated later table inheriting a stale header would mislabel parts
+    CONFIDENTLY — worse than the defect being fixed, which at least declines."""
+    inherited = header_pairing([_HEADER, _ROW1])            # width 6
+    grid = [["Table 3 - EOL Devices", "", ""],              # width 3 — a different table
+            ["WT21120001", "WC3110001Q", "WL2511F0048.000000"]]
+    parts = parts_from_grid(grid, inherited=inherited)
+    assert [p["affected_mpn"] for p in parts] == ["WT21120001", "WC3110001Q", "WL2511F0048.000000"]
+    assert all(p["replacement_mpn"] is None for p in parts), "fell through to the caption rule"
+
+
+def test_a_genuine_bare_list_still_reads_every_column_as_affected():
+    """The case the original code was written for, and it is REAL — Diodes page 5. An
+    inheritable header from an earlier table must not be allowed to override a table that
+    carries its own caption and a different shape."""
+    grid = [["Table 3 - EOL Devices", "", "", ""],
+            ["WT21120001", "WC3110001Q", "WL2511F0048.000000", "WT21388001"]]
+    for inherited in (None, header_pairing([_HEADER, _ROW1])):
+        parts = parts_from_grid(grid, inherited=inherited)
+        assert len(parts) == 4, f"inherited={inherited}"
+        assert all(p["replacement_mpn"] is None for p in parts)
+
+
+def test_an_unlabelled_grid_is_still_declined_when_there_is_nothing_to_inherit():
+    """Inheritance must not become a licence to guess. No header, no caption, nothing
+    carried forward -> still decline."""
+    assert parts_from_grid([["1234", "5678"], ["4321", "8765"]], inherited=None) == []
+
+
 def test_values_are_verbatim_never_normalized():
     """MPNs must match the document exactly — no hyphenation, padding or 'correction'."""
     grid = [["Affected Part", "Replacement"], ["BYVB32-200-E3/81", "LTC6226HDC#TRMPBF"]]
     p = parts_from_grid(grid)[0]
     assert p["affected_mpn"] == "BYVB32-200-E3/81"
     assert p["replacement_mpn"] == "LTC6226HDC#TRMPBF"
+
+
+# --------------------------------------------------------------------------- #
+# ACROSS PAGES. The pure-grid tests above pin the DECISION; this one pins the THREADING,
+# which is where the defect actually lives — a table printed across pages declares its
+# columns once, on the first page, and every per-page call after that sees an anonymous
+# grid. Fake pages stand in for pdfplumber so this still runs without a PDF.
+# --------------------------------------------------------------------------- #
+
+class _FakeTable:
+    def __init__(self, grid):
+        self._grid = grid
+        # one bbox per cell, distinct so a mixed-up cell would be visible
+        self.rows = [type("R", (), {"cells": [(c, r, c + 1, r + 1) for c in range(len(row))]})()
+                     for r, row in enumerate(grid)]
+
+    def extract(self):
+        return self._grid
+
+
+class _FakePage:
+    width, height = 612.0, 792.0
+
+    def __init__(self, *grids):
+        self._tables = [_FakeTable(g) for g in grids]
+
+    def find_tables(self):
+        return self._tables
+
+
+def test_header_is_inherited_ACROSS_pages_not_just_within_one():
+    """Page 1 declares `EOL | Replacement` x3; pages 2 and 3 are bare continuations. Read
+    per-page they had no header and no caption, so they were dropped entirely; with a
+    caption they were worse — every column, replacements included, became an affected
+    part. Threaded, all three pages read as the one paired table they are."""
+    page1 = _FakePage([_HEADER, _ROW1])
+    page2 = _FakePage([_CONT_ROW])
+    page3 = _FakePage([["Table 1 - EOL Devices", "", "", "", "", ""], _ROW2])
+
+    parts = parts_from_pages([(1, page1), (2, page2), (3, page3)])
+    affected = [p["affected_mpn"] for p in parts]
+
+    assert len(parts) == 9, affected                     # 3 pairs x 3 pages
+    assert [p["page_number"] for p in parts] == [1, 1, 1, 2, 2, 2, 3, 3, 3]
+    # not one replacement may appear as an affected part
+    for rep in ("FJ3330401", "FJ4800400", "HX3AA0006Q", "HX1A10001Q", "FKA000400"):
+        assert rep not in affected, f"{rep} is a replacement, reported as discontinued"
+    assert all(p["replacement_mpn"] for p in parts), "every row here has a replacement"
+    assert all(p["bbox"] and p["replacement_bbox"] for p in parts), "per-cell provenance"
+
+
+def test_a_new_headed_table_replaces_what_is_carried_forward():
+    """Inheritance must not outlive its table. A later table that declares its OWN columns
+    becomes the thing subsequent continuations inherit."""
+    first = _FakePage([_HEADER, _ROW1])                                  # 6 cols, paired
+    second = _FakePage([["Affected Part", "Replacement"], ["A100", "B200"]])   # 2 cols
+    cont = _FakePage([["C300", "D400"]])                                  # continues #2
+
+    parts = parts_from_pages([(1, first), (2, second), (3, cont)])
+    assert [(p["affected_mpn"], p["replacement_mpn"]) for p in parts][-2:] == [
+        ("A100", "B200"), ("C300", "D400")]
+
+
+def test_a_single_page_call_still_works_and_inherits_nothing():
+    """parts_from_page stays the single-page convenience; it must not silently carry
+    state from anywhere."""
+    from doc_tools.utils.table_text_layer import parts_from_page
+    assert parts_from_page(_FakePage([_CONT_ROW]), 1) == []
 
 
 if __name__ == "__main__":

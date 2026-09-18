@@ -228,11 +228,18 @@ class SustainmentPlugin(AugmentationPlugin):
             body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
             parts: List[dict] = []
             with pdfplumber.open(io.BytesIO(body)) as pdf:
-                for pno, page in enumerate(pdf.pages, start=1):
-                    if not text_layer.page_has_text_layer(page):
-                        continue
-                    stats["text_layer_pages"] += 1
-                    parts.extend(text_layer.parts_from_page(page, pno))
+                def _born_digital_pages():
+                    """(page_number, page) for the pages tier 1 can actually read."""
+                    for pno, page in enumerate(pdf.pages, start=1):
+                        if not text_layer.page_has_text_layer(page):
+                            continue
+                        stats["text_layer_pages"] += 1
+                        yield pno, page
+                # parts_from_pages OWNS the page loop because a parts table spanning
+                # pages prints its header only once: page 2 onwards is an anonymous grid,
+                # and read per-page every column of an `EOL | Replacement` continuation
+                # was emitted as a discontinued part (measured: 34% of one notice's 402).
+                parts = text_layer.parts_from_pages(_born_digital_pages())
         except Exception as e:  # noqa: BLE001 — degrade to vision, never fail the doc
             print(f"[SustainmentPlugin] text-layer pass unavailable ({e}); falling back to vision")
             return [], stats

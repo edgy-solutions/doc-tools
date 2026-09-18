@@ -32,7 +32,7 @@ is unit-testable without pdfplumber or a PDF.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Tuple
 
 # Column-header VOCABULARY — data, not code, so a new vendor's wording is a list entry
 # rather than a branch. Matched case-insensitively against the normalized header cell.
@@ -44,7 +44,6 @@ REPLACEMENT_HEADERS: Tuple[str, ...] = (
     "replacement", "replaces", "substitute", "recommended replacement",
     "suggested replacement", "alternate", "alternative", "successor",
 )
-
 _WS = re.compile(r"\s+")
 
 
@@ -144,16 +143,66 @@ def pair_columns(header: Sequence[Optional[str]]) -> List[Tuple[int, Optional[in
     return pairs
 
 
+class InheritedHeader(NamedTuple):
+    """The column pairing of the most recent table that DECLARED its own columns.
+
+    Carried forward so a CONTINUATION of that table — same table, next page, header
+    printed only once — can be read as the paired table it is instead of an anonymous
+    grid. `width` is the declaring header's column count and is the guard: without it
+    an unrelated later table would inherit a stale header, which is a worse defect than
+    the one this fixes (it mislabels parts confidently rather than declining).
+    """
+    pairs: List[Tuple[int, Optional[int]]]
+    width: int
+
+
+def header_pairing(
+    grid: Sequence[Sequence[Optional[str]]],
+    *,
+    header_row: Optional[int] = None,
+) -> Optional[InheritedHeader]:
+    """The INHERITABLE pairing of a grid that declares its own columns, or None (PURE).
+
+    Only a real header row is inheritable. A caption-derived all-affected pairing is
+    deliberately NOT: the caption is a statement about the table it captions, and
+    carrying it forward would assert "every column here is an affected part" about
+    columns nobody labelled — the same unguarded guess this module declines to make.
+    """
+    hi = header_row if header_row is not None else find_header_row(grid)
+    if hi is None:
+        return None
+    pairs = pair_columns(grid[hi])
+    if not pairs:
+        return None
+    return InheritedHeader(pairs, len(grid[hi]))
+
+
+def _grid_width(grid: Sequence[Sequence[Optional[str]]]) -> int:
+    return max((len(r) for r in grid), default=0)
+
+
 def parts_from_grid(
     grid: Sequence[Sequence[Optional[str]]],
     *,
     header_row: Optional[int] = None,
+    inherited: Optional[InheritedHeader] = None,
 ) -> List[Dict[str, Optional[str]]]:
     """[{affected_mpn, replacement_mpn, row, col}] from a grid of cell strings (PURE).
 
     Values are returned VERBATIM — no normalization, hyphenation or "correction". Part
     numbers legitimately carry slashes, '#' reel codes and module dashes, and the
     downstream contract is that an MPN matches the document exactly.
+
+    Column semantics are decided in PRIORITY ORDER, most-evidenced first:
+      1. this grid declares a header      -> pair from it
+      2. a preceding table declared one,
+         and the column count matches     -> inherit its pairs (continuation page)
+      3. no header, but a CAPTION names
+         the contents                     -> every column is an affected part
+      4. otherwise                        -> decline
+
+    Still PURE: the inherited pairing is passed IN. Threading it across a document's
+    tables is the caller's job (`parts_from_pages`).
     """
     if not grid:
         return []
@@ -161,11 +210,21 @@ def parts_from_grid(
     if hi is not None:
         pairs = pair_columns(grid[hi])
         start = hi + 1
+    elif inherited is not None and _grid_width(grid) == inherited.width:
+        # CONTINUATION TABLE. A parts table that spans pages prints its header once, so
+        # every page after the first is an anonymous grid. Read in isolation it hits the
+        # caption rule below and EVERY column becomes an affected part — which is how the
+        # replacement half of an `EOL | Replacement` table gets emitted as discontinued
+        # parts. Measured on a real notice: 136 of 402 extracted "affected parts" (34%)
+        # appeared ONLY in replacement columns. The header is recoverable from the
+        # preceding table, and a matching column count is what says it is the same table.
+        pairs = inherited.pairs
+        start = 0
     else:
-        # No column header. If a CAPTION names the contents ("Table 3 - EOL Devices"),
-        # every column is an affected part and there are no replacements — the shape of a
-        # bare discontinuance list. Without a caption we decline: an unlabelled grid of
-        # unknown columns must not be guessed into parts.
+        # No column header and nothing to inherit. If a CAPTION names the contents
+        # ("Table 3 - EOL Devices"), every column is an affected part and there are no
+        # replacements — the shape of a bare discontinuance list. Without a caption we
+        # decline: an unlabelled grid of unknown columns must not be guessed into parts.
         ti = find_title_row(grid)
         if ti is None:
             return []
@@ -220,7 +279,35 @@ def page_has_text_layer(page, min_chars: int = 200) -> bool:
 
 
 def parts_from_page(page, page_number: int) -> List[Dict[str, Any]]:
-    """Parts + PER-CELL provenance from one born-digital page (needs pdfplumber).
+    """Parts + PER-CELL provenance from ONE born-digital page (needs pdfplumber).
+
+    Single-page convenience. A table that SPANS pages cannot be read correctly one page
+    at a time — the continuation pages carry no header — so a whole document goes through
+    `parts_from_pages`, which threads the header across the page loop.
+    """
+    return _parts_from_page(page, page_number, None)[0]
+
+
+def parts_from_pages(numbered_pages: Iterable[Tuple[int, Any]]) -> List[Dict[str, Any]]:
+    """Parts from a document's born-digital pages, with header inheritance ACROSS pages.
+
+    This function owns the page loop precisely BECAUSE the defect lives between pages:
+    a parts table printed across four pages declares its columns once, on the first, and
+    a per-page call can only see an anonymous grid for the other three. Pages are passed
+    in as (page_number, page) so the caller keeps its own text-layer filtering and stats.
+    """
+    results: List[Dict[str, Any]] = []
+    inherited: Optional[InheritedHeader] = None
+    for page_number, page in numbered_pages:
+        page_parts, inherited = _parts_from_page(page, page_number, inherited)
+        results.extend(page_parts)
+    return results
+
+
+def _parts_from_page(
+    page, page_number: int, inherited: Optional[InheritedHeader],
+) -> Tuple[List[Dict[str, Any]], Optional[InheritedHeader]]:
+    """One page's parts, plus the pairing to carry to the NEXT page.
 
     Each part carries the exact bbox of the cell its MPN came from, in PDF POINTS, with
     the page's point dimensions alongside — so the sealed `fraction = bbox / page_dims`
@@ -245,7 +332,14 @@ def parts_from_page(page, page_number: int) -> List[Dict[str, Any]]:
             except Exception:  # noqa: BLE001
                 return None
 
-        for p in parts_from_grid(grid):
+        # A table that declares its own columns REPLACES what we carry forward; one that
+        # does not leaves it standing, so a table spanning three pages keeps inheriting
+        # from the page that actually printed the header.
+        own = header_pairing(grid)
+        if own is not None:
+            inherited = own
+
+        for p in parts_from_grid(grid, inherited=None if own is not None else inherited):
             results.append({
                 "affected_mpn": p["affected_mpn"],
                 "replacement_mpn": p["replacement_mpn"],
@@ -255,4 +349,4 @@ def parts_from_page(page, page_number: int) -> List[Dict[str, Any]]:
                 "page_dims": dims,
                 "source": "text_layer",
             })
-    return results
+    return results, inherited
