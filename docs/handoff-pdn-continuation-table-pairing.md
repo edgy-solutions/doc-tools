@@ -1,9 +1,43 @@
 # Handoff — PDN/PCN: continuation tables emit REPLACEMENTS as affected parts
 
-**Status:** root cause confirmed and measured; production fix not yet written.
-**Branch context:** diagnostic work is on `mfg-extraction-investigation`. The
-production fix belongs on a branch off `origin/main` (see "Where the fix goes").
+**Status:** fix WRITTEN and unit-tested on `fix/pcn-continuation-table-pairing`
+(off `origin/main`); **not yet validated against the corpus, not yet deployed.**
+**Branch context:** diagnostic work is on `mfg-extraction-investigation`.
 **Priority:** this is the defect the review demo reported. It is not cosmetic.
+
+---
+
+## What landed (2026-09-17)
+
+Branch `fix/pcn-continuation-table-pairing`, five commits off `origin/main`:
+
+| commit | what |
+|---|---|
+| `23be2be` | continuation tables inherit the preceding header (the defect below) |
+| `044f007` | alias columns vetoed in `table_text_layer` |
+| `ad95e15` | enclosing quotes stripped from MPN values |
+| `2de007f` | alias vocabulary aligned character-for-character with the diagnostic |
+| `5d235b1` | alias rule added to the VISION parts prompt |
+
+46 unit tests pass, both directions pinned. **What is NOT done:**
+
+- **No corpus validation.** The success criterion below (`from_replacement_column`
+  collapsing toward zero) requires a RE-EXTRACTION with this code deployed —
+  running the diagnostic with `--tl-path` pointed at the fixed module only changes
+  how the instrument CLASSIFIES, which is explicitly not the criterion.
+- **Not deployed anywhere.** Sandbox pulls ghcr; d4 needs an Artifactory push.
+- The alias fix in `table_text_layer` covers tier 1 only. Tier 2/3 read pixels, and
+  the diagnostic says that is where the demo's bad rows came from — hence the
+  prompt rule in `5d235b1`, which is an instruction, not a guarantee. If alias
+  values survive the next corpus run, look at the VISION path first.
+
+### One thing to know before re-running the diagnostic
+
+`table_text_layer._is_affected` now vetoes alias headers, and `find_header_row`
+scores with it. So pointing `--tl-path` at the FIXED module changes the
+instrument's own header detection as well as production behaviour. To reproduce
+the original 136/402 baseline, point `--tl-path` at the module as it stands on
+`origin/main`, not at the fix branch.
 
 ---
 
