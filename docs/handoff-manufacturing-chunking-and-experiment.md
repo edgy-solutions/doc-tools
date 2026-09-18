@@ -45,6 +45,58 @@ Nine real work instructions, extractor v0.5.0, measured — not assumed:
    structurally. This removes most of the LLM's job.
 3. **Then** per-operation chunking for what remains — judgment only.
 
+## MEASURED 2026-09-17/18 — the instability, quantified (87 runs)
+
+Step 1 of the ordering above is **done, and it confirms the ordering**. Overnight
+run: 8 cells (2 fixtures × 2 assemblers × `--fix-figure-desc` on/off), ~11 repeats
+each, 87 successful calls, 0 failures, `gpt-oss-128k:120b` on the cluster endpoint.
+Driver, analyzer, raw responses and `results.jsonl` in `C:\tmp\mfg-overnight`
+(`summarize.py` prints everything below).
+
+**The harness is not stable enough to A/B against. 11 of 12 comparisons are
+unreadable** — the effect is smaller than the run-to-run spread of the cells being
+compared. Same fixture, same assembler, same prompt, same model, same endpoint:
+
+| cell | metric | gt | min–max | range |
+|---|---|---|---|---|
+| WI / current / current-desc | figures | 9 | 0–8 | **8** |
+| WI / current / current-desc | operations | 5 | 1–5 | **4** |
+| WI / structured / FIXED | figures | 9 | 0–8 | **8** |
+| WI-HARD / structured / current-desc | figures | 11 | 0–10 | **10** |
+| WI-HARD / current / FIXED | steps | 18 | 18–31 | **13** |
+
+`figures` swings the ENTIRE ground-truth range on identical input in three separate
+cells. This is the 0→19 swing, reproduced and bounded.
+
+**The one effect that survives its noise floor:** WI-HARD / `current` assembler,
+`--fix-figure-desc` moves figures 0 → 8.27 mean against a noise floor of 3. That is
+a real fix for the case where the baseline was a hard zero. Everywhere else the
+figure-description change is indistinguishable from noise — including on the clean
+fixture, where it *looked* like 0→8 on a single run.
+
+### Two findings that are not about instability
+
+1. **Three schema fields are never populated in ANY of the 87 runs, in any cell:**
+   `estimated_duration_minutes`, `required_cert`, and — in 7 of 8 cells —
+   `hazard_class`. `is_safety_critical` starves in 3 of 8 cells and never exceeds 7
+   of ~25 steps elsewhere. Note this is a DIFFERENT failure from the real corpus,
+   where `hazard_class` was recorded as fabricated 3/3: on the mock the model
+   simply never emits it. Either way that field is not working.
+2. **Operations are unstable on the CLEAN fixture and rock-solid on the HARD one** —
+   the inverse of what difficulty predicts. WI-HARD holds 4/4 with range 0 in three
+   of four cells; the clean WI swings 1–5 (range 4) in all four, with a mean as low
+   as 2.09 against a ground truth of 5. Whatever destabilizes `procedure_id`
+   grouping is a property of the clean fixture, not of document difficulty. **This
+   is the concrete lead for step 1** — it is reproducible, cheap to re-run, and
+   isolated to one fixture.
+
+### What this does NOT say
+
+Still the mock corpus, so still segmenter/harness logic only — it cannot say the
+LLM is better or worse at the real task. But the instability it measures is the
+harness's own, and that transfers: an A/B on the real corpus faces at least this
+much noise.
+
 ## Per-operation chunking: what is built, what is missing
 
 **Built and validated:**
