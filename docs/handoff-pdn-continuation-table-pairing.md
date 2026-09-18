@@ -9,7 +9,9 @@
 
 ## What landed (2026-09-17)
 
-Branch `fix/pcn-continuation-table-pairing`, five commits off `origin/main`:
+Branch `fix/pcn-continuation-table-pairing`, eight commits off `origin/main`.
+**Not pushed** — the push was blocked by a permission rule; the commits are safe in
+`C:/Users/cnogr/git/doc-tools/.git` (the worktree in `C:/tmp` holds only the checkout).
 
 | commit | what |
 |---|---|
@@ -18,8 +20,12 @@ Branch `fix/pcn-continuation-table-pairing`, five commits off `origin/main`:
 | `ad95e15` | enclosing quotes stripped from MPN values |
 | `2de007f` | alias vocabulary aligned character-for-character with the diagnostic |
 | `5d235b1` | alias rule added to the VISION parts prompt |
+| `ffb4b5f` | self-review: alias vocabulary must not be matched against cell VALUES |
+| `03f43c9` | de-quoting moved into `sustainment_merge` so it is unit-tested |
+| `476cd29` | a page with no tables ends the inheritance run |
 
-46 unit tests pass, both directions pinned. **What is NOT done:**
+61 tests pass across `test_table_text_layer.py` and `test_sustainment_extraction.py`,
+both directions pinned. **What is NOT done:**
 
 - **No corpus validation.** The success criterion below (`from_replacement_column`
   collapsing toward zero) requires a RE-EXTRACTION with this code deployed —
