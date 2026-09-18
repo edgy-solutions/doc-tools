@@ -1,15 +1,17 @@
 """Pure merge / reconcile / validation / review-payload helpers for the
 sustainment two-pass extractor.
 
-Deliberately imports ONLY the light modules (provenance, sustainment_normalize)
-so the whole merge+review pipeline is unit-testable without importing the heavy
-Dagster/BAML stack. The plugin (doc_tools/plugins/sustainment.py) wires these
+Deliberately imports ONLY the light modules (provenance, sustainment_normalize,
+table_text_layer — the last is re + typing and nothing else) so the whole
+merge+review pipeline is unit-testable without importing the heavy Dagster/BAML
+stack. The plugin (doc_tools/plugins/sustainment.py) wires these
 together with the two BAML calls.
 """
 from typing import Any, List, Optional, Tuple
 
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
+from doc_tools.utils import table_text_layer as text_layer
 
 
 def _g(obj: Any, name: str):
@@ -50,6 +52,32 @@ def empty_header(doc_id: str) -> dict:
     return {"doc_id": doc_id, "doc_type": "PCN", "revision": None, "pub_date": "",
             "pub_date_source": None, "mfr": "", "mfr_source": None, "categories": [],
             "summary": "", "doc_level_ltb_date": None, "doc_level_ltb_date_source": None}
+
+
+def dequote_parts(parts: List[dict]) -> int:
+    """Strip enclosing quotes from MPN VALUES in place; returns how many it changed.
+
+    A notice that prints its part numbers in quotes yields '"090-44310-31"'. The quote
+    is a delimiter around the MPN, never a character of it — but downstream it is treated
+    as one, and every graph MERGE, join and lookup against the real MPN silently misses.
+
+    Runs BEFORE dedup_parts, or a quoted and an unquoted copy of the same part survive as
+    two rows instead of collapsing into one.
+
+    The *_source snippets are deliberately NOT touched: they are provenance, and
+    provenance has to keep matching the document character-for-character.
+    """
+    n = 0
+    for p in parts:
+        for field in ("affected_mpn", "replacement_mpn"):
+            raw = p.get(field)
+            if not raw:
+                continue
+            clean = text_layer.strip_enclosing_quotes(raw)
+            if clean != raw:
+                p[field] = clean
+                n += 1
+    return n
 
 
 def dedup_parts(parts: List[dict]) -> List[dict]:

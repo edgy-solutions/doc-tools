@@ -99,6 +99,32 @@ def test_resolve_value_region_preference_on_ambiguous():
 # --------------------------------------------------------------------------- #
 # dedup + reconcile
 # --------------------------------------------------------------------------- #
+def test_dequote_parts_strips_delimiters_but_not_provenance():
+    """A notice that prints its part numbers in quotes yields '"090-44310-31"'. The quote
+    is a delimiter, never a character of the MPN — but downstream it is treated as one and
+    every graph MERGE and join silently misses. The *_source snippets keep their quotes:
+    they are provenance and must still match the document character-for-character."""
+    parts = [
+        {"affected_mpn": '"090-44310-31"', "affected_mpn_source": '"090-44310-31"',
+         "replacement_mpn": '"090-44310-32"', "replacement_mpn_source": '"090-44310-32"'},
+        {"affected_mpn": "LTC6226HDC#TRMPBF", "replacement_mpn": None},
+    ]
+    assert merge.dequote_parts(parts) == 2, "two VALUES changed, not the sources"
+    assert parts[0]["affected_mpn"] == "090-44310-31"
+    assert parts[0]["replacement_mpn"] == "090-44310-32"
+    assert parts[0]["affected_mpn_source"] == '"090-44310-31"', "provenance must stay verbatim"
+    assert parts[0]["replacement_mpn_source"] == '"090-44310-32"'
+    assert parts[1]["affected_mpn"] == "LTC6226HDC#TRMPBF", "untouched when there is no quote"
+
+
+def test_dequote_runs_before_dedup_so_quoted_twins_collapse():
+    """Order matters: de-quoting AFTER dedup would leave '"A"' and 'A' as two separate
+    parts — the same part counted twice on the review card."""
+    parts = [{"affected_mpn": '"A1"'}, {"affected_mpn": "A1"}]
+    merge.dequote_parts(parts)
+    assert [p["affected_mpn"] for p in merge.dedup_parts(parts)] == ["A1"]
+
+
 def test_dedup_parts_across_crops():
     parts = [
         {"affected_mpn": "A"}, {"affected_mpn": "B"}, {"affected_mpn": "A"},  # dup from continued page
