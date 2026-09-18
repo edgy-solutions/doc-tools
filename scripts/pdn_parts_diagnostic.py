@@ -233,6 +233,62 @@ def llm_parts_from(extraction: dict, review: dict):
     return parts
 
 
+def _doc_label(text_dir: str, prefix: str) -> str:
+    """A readable, UNIQUE label per document (the old code collapsed many)."""
+    rel = text_dir[len(prefix):] if text_dir.startswith(prefix) else text_dir
+    rel = rel.strip("/")
+    if "/generated/" in f"/{rel}/":
+        rel = rel.split("/generated/")[0]
+    return rel or text_dir
+
+
+def discover_docs(s3, bucket, prefix):
+    """Pair text.json / extraction.json / review.json WITHOUT assuming a depth.
+
+    THE BUG THIS REPLACES: the doc root was computed as the first THREE path
+    segments. Any corpus whose documents sit deeper collapsed every one of them
+    onto the same computed root, and because the artifacts were stored in a dict
+    keyed by that root, each document silently OVERWROTE the last — dozens of
+    notices reported as one. It is the same hardcoded-layout mistake already
+    fixed in mfg_corpus_report.py, repeated here.
+
+    Instead: the text.json's own directory is the anchor, and the run WALKS UP
+    toward the prefix looking for the extraction/review that own it (they sit at
+    the document root while text.json sits under generated/<name>/). Sibling,
+    parent, grandparent — all handled, and the distance is reported so the real
+    layout is measured rather than assumed.
+    """
+    pag = s3.get_paginator("list_objects_v2")
+    keys = []
+    for pg in pag.paginate(Bucket=bucket, Prefix=prefix):
+        for o in pg.get("Contents", []):
+            keys.append(o["Key"])
+
+    def dirmap(fname):
+        return {k.rsplit("/", 1)[0]: k for k in keys if k.endswith("/" + fname)}
+
+    texts, extrs, revs = dirmap("text.json"), dirmap("extraction.json"), dirmap("review.json")
+    docs = []
+    for tdir in sorted(texts):
+        ek = rk = None
+        layout = None
+        parts = tdir.split("/")
+        for i in range(len(parts), 0, -1):          # self, then walk upward
+            cand = "/".join(parts[:i])
+            if ek is None and cand in extrs:
+                ek = extrs[cand]
+                hops = len(parts) - i
+                layout = "sibling" if hops == 0 else f"ancestor+{hops}"
+            if rk is None and cand in revs:
+                rk = revs[cand]
+            if ek and rk:
+                break
+        docs.append({"doc": _doc_label(tdir, prefix), "text_key": texts[tdir],
+                     "extraction_key": ek, "review_key": rk,
+                     "layout": layout or "no_extraction"})
+    return docs
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--prefix", default="sustainment/inbound/")
@@ -260,32 +316,25 @@ def main():
                       verify=False)
     tl = _load_module("table_text_layer", args.tl_path)
 
-    pag = s3.get_paginator("list_objects_v2")
-    found = collections.defaultdict(dict)
-    for pg in pag.paginate(Bucket=args.bucket, Prefix=args.prefix):
-        for o in pg.get("Contents", []):
-            k = o["Key"]
-            name = k.rsplit("/", 1)[-1]
-            if name in ("text.json", "extraction.json", "review.json"):
-                root = "/".join(k.split("/")[:3])
-                found[root][name] = k
+    found = discover_docs(s3, args.bucket, args.prefix)
+    layouts = collections.Counter(d["layout"] for d in found)
 
     print(f"redaction: values={'SHAPES' if REDACT_VALUES else 'RAW'}, "
           f"headers={'shaped' if REDACT_HEADERS else 'verbatim'}"
           f"{'' if REDACT_VALUES else '   <-- raw values: confirm this slice is safe to carry'}")
+    print(f"discovered {len(found)} document(s) under '{args.prefix}'   layouts={dict(layouts)}")
+    if not found:
+        print("  NOTHING PAIRED — every document needs a text.json. Check the prefix.")
 
     report = {}
-    for root in sorted(found):
-        doc = root.rsplit("/", 1)[-1]
+    for d in found:
+        doc = d["doc"]
         if args.doc and doc not in args.doc:
             continue
-        have = found[root]
-        if "text.json" not in have:
-            continue
         get = lambda key: json.loads(s3.get_object(Bucket=args.bucket, Key=key)["Body"].read())
-        elements = get(have["text.json"])
-        extraction = get(have["extraction.json"]) if "extraction.json" in have else {}
-        review = get(have["review.json"]) if "review.json" in have else {}
+        elements = get(d["text_key"])
+        extraction = get(d["extraction_key"]) if d["extraction_key"] else {}
+        review = get(d["review_key"]) if d["review_key"] else {}
         parts = llm_parts_from(extraction, review)
         res = diagnose(elements, parts, tl)
         report[doc] = res
