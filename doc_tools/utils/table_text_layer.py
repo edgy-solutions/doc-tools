@@ -56,10 +56,15 @@ REPLACEMENT_HEADERS: Tuple[str, ...] = (
 # affected; "Substitute Alias Part Number(s)" matches "substitute" and would read as a
 # replacement. Declining an ambiguous column is the safe direction — this module already
 # prefers to decline over to guess.
+#
+# Kept CHARACTER-FOR-CHARACTER identical to pdn_parts_diagnostic.ALIAS_HEADERS. The 34%
+# and 14-instance figures were measured with that list; a production list that quietly
+# differs would make the next corpus run compare two different rulers and call the
+# difference a result.
 ALIAS_HEADERS: Tuple[str, ...] = (
-    "alias", "cross reference", "cross-reference", "xref", "equivalent",
-    "pin to pin", "pin-to-pin", "compatible", "base part", "product family",
-    "generic", "second source", "similar",
+    "product family", "family", "alias", "cross reference", "cross-reference",
+    "xref", "equivalent", "pin to pin", "pin-to-pin", "compatible", "base part",
+    "generic", "series", "similar", "second source",
 )
 
 _WS = re.compile(r"\s+")

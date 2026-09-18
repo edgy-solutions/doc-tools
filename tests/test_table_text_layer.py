@@ -242,6 +242,19 @@ def test_an_inherited_header_carries_the_alias_veto_too():
     assert [p["affected_mpn"] for p in cont] == ["AD7879ACPZ"]
 
 
+def test_the_alias_vocabulary_matches_the_one_the_measurement_used():
+    """Anti-drift. The 34% and 14-instance figures were measured with
+    pdn_parts_diagnostic.ALIAS_HEADERS; if production quietly diverges, the next corpus
+    run compares two different rulers and reports the difference as a result. Pinned
+    here so a change to either list has to be a deliberate change to BOTH."""
+    from doc_tools.utils.table_text_layer import ALIAS_HEADERS
+    assert ALIAS_HEADERS == (
+        "product family", "family", "alias", "cross reference", "cross-reference",
+        "xref", "equivalent", "pin to pin", "pin-to-pin", "compatible", "base part",
+        "generic", "series", "similar", "second source",
+    )
+
+
 def test_the_ordinary_vocabulary_is_unchanged_by_the_alias_veto():
     """The veto must not eat plain columns. This is the regression that would silently
     empty the common case."""
