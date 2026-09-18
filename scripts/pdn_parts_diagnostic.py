@@ -238,7 +238,11 @@ def _doc_label(text_dir: str, prefix: str) -> str:
     rel = text_dir[len(prefix):] if text_dir.startswith(prefix) else text_dir
     rel = rel.strip("/")
     if "/generated/" in f"/{rel}/":
-        rel = rel.split("/generated/")[0]
+        head, _, tail = rel.partition("/generated/")
+        # When the run directory IS the prefix-adjacent segment the head alone is
+        # generic ('inbound') and would collide across documents, so keep the
+        # generated-dir name to stay unique.
+        rel = head if "/" in head else "/".join(x for x in (head, tail) if x)
     return rel or text_dir
 
 
@@ -259,18 +263,20 @@ def discover_docs(s3, bucket, prefix):
     layout is measured rather than assumed.
     """
     pag = s3.get_paginator("list_objects_v2")
-    keys = []
+    keys, lastmod = [], {}
     for pg in pag.paginate(Bucket=bucket, Prefix=prefix):
         for o in pg.get("Contents", []):
             keys.append(o["Key"])
+            lastmod[o["Key"]] = o.get("LastModified")
 
     def dirmap(fname):
         return {k.rsplit("/", 1)[0]: k for k in keys if k.endswith("/" + fname)}
 
-    texts, extrs, revs = dirmap("text.json"), dirmap("extraction.json"), dirmap("review.json")
+    texts, extrs = dirmap("text.json"), dirmap("extraction.json")
+    revs, mans = dirmap("review.json"), dirmap("manifest.json")
     docs = []
     for tdir in sorted(texts):
-        ek = rk = None
+        ek = rk = mk = None
         layout = None
         parts = tdir.split("/")
         for i in range(len(parts), 0, -1):          # self, then walk upward
@@ -281,12 +287,40 @@ def discover_docs(s3, bucket, prefix):
                 layout = "sibling" if hops == 0 else f"ancestor+{hops}"
             if rk is None and cand in revs:
                 rk = revs[cand]
-            if ek and rk:
+            if mk is None and cand in mans:
+                mk = mans[cand]
+            if ek and rk and mk:
                 break
+        lm = lastmod.get(ek) or lastmod.get(texts[tdir])
         docs.append({"doc": _doc_label(tdir, prefix), "text_key": texts[tdir],
-                     "extraction_key": ek, "review_key": rk,
-                     "layout": layout or "no_extraction"})
+                     "extraction_key": ek, "review_key": rk, "manifest_key": mk,
+                     "layout": layout or "no_extraction",
+                     "last_modified": lm.isoformat() if lm else ""})
     return docs
+
+
+def source_id(s3, bucket, d) -> str:
+    """WHICH NOTICE is this, as opposed to which RUN.
+
+    A corpus accumulates re-runs: the same notice extracted seven times is seven
+    output directories and ONE document. Counting directories inflates every
+    defect rate — one bad table re-run five times reads as five bad documents,
+    and "N% of documents affected" becomes meaningless. The manifest records the
+    source filename, so identity comes from the document, not from where its
+    output happened to land.
+    """
+    mk = d.get("manifest_key")
+    if mk:
+        try:
+            man = json.loads(s3.get_object(Bucket=bucket, Key=mk)["Body"].read())
+            fn = man.get("filename") or man.get("source_key")
+            if fn:
+                return os.path.basename(str(fn))
+        except Exception:  # noqa: BLE001 — a missing manifest must not stop the run
+            pass
+    # fallback: document_parser names the output dir after the source filename
+    parts = d["text_key"].split("/")
+    return parts[-2] if len(parts) >= 2 else d["text_key"]
 
 
 def main():
@@ -299,6 +333,9 @@ def main():
     ap.add_argument("--include-values", action="store_true",
                     help="emit raw part numbers instead of shapes (published notices, "
                          "or a slice you have judged safe)")
+    ap.add_argument("--all-runs", action="store_true",
+                    help="analyse EVERY run, not just the latest per document "
+                         "(use to compare run-to-run variance; inflates defect counts)")
     ap.add_argument("--redact-headers", action="store_true",
                     help="also shape column headers (they are kept verbatim by default "
                          "because they ARE the diagnostic payload)")
@@ -319,15 +356,36 @@ def main():
     found = discover_docs(s3, args.bucket, args.prefix)
     layouts = collections.Counter(d["layout"] for d in found)
 
+    # Group RUNS by the NOTICE they extracted, so re-runs cannot inflate counts.
+    for d in found:
+        d["source"] = source_id(s3, args.bucket, d)
+    groups = collections.defaultdict(list)
+    for d in found:
+        groups[d["source"]].append(d)
+    for runs in groups.values():
+        runs.sort(key=lambda r: r["last_modified"], reverse=True)
+
+    # Default: ONE representative run per notice (the most recent), so a corpus
+    # of re-runs reports the document count it actually has. --all-runs analyses
+    # every run, which is how run-to-run variance becomes visible.
+    selected = []
+    for src in sorted(groups):
+        selected.extend(groups[src] if args.all_runs else groups[src][:1])
+
     print(f"redaction: values={'SHAPES' if REDACT_VALUES else 'RAW'}, "
           f"headers={'shaped' if REDACT_HEADERS else 'verbatim'}"
           f"{'' if REDACT_VALUES else '   <-- raw values: confirm this slice is safe to carry'}")
-    print(f"discovered {len(found)} document(s) under '{args.prefix}'   layouts={dict(layouts)}")
+    print(f"discovered {len(found)} run(s) over {len(groups)} DISTINCT document(s) "
+          f"under '{args.prefix}'   layouts={dict(layouts)}")
+    multi = {s: len(r) for s, r in groups.items() if len(r) > 1}
+    if multi:
+        print(f"  re-runs present: {multi}"
+              f"{'' if args.all_runs else '  -> analysing the LATEST run of each (--all-runs for all)'}")
     if not found:
         print("  NOTHING PAIRED — every document needs a text.json. Check the prefix.")
 
     report = {}
-    for d in found:
+    for d in selected:
         doc = d["doc"]
         if args.doc and doc not in args.doc:
             continue
@@ -337,9 +395,15 @@ def main():
         review = get(d["review_key"]) if d["review_key"] else {}
         parts = llm_parts_from(extraction, review)
         res = diagnose(elements, parts, tl)
+        res["source_document"] = d["source"]
+        res["run"] = doc
+        res["runs_for_this_document"] = len(groups[d["source"]])
+        res["layout"] = d["layout"]
         report[doc] = res
 
-        print(f"\n=== {doc} ===  extracted={res['n_extracted']}")
+        extra = (f"  [source: {d['source']}, {res['runs_for_this_document']} run(s)]"
+                 if res["runs_for_this_document"] > 1 else f"  [source: {d['source']}]")
+        print(f"\n=== {doc} ===  extracted={res['n_extracted']}{extra}")
         for t in res["tables"]:
             if t["col_classes"]:
                 print(f"   table{t['table']} hdr_found={t['header_found']} "
@@ -354,9 +418,36 @@ def main():
         for f in res["findings"][:10]:
             print(f"   !! {f['kind']}: {f.get('value')} {f.get('cols','')}")
 
+    # Defect rates are per DISTINCT DOCUMENT, not per run — otherwise a notice
+    # extracted seven times contributes seven times to every total.
+    analysed = [r for r in report.values()]
+    aff = sum(1 for r in analysed
+              if any(f["kind"] in ("from_alias_column", "from_replacement_column")
+                     for f in r["findings"]))
+    miss = sum(1 for r in analysed if r["missing_from_affected_columns"])
+    nohdr = sum(1 for r in analysed
+                if any(not t["header_found"] for t in r["tables"]))
+    unit = "run(s)" if args.all_runs else "distinct document(s)"
+    summary = {
+        "runs_discovered": len(found),
+        "distinct_documents": len(groups),
+        "analysed": len(analysed),
+        "analysed_unit": unit,
+        "mode": "all runs" if args.all_runs else "latest run per document",
+        "runs_per_document": {s: len(r) for s, r in sorted(groups.items())},
+        "layouts": dict(layouts),
+        "documents_with_alias_or_replacement_sourced_parts": aff,
+        "documents_with_missing_affected_parts": miss,
+        "documents_with_headerless_tables": nohdr,
+    }
+    print(f"\nSUMMARY over {len(analysed)} {unit} ({summary['mode']}):")
+    print(f"  parts sourced from an alias/replacement column : {aff}/{len(analysed)}")
+    print(f"  affected-column parts never extracted          : {miss}/{len(analysed)}")
+    print(f"  documents containing headerless tables         : {nohdr}/{len(analysed)}")
+
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
-            json.dump(report, f, indent=2)
+            json.dump({"summary": summary, "documents": report}, f, indent=2)
         print(f"\nwrote {args.out}")
 
 
