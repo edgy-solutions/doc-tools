@@ -86,9 +86,33 @@ fabricated: the page header is `DWG-4500-01`, repeated on all 15 pages, and
 numbers (`0010 0050 0100 0150 0200`) appear ONCE, in a table. The model takes the
 token that matches the format and appears 16 times over the one that appears once.
 
-The hard fixture carries the same header on 9 pages instead of 15 and collapses far
-less often (2 of 22 runs vs 11 of 44) — consistent with repetition count driving it.
-That, not "document difficulty", is the clean-vs-hard inversion noted below.
+**But repetition count does NOT explain when it fires, and removing the header is
+the wrong fix.** Capture rate per cell, same document, same headers throughout:
+
+| fixture | assembler | figure-desc | captured |
+|---|---|---|---|
+| WI | structured | current | **1/11** |
+| WI | structured | FIXED | **9/11** |
+| WI | current | current | 8/11 |
+| WI | current | FIXED | 4/11 |
+| WI-HARD | any | any | 0–2/11 |
+
+Identical document content, identical page furniture: changing only the
+`figure_references` description in the schema moves the capture rate from 1/11 to
+9/11. The header is what gets *captured*, but what *triggers* the capture is prompt
+and schema configuration. Deleting page furniture would be treating a symptom, and
+the furniture is there deliberately — it gives the model context it otherwise
+lacks. (`assemble_structured` also already emits `===== PAGE n =====` dividers, so
+page position is carried independently of the header either way.)
+
+The real conclusion is narrower and points at the existing plan: **`procedure_id`
+should not be an LLM output at all.** Item 2 of the ordering — move pattern fields
+to code — dissolves this defect as a side effect, because the operation numbers
+live in a table and can be read structurally. That also makes item 3 safe: a
+segmenter that derives operation boundaries IN CODE is immune to this capture,
+whereas one that asked the model where operations begin would inherit it exactly.
+That circularity is the reason the code-first ordering is load-bearing rather than
+merely tidy.
 
 **Exclude those runs and operation extraction is perfectly stable — range 0 in
 every one of the 8 cells.** So operations are not unstable; they have one specific,
