@@ -74,6 +74,37 @@ a real fix for the case where the baseline was a hard zero. Everywhere else the
 figure-description change is indistinguishable from noise — including on the clean
 fixture, where it *looked* like 0→8 on a single run.
 
+### CORRECTION — most of the "instability" is one identifiable bug
+
+The spread table above is accurate, but reading it as generic run-to-run noise is
+wrong. Broken down by failure mode:
+
+**The operation-id collapse is a page-furniture capture, not noise.** In 30% of
+clean-fixture runs the model returned a single operation, `4500`. That is not
+fabricated: the page header is `DWG-4500-01`, repeated on all 15 pages, and
+`procedure_id`'s format is `^\d{4}$`, which `4500` satisfies. The real operation
+numbers (`0010 0050 0100 0150 0200`) appear ONCE, in a table. The model takes the
+token that matches the format and appears 16 times over the one that appears once.
+
+The hard fixture carries the same header on 9 pages instead of 15 and collapses far
+less often (2 of 22 runs vs 11 of 44) — consistent with repetition count driving it.
+That, not "document difficulty", is the clean-vs-hard inversion noted below.
+
+**Exclude those runs and operation extraction is perfectly stable — range 0 in
+every one of the 8 cells.** So operations are not unstable; they have one specific,
+diagnosable, fixable defect. Candidate fixes, cheapest first: drop Header/Footer
+elements before assembly rather than relabelling them; or source `procedure_id`
+structurally from the operation table (already item 2 of the ordering above).
+
+**Figures and step segmentation are genuinely variable**, and survive that
+exclusion: `WI/structured/current-desc` still swings figures 0–8 and steps 25–30
+across 10 clean runs.
+
+**There is one fully stable configuration.** `WI / current assembler /
+--fix-figure-desc`, excluding the capture runs (n=7): operations 5/5, steps 24/24,
+figures 8/8 — range 0 on all three. A stable cell exists, which matters: it means
+the variance is a property of particular configurations, not of the model per se.
+
 ### Two findings that are not about instability
 
 1. **Three schema fields are never populated in ANY of the 87 runs, in any cell:**
