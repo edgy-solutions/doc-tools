@@ -44,6 +44,24 @@ REPLACEMENT_HEADERS: Tuple[str, ...] = (
     "replacement", "replaces", "substitute", "recommended replacement",
     "suggested replacement", "alternate", "alternative", "successor",
 )
+# Columns that name something ADJACENT to the part rather than the part itself — the
+# family it belongs to, a cross-reference, a pin-compatible equivalent. Real notices carry
+# them: one has an explicit `Alias Part Number(s)` / `Substitute Alias Part Number(s)`
+# pair, and those values were being emitted as affected parts (14 instances in the work
+# corpus). An alias is not the discontinued part, and putting one on a review card asks a
+# human to disposition a part the notice never discontinued.
+#
+# Vetoes BOTH of the vocabularies above, and is tested FIRST, because the alias wording
+# CONTAINS them: "Alias Part Number(s)" matches "part number" and would otherwise read as
+# affected; "Substitute Alias Part Number(s)" matches "substitute" and would read as a
+# replacement. Declining an ambiguous column is the safe direction — this module already
+# prefers to decline over to guess.
+ALIAS_HEADERS: Tuple[str, ...] = (
+    "alias", "cross reference", "cross-reference", "xref", "equivalent",
+    "pin to pin", "pin-to-pin", "compatible", "base part", "product family",
+    "generic", "second source", "similar",
+)
+
 _WS = re.compile(r"\s+")
 
 
@@ -51,14 +69,32 @@ def _norm_header(cell: Optional[str]) -> str:
     return _WS.sub(" ", (cell or "").strip().lower())
 
 
+def _is_alias(cell: Optional[str]) -> bool:
+    h = _norm_header(cell)
+    return bool(h) and any(k in h for k in ALIAS_HEADERS)
+
+
 def _is_affected(cell: Optional[str]) -> bool:
     h = _norm_header(cell)
-    return bool(h) and any(k in h for k in AFFECTED_HEADERS)
+    if not h or _is_alias(cell):
+        return False
+    return any(k in h for k in AFFECTED_HEADERS)
 
 
 def _is_replacement(cell: Optional[str]) -> bool:
     h = _norm_header(cell)
-    return bool(h) and any(k in h for k in REPLACEMENT_HEADERS)
+    if not h or _is_alias(cell):
+        return False
+    return any(k in h for k in REPLACEMENT_HEADERS)
+
+
+def _is_column_label(cell: Optional[str]) -> bool:
+    """Does this cell READ as a column label of any kind (including an alias column)?
+
+    Used to drop a header repeated mid-table. It must know about alias columns too, or a
+    repeated `Alias Part Number(s)` cell would be considered for extraction.
+    """
+    return _is_alias(cell) or _is_affected(cell) or _is_replacement(cell)
 
 
 # An MPN is a short token carrying digits. find_tables() also returns prose blocks that
@@ -243,7 +279,7 @@ def parts_from_grid(
             if not affected:
                 continue
             # A repeated header (tables continued across pages) is not a part.
-            if _is_affected(affected) or _is_replacement(affected):
+            if _is_column_label(affected):
                 continue
             # find_tables() also returns prose blocks that merely look tabular; a sentence
             # is not a part number.

@@ -205,6 +205,51 @@ def test_values_are_verbatim_never_normalized():
 
 
 # --------------------------------------------------------------------------- #
+# ALIAS COLUMNS. A notice carries `Alias Part Number(s)` / `Substitute Alias Part
+# Number(s)` beside the real ones, and those values were being emitted as affected parts
+# (14 instances in the work corpus). An alias is not the discontinued part; putting one on
+# a review card asks a human to disposition a part the notice never discontinued.
+# --------------------------------------------------------------------------- #
+
+_ALIAS_HEADER = ["EOL Device", "Alias Part Number(s)", "Replacement",
+                 "Substitute Alias Part Number(s)"]
+
+
+def test_alias_columns_are_neither_affected_nor_replacement():
+    """The alias wording CONTAINS the other vocabularies — "Alias Part Number(s)" matches
+    "part number", "Substitute Alias Part Number(s)" matches "substitute" — so alias must
+    be tested first or it reads as the very column it is not."""
+    assert pair_columns(_ALIAS_HEADER) == [(0, 2)], "alias columns must not be paired"
+
+
+def test_an_alias_value_never_becomes_a_part():
+    grid = [_ALIAS_HEADER,
+            ["AD7873ACPZ", "AD7873-FAMILY", "AD7873ACPZ-RL", "AD7873-FAM-RL"]]
+    parts = parts_from_grid(grid)
+    assert [p["affected_mpn"] for p in parts] == ["AD7873ACPZ"]
+    assert parts[0]["replacement_mpn"] == "AD7873ACPZ-RL"
+    emitted = [v for p in parts for v in (p["affected_mpn"], p["replacement_mpn"]) if v]
+    assert not any("FAM" in v for v in emitted), emitted
+
+
+def test_an_inherited_header_carries_the_alias_veto_too():
+    """The two fixes compose: a continuation page of an alias-bearing table must not
+    resurrect the alias columns it inherits."""
+    inherited = header_pairing([_ALIAS_HEADER, ["A1", "A2", "A3", "A4"]])
+    assert inherited.pairs == [(0, 2)]
+    cont = parts_from_grid([["AD7879ACPZ", "AD7879-FAMILY", "AD7879ACPZ-RL", "AD7879-FAM-RL"]],
+                           inherited=inherited)
+    assert [p["affected_mpn"] for p in cont] == ["AD7879ACPZ"]
+
+
+def test_the_ordinary_vocabulary_is_unchanged_by_the_alias_veto():
+    """The veto must not eat plain columns. This is the regression that would silently
+    empty the common case."""
+    assert pair_columns(_HEADER) == [(0, 1), (2, 3), (4, 5)]
+    assert len(parts_from_grid([_CAPTION, _HEADER, _ROW1, _ROW2])) == 6
+
+
+# --------------------------------------------------------------------------- #
 # ACROSS PAGES. The pure-grid tests above pin the DECISION; this one pins the THREADING,
 # which is where the defect actually lives — a table printed across pages declares its
 # columns once, on the first page, and every per-page call after that sees an anonymous
