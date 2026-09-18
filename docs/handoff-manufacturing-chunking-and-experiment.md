@@ -152,6 +152,56 @@ LLM is better or worse at the real task. But the instability it measures is the
 harness's own, and that transfers: an A/B on the real corpus faces at least this
 much noise.
 
+## THE FIXTURES DO NOT MATCH THE REAL LAYOUT (2026-09-18, from the SME)
+
+The real documents are: **a title page carrying one big procedure number, then that
+procedure's step pages, then the next procedure's title page**, and so on.
+
+The synthetic fixtures are not shaped like that. Operation boundaries are inline
+`Title` elements sitting mid-page among narrative and images:
+
+```
+clean fixture:  p6  [Title] Operation 0010 - Kitting Instructions
+                p8  [Title] Operation 0050 - Bracket Sub-Assembly
+                p11 [Title] Operation 0100 - Final Integration
+```
+
+No dedicated title page exists anywhere in either fixture, and the clean fixture
+additionally opens with a summary TABLE of all five operations that the real
+documents may not have at all.
+
+**Consequence: the mock corpus cannot validate a title-page segmenter, because it
+contains no title pages.** The limit recorded above ("validates segmenter logic
+only") is therefore too generous as it stands — it validates a segmenter for a
+layout that is not the production one. Anything built against these fixtures and
+keyed on page structure is being confirmed by a document shape that does not occur.
+
+Fixing this is cheap and is the mock's legitimate use: the generators
+(`tests/fixtures/manufacturing/make_synthetic_wi*.py`) already exist, so a
+title-page variant is a fixture change, not new machinery.
+
+### The boundary signal must be the HEADING, not "an operation number on the page"
+
+Already present in the hard fixture, page 3:
+
+```
+[Title]         Operation 0050 - Bracket Sub-Assembly
+[NarrativeText] ... Check the Bracket for dents, cuts and scratches
+                (see Op 0200 for inspection criteria) ...
+```
+
+Two operation numbers on one page, one of which is a CROSS-REFERENCE in running
+text. A segmenter that regexes operation numbers out of page text assigns that page
+to 0050 and 0200 both. A segmenter keyed on the title page — or failing that, on
+the `Title` element specifically — is immune, because a cross-reference never
+appears alone on a sparse page.
+
+With the real layout the contiguity assumption behind `page_operation_sequence`
+stops being an assumption: title page N to title page N+1 *defines* the run, so
+every step page in between belongs to N by position. `procedure_id` is then
+assigned structurally and is never an LLM output — which is exactly what removes
+the `4500` capture documented above, without touching page furniture.
+
 ## Per-operation chunking: what is built, what is missing
 
 **Built and validated:**
