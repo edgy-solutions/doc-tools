@@ -180,6 +180,52 @@ Fixing this is cheap and is the mock's legitimate use: the generators
 (`tests/fixtures/manufacturing/make_synthetic_wi*.py`) already exist, so a
 title-page variant is a fixture change, not new machinery.
 
+### What the REAL corpus actually looks like (from `mfg_corpus_report2.json`)
+
+Read out of `per_doc[].parse` — no cluster access needed, the report already carries
+it:
+
+| doc | pages | elements | structural ops | `OPERATION ####` | bare `####` | Title |
+|---|---|---|---|---|---|---|
+| doc_0000 | 108 | 1823 | 18 | 94 | 12 | 74 |
+| doc_0001 | 106 | 1604 | 25 | 74 | 16 | 109 |
+| doc_0002 | 238 | 4295 | 27 | 70 | 12 | 317 |
+| doc_0003 | 280 | 5410 | 19 | 100 | 0 | 307 |
+| doc_0004 | 3 | 29 | 0 | 0 | 0 | 5 |
+| doc_0005 | 24 | 320 | 6 | 0 | 5 | 10 |
+
+Four things follow, and each one invalidates something currently assumed:
+
+1. **Scale.** Real documents are 100–280 pages with 18–27 operations. The fixtures
+   are 15 and 9 pages with 5 and 4. A chunking decision tuned on a 15-page fixture
+   is being tuned two orders of magnitude away from the target.
+2. **Operation headings arrive as `UncategorizedText`, not `Title`.** The shape
+   `OPERATION ####` appears 70–100 times per document under `UncategorizedText`;
+   the fixtures encode operation boundaries as `Title` elements. **A segmenter
+   keyed on `Title` finds nothing in production.** This is the single most
+   important mismatch.
+3. **The heading repeats per page.** `OPERATION ####` occurs 70–100 times against
+   18–27 actual operations — roughly 4–5× — which is consistent with the operation
+   number being restated on every page of its operation. If that holds,
+   page→operation assignment is nearly free and needs no inference at all. It is
+   also exactly what `page_operation_sequence` should confirm or kill.
+4. **The `4500` capture has a real analogue.** doc_0000's footer is
+   `REVISION: #### (...)` on all 106 pages — a 4-digit token in page furniture,
+   repeated document-wide, competing with the real operation numbers. The mock's
+   failure mode is not a fixture artifact; it mirrors something production has.
+
+Also note doc_0000 carries TWO operation notations at once: `OPERATION ####` in
+body text and `OP ##` (two digits) inside `Title` elements. And doc_0003 has 100
+`OPERATION ####` with ZERO bare `####`, so a standalone big-number title page is
+not universal across the corpus — the SME-described layout is real but is not the
+only one, and a segmenter must not assume it.
+
+**Instrument hygiene:** both `mfg_corpus_report*.json` on disk are indented with
+NON-BREAKING SPACES and do not parse with `json.load` (2643 and 5609 NBSPs;
+`eval_draft.json` from July is clean). They were almost certainly captured by
+pasting terminal output rather than written by the script. Next week's run should
+be redirected to a file directly, or the analysis cannot be automated.
+
 ### The boundary signal must be the HEADING, not "an operation number on the page"
 
 Already present in the hard fixture, page 3:
