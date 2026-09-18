@@ -27,7 +27,7 @@ Anomaly = Dict[str, Any]
 
 # Bump when patterns/config semantics change — stamped into corpus reports so a
 # later run can be compared against an earlier one.
-EXTRACTOR_VERSION = "0.4.0"   # 0.4.0: overlapping-family double-count fix + hazard corroboration
+EXTRACTOR_VERSION = "0.5.0"   # 0.5.0: NAS/MS/AN reclassified standards -> parts (corpus-measured)
 
 # --------------------------------------------------------------------------- #
 # Config (committed defaults; override via MANUFACTURING_EXTRACTORS_SPEC)
@@ -48,7 +48,7 @@ DEFAULT_EXTRACTOR_CONFIG: Dict[str, Any] = {
             {"canonical": "ISO", "pattern": r"ISO[\s\-]?([0-9]{3,5}[A-Z0-9\-/:]*)"},
             {"canonical": "ASTM", "pattern": r"ASTM[\s\-]?([A-Z]?[0-9]{2,4}[A-Z0-9\-/]*)"},
             {"canonical": "AMS", "pattern": r"AMS[\s\-]?([0-9]{3,5}[A-Z0-9\-/]*)"},
-            {"canonical": "NAS", "pattern": r"NAS[\s\-]?([0-9]{2,5}[A-Z0-9\-/]*)"},
+            # NAS / MS / AN are NOT here on purpose — see part_numbers below.
             {"canonical": "STD", "pattern": r"\bSTD[\s\-]?([0-9]{3,5}[A-Z0-9\-/]*)"},
             {"canonical": "SPEC", "pattern": r"\bSPEC[\s\-]?([0-9]{3,5}[A-Z0-9\-/]*)"},
             {"canonical": "MP", "pattern": r"\bMP[\s\-]?([0-9]{3,6}[A-Z0-9\-/]*)"},
@@ -66,6 +66,17 @@ DEFAULT_EXTRACTOR_CONFIG: Dict[str, Any] = {
             r"\bPART-[0-9]{3,}\b",
             r"\bASS?Y\.?\s*[0-9][0-9A-Z\-]{2,}\b",
             r"\bADH-[0-9]{2,}[0-9A-Z\-]*\b",
+            # AEROSPACE HARDWARE CALLOUTS ARE PART NUMBERS, NOT STANDARDS.
+            # NAS/MS/AN were in the standards families until the corpus said
+            # otherwise: cross-field measurement found tokens the script filed as
+            # STANDARDS and the LLM filed as PARTS (e.g. a NAS bolt callout), and
+            # the LLM is right — 'NAS1100E3-5' is a bolt on a parts list, not a
+            # specification the step complies with. Filing them as standards both
+            # inflated the standards column and made parts agreement impossible,
+            # since the two arms were putting the same token in different fields.
+            r"\bNAS[0-9][0-9A-Z\-/]*\b",
+            r"\bMS[0-9]{4,}[0-9A-Z\-/]*\b",
+            r"\bAN[0-9]{3,}[0-9A-Z\-/]*\b",
         ],
     },
     "durations": {

@@ -106,9 +106,21 @@ _KEEP_WORDS = {
 }
 
 
+#: Unicode dashes/spaces, folded to ASCII. The extractor folds these before
+#: MATCHING, but the report was shaping the RAW value — so one real family showed
+#: up as two shapes, 'AAA-AAA-AAA-###' and 'AAA‑AAA‑AAA‑###', and
+#: looked like two different things to add to the config.
+_FOLD = {**dict.fromkeys(map(ord, "‐‑‒–—―−"), "-"),
+         **dict.fromkeys(map(ord, "   "), " ")}
+
+
+def _fold(s) -> str:
+    return str(s).translate(_FOLD)
+
+
 def _shape(tok) -> str:
     """Redact a token to its structure: digits -> '#'."""
-    return re.sub(r"\d", "#", str(tok))
+    return re.sub(r"\d", "#", _fold(tok))
 
 
 def _shapes(tokens) -> dict:
@@ -124,7 +136,7 @@ def _shape_alpha(tok) -> str:
     is enough to write a pattern from ('AAA-AAA-AAA-###' says everything a regex
     needs) without the report ever naming anyone's scheme.
     """
-    return re.sub(r"[A-Za-z]", "A", re.sub(r"\d", "#", str(tok)))
+    return re.sub(r"[A-Za-z]", "A", re.sub(r"\d", "#", _fold(tok)))
 
 
 def _shapes_alpha(tokens) -> dict:
@@ -188,7 +200,7 @@ def _split_multi(value) -> list:
 
 
 def _norm_tok(s) -> str:
-    return re.sub(r"[\s\-]+", "-", str(s).strip().upper()).strip("-")
+    return re.sub(r"[\s\-]+", "-", _fold(s).strip().upper()).strip("-")
 
 
 def _loose(s) -> str:
@@ -444,7 +456,8 @@ def figure_diagnostics(script: dict, elements: list) -> dict:
     }
 
 
-def _diagnose(elements, n_steps_llm, manifest, elem_diag, structural_ops=0) -> dict:
+def _diagnose(elements, n_steps_llm, manifest, elem_diag, structural_ops=0,
+              has_extraction=True) -> dict:
     """Name WHERE a document failed, so an empty result is attributed.
 
     'no steps' is TWO different events and run 2 conflated them. A document with
@@ -454,7 +467,14 @@ def _diagnose(elements, n_steps_llm, manifest, elem_diag, structural_ops=0) -> d
     with no steps in it at all, so the flag was accusing a correct result.
     """
     flags = []
-    if not elements:
+    if not has_extraction:
+        # NO extraction.json EXISTS. The extraction stage never ran or never
+        # wrote output — which is a PIPELINE failure, not a model failure. The
+        # previous version had no way to tell, so it saw zero steps beside real
+        # structure and blamed the LLM for producing nothing when in truth
+        # nothing had run. Opposite defects, opposite fixes.
+        flags.append("no_extraction_artifact")
+    elif not elements:
         flags.append("parse_empty")
     elif n_steps_llm == 0:
         # structural operations present => the document HAS procedure structure
@@ -473,7 +493,8 @@ def _diagnose(elements, n_steps_llm, manifest, elem_diag, structural_ops=0) -> d
     return {"flags": flags or ["ok"], "manifest_pages": mf_pages}
 
 
-def compare_doc(elements, extraction, manifest, cfg, mx, include_values) -> dict:
+def compare_doc(elements, extraction, manifest, cfg, mx, include_values,
+                has_extraction=True) -> dict:
     ss = script_doc_sets(elements, cfg, mx)
     ls = llm_doc_sets(extraction, cfg, mx)
     elem_diag = element_diagnostics(elements)
@@ -521,6 +542,19 @@ def compare_doc(elements, extraction, manifest, cfg, mx, include_values) -> dict
     if "hazard" in llm_only_fields:
         llm_only_fields["hazard"]["corroboration"] = dict(haz_corr)
         llm_only_fields["hazard"]["per_value"] = haz_detail
+        # QUARANTINE VERDICT. Measured on the corpus: every hazard value carried a
+        # division letter that is not printed. A field the model fabricates in
+        # 100% of cases is not "extraction with caveats" — it must not reach a
+        # reviewer as though it were read off the page.
+        _tot = sum(haz_corr.values())
+        _fab = haz_corr.get("base_only", 0) + haz_corr.get("absent", 0)
+        if _tot:
+            llm_only_fields["hazard"]["verdict"] = (
+                "FABRICATED IN ALL CASES — no value is corroborated by the document. "
+                "Do NOT surface these as extractions; drop the field or mark it an "
+                "unverified classification in the review UI."
+                if _fab == _tot else
+                f"{_fab}/{_tot} values not corroborated by the document")
         llm_only_fields["hazard"]["corroboration_legend"] = {
             "exact": "the full class incl. division letter IS printed in the document",
             "base_only": "the numeric class is printed but the LETTER is not — invented letter",
@@ -583,7 +617,7 @@ def compare_doc(elements, extraction, manifest, cfg, mx, include_values) -> dict
         "operations_provenance": ops_prov,
         "llm_judgment_coverage": ls["_judgment"],
         "diagnosis": _diagnose(elements, ls["_n_steps"], manifest, elem_diag,
-                               len(ss["operations"])),
+                               len(ss["operations"]), has_extraction),
     }
 
 
@@ -689,7 +723,8 @@ def run_minio(args, mx, cfg):
             except Exception:  # noqa: BLE001 — a missing manifest is a diag, not a crash
                 manifest = None
 
-        rec = compare_doc(elements, extraction, manifest, cfg, mx, args.include_values)
+        rec = compare_doc(elements, extraction, manifest, cfg, mx, args.include_values,
+                          has_extraction=bool(d["extraction_key"]))
         rec.update({"doc": doc_id, "layout": d["layout"],
                     "generated_at": d["last_modified"].isoformat() if d["last_modified"] else None,
                     "text_bytes": d["text_bytes"], "extraction_bytes": d["extraction_bytes"]})
@@ -775,6 +810,12 @@ def run_minio(args, mx, cfg):
             absent = row.get("absent", 0)
             tot = sum(row.values())
             print(f"    {fld:11s} {row}   -> {absent}/{tot} NOT in the document")
+    if haz_tot:
+        _fab = haz_tot.get("base_only", 0) + haz_tot.get("absent", 0)
+        _tot = sum(haz_tot.values())
+        flag = "   *** FABRICATED IN ALL CASES — do not surface as extractions ***" \
+            if _tot and _fab == _tot else ""
+        print(f"  HAZARD corroboration: {dict(haz_tot)} -> {_fab}/{_tot} NOT corroborated{flag}")
     print(f"  cross-field collisions: {dict(cross_tot)}")
     if blind:
         print(f"  NOTE: {blind}/{len(per_doc)} docs had a BLIND structural arm — their "
