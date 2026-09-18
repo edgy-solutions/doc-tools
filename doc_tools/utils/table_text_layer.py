@@ -113,6 +113,38 @@ def looks_like_mpn(value: Optional[str]) -> bool:
     return any(ch.isdigit() for ch in v)
 
 
+# Quote characters that ENCLOSE a value. Straight and typographic both occur: a notice
+# that prints part numbers in quotes, and an extractor that copies the cell faithfully,
+# together produce '"090-44310-31"' — a string that matches nothing downstream. The quote
+# is a DELIMITER around the part number, never a character of it, so removing a balanced
+# enclosing pair is not normalization: it is reading the delimiter as a delimiter.
+_QUOTE_PAIRS: Tuple[Tuple[str, str], ...] = (
+    ('"', '"'), ("'", "'"), ("“", "”"), ("‘", "’"),
+)
+
+
+def strip_enclosing_quotes(value: Optional[str]) -> Optional[str]:
+    """Remove BALANCED enclosing quotes from a part value (PURE). Otherwise verbatim.
+
+    Deliberately narrow, because the MPN contract is verbatim and part numbers really do
+    carry odd characters:
+      - only a MATCHED pair, at both ends — a lone quote is left alone
+      - interior quotes are never touched
+      - never returns empty: a value that is nothing but quotes is returned unchanged
+    """
+    if value is None:
+        return None
+    v = value.strip()
+    for _ in range(4):          # bounded: handles '""X""', cannot spin
+        if len(v) < 3:
+            break
+        match = next(((o, c) for o, c in _QUOTE_PAIRS if v[0] == o and v[-1] == c), None)
+        if match is None:
+            break
+        v = v[1:-1].strip()
+    return v if v else value
+
+
 def _nonempty(row: Sequence[Optional[str]]) -> int:
     return sum(1 for c in row if (c or "").strip())
 

@@ -10,7 +10,7 @@ import pytest
 
 from doc_tools.utils.table_text_layer import (
     find_header_row, find_title_row, header_pairing, looks_like_mpn, pair_columns,
-    parts_from_grid, parts_from_pages,
+    parts_from_grid, parts_from_pages, strip_enclosing_quotes,
 )
 
 # The real page-3 shape: a CAPTION, then a header declaring THREE (EOL, Replacement) pairs.
@@ -247,6 +247,38 @@ def test_the_ordinary_vocabulary_is_unchanged_by_the_alias_veto():
     empty the common case."""
     assert pair_columns(_HEADER) == [(0, 1), (2, 3), (4, 5)]
     assert len(parts_from_grid([_CAPTION, _HEADER, _ROW1, _ROW2])) == 6
+
+
+# --------------------------------------------------------------------------- #
+# ENCLOSING QUOTES. A notice that prints its part numbers in quotes yields
+# '"090-44310-31"'. The quote is a delimiter around the MPN, never a character of it —
+# but downstream it is treated as one, and every graph MERGE and join silently misses.
+# --------------------------------------------------------------------------- #
+
+@pytest.mark.parametrize("raw,clean", [
+    ('"090-44310-31"', "090-44310-31"),
+    ('“AD7873ACPZ”', "AD7873ACPZ"),          # typographic quotes occur too
+    ('""FJ3330013""', "FJ3330013"),
+    ("'BYVB32-200-E3/81'", "BYVB32-200-E3/81"),
+])
+def test_enclosing_quotes_are_removed(raw, clean):
+    assert strip_enclosing_quotes(raw) == clean
+
+
+@pytest.mark.parametrize("value", [
+    "LTC6226HDC#TRMPBF", "BYVB32-200-E3/81", "090-44310-31", "S1613E-20.0000(T)",
+    '"unbalanced',          # a lone quote is NOT a delimiter pair — leave it alone
+    "6'",                   # ditto, trailing only
+])
+def test_everything_else_stays_verbatim(value):
+    """Narrow on purpose. The MPN contract is verbatim and part numbers really do carry
+    odd characters; only a BALANCED enclosing pair is a delimiter."""
+    assert strip_enclosing_quotes(value) == value
+
+
+def test_de_quoting_never_empties_a_value():
+    assert strip_enclosing_quotes(None) is None
+    assert strip_enclosing_quotes('""') == '""'
 
 
 # --------------------------------------------------------------------------- #

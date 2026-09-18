@@ -441,6 +441,28 @@ class SustainmentPlugin(AugmentationPlugin):
             # page-crop fallback only if this fires on parts-bearing docs).
             reasons.append("no Table element detected — parts pass skipped (header-only)")
 
+        # De-quote the VALUES, whichever tier produced them. A notice that prints its part
+        # numbers in quotes yields '"090-44310-31"', and a quote is a DELIMITER around the
+        # MPN, never a character of it — but downstream it is treated as one: every graph
+        # MERGE, join and match against the real MPN silently misses. Applied here, after
+        # the tiers converge and BEFORE dedup, so a quoted and an unquoted copy of the
+        # same part collapse into one row instead of surviving as two.
+        #
+        # The *_source snippets are deliberately NOT touched: they are provenance, and
+        # provenance must keep matching the document character-for-character.
+        n_dequoted = 0
+        for _p in parts_d:
+            for _f in ("affected_mpn", "replacement_mpn"):
+                _raw = _p.get(_f)
+                if not _raw:
+                    continue
+                _clean = text_layer.strip_enclosing_quotes(_raw)
+                if _clean != _raw:
+                    _p[_f] = _clean
+                    n_dequoted += 1
+        if n_dequoted:
+            stats["parts_dequoted"] = n_dequoted
+
         # dedup across crops, then reconcile per-part LTB (per-row primary,
         # doc-level fallback)
         parts_d = clean_replacements(
