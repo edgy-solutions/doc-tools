@@ -135,9 +135,10 @@ def classify_columns(header_row, tl):
     return out
 
 
-def index_tables(elements, tl):
+def index_tables(elements, tl, inherit_headers=True):
     """Every table cell -> where it sits and what kind of column it is."""
     tables, cell_index = [], collections.defaultdict(list)
+    last_header = None          # (classes, ncols) from the most recent headed table
     for ti, el in enumerate(e for e in elements if e.get("type") == "Table"):
         html = (el.get("metadata") or {}).get("text_as_html", "") or ""
         grid = html_to_grid(html)
@@ -146,10 +147,25 @@ def index_tables(elements, tl):
         hrow = tl.find_header_row(grid)
         header = grid[hrow] if hrow is not None else None
         classes = classify_columns(header, tl) if header else []
+        inherited = False
+        if not classes and last_header and inherit_headers:
+            # CONTINUATION TABLE. A parts table spanning pages is emitted as
+            # several Table elements, and only the first carries the header — the
+            # rest are anonymous grids whose columns cannot be told apart, which
+            # is exactly how a replacement or alias becomes an "affected" part.
+            # If the column count matches the last headed table, the columns are
+            # the same columns, so inherit its classification. Guarded on the
+            # column count so an unrelated table cannot pick up a stale header.
+            ncols = max((len(r) for r in grid), default=0)
+            if ncols and ncols == last_header[1]:
+                classes, inherited = last_header[0], True
+        if classes and not inherited:
+            last_header = (classes, len(classes))
         # A table whose header row was not found (page-continuation tables lose
         # it) has UNKNOWN column semantics — that is itself a finding, because
         # affected/replacement cannot be told apart at all.
         tables.append({"table": ti, "rows": len(grid), "header_row": hrow,
+                       "header_inherited": inherited,
                        "header": [fmt_header(h) for h in (header or [])],
                        "col_classes": classes,
                        "header_found": hrow is not None})
@@ -178,8 +194,8 @@ def locate(value, cell_index):
     return "absent", []
 
 
-def diagnose(elements, llm_parts, tl):
-    tables, cell_index = index_tables(elements, tl)
+def diagnose(elements, llm_parts, tl, inherit_headers=True):
+    tables, cell_index = index_tables(elements, tl, inherit_headers)
     by_source = collections.Counter()
     findings = []
     extracted_norm = set()
@@ -350,6 +366,8 @@ def main():
     ap.add_argument("--include-values", action="store_true",
                     help="emit raw part numbers instead of shapes (published notices, "
                          "or a slice you have judged safe)")
+    ap.add_argument("--no-inherit-headers", action="store_true",
+                    help="disable continuation-table header inheritance (A/B the effect)")
     ap.add_argument("--all-runs", action="store_true",
                     help="analyse EVERY run, not just the latest per document "
                          "(use to compare run-to-run variance; inflates defect counts)")
@@ -430,7 +448,7 @@ def main():
         extraction = get(d["extraction_key"]) if d["extraction_key"] else {}
         review = get(d["review_key"]) if d["review_key"] else {}
         parts = llm_parts_from(extraction, review)
-        res = diagnose(elements, parts, tl)
+        res = diagnose(elements, parts, tl, not args.no_inherit_headers)
         res["document"] = d["doc_id"]          # opaque id, never the filename
         res["run"] = doc
         res["runs_for_this_document"] = len(groups[d["source"]])
