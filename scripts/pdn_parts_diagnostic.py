@@ -87,14 +87,31 @@ def fmt(v):
     return str(v) if not REDACT_VALUES else shape(v)
 
 
+#: A real column label is short ('Product Family', 'EOL Devices'). Anything
+#: longer is not a label — it is document text that header detection mistook for
+#: one, and it must not be carried out verbatim.
+_HEADER_MAX = 40
+
+
 def fmt_header(v):
     """Column headers are the DIAGNOSTIC PAYLOAD — 'Product Family',
     'Replacement Part', 'EOL Devices' are the vocabulary that tells us which
     columns mean what, and they are generic industry language rather than
-    anyone's identifiers. They are therefore kept verbatim by default, with
-    --redact-headers for a corpus where even a column label is sensitive.
+    anyone's identifiers. So they are kept verbatim...
+
+    ...BUT ONLY WHEN THEY LOOK LIKE LABELS. Header detection is frequently wrong
+    (measured: most real tables have no detectable header), and when it is wrong
+    the "header" is an arbitrary DATA row. One such row carried a manufacturer's
+    name and site list straight into a report labelled shareable. So a cell that
+    is too long or too wordy to be a column label is shaped instead — the
+    vocabulary survives, arbitrary document text does not.
     """
-    return shape(v) if REDACT_HEADERS else str(v)
+    s = str(v)
+    if REDACT_HEADERS:
+        return shape(s)
+    if len(s) > _HEADER_MAX or len(s.split()) > 6:
+        return shape(s)
+    return s
 
 
 def classify_columns(header_row, tl):
@@ -365,6 +382,18 @@ def main():
     for runs in groups.values():
         runs.sort(key=lambda r: r["last_modified"], reverse=True)
 
+    # DOCUMENT IDENTITY IS REDACTED, ALWAYS. A PDN filename can name a customer,
+    # a program or a part, and directory names leak the same way — so the report
+    # carries opaque ids and the real names live ONLY in the local map, which
+    # stays on the operator's machine. There is deliberately no flag to put names
+    # in the report: the local map is the escape hatch, and it is enough to trace
+    # any finding back to a document on your side.
+    doc_ids = {src: f"doc_{i:04d}" for i, src in enumerate(sorted(groups))}
+    for src, runs in groups.items():
+        for i, d in enumerate(runs):
+            d["doc_id"] = doc_ids[src]
+            d["run_id"] = f"{doc_ids[src]}.r{i}"   # r0 = most recent
+
     # Default: ONE representative run per notice (the most recent), so a corpus
     # of re-runs reports the document count it actually has. --all-runs analyses
     # every run, which is how run-to-run variance becomes visible.
@@ -377,32 +406,39 @@ def main():
           f"{'' if REDACT_VALUES else '   <-- raw values: confirm this slice is safe to carry'}")
     print(f"discovered {len(found)} run(s) over {len(groups)} DISTINCT document(s) "
           f"under '{args.prefix}'   layouts={dict(layouts)}")
-    multi = {s: len(r) for s, r in groups.items() if len(r) > 1}
+    print("  document names are REDACTED to doc ids; the local map has the real names")
+    multi = {doc_ids[s]: len(r) for s, r in groups.items() if len(r) > 1}
     if multi:
         print(f"  re-runs present: {multi}"
               f"{'' if args.all_runs else '  -> analysing the LATEST run of each (--all-runs for all)'}")
     if not found:
         print("  NOTHING PAIRED — every document needs a text.json. Check the prefix.")
 
-    report = {}
+    report, local_map = {}, {}
     for d in selected:
-        doc = d["doc"]
-        if args.doc and doc not in args.doc:
+        doc = d["run_id"]
+        # --doc still accepts the human name/path so an operator can target one
+        # document; it is matched against the LOCAL identity, never emitted.
+        if args.doc and not any(x in (d["doc"], d["source"]) for x in args.doc):
             continue
+        local_map[doc] = {"source_document": d["source"], "run_path": d["doc"],
+                          "text_key": d["text_key"], "extraction_key": d["extraction_key"],
+                          "review_key": d["review_key"], "layout": d["layout"],
+                          "last_modified": d["last_modified"]}
         get = lambda key: json.loads(s3.get_object(Bucket=args.bucket, Key=key)["Body"].read())
         elements = get(d["text_key"])
         extraction = get(d["extraction_key"]) if d["extraction_key"] else {}
         review = get(d["review_key"]) if d["review_key"] else {}
         parts = llm_parts_from(extraction, review)
         res = diagnose(elements, parts, tl)
-        res["source_document"] = d["source"]
+        res["document"] = d["doc_id"]          # opaque id, never the filename
         res["run"] = doc
         res["runs_for_this_document"] = len(groups[d["source"]])
         res["layout"] = d["layout"]
         report[doc] = res
 
-        extra = (f"  [source: {d['source']}, {res['runs_for_this_document']} run(s)]"
-                 if res["runs_for_this_document"] > 1 else f"  [source: {d['source']}]")
+        extra = (f"  [{d['doc_id']}, {res['runs_for_this_document']} run(s)]"
+                 if res["runs_for_this_document"] > 1 else f"  [{d['doc_id']}]")
         print(f"\n=== {doc} ===  extracted={res['n_extracted']}{extra}")
         for t in res["tables"]:
             if t["col_classes"]:
@@ -434,7 +470,7 @@ def main():
         "analysed": len(analysed),
         "analysed_unit": unit,
         "mode": "all runs" if args.all_runs else "latest run per document",
-        "runs_per_document": {s: len(r) for s, r in sorted(groups.items())},
+        "runs_per_document": {doc_ids[s]: len(r) for s, r in sorted(groups.items())},
         "layouts": dict(layouts),
         "documents_with_alias_or_replacement_sourced_parts": aff,
         "documents_with_missing_affected_parts": miss,
@@ -448,7 +484,14 @@ def main():
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump({"summary": summary, "documents": report}, f, indent=2)
-        print(f"\nwrote {args.out}")
+        map_path = os.path.splitext(args.out)[0] + ".local-map.json"
+        with open(map_path, "w", encoding="utf-8") as f:
+            json.dump(local_map, f, indent=2)
+        print(f"\nwrote {args.out}          (SHAREABLE — ids only, no document names)")
+        print(f"wrote {map_path}   (KEEP LOCAL — maps doc ids to real names/keys)")
+    else:
+        print("\n(no --out: findings are printed but the doc-id -> document map is "
+              "not saved, so ids cannot be traced back)")
 
 
 if __name__ == "__main__":
