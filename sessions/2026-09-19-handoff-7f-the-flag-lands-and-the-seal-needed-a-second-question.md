@@ -12,6 +12,94 @@ authorize."* So what follows is a before-measurement and a commit, not a substra
 
 ---
 
+## AMENDMENT — later the same day: the writer is fixed, and the venv was the other bug
+
+Three things changed after the section below was written. It is left standing rather than
+rewritten, because the sequence is the point: the writer was held for a measurement, the
+measurement arrived, and the thing I had reported as "possibly the pin" turned out to be
+something else entirely.
+
+### 1. FIX SHAPE D LANDED — `4531ab0`
+
+74's scratch-collection experiment settled the mechanism they had only INFERRED when the
+packet was filed, and the architect ruled shape D. So the `collections.create` that this
+handoff described as knowingly-unfixed is now fixed:
+
+* `vector_config=[Configure.Vectors.self_provided(name="default")]` at create;
+* `add_object(vector={"default": ...})` on the write.
+
+`self_provided` because doc-tools embeds via LiteLLM and hands Weaviate a finished vector —
+a collection configured to vectorize for itself would embed with a different model than
+`embed_query` uses at read time, which is the same class of silent mismatch one layer over.
+
+**BOTH HALVES OR NEITHER, and there is a test for exactly that.** Declaring the space
+without writing by name reproduces the original defect precisely; writing by name into an
+undeclared space is refused outright. Either edit alone is worse than neither.
+
+**IT REPAIRS NEW COLLECTIONS ONLY.** `collections.exists` short-circuits the create, so the
+live `OntologyClass` keeps its broken schema and its legacy-slot rows until 74's backfill
+runs. Nothing here re-ingested and nothing here rewrote a row. The warning below stands
+unchanged and is now *precisely* dated: **the retrievability seal reds every ontology ingest
+until that backfill lands**, and the first person to see it should read it as the outstanding
+backfill rather than as a regression.
+
+### 2. THE 7 `test_collection_marker` FAILURES WERE A STALE VENV, NOT THE PIN
+
+I reported them below as pre-existing and speculated they might be fallout from the
+v0.9.0 → v0.9.1 pin move. **That speculation was wrong and Lane 1 called it.** Measured:
+
+    pyproject.toml:81   iagent-mesh @ ...@v0.9.1
+    uv.lock             rev=v0.9.1
+    .venv               iagent_mesh-0.3.1.dist-info     <- four releases stale
+
+The pin was correct; the artifact under it was not. The dist-info names the version
+outright, which is stronger than the module-subset inference Lane 1 reached it by.
+
+`uv sync --locked` **accepted the lock and re-resolved nothing** — worth recording, because
+`.github/workflows/build-container.yml:62` still carries a comment saying `uv lock --check`
+reports the lock out of date with `pyproject.toml`. That comment is now STALE (presumably
+settled by `41dccac`), and it is load-bearing: it is the stated reason CI runs a bare
+`uv sync` instead of `--frozen`, so CI is resolving fresh on a justification that no longer
+holds. Not mine to change, but somebody should re-check it.
+
+**Every package that moved**, not just the SDK — 367 → 364:
+
+    CHANGED    iagent-mesh      0.3.1  -> 0.9.1      <- the target
+               idna              3.11  -> 3.19
+               mcp              2.0.0  -> 1.30.0     <- a DOWNGRADE
+               sse-starlette    3.4.8  -> 3.4.11
+    REMOVED    httpcore2       2.12.0
+               httpx2          2.12.0
+               mcp-types        2.0.0
+               truststore      0.10.4
+    ADDED      httpx-sse        0.4.3
+
+The `mcp` downgrade and the four removals are the interesting half: `httpx2`, `httpcore2`,
+`mcp-types` and `truststore` are not in the lock at all, so something installed them into
+this venv outside `uv`. They are gone now. **Flagging rather than chasing** — if anything in
+this environment depended on `mcp==2.0.0`, it is on 1.30.0 as of this sync.
+
+**Full suite after: 378 passed, 1 skipped, 0 failed.** The 7 reds are gone, and — the point
+of re-running rather than assuming — every seal from `7ac6caa` and `0b0c7d1` was re-verified
+under SDK 0.9.1, since their original greens were produced in a venv carrying 0.3.1.
+
+### 3. OWED: `test_the_imported_sdk_IS_the_pinned_artifact`
+
+**Held until the walks draw, at the user's direction, and recorded here so it is not
+forgotten.** Lane 1's suggestion, worth stealing from eo: a seal asserting that the IMPORTED
+SDK is the PINNED one, failing loudly instead of as seven mysterious `ImportError`s three
+layers away from the cause. This session spent real time attributing those seven reds to the
+wrong thing, and a version number identifies the DIST, not which copy of the code ran.
+
+### What did NOT change
+
+The re-sync still did not happen. The cluster reads below are still the only contact with it,
+still three, still read-only. `mesh:Thing` is still absent from the graph and no node carries
+`universal_referent`. The one query that closes it is unchanged and still belongs to an
+authorized prime.
+
+---
+
 ## STATE
 
     branch          doc-tools lane/7f at 7ac6caa (lane/7f was a stale ancestor of main;
