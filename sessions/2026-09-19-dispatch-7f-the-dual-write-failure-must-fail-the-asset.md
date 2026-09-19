@@ -15,21 +15,26 @@ worktree. `doc-tools` had no inbox, so dispatches to 7f had nowhere to land.
 
 ## AMENDMENT, same day, BEFORE YOU OPEN ANYTHING
 
-**`doc_tools/assets/ontology_assets.py` HAS UNCOMMITTED WORK IN THE TREE — 207 insertions, 33
-deletions against `HEAD`. Do not `checkout`, `stash` or `restore` that file. Read `git diff HEAD`
-on it first.** It was written between my first read of the file and this amendment, and it is
-good work that exists nowhere else: uncommitted means invisible to every other clone, and the
-first thing that touches the file carelessly destroys it.
-
-**What that uncommitted work already does, so you do not build it twice:** it carries
-`mesh:universalReferent` from the TTL onto the Neo4j node. `UNIVERSAL_REFERENT_PREDICATE` +
+**`doc_tools/assets/ontology_assets.py` has uncommitted work in the tree** — growing while I
+watched it, 207 insertions when I first looked and 624 twenty minutes later. It implements the
+`mesh:universalReferent` → Neo4j carry: `UNIVERSAL_REFERENT_PREDICATE` +
 `UNIVERSAL_REFERENT_PROPERTY = "universal_referent"` at module top, an `OPTIONAL { ?uri
-mesh:universalReferent ?universal_referent }` in the extract, and the property SET alongside
-`label` / `definition` / `domain` in the MERGE — with an **absent-means-false** encoding
-(`SET c.prop = null` removes it, so "flag dropped" and "flag false" stay distinguishable, and
-~24,000 nodes do not grow a property to say nothing). It also replaces the stale "Mechanics"
-comment that described an n10s route the code does not take. **None of that is one of my three
-rulings below. It is somebody's live work — commit it, do not redo it.**
+mesh:universalReferent ?universal_referent }` in the class query, the property SET alongside
+`label` / `definition` / `domain` in the MERGE, a readback seal on it, and a corrected
+"Mechanics" comment. That matches item 1 of the doc-tools work order step for step.
+
+**IF THESE LINES ARE YOURS, COMMIT THEM ON YOUR OWN BRANCH PROMPTLY. IF THEY ARE NOT, STOP AND
+REPORT.** The earlier wording of this amendment told the reader not to touch the file — which,
+if you are the author, warned you off your own work. That was wrong and this replaces it. The
+file is almost certainly a live doc-tools session mid-task, and unfinished is not orphaned: its
+author is live and will commit it. The reason to commit promptly is only that uncommitted work
+is invisible to every other clone, not that anyone else should take it.
+
+**Lane 1 will not commit these lines on the author's behalf, whoever the author turns out to
+be.** Nothing on disk names them; the evidence is timing and content only.
+
+**None of that work is one of my three rulings below** — do not count item 1 as delivered by
+them, and do not redo it either.
 
 **MY LINE NUMBERS BELOW ARE STALE BY ROUGHLY +58.** They were read against the committed state
 at `031195f`. The one that matters: the Weaviate dual-write swallow I cite at `:734` is now at
