@@ -13,6 +13,33 @@ worktree. `doc-tools` had no inbox, so dispatches to 7f had nowhere to land.
 
 ---
 
+## AMENDMENT, same day, BEFORE YOU OPEN ANYTHING
+
+**`doc_tools/assets/ontology_assets.py` HAS UNCOMMITTED WORK IN THE TREE — 207 insertions, 33
+deletions against `HEAD`. Do not `checkout`, `stash` or `restore` that file. Read `git diff HEAD`
+on it first.** It was written between my first read of the file and this amendment, and it is
+good work that exists nowhere else: uncommitted means invisible to every other clone, and the
+first thing that touches the file carelessly destroys it.
+
+**What that uncommitted work already does, so you do not build it twice:** it carries
+`mesh:universalReferent` from the TTL onto the Neo4j node. `UNIVERSAL_REFERENT_PREDICATE` +
+`UNIVERSAL_REFERENT_PROPERTY = "universal_referent"` at module top, an `OPTIONAL { ?uri
+mesh:universalReferent ?universal_referent }` in the extract, and the property SET alongside
+`label` / `definition` / `domain` in the MERGE — with an **absent-means-false** encoding
+(`SET c.prop = null` removes it, so "flag dropped" and "flag false" stay distinguishable, and
+~24,000 nodes do not grow a property to say nothing). It also replaces the stale "Mechanics"
+comment that described an n10s route the code does not take. **None of that is one of my three
+rulings below. It is somebody's live work — commit it, do not redo it.**
+
+**MY LINE NUMBERS BELOW ARE STALE BY ROUGHLY +58.** They were read against the committed state
+at `031195f`. The one that matters: the Weaviate dual-write swallow I cite at `:734` is now at
+**`:792-795`**, and `:734` today is an unrelated comment about retry doubling. Ruling 1 is
+**still unbuilt** — I re-checked, the `except` still logs and falls through to the success
+`MaterializeResult`. Confirm every number against the file before you cut; that was true when I
+wrote it and is more true now.
+
+---
+
 ## Why you are getting this
 
 The class-system exists to refuse a partial ingest. Right now it reports one as a success. Three
