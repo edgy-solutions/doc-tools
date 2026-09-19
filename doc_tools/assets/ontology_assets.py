@@ -690,40 +690,52 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
         # Ensure the collection exists
         if not client.collections.exists("OntologyClass"):
             # ################################################################
-            # KNOWN DEFECT, NOT YET FIXED HERE, AND HELD DELIBERATELY.
+            # FIX SHAPE D (ruled by the architect 2026-09-19, on 74's
+            # scratch-collection result): DECLARE THE NAMED SPACE AT CREATE,
+            # AND WRITE BY NAME.
             #
-            # This bare `collections.create` — no vector configuration of any
-            # kind, paired with `batch.add_object(vector=...)` below — is named
-            # by Lane 74 as one of three creators producing the fleet-wide
-            # dead-vector-search condition measured 2026-09-19:
+            # THE DEFECT THIS CLOSES, measured by Lane 74 and filed at
+            # ia-74/sessions/2026-09-19-packet-from-74-the-seam-returns-one-
+            # and-the-vector-half-is-dead.md:
             #
-            #   ia-74/sessions/2026-09-19-packet-from-74-the-seam-returns-one-
-            #   and-the-vector-half-is-dead.md
+            #   OntologyClass  vectorizer None  vectorConfig ['default']
+            #                  nearObject(self) -> ERROR "vector not found for
+            #                                      target: default"
+            #   DocumentChunk  text2vec-ollama  vectorConfig None
+            #                  nearObject(self) -> OK            <- the control
             #
-            # MEASURED there: the resulting schema declares a NAMED vector space
-            # `default`; `add_object(vector=)` writes the LEGACY unnamed slot;
-            # the named space stays empty; every targeted search returns zero.
-            # `DocumentChunk`, the one collection created WITH a vectorizer and
-            # therefore on the legacy schema, is the working control.
+            # A BARE `collections.create` ON CLIENT 4.21.x DECLARES A NAMED
+            # SPACE `default` ANYWAY, while `add_object(vector=[...])` writes
+            # the LEGACY unnamed slot. So the collection indexes a space that
+            # is never written and holds vectors in a slot that is never
+            # indexed. 26,239 rows, shard READY, queue empty, 24,924 carrying a
+            # readable 768-dim vector — and every vector search returning
+            # nothing, fleet-wide, with no log line anywhere. The router ran on
+            # BM25 alone, which does not even stem: "hazard" matched five
+            # classes and "hazards" matched none.
             #
-            # INFERRED there and EXPLICITLY NOT MEASURED: that a bare create on
-            # client 4.21.0 is what emits the named space. 74 asks whoever fixes
-            # this to CONFIRM that join before choosing between the two repairs
-            # — declare the named space on create and write into it, or create
-            # on the legacy schema — because the two fixes are not
-            # interchangeable and picking on the inference is picking blind.
+            # That mechanism was 74's INFERENCE when they filed; the
+            # scratch-collection experiment has since measured it, and the
+            # architect ruled shape D over the alternative (create on the
+            # legacy schema). The two were never interchangeable, which is why
+            # this site waited for the measurement rather than picking on the
+            # guess.
             #
-            # SO THIS LINE IS UNCHANGED ON PURPOSE. 74 is running a
-            # scratch-collection experiment to settle the mechanism; the fix
-            # lands after that result, not before it. Changing the create is
-            # also only half a repair: existing rows stay in the legacy slot
-            # until a rebuild, and THE REBUILD IS CHRIS'S TO AUTHORIZE — 26,239
-            # rows of shared state, not a lane's to re-ingest.
+            # BOTH HALVES OR NEITHER. `self_provided(name="default")` declares
+            # the space this collection is indexed on and says the vectors
+            # arrive from us; `add_object(vector={"default": ...})` below puts
+            # them there. Declaring without writing by name reproduces the
+            # exact defect, and writing by name into an undeclared space is
+            # refused — so the two edits are one change and must not be split.
             #
-            # What DID land now is the detector:
-            # `seal_a_written_row_is_RETRIEVABLE` above fails this asset when
-            # the pool is populated but unsearchable, which is the state no
-            # row-counting seal can see.
+            # THIS REPAIRS NEW COLLECTIONS ONLY. `collections.exists` short-
+            # circuits above, so an existing OntologyClass keeps its broken
+            # schema and its legacy-slot rows until 74's backfill runs. NO
+            # INGEST AND NO RE-SYNC FROM HERE — 26,239 rows of shared state are
+            # not a lane's to rewrite. `seal_a_written_row_is_RETRIEVABLE`
+            # above is what keeps that honest: until the backfill lands it
+            # fails this asset rather than reporting a populated pool as a
+            # working one.
             # ################################################################
             context.log.info("Creating OntologyClass collection in Weaviate...")
             client.collections.create(
@@ -749,6 +761,18 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
                     # question. ADDITIVE and safe for existing readers — Engine
                     # O selects uri/label/definition/domain and is untouched.
                     wvc.config.Property(name="source_ontology", data_type=wvc.config.DataType.TEXT),
+                ],
+                # THE HALF THAT WAS MISSING. Without this the server declares
+                # `default` on its own and nothing ever writes into it; with it,
+                # `default` is the space the index uses AND the space
+                # `add_object(vector={"default": ...})` fills. `self_provided`
+                # is the honest vectorizer here: doc-tools embeds via LiteLLM
+                # (see doc_tools/utils/embed.py, which owns the model and the
+                # task-prefix contract) and hands Weaviate a finished vector, so
+                # the collection must not be configured to vectorize anything
+                # itself.
+                vector_config=[
+                    wvc.config.Configure.Vectors.self_provided(name="default"),
                 ],
             )
             # FOLD, NOT HAND-RUN — same act as the create. Records what actually
@@ -851,7 +875,13 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
                     "uuid": deterministic_uuid,
                 }
                 if cls_vector is not None:
-                    add_kwargs["vector"] = cls_vector
+                    # BY NAME, not `vector=cls_vector`. The bare-list form
+                    # writes the legacy unnamed slot, which is the half of the
+                    # defect that made every row look vectorised to every
+                    # instrument while the index stayed empty. Keyed on the same
+                    # space declared at create above — see the block there; the
+                    # two are one change.
+                    add_kwargs["vector"] = {"default": cls_vector}
 
                 batch.add_object(**add_kwargs)
 
