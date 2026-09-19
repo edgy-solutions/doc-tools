@@ -123,6 +123,64 @@ LABEL_SOURCE_PREDICATE = rdflib.URIRef("http://invincible-agent/mesh#labelSource
 #: DISTINCTION rather than a tautology — see the test for why that matters.
 _REJECTED_LABEL_SOURCE_NAMESPACE = "http://internal/mesh#"
 
+#: The universal-referent flag, carried from the TTL onto the Neo4j node.
+#:
+#: SAME CROSS-REPO NAMESPACE HAZARD AS `LABEL_SOURCE_PREDICATE` ABOVE, and for the
+#: same reason: `http://invincible-agent/mesh#` is the vocabulary namespace the
+#: served graph uses, NOT `http://internal/mesh#` (which is the named-GRAPH uri
+#: shape this asset writes). An unknown prefix passes through verbatim — the
+#: triple parses, the node merges, nothing goes red, and the flag never matches.
+#:
+#: WHY IT IS HERE AT ALL. `mesh:explain` is polymorphic: its spoken subject is
+#: every class in the graph, so it has no honest referent among the domain
+#: classes. `owl:Thing` is the obvious answer and cannot work — that prefix is in
+#: `_META_ONTOLOGY_IRI_PREFIXES` ten lines up, so no W3C class is in the routable
+#: pool (0 OntologyClass nodes, measured 2026-09-19). invincible-agent's
+#: `mesh_system.ttl` therefore declares `mesh:Thing` with `mesh:universalReferent
+#: true`, and the parameterisation pool admits a verb whose referent CARRIES THE
+#: FLAG rather than one whose referent IRI it recognises. The pool reads the flag;
+#: a second universal referent works without touching the pool.
+#:
+#: THE PAIR BELOW IS THE CONTRACT — the predicate read from the TTL and the
+#: property written on the node. Lane 1's pool leg reads the node property, so a
+#: rename on either side must move both, and neither side can infer the other:
+#: the node convention is snake_case (`last_synced_at`, `synced_by`) and the
+#: predicate's local name is camelCase, so they do NOT spell the same.
+UNIVERSAL_REFERENT_PREDICATE = rdflib.URIRef(
+    "http://invincible-agent/mesh#universalReferent"
+)
+UNIVERSAL_REFERENT_PROPERTY = "universal_referent"
+
+#: The MERGE interpolates the property name into Cypher. Assert it is
+#: identifier-shaped at import rather than trusting the literal above to stay
+#: one — this is what makes the interpolation safe to read as safe.
+assert UNIVERSAL_REFERENT_PROPERTY.isidentifier(), UNIVERSAL_REFERENT_PROPERTY
+
+
+def _universal_referent_value(term):
+    """Read the flag off one SPARQL binding. ``True``, or ``None`` for absent.
+
+    NEVER ``False``. Absence is the encoding — see the comment at the call site
+    — so an explicit ``mesh:universalReferent false`` in a TTL and no triple at
+    all must produce the same thing, or the two spellings of "not universal"
+    would read differently at the node.
+
+    Accepts the typed literal (``"true"^^xsd:boolean`` — what ``mesh_system.ttl``
+    writes, whose ``.toPython()`` is a real ``bool``) and the plain-literal
+    spelling (``"true"``, which ``.toPython()`` leaves a ``str``). A TTL author
+    who omits the datatype should not silently lose the flag.
+    """
+    if term is None:
+        return None
+    try:
+        value = term.toPython()
+    except Exception:
+        value = str(term)
+    if isinstance(value, bool):
+        return True if value else None
+    return True if str(value).strip().lower() == "true" else None
+
+
 LABEL_SOURCE_AUTHORED = "authored"
 LABEL_SOURCE_DERIVED = "derived"
 LABEL_SOURCE_DERIVED_OPAQUE = "derived-opaque"
@@ -329,31 +387,81 @@ def response_shape_uris(g) -> set[str]:
         return set()
 
 
-def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, context: AssetExecutionContext, response_shapes: set[str] | None = None):
-    """
-    Takes parsed ontology classes (from rdflib/Jena) and dual-writes them to Weaviate.
-    extracted_classes should be a list of dicts: {"uri": str, "label": str, "definition": str}
-    """
-    # 🔗 Use the Fleet-Standard Connection Strategy
-    client = get_weaviate_client()
+# --------------------------------------------------------------------------
+# RULING 2 — EVERY CLASS A MANIFEST TTL DECLARES IS A ROW, OR IS EXCLUDED FOR A
+# NAMED REASON
+# --------------------------------------------------------------------------
+# The class system exists to refuse a partial ingest. Ruling 1 (above, in
+# `ingest_ontology_to_jena`) makes a THROWN write fail the asset. That still
+# leaves the quieter shape: the leg ran, reported success, and a class that
+# should be groundable is simply not in the collection. Nothing threw. This is
+# the seal for that, and it runs after the write, in the same act.
+#
+# WHAT IT IS DERIVED FROM, AND WHY NOT THE MANIFEST.
+# The ruling says "derived from the manifest". `CANONICAL_TTL_MANIFEST` lives in
+# `invincible-agent/setup/prime_databases.py` and doc-tools has no copy — and
+# must not grow one. Copying it would mint a SECOND MASTER: the seal would then
+# be complete against its own copy and blind to the entry that exists in only
+# one of them, which is the exact drift the seal is supposed to catch. Worse,
+# the copy is invisible to both repos, so neither side reds.
+#
+# SO THE BASIS IS THE RECORD THE INGEST RUN MAKES OF WHAT IT WAS HANDED — the
+# second option the ruling offers, and the stronger one here. This asset is
+# PARTITIONED PER FILE: one partition IS one manifest entry, and the classes
+# this function receives were extracted from the very TTL that partition was
+# handed, moments ago, in this process. The union over all partitions is the
+# manifest, and doc-tools never holds the list. It cannot go stale, because it
+# is recomputed from the actual input on every run. A manifest copy would have
+# told us what SHOULD have been ingested; this tells us what WAS.
+#
+# THE ONE THING IT CANNOT SEE, stated rather than hidden: a manifest entry whose
+# partition never RAN at all produces no seal, because there is no run to fail.
+# That gap is Ruling 3 — the per-domain readiness sentinel — and the two are
+# complementary by construction, not redundant.
+#
+# WHY IT IS A PARTITION AND NOT A SKIP LIST. Every declared class lands in
+# exactly one bucket: written, or excluded WITH THE REASON ATTACHED. Written as
+# "skip the ones we filter" instead, the seal loses the ability to tell a
+# deliberate exclusion from a dropped row — which is the bug it exists to catch.
+# The reconciliation (written + excluded == declared) is ASSERTED, not assumed
+# from the shape of the if/elif/else: an `else` branch that silently grows a
+# third outcome is precisely how a partition stops being one.
 
-    # Meta-ontology filter — see _META_ONTOLOGY_IRI_PREFIXES docstring.
-    # Filter BEFORE batch open so we don't pay batch-init cost for
-    # entries we'd skip anyway, and so the log line below is honest
-    # about how many classes are actually written.
-    filtered_meta: list[dict] = []
-    filtered_response: list[dict] = []
-    domain_classes: list[dict] = []
-    _shapes = response_shapes or set()
+#: The two deliberate exclusions, as values rather than comments, so an excluded
+#: class can always say WHY it is excluded and a future third reason has to be
+#: named here before it can be used.
+EXCLUSION_META_ONTOLOGY = "meta_ontology_iri"
+EXCLUSION_RESPONSE_SHAPE = "response_shape_weaviate_only"
+
+
+def partition_ontology_classes(
+    extracted_classes: list[dict],
+    response_shapes: set[str] | None = None,
+) -> tuple[list[dict], list[dict]]:
+    """Split declared classes into (written, excluded-with-a-reason).
+
+    ONE partitioner, used by BOTH the write and the seal. That is the point: a
+    seal carrying its own copy of the filter logic can agree with itself while
+    disagreeing with the write, and would pass over exactly the rows the write
+    dropped. Sharing the function makes this seal a statement about the STORE.
+    Whether the filters are RIGHT is a different question, answered by
+    tests/test_ontology_assets_response_shape_filter.py.
+
+    Returns ``(to_write, exclusions)``; each exclusion is
+    ``{"uri": str, "reason": str, "cls": dict}``.
+    """
+    to_write: list[dict] = []
+    exclusions: list[dict] = []
+    shapes = response_shapes or set()
     for cls in extracted_classes:
         uri = str(cls.get("uri", ""))
         if _is_meta_ontology_iri(uri):
-            filtered_meta.append(cls)
-        elif uri in _shapes:
-            # ⚠️ WEAVIATE ONLY. THIS FILTER MUST NEVER BE MIRRORED INTO THE NEO4J
-            # SYNC, which is the one difference between it and the meta-ontology
-            # filter above — and the difference is load-bearing enough that
-            # copying that symmetry here would take down all routing.
+            exclusions.append({"uri": uri, "reason": EXCLUSION_META_ONTOLOGY, "cls": cls})
+        elif uri in shapes:
+            # WEAVIATE ONLY. THIS EXCLUSION MUST NEVER BE MIRRORED INTO THE
+            # NEO4J SYNC, which is the one difference between it and the
+            # meta-ontology exclusion above — and the difference is load-bearing
+            # enough that copying that symmetry would take down all routing.
             #
             # Neo4j MUST keep every response shape as an :OntologyClass node:
             #   * ADR-0019 Contract D refuses a registration whose OUTPUT class
@@ -368,13 +476,212 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
             # Response shapes are also still needed for provenance, rendersAs
             # and archetype bindings. Nothing about them stops being DECLARED.
             # The only thing that changes is what the RESOLVER may ground to.
-            filtered_response.append(cls)
+            exclusions.append({"uri": uri, "reason": EXCLUSION_RESPONSE_SHAPE, "cls": cls})
         else:
-            domain_classes.append(cls)
+            to_write.append(cls)
+
+    # The reconciliation, asserted. See the block comment above for why this is
+    # not redundant with the if/elif/else.
+    if len(to_write) + len(exclusions) != len(extracted_classes):
+        raise Exception(
+            f"Class partition does not reconcile: {len(extracted_classes)} "
+            f"declared, {len(to_write)} to write, {len(exclusions)} excluded. "
+            f"Every declared class must land in exactly one bucket — a class "
+            f"in neither is a dropped row wearing the clothes of a filter."
+        )
+    return to_write, exclusions
+
+
+def seal_declared_classes_are_rows(
+    collection,
+    to_write: list[dict],
+    domain: str,
+    context: AssetExecutionContext,
+) -> int:
+    """READ BACK: every class this run said it would write IS a row. Raises if not.
+
+    Reads by the SAME deterministic UUID the write used, in chunks, so the seal
+    asks the store the same question the write answered rather than a
+    count-shaped approximation of it. A count would pass on the run that wrote
+    the right NUMBER of the wrong rows.
+    """
+    expected = {str(c["uri"]) for c in to_write}
+    if not expected:
+        return 0
+
+    from weaviate.classes.query import Filter
+
+    found: set[str] = set()
+    chunk = 100
+    ordered = sorted(expected)
+    for i in range(0, len(ordered), chunk):
+        batch_uris = ordered[i:i + chunk]
+        res = collection.query.fetch_objects(
+            filters=Filter.by_id().contains_any(
+                [generate_uuid5(u) for u in batch_uris]
+            ),
+            limit=len(batch_uris),
+            return_properties=["uri"],
+        )
+        for obj in res.objects:
+            uri = (obj.properties or {}).get("uri")
+            if uri:
+                found.add(str(uri))
+
+    missing = expected - found
+    if missing:
+        raise Exception(
+            f"Weaviate row seal FAILED for domain {domain!r}: "
+            f"{len(missing)} of {len(expected)} class(es) this run wrote are "
+            f"NOT rows in the OntologyClass collection. Missing: "
+            f"{sorted(missing)[:5]}{' ...' if len(missing) > 5 else ''}. "
+            f"The batch reported no error, so this is the quiet shape of a "
+            f"partial ingest: Jena is authoritative for what EXISTS and the "
+            f"vector store for what can be GROUNDED, and these classes now "
+            f"exist and cannot be grounded. Re-drive this partition."
+        )
+    return len(found)
+
+
+def seal_a_written_row_is_RETRIEVABLE(
+    collection,
+    to_write: list[dict],
+    domain: str,
+    context: AssetExecutionContext,
+) -> str:
+    """AN OBJECT IS ITS OWN NEAREST NEIGHBOUR, OR THE INDEX IS NOT THERE.
+
+    THE SEAL ABOVE WOULD BE GREEN ON A DEAD POOL, and this is not hypothetical — it is
+    the measured state of the sandbox today. Lane 74 filed it on 2026-09-19
+    (`ia-74/sessions/2026-09-19-packet-from-74-the-seam-returns-one-and-the-vector-half-
+    is-dead.md`), and it names THIS function's collection as one of three affected:
+
+        OntologyClass   vectorizer None   vectorConfig ['default']   nearObject(self) ERROR
+        Predicate       vectorizer None   vectorConfig ['default']   nearObject(self) ERROR
+        DocumentChunk   text2vec-ollama   vectorConfig None          nearObject(self) OK   <- control
+
+    26,239 objects, shard READY, queue empty, and 24,924 of them carrying a readable
+    768-dim vector — every row present, every row countable, and the vector half of
+    every hybrid search returning NOTHING. The whole fleet has been routing on BM25
+    alone, with no stemming, and no log line anywhere: the "falling back to BM25"
+    message only prints when `embed_query` RAISES, and it never raises.
+
+    WHY NO ROW-COUNTING SEAL CAN SEE THIS, which is the reason this assertion exists
+    beside the other rather than instead of it. `_additional{vector}` and the client's
+    `include_vector` both read the LEGACY unnamed slot, and the row does carry a vector
+    there. The collection is indexed on the NAMED space `default`, which is empty. Every
+    instrument that asks "does this row have a vector" says yes. Only an instrument that
+    asks the server to USE it says no — and the server says it in words:
+
+        nearObject{id:"<uuid>"} -> "vector not found for target: default"
+
+    So the question this asks is deliberately not "is the row there" and not "does the
+    row have a vector". It is "can the store RETRIEVE this row by its own vector", which
+    is the only form of the question that fails on the substrate the seal is for.
+
+    ONE ROW, not all of them: retrievability is a property of the collection's index, not
+    of the row, so the first row is as diagnostic as the last and 26,239 probes would
+    cost the same answer. Same shape as 74's recommendation for the census line.
+
+    Returns the probed URI. Raises when the row cannot retrieve itself.
+    """
+    if not to_write:
+        return ""
+
+    # Probe a row THIS RUN wrote, chosen deterministically so a re-run asks the same
+    # question. It must carry a vector: the embed fallback writes vector-less rows on
+    # purpose, and asking one of those to find itself by vector would fail for a reason
+    # that has nothing to do with the index.
+    probe_uri = sorted(str(c["uri"]) for c in to_write)[0]
+    probe_uuid = generate_uuid5(probe_uri)
+
+    try:
+        stored = collection.query.fetch_object_by_id(probe_uuid, include_vector=True)
+    except Exception as e:
+        raise Exception(
+            f"Retrievability seal could not read back {probe_uri!r} for domain "
+            f"{domain!r}: {e}"
+        ) from e
+
+    if stored is None:
+        raise Exception(
+            f"Retrievability seal: {probe_uri!r} is not in the collection at all. "
+            f"The row seal should have caught this first — if it did not, the two "
+            f"are asking different questions and one of them is wrong."
+        )
+
+    vectors = getattr(stored, "vector", None) or {}
+    has_vector = bool(vectors) if isinstance(vectors, dict) else bool(vectors)
+    if not has_vector:
+        # NOT a failure of the index. The embed gateway was down for this row and the
+        # write said so; BM25 still answers it and a backfill can populate it later.
+        # Reporting it as a retrievability failure would blame the index for the
+        # gateway, which is how a seal starts pointing at the wrong thing.
+        context.log.warning(
+            f"Retrievability seal SKIPPED for domain {domain!r}: the probe row "
+            f"{probe_uri!r} carries no vector (the embed fallback fired). The "
+            f"collection index is UNTESTED this run — this is a measurement that "
+            f"could not be made, not a pass."
+        )
+        return ""
+
+    try:
+        res = collection.query.near_object(
+            probe_uuid, limit=1, return_properties=["uri"]
+        )
+    except Exception as e:
+        raise Exception(
+            f"RETRIEVABILITY SEAL FAILED for domain {domain!r}: the store cannot "
+            f"search by vector on this collection. Asking it to find {probe_uri!r} "
+            f"by that row's OWN stored vector raised: {e}\n\n"
+            f"If that error names a missing vector for target 'default', this is the "
+            f"condition Lane 74 measured on 2026-09-19: the collection is created with "
+            f"no vector configuration, which declares a NAMED space 'default', while "
+            f"`batch.add_object(vector=...)` writes the LEGACY unnamed slot. Every row "
+            f"has a vector; the index has none; every hybrid search silently degrades "
+            f"to BM25 with no log line. The rows being present is not the question — "
+            f"see the packet, and the `collections.create` call in this same module."
+        ) from e
+
+    returned = [str((o.properties or {}).get("uri", "")) for o in res.objects]
+    if probe_uri not in returned:
+        raise Exception(
+            f"RETRIEVABILITY SEAL FAILED for domain {domain!r}: the store answered a "
+            f"nearObject query for {probe_uri!r} without returning that row. An object "
+            f"is its own nearest neighbour; anything else means the vector the index "
+            f"holds for it is not the vector the row carries. Returned: {returned}"
+        )
+
+    context.log.info(
+        f"Retrievability seal green for domain {domain!r}: {probe_uri} retrieves "
+        f"itself by its own stored vector. The grounding pool is searchable, not "
+        f"merely populated."
+    )
+    return probe_uri
+
+
+def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, context: AssetExecutionContext, response_shapes: set[str] | None = None, source_ontology: str | None = None):
+    """
+    Takes parsed ontology classes (from rdflib/Jena) and dual-writes them to Weaviate.
+    extracted_classes should be a list of dicts: {"uri": str, "label": str, "definition": str}
+    """
+    # 🔗 Use the Fleet-Standard Connection Strategy
+    client = get_weaviate_client()
+
+    # Partition BEFORE batch open so we do not pay batch-init cost for entries
+    # we would skip anyway, and so the log line below is honest about how many
+    # classes are actually written. The partitioner and its two exclusion
+    # reasons live above this function; the SAME call is what the row seal
+    # reconciles against after the write.
+    domain_classes, exclusions = partition_ontology_classes(
+        extracted_classes, response_shapes
+    )
+    filtered_meta = [e for e in exclusions if e["reason"] == EXCLUSION_META_ONTOLOGY]
+    filtered_response = [e for e in exclusions if e["reason"] == EXCLUSION_RESPONSE_SHAPE]
     if filtered_meta:
         context.log.info(
             f"Filtered {len(filtered_meta)} meta-ontology classes from "
-            f"Weaviate sync (e.g. {filtered_meta[0].get('uri','<?>')}). "
+            f"Weaviate sync (e.g. {filtered_meta[0]['uri']}). "
             f"See [[ontology-class-pool-prov-contamination]] for the "
             f"2026-06-27 finding this filter closes."
         )
@@ -382,6 +689,42 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
     try:
         # Ensure the collection exists
         if not client.collections.exists("OntologyClass"):
+            # ################################################################
+            # KNOWN DEFECT, NOT YET FIXED HERE, AND HELD DELIBERATELY.
+            #
+            # This bare `collections.create` — no vector configuration of any
+            # kind, paired with `batch.add_object(vector=...)` below — is named
+            # by Lane 74 as one of three creators producing the fleet-wide
+            # dead-vector-search condition measured 2026-09-19:
+            #
+            #   ia-74/sessions/2026-09-19-packet-from-74-the-seam-returns-one-
+            #   and-the-vector-half-is-dead.md
+            #
+            # MEASURED there: the resulting schema declares a NAMED vector space
+            # `default`; `add_object(vector=)` writes the LEGACY unnamed slot;
+            # the named space stays empty; every targeted search returns zero.
+            # `DocumentChunk`, the one collection created WITH a vectorizer and
+            # therefore on the legacy schema, is the working control.
+            #
+            # INFERRED there and EXPLICITLY NOT MEASURED: that a bare create on
+            # client 4.21.0 is what emits the named space. 74 asks whoever fixes
+            # this to CONFIRM that join before choosing between the two repairs
+            # — declare the named space on create and write into it, or create
+            # on the legacy schema — because the two fixes are not
+            # interchangeable and picking on the inference is picking blind.
+            #
+            # SO THIS LINE IS UNCHANGED ON PURPOSE. 74 is running a
+            # scratch-collection experiment to settle the mechanism; the fix
+            # lands after that result, not before it. Changing the create is
+            # also only half a repair: existing rows stay in the legacy slot
+            # until a rebuild, and THE REBUILD IS CHRIS'S TO AUTHORIZE — 26,239
+            # rows of shared state, not a lane's to re-ingest.
+            #
+            # What DID land now is the detector:
+            # `seal_a_written_row_is_RETRIEVABLE` above fails this asset when
+            # the pool is populated but unsearchable, which is the state no
+            # row-counting seal can see.
+            # ################################################################
             context.log.info("Creating OntologyClass collection in Weaviate...")
             client.collections.create(
                 name="OntologyClass",
@@ -390,6 +733,22 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
                     wvc.config.Property(name="label", data_type=wvc.config.DataType.TEXT),
                     wvc.config.Property(name="definition", data_type=wvc.config.DataType.TEXT),
                     wvc.config.Property(name="domain", data_type=wvc.config.DataType.TEXT),
+                    # WHICH MANIFEST ENTRY PUT THIS ROW HERE (the s3 key).
+                    #
+                    # Added 2026-09-19 for Ruling 3. Without it the readiness
+                    # sentinel can only ask "does this DOMAIN have any rows",
+                    # and MAINTENANCE has SIX manifest entries — five of them
+                    # could fail while the sixth keeps the domain looking
+                    # ingested. That is the same store-liveness-wearing-an-
+                    # ingest-check-name defect one level in, and it is not an
+                    # improvement worth shipping.
+                    #
+                    # The Neo4j node has carried the equivalent (`synced_from`)
+                    # since the Option 3 fix; the Weaviate row simply never
+                    # did, so the two stores could not be asked the same
+                    # question. ADDITIVE and safe for existing readers — Engine
+                    # O selects uri/label/definition/domain and is untouched.
+                    wvc.config.Property(name="source_ontology", data_type=wvc.config.DataType.TEXT),
                 ],
             )
             # FOLD, NOT HAND-RUN — same act as the create. Records what actually
@@ -410,7 +769,7 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
             context.log.info(
                 f"Filtered {len(filtered_response)} response-shape class(es) "
                 f"from the Weaviate grounding pool (e.g. "
-                f"{filtered_response[0].get('uri','<?>')}). They REMAIN in Neo4j "
+                f"{filtered_response[0]['uri']}). They REMAIN in Neo4j "
                 f"— Contract D and the compat walk both require them there. See "
                 f"_RESPONSE_SHAPE_ROOTS and "
                 f"[[response-classes-compete-for-grounding]]."
@@ -482,7 +841,12 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
                         "uri": str(cls["uri"]),
                         "label": safe_label,
                         "definition": safe_definition,
-                        "domain": domain.upper()
+                        "domain": domain.upper(),
+                        # Absent on rows written before 2026-09-19. The sentinel
+                        # reports that as UNATTRIBUTED rather than as a missing
+                        # ingest — an old row and an absent row are different
+                        # facts and must not be collapsed.
+                        "source_ontology": source_ontology or "",
                     },
                     "uuid": deterministic_uuid,
                 }
@@ -490,8 +854,71 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
                     add_kwargs["vector"] = cls_vector
 
                 batch.add_object(**add_kwargs)
-                
-        context.log.info("Weaviate sync complete.")
+
+        # THE BATCH DOES NOT RAISE, AND THIS IS WHERE RULING 1 WOULD OTHERWISE
+        # STOP SHORT. Making the caller's `except` re-raise closes the case
+        # where the whole leg throws — a dead client, a refused connection, a
+        # broken extraction. It does NOT close the likelier one. weaviate-client
+        # 4.21.3's batch collects per-object failures into
+        # `collection.batch.failed_objects` and LOGS them; the context manager
+        # exits cleanly with every row rejected. Read against the installed
+        # client (collections/batch/base.py:722): "Failed to send {n} objects in
+        # a batch of {n} ... inspect client.batch.failed_objects". No exception
+        # is raised at any point.
+        #
+        # So the shape the ruling exists to refuse — Jena full, Weaviate empty,
+        # run green — survives a re-raising `except` untouched, because nothing
+        # ever reaches it. A write failure only fails the asset if the write's
+        # own error channel is READ. This is that read.
+        #
+        # ABSENT ROW, not a thinner one: a failed `add_object` means the class
+        # is not in the grounding pool at all. That is the same category as the
+        # leg throwing, and deliberately NOT the category of the `embed_document`
+        # fallback twenty lines up, which writes the row without a vector on
+        # purpose and must stay best-effort.
+        failed = list(getattr(collection.batch, "failed_objects", None) or [])
+        if failed:
+            sample = []
+            for err in failed[:3]:
+                obj = getattr(err, "object_", None)
+                props = getattr(obj, "properties", None) or {}
+                sample.append(f"{props.get('uri', '<?>')}: {getattr(err, 'message', err)}")
+            raise Exception(
+                f"Weaviate batch REJECTED {len(failed)} of "
+                f"{len(domain_classes)} OntologyClass row(s) for domain "
+                f"{domain!r}. The batch does not raise on per-object failure — "
+                f"it collects them and logs — so without this read the asset "
+                f"would report a green materialisation over a grounding pool "
+                f"missing those classes. First failures: {sample}"
+            )
+
+        # RULING 2, the read-back. The batch accepting a row and the store
+        # HOLDING it are different claims, and only the second one is what a
+        # consumer sees. See seal_declared_classes_are_rows and the block
+        # comment above it for why the basis is this run rather than a copy of
+        # the manifest.
+        rows_found = seal_declared_classes_are_rows(
+            collection, domain_classes, domain, context
+        )
+        # BESIDE the row seal, never instead of it, and the two ask genuinely
+        # different questions: the one above is "is the row there", this one is
+        # "can the store find it". On the substrate measured 2026-09-19 the first
+        # is green over 26,239 rows and the second is the only thing that fails.
+        probed = seal_a_written_row_is_RETRIEVABLE(
+            collection, domain_classes, domain, context
+        )
+        context.log.info(
+            f"Weaviate sync complete for domain {domain!r}: "
+            f"{len(domain_classes)} row(s) accepted, 0 rejected, "
+            f"{rows_found} confirmed present on read-back, "
+            f"retrievability probed on {probed or '<no vector-bearing row>'}. "
+            f"{len(exclusions)} declared class(es) excluded by reason: "
+            f"{len(filtered_meta)} {EXCLUSION_META_ONTOLOGY}, "
+            f"{len(filtered_response)} {EXCLUSION_RESPONSE_SHAPE}. "
+            f"Partition reconciles: "
+            f"{len(domain_classes)} + {len(exclusions)} == "
+            f"{len(extracted_classes)} declared."
+        )
         
     finally:
         # Crucial for Dagster: cleanly close the tunnel when the asset finishes
@@ -727,12 +1154,48 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
             sync_ontology_to_weaviate(
                 extracted_classes, domain, context,
                 response_shapes=response_shape_uris(g),
+                source_ontology=obj_key,
             )
         else:
             context.log.warning("No classes found in ontology to sync to Weaviate.")
             
     except Exception as e:
-        context.log.error(f"Weaviate Dual-Write failed: {e}")
+        # RULING 1 (architect, 2026-09-19): A FAILED DUAL-WRITE FAILS THE ASSET.
+        #
+        # This `except` used to log at error and FALL THROUGH to the same
+        # MaterializeResult the success path returns. Dagster saw a materialised
+        # asset; Jena had the triples, Weaviate had nothing, and the run was
+        # green. A partial ingest reported as a success is precisely the state
+        # the class system exists to refuse — the graph is authoritative for
+        # what EXISTS and the vector store for what can be GROUNDED, and a run
+        # that populates one and not the other leaves the mesh in a condition no
+        # consumer can detect from the outside. The MAINTENANCE domain's missing
+        # work-order class was diagnosed for a day as a missing manifest row; it
+        # was this, reporting green.
+        #
+        # THE ASYMMETRY THIS CLOSES: the Neo4j leg below
+        # (`sync_jena_ontologies_to_neo4j`) has always raised on failure, and
+        # says so in its docstring. One store's write failure was fatal and the
+        # other's was a log line, in one pipeline, with nothing marking the
+        # difference as deliberate.
+        #
+        # WHAT IS DELIBERATELY *NOT* WIDENED, because the distinction the ruling
+        # turns on is ROW MISSING vs ROW PRESENT BUT THINNER:
+        #   * `embed_document` failure inside `sync_ontology_to_weaviate` writes
+        #     the row without a vector and says so. BM25 still answers and a
+        #     backfill can populate the vector later. Stays best-effort.
+        #   * `write_collection_marker` is metadata about the collection, not a
+        #     row in it. Stays best-effort, never raises.
+        # Both are degraded rows. This one is an absent row.
+        raise Exception(
+            f"Weaviate dual-write FAILED for domain '{domain}' "
+            f"(graph {graph_uri}): {e}. The Jena push above SUCCEEDED, so the "
+            f"substrate is now PARTIAL — Jena holds {len(g)} triples that the "
+            f"vector store cannot ground. Re-drive this partition; do not "
+            f"treat the Jena half as done. Per the 2026-09-19 ruling this "
+            f"raises rather than logging, because a partial ingest reported as "
+            f"a success is the failure the class system exists to refuse."
+        ) from e
 
     return MaterializeResult(
         metadata={
@@ -740,6 +1203,150 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
             "graph_uri": graph_uri,
             "triples": len(g),
             "s3_path": f"s3://{bucket}/{obj_key}"
+        }
+    )
+
+
+# ===========================================================================
+# RULING 3 — the readiness sentinel becomes PER DOMAIN, PER MANIFEST ENTRY
+# ===========================================================================
+# The rules live in `doc_tools/utils/ontology_readiness.py`, pure and testable
+# without a cluster; this asset is only the I/O around them. Read that module
+# first — it carries the argument for why the EXPECTATION cannot come from the
+# store being checked, and what the four states are for.
+#
+# WHAT THIS REPLACES, since the dispatch describes the incumbent rather than
+# naming it: engine-o's `/health` returns `jena_configured` / `neo4j_configured`,
+# both derived from the ENVIRONMENT by
+# `agent_fleet/ontology_service/substrate_posture.py`. It is a configuration
+# read. It cannot see a row, so it cannot see a missing one, and it is green the
+# moment the pod has its variables — including over a domain that ingested
+# nothing. That endpoint stays as it is; changing it is invincible-agent's side
+# of the line. THIS is the ingest check, and it lives where the ingest lives.
+#
+# NOT PARTITIONED, DELIBERATELY. Every other asset here is per-file, and a
+# per-file readiness check is the defect restated: it can only be green or
+# absent for its own partition, and an ENTRY THAT NEVER RAN has no partition run
+# to be absent in. The sentinel has to stand outside the partition set and
+# enumerate what SHOULD have run, or it inherits exactly the blind spot it
+# exists to remove.
+
+@asset(deps=[ingest_ontology_to_jena])
+def weaviate_ontology_readiness(
+    context: AssetExecutionContext,
+    s3: S3Resource,
+) -> MaterializeResult:
+    """Per-domain, per-manifest-entry ingest posture for the OntologyClass pool.
+
+    Enumerates the ontology bucket (prime uploads one object per manifest entry
+    and stamps `x-amz-meta-domain` on it), asks Weaviate how many rows carry
+    each `source_ontology`, and FAILS when any declared entry has none.
+
+    Raises rather than warns. A sentinel whose failure mode is a log line is the
+    thing this ruling is replacing.
+    """
+    from doc_tools.utils.ontology_readiness import (
+        ontology_ingest_posture,
+        format_posture,
+        STATE_ABSENT,
+        STATE_UNATTRIBUTED,
+    )
+
+    bucket = os.getenv("ONTOLOGY_BUCKET", "ontologies")
+    s3_client = s3.get_client()
+
+    # ----- the EXPECTATION, read off the bucket rather than off the store ----
+    declared: dict[str, str] = {}
+    undeclared_domain: list[str] = []
+    paginator = s3_client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket):
+        for obj in page.get("Contents", []) or []:
+            key = obj["Key"]
+            if not key.lower().endswith((".ttl", ".rdf", ".owl")):
+                continue
+            head = s3_client.head_object(Bucket=bucket, Key=key)
+            domain = (head.get("Metadata") or {}).get("domain")
+            if not domain:
+                # NOT skipped. An object with no domain stamp is a prime that
+                # did not finish the job, and skipping it would hide the very
+                # entry most likely to have failed.
+                undeclared_domain.append(key)
+                continue
+            declared[key] = str(domain).upper()
+
+    if not declared:
+        raise Exception(
+            f"Readiness sentinel found NO ontology objects in bucket "
+            f"{bucket!r}. That is not a green substrate with nothing to check "
+            f"— it is a bucket that prime never populated, and every domain "
+            f"below would otherwise be vacuously ready."
+        )
+
+    # ----- what the store actually holds -------------------------------------
+    rows_by_source: dict[str, int] = {}
+    unattributed_by_domain: dict[str, int] = {}
+    client = get_weaviate_client()
+    try:
+        if not client.collections.exists("OntologyClass"):
+            raise Exception(
+                f"Readiness sentinel: the OntologyClass collection does not "
+                f"exist, while the bucket declares {len(declared)} ontology "
+                f"object(s) across {len(set(declared.values()))} domain(s). "
+                f"Nothing has ingested."
+            )
+        collection = client.collections.get("OntologyClass")
+        for obj in collection.iterator(
+            return_properties=["domain", "source_ontology"]
+        ):
+            props = obj.properties or {}
+            source = str(props.get("source_ontology") or "")
+            if source:
+                rows_by_source[source] = rows_by_source.get(source, 0) + 1
+            else:
+                dom = str(props.get("domain") or "").upper()
+                unattributed_by_domain[dom] = unattributed_by_domain.get(dom, 0) + 1
+    finally:
+        client.close()
+
+    postures = ontology_ingest_posture(
+        declared=declared,
+        rows_by_source=rows_by_source,
+        unattributed_rows_by_domain=unattributed_by_domain,
+    )
+    report = format_posture(postures)
+    context.log.info("Ontology ingest posture:\n" + report)
+
+    not_ready = [(p.domain, e) for p in postures for e in p.not_ready]
+    absent = [(d, e) for d, e in not_ready if e.state == STATE_ABSENT]
+    unattributed = [(d, e) for d, e in not_ready if e.state == STATE_UNATTRIBUTED]
+
+    if undeclared_domain:
+        context.log.error(
+            f"{len(undeclared_domain)} ontology object(s) carry no "
+            f"x-amz-meta-domain and could not be checked at all: "
+            f"{undeclared_domain[:5]}"
+        )
+
+    if not_ready or undeclared_domain:
+        raise Exception(
+            f"Ontology substrate NOT READY. "
+            f"{len(absent)} declared manifest entry/entries have ZERO rows in "
+            f"the OntologyClass pool: {[k for _, e in absent for k in [e.s3_key]][:8]}. "
+            f"{len(unattributed)} entry/entries could not be attributed (rows "
+            f"predate source_ontology, written before 2026-09-19): "
+            f"{[e.s3_key for _, e in unattributed][:8]}. "
+            f"{len(undeclared_domain)} bucket object(s) carry no domain stamp. "
+            f"This sentinel is per-ENTRY on purpose: the previous check "
+            f"answered 'is Weaviate up', and was green across a by-hand "
+            f"re-ingest of the safety classes in both directions.\n\n{report}"
+        )
+
+    return MaterializeResult(
+        metadata={
+            "domains_ready": len(postures),
+            "entries_declared": len(declared),
+            "rows_total": sum(rows_by_source.values()),
+            "posture": report,
         }
     )
 
@@ -762,32 +1369,75 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
 # runtime graph." The XML pipeline keeps its own sync; this asset owns
 # the canonical-ontology lane.
 #
-# Mechanics:
-#   1. Derive the domain (same logic as ingest_ontology_to_jena — explicit
-#      override > path-derived default).
-#   2. Build the Jena Named Graph URI: `http://internal/{domain}`.
-#   3. SPARQL CONSTRUCT against that graph to get the full RDF subset.
-#   4. n10s.rdf.import.fetch via that CONSTRUCT URL — creates :Resource
-#      nodes with the URIs preserved.
-#   5. Relabel: nodes that have an rdf:type → owl:Class triple become
-#      `:OntologyClass` with `domain` set; their rdfs:label becomes the
-#      `label` property. This mirrors the historical shape the Phase-5
-#      scripts and the mystery notebook established.
-#   6. subClassOf edges: MERGE (child)-[:subClassOf]->(parent) for every
-#      named->named rdfs:subClassOf whose parent is a synced (non-meta)
-#      class. THIS is what makes phase5_catalog_verb_migration.py's
-#      docstring claim ("subClassOf edges land at TTL ingest via the
-#      Jena→Neo4j step") TRUE — before, only NODES were synced and the
-#      edges were hand-MERGEd by that one-off, so a fresh cluster's class
-#      set was flat and find_compatible_verbs' subClassOf* walk never
-#      formed. Source-authority per ADR-0006: the ingest owns node AND
-#      hierarchy, so no hand-run is needed and none can silently revert.
+# Mechanics — WHAT THE CODE BELOW ACTUALLY DOES.
 #
-# Idempotency: re-running this asset on the same partition is safe — n10s
-# MERGEs by URI, and the relabeling is set-not-create. Re-ingest of a TTL
-# that drops a class will leave the OntologyClass node behind (orphan),
-# which is the same drift signature the routing layer has standing guards
-# for (`test_no_phantom_input_classes` flags any verb that points at one).
+# CORRECTED 2026-09-19. This block used to describe the n10s route: build the
+# Jena named-graph URI, SPARQL CONSTRUCT against it, `n10s.rdf.import.fetch`
+# that CONSTRUCT URL, then relabel the resulting `:Resource` nodes. The
+# docstring immediately below has said since Session 2 that route was ABANDONED
+# and why — wrong Fuseki endpoint path, n10s's silent-zero failure mode, and a
+# `:Resource`-vs-`:OntologyClass` label collision — but the comment describing
+# the mechanics was never moved with the code. So the file carried BOTH
+# stories, the abandoned one first and in the more authoritative-looking place.
+#
+# THAT IS WORSE THAN NO COMMENT, and it is worth naming as its own defect
+# rather than just deleting: a reader looking for the Jena read in this asset
+# does not find one and concludes the sync is broken, when in fact the asset
+# never touches Jena at all. The same drift is what
+# `phase5_catalog_verb_migration.py`'s docstring did about subClassOf edges,
+# two paragraphs down — a comment asserting a mechanism nobody re-read after
+# the mechanism moved.
+#
+#   1. Resolve domain + S3 key. `config.extra_metadata['domain']` >
+#      S3 object metadata `x-amz-meta-domain` > RAISE. There is NO
+#      path-derived default — it was removed 2026-06-16 because a silent
+#      fallback produced confidently-wrong routing (the `mil/` prefix
+#      derived domain 'MIL' for classes whose semantic domain is
+#      MAINTENANCE). Same precedence as ingest_ontology_to_jena, which is
+#      the claim `test_no_path_derived_domains` keeps true.
+#   2. Fetch the RDF from MinIO and parse it with rdflib — the SAME bytes
+#      `ingest_ontology_to_jena` parsed, read from S3 again. THIS ASSET DOES
+#      NOT READ JENA. The dependency on the ingest is an ordering edge, not a
+#      data edge; the shared source is S3.
+#   3. SPARQL-extract the classes: named `owl:Class`/`rdfs:Class` with
+#      OPTIONAL label, definition and `mesh:universalReferent`. Blank nodes
+#      are filtered at the SPARQL layer (`!isBlank`) and again in Python;
+#      meta-ontology IRIs are filtered per `_META_ONTOLOGY_IRI_PREFIXES`. The
+#      response-shape filter is NOT applied here — that one is Weaviate-only,
+#      and the comment in `sync_ontology_to_weaviate` says at length why
+#      mirroring it would un-register every verb.
+#      Three different zero-class outcomes are separated rather than collapsed:
+#      an all-meta TTL and a deliberately class-less policy/rules TTL are
+#      logged no-ops; a graph that DOES declare classes yet extracted none
+#      raises, because that one is drift.
+#   4. Direct MERGE on `uri`, SET label / definition / domain /
+#      last_synced_at / synced_by / synced_from / universal_referent. No n10s,
+#      no `:Resource` nodes, no relabeling step. Mirrors the validated shape
+#      in `seed_mro_extension_runtime.py` and in the Weaviate leg above —
+#      same source data, same extraction, same convention.
+#   5. subClassOf edges: MATCH both endpoints, MERGE (child)-[:subClassOf]->
+#      (parent) for every named->named `rdfs:subClassOf`. The parent is
+#      MATCHed and never MERGEd, deliberately: fabricating it would mint bare
+#      nodes for exactly the meta-ontology parents step 3 filtered out. THIS
+#      is what makes phase5_catalog_verb_migration.py's docstring claim
+#      ("subClassOf edges land at TTL ingest via the Jena→Neo4j step") TRUE —
+#      before, only NODES were synced and the edges were hand-MERGEd by that
+#      one-off, so a fresh cluster's class set was flat and
+#      find_compatible_verbs' subClassOf* walk never formed. Source-authority
+#      per ADR-0006: the ingest owns node AND hierarchy, so no hand-run is
+#      needed and none can silently revert.
+#   6. Verification readback, which raises on a class that MERGEd but is not
+#      there, and on a universal-referent partition that does not match the
+#      TTL's.
+#
+# Idempotency: re-running this asset on the same partition is safe — every
+# write is a MERGE keyed on the canonical URI and every property write is
+# SET-not-create. Re-ingest of a TTL that drops a class will leave the
+# OntologyClass node behind (orphan), which is the same drift signature the
+# routing layer has standing guards for (`test_no_phantom_input_classes` flags
+# any verb that points at one). The one property that is NOT sticky is
+# `universal_referent`: it is SET to null when the TTL stops declaring it,
+# because absence is that flag's encoding of false.
 #
 # Acceptance test (architect's sharp form): ingest a TTL with a class that
 # has NO historical N10S artifact and NO Phase 5 Cypher provenance — a
@@ -949,12 +1599,20 @@ def sync_jena_ontologies_to_neo4j(
     # secondary belt-and-braces in case a future rdflib version changes
     # SPARQL evaluation. Either alone would close the leak; both together
     # surface the regression at two layers.
+    #
+    # ?universal_referent is OPTIONAL and almost always UNBOUND — see
+    # UNIVERSAL_REFERENT_PREDICATE at module top. Exactly one class in the whole
+    # manifest carries it today (mesh:Thing), and the flag must ride the same
+    # extraction as label/definition rather than a second pass: a separate
+    # traversal is a second reader of the same graph that can disagree with this
+    # one about which classes were extracted at all.
     extract_query = """
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     PREFIX owl:  <http://www.w3.org/2002/07/owl#>
     PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+    PREFIX mesh: <http://invincible-agent/mesh#>
 
-    SELECT ?uri ?label ?definition
+    SELECT ?uri ?label ?definition ?universal_referent
     WHERE {
         ?uri a ?type .
         FILTER(?type IN (owl:Class, rdfs:Class))
@@ -965,6 +1623,7 @@ def sync_jena_ontologies_to_neo4j(
             UNION
             { ?uri rdfs:comment ?definition }
         }
+        OPTIONAL { ?uri mesh:universalReferent ?universal_referent }
     }
     """
     rows = list(g.query(extract_query))
@@ -997,7 +1656,21 @@ def sync_jena_ontologies_to_neo4j(
             continue
         label = str(row.label) if row.label is not None else uri.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
         definition = str(row.definition) if row.definition is not None else ""
-        classes.append({"uri": uri, "label": label, "definition": definition})
+        classes.append({
+            "uri": uri,
+            "label": label,
+            "definition": definition,
+            # None, NOT False. ABSENT MEANS FALSE is the encoding, and Cypher
+            # `SET c.prop = null` REMOVES the property — so a class that stops
+            # carrying the flag in the TTL stops carrying it on the node at the
+            # next sync, and a class that never carried it never grows the
+            # property at all. Writing False instead would put the property on
+            # ~24,000 nodes to say nothing, and would make "the flag was
+            # dropped" and "the flag is false" indistinguishable from a read.
+            UNIVERSAL_REFERENT_PROPERTY: _universal_referent_value(
+                row.universal_referent
+            ),
+        })
 
     if not classes:
         # Distinguish "content drift / broken extraction" (real error)
@@ -1125,18 +1798,27 @@ def sync_jena_ontologies_to_neo4j(
     # ingested_at) that the historical direct-load shape established —
     # this asset doesn't overwrite them, just refreshes the
     # resolver-visible label / definition / domain.
+    #
+    # The universal-referent SET is interpolated from
+    # UNIVERSAL_REFERENT_PROPERTY rather than typed into the Cypher, so the
+    # constant Lane 1's pool leg is told to read is the SAME string this write
+    # uses. Two spellings of one contract is the failure this codebase keeps
+    # paying for — the write succeeds, the read matches nothing, nothing reds.
+    # The constant is asserted identifier-shaped at import (see module top), so
+    # this is not an injection surface.
     neo4j_client = neo4j.get_client()
     try:
         neo4j_client.execute_query(
-            """
+            f"""
             UNWIND $classes AS cls
-            MERGE (c:OntologyClass {uri: cls.uri})
+            MERGE (c:OntologyClass {{uri: cls.uri}})
             SET c.label = cls.label,
                 c.definition = cls.definition,
                 c.domain = $domain,
                 c.last_synced_at = datetime(),
                 c.synced_by = 'sync_jena_ontologies_to_neo4j',
-                c.synced_from = $s3_path
+                c.synced_from = $s3_path,
+                c.{UNIVERSAL_REFERENT_PROPERTY} = cls.{UNIVERSAL_REFERENT_PROPERTY}
             """,
             {
                 "classes": classes,
@@ -1193,18 +1875,34 @@ def sync_jena_ontologies_to_neo4j(
     # previous code assumed .records and silently swallowed the
     # AttributeError, then logged "readback green" regardless. That made
     # verification a no-op and hid real "merged but absent" cases.
+    #
+    # The readback also returns the universal-referent property, and the seal
+    # below is a PARTITION rather than a presence check: every class the TTL
+    # flagged carries it on the node, and every class the TTL did not flag does
+    # NOT. A one-sided check ("the flagged ones landed") passes just as happily
+    # when the write flagged everything — which is precisely the widening the
+    # flag design exists to refuse, and it would be invisible from the flagged
+    # side alone.
     verify_uris = [c["uri"] for c in classes]
+    expected_flagged = {
+        c["uri"] for c in classes if c.get(UNIVERSAL_REFERENT_PROPERTY)
+    }
     readback_ok = False
+    landed_flagged: set[str] = set()
     try:
         result = neo4j_client.execute_query(
-            """
+            f"""
             UNWIND $uris AS uri
-            OPTIONAL MATCH (c:OntologyClass {uri: uri})
-            RETURN uri AS asked, c.uri AS landed, c.domain AS domain
+            OPTIONAL MATCH (c:OntologyClass {{uri: uri}})
+            RETURN uri AS asked, c.uri AS landed, c.domain AS domain,
+                   c.{UNIVERSAL_REFERENT_PROPERTY} AS universal_referent
             """,
             {"uris": verify_uris},
         )
         missing = [r["asked"] for r in result if r["landed"] is None]
+        landed_flagged = {
+            r["asked"] for r in result if r.get("universal_referent") is True
+        }
         readback_ok = True
     except Exception as e:
         context.log.warning(f"Verification readback failed: {e}")
@@ -1217,6 +1915,29 @@ def sync_jena_ontologies_to_neo4j(
             f"Missing: {missing[:5]}{' ...' if len(missing) > 5 else ''}. "
             f"This is the read-back-probe failure mode the v0.2 saga "
             f"introduced for predicate edges; same shape applied here."
+        )
+
+    if readback_ok and landed_flagged != expected_flagged:
+        raise Exception(
+            f"Universal-referent partition broken for domain '{domain}'. "
+            f"The TTL flags {sorted(expected_flagged)}; the nodes carry "
+            f"{sorted(landed_flagged)}. Missing on the node: "
+            f"{sorted(expected_flagged - landed_flagged)}. Carried but NOT "
+            f"flagged in the TTL: {sorted(landed_flagged - expected_flagged)}. "
+            f"The second list is the dangerous one — a flag that widened past "
+            f"the classes that declared it admits every verb to the "
+            f"parameterisation pool unscoped, which is the hierarchy design "
+            f"mesh:Thing was declared as a FLAG to refuse. See "
+            f"UNIVERSAL_REFERENT_PREDICATE at module top."
+        )
+
+    if expected_flagged:
+        context.log.info(
+            f"Universal referent: {len(expected_flagged)} class(es) carry "
+            f"{UNIVERSAL_REFERENT_PROPERTY}=true on the node — "
+            f"{sorted(expected_flagged)}. The remaining "
+            f"{len(classes) - len(expected_flagged)} class(es) in this "
+            f"partition carry no such property (absent means false)."
         )
 
     verify_msg = (
@@ -1235,6 +1956,8 @@ def sync_jena_ontologies_to_neo4j(
         metadata={
             "domain": domain,
             "classes_merged": len(classes),
+            "universal_referents_merged": len(expected_flagged),
+            "universal_referent_uris": sorted(expected_flagged),
             "subclassof_edges_merged": edges_written,
             "s3_path": f"s3://{bucket}/{obj_key}",
             "partition_key": context.partition_key,
