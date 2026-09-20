@@ -1149,17 +1149,61 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
 
     # 4. DUAL-WRITE: Sync to Weaviate for fast semantic search
     context.log.info("Extracting classes for Weaviate sync...")
+    #
+    # BLANK-NODE FILTER, BOTH LAYERS. Mirrored here 2026-09-19 from the Neo4j
+    # leg (`sync_jena_ontologies_to_neo4j` below) — read the long block above
+    # its `extract_query` for the 2026-06-15 history. What follows is why THIS
+    # leg needed the same thing three months later.
+    #
+    # THE ASYMMETRY THIS CLOSES. The 2026-06-15 fix landed on the Neo4j leg
+    # ONLY. This extraction — the one that feeds `sync_ontology_to_weaviate` —
+    # went on selecting `?uri a ?type` with no `!isBlank` filter and no Python
+    # BNode check, and `partition_ontology_classes` excludes meta-ontology IRIs
+    # and response shapes, NEVER blank nodes. So every imported ontology's
+    # anonymous owl:Class restrictions (rdfs:subClassOf of a unionOf /
+    # intersectionOf / Restriction expression, which rdflib materializes as a
+    # blank node typed owl:Class) were written into the OntologyClass
+    # collection as rows whose `uri` is a bare `N<32 hex>` and whose `label`
+    # falls back to that same hex string. Unroutable, unpickable by an LLM, and
+    # embedded as noise in the pool the resolver grounds against. Lane 74
+    # measured the live index at 96.2% blank nodes; this is the writer that put
+    # them there.
+    #
+    # WHY IT COMPOUNDS RATHER THAN REPEATS. The row uuid is
+    # `generate_uuid5(str(uri))`, and rdflib mints a FRESH blank-node id on
+    # every parse — read in the installed wheel: `rdflib/term.py`
+    # `BNode.__new__` defaults `value` to `"N" + uuid4().hex`; the Turtle/N3
+    # parser seeds a per-parser-instance `uuid4().hex`
+    # (`plugins/parsers/notation3.py`) and the RDF/XML parser calls bare
+    # `BNode()` (`plugins/parsers/rdfxml.py`). The id is therefore NOT stable
+    # across runs, so the deterministic-uuid upsert that makes this sync
+    # idempotent for named classes does not apply to blank ones: a re-ingest
+    # does not OVERWRITE the previous run's blank rows, it ADDS a fresh set.
+    # That is the growth mechanism behind the 96.2%, and it is why closing the
+    # writer comes before any backfill — a backfill against a leaking writer is
+    # a delete that refills on the next prime.
+    #
+    # Defense-in-depth, same discipline as the other leg: the SPARQL filter is
+    # primary, the Python isinstance check is the second layer for a future
+    # rdflib that changes SPARQL evaluation of isBlank(). Either alone closes
+    # the leak; both together surface a single-layer regression.
+    # `tests/test_ontology_assets_blank_node_filter.py` asserts BOTH legs.
+    #
+    # WRITER ONLY. This stops the leak; it deletes nothing. The blank rows
+    # already in the store stay there until an authorized backfill removes
+    # them, and that is Chris's call, not this asset's.
     query = """
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     PREFIX owl: <http://www.w3.org/2002/07/owl#>
     PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-    
+
     SELECT ?uri ?label ?definition
     WHERE {
         ?uri a ?type .
         FILTER(?type IN (owl:Class, rdfs:Class))
+        FILTER(!isBlank(?uri))
         OPTIONAL { ?uri rdfs:label ?label }
-        OPTIONAL { 
+        OPTIONAL {
             { ?uri skos:definition ?definition }
             UNION
             { ?uri rdfs:comment ?definition }
@@ -1169,13 +1213,34 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
     try:
         qres = g.query(query)
         extracted_classes = []
+        skipped_blank_nodes = 0
         for row in qres:
+            # Second layer — see the block above. rdflib's BNode subclasses
+            # URIRef, so a `str()`-based prefix test does not catch these (the
+            # 2026-06-15 no-op filter was exactly that mistake); isinstance
+            # does, and it fires even if the SPARQL layer stopped working.
+            if isinstance(row.uri, rdflib.term.BNode):
+                skipped_blank_nodes += 1
+                continue
             extracted_classes.append({
                 "uri": row.uri,
                 "label": row.label,
                 "definition": row.definition
             })
-        
+
+        if skipped_blank_nodes:
+            # NON-ZERO MEANS THE PRIMARY LAYER DID NOT HOLD. The row never
+            # reaches the store either way, but a silent second-layer save is
+            # how a SPARQL-filter regression stays invisible until somebody
+            # next counts the pool — which is how this one lasted three months.
+            context.log.warning(
+                f"{skipped_blank_nodes} blank-node owl:Class row(s) passed the "
+                f"SPARQL !isBlank filter and were dropped by the Python "
+                f"isinstance check instead. The SPARQL layer is primary and "
+                f"should have caught these; check the rdflib version before "
+                f"treating this as benign."
+            )
+
         if extracted_classes:
             # Computed HERE because this is where the rdflib graph lives; the
             # SPARQL above deliberately selects only uri/label/definition and a
