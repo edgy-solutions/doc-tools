@@ -126,8 +126,9 @@ mentations for text extraction, layout detection, Neo4j mapping, and Weaviate co
 2. **Setup and Install via `uv`:**
    Use the ultrafast Python package manager `uv` to automatically wire the virtual environment and sync the specific subdependencies seamlessly.
    ```bash
-   uv sync
+   uv sync --locked
    ```
+   *(`--locked` is the form CI declares at `.github/workflows/build-container.yml` — it installs the resolved set in `uv.lock`, the same set the container image exports, and fails loudly if `uv.lock` and `pyproject.toml` have drifted apart. A bare `uv sync` re-resolves and can quietly give you a different dependency set than the one that ships.)*
    *(Note: You may need system-level tools like Tesseract-OCR and poppler installed depending on your OS for Unstructured logic to work out of the box).*
 
 3. **Compile BAML Schemas:**
