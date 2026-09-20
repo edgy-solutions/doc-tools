@@ -268,8 +268,26 @@ def derive_missing_class_labels(g, context=None):
 
     for cls in subjects:
         # Blank-node owl:Class entries are anonymous restrictions, not vocabulary.
-        # They are already excluded downstream and have no fragment to derive from;
-        # naming them would invent thousands of hex-id "classes".
+        # They have no fragment to derive from, so naming them would invent
+        # thousands of hex-id "classes".
+        #
+        # THIS BLOCK USED TO GIVE A SECOND REASON: "they are already excluded
+        # downstream". That sentence was TRUE OF ONE DOWNSTREAM AND FALSE OF THE
+        # OTHER, and stayed that way for three months. The Neo4j sync filtered
+        # blank nodes at two layers; the Weaviate dual-write filtered them
+        # nowhere. So the file asserted as settled the exact thing that was
+        # broken, in the one place a reader checking blank nodes would land
+        # first — the cheapest possible way to stop the check that would have
+        # found it. Flagged by Lane 74, 2026-09-19.
+        #
+        # Both legs now carry both layers, so the claim is true. It is written
+        # as a dated statement about two NAMED call sites rather than as a fact
+        # about "downstream" precisely because the vague form is what failed:
+        #
+        #   ingest_ontology_to_jena        step 4, the Weaviate extraction
+        #   sync_jena_ontologies_to_neo4j  its extract_query
+        #
+        # tests/test_ontology_assets_blank_node_filter.py asserts both, PER LEG.
         if not isinstance(cls, rdflib.URIRef):
             counts["skipped_blank_node"] += 1
             continue
