@@ -1,14 +1,23 @@
 # HANDOFF — doc-tools :: lane/7f
 
-Branch `lane/7f`, PR #1 (OPEN, MERGEABLE). Head at last check: `9a5ae75`
-("Remove forge", Chris directly, already on `origin/lane/7f` — not mine, no
-divergence, nothing to reconcile).
+Branch `lane/7f`, PR #1 **MERGED** 2026-09-22 03:19Z as merge commit
+`38f3d39` (merge commit, not squash — the twelve lane commits stay ancestors
+of `main`, so this branch rebases with only its own work left to replay).
+Rebased onto `main` after the merge; `2905153` replayed as `2449354`.
 
 ## Verified this session
-- CI green at `bee5b4c` (run 35484058642): all 3 jobs, all steps, read
-  individually — no `if:` anywhere in the workflow, so nothing could have
-  been silently skipped. `tests`: 407 passed, 13 skipped (all reasoned).
-  `build-and-push` log literally printed `push: false`. Posted to PR #1.
+- **The green that merged was at `9a5ae75`, not `bee5b4c`.** Correcting the
+  earlier report in this file: `bee5b4c` was green (run 35484058642,
+  2026-09-20), but Chris pushed `9a5ae75` ("Remove forge") on top before the
+  merge decision, and that is the head PR #1 carried into `38f3d39`. It is
+  green on its own run, 35680441996 (2026-09-22): all 3 jobs, `tests` 407
+  passed / 13 skipped / 0 failed. The delta between the two heads is one
+  24-line deletion, `.forge/skills/check-part-sustainment/SKILL.md`.
+- Both PR-event runs printed `push: false` in `build-and-push` — a
+  `pull_request` build never pushes an image. The push, if any, belongs to
+  the `main` event on `38f3d39`.
+- No `if:` anywhere in the workflow, so nothing could have been silently
+  skipped in either run.
 - Blank-node filter asymmetry (Weaviate leg had neither SPARQL nor Python
   layer; Neo4j leg had both) fixed at `a8e2b3e`, test now asserts both legs
   per-function (`_leg_source`), not module-wide. Verified by single-line
@@ -31,11 +40,11 @@ divergence, nothing to reconcile).
   thinner row." Full trace:
   [sessions/2026-09-19-finding-7f-a-rewrite-strips-the-vector-and-the-linker-is-manual-only.md](sessions/2026-09-19-finding-7f-a-rewrite-strips-the-vector-and-the-linker-is-manual-only.md)
 
-## Standing constraint — do not commit this file
-The finding file above is **deliberately uncommitted** (`??` in git status).
-Order stands: commit it only after Chris makes the PR #1 merge decision — a
-commit now moves the head and invalidates the sha the merge gate was
-measured at. Do not fold it into any other commit either.
+## Standing constraint — DISCHARGED
+The finding file above was deliberately uncommitted until the PR #1 merge
+decision, so that no commit could move the head the merge gate was measured
+at. The decision came; it is now committed by name, on its own, after the
+rebase. Nothing else rode with it.
 
 ## Held / not started (do not build without new authorization)
 - The vector-strip writer fix itself — "first writer item after the walks
@@ -61,11 +70,16 @@ measured at. Do not fold it into any other commit either.
 `mfg_corpus_report2.json`, `tests/fixtures/`.
 
 ## Open questions for Chris
-- Merge decision on PR #1 — CI is green at `bee5b4c`, gate is met, decision
-  is explicitly yours.
 - Whether/when to authorize the vector-strip writer fix ("the walks draw").
+  Still NOT authorized as of 2026-09-21.
+- The sandbox re-pin: `values-sandbox.yaml:34` needs the digest from the
+  `main` build of `38f3d39` before the merged code runs anywhere. Chris
+  rolls; this lane narrates only.
 
-NEXT TASK: Wait for the merge decision on PR #1. Once given, commit the
-finding file (as-is, no edits) with a message noting the merge decision,
-then stand by for the vector-strip writer fix authorization — do not start
-that fix without an explicit new order.
+NEXT TASK: Report the `main`-event build of `38f3d39` — whether it pushed,
+its tag and digest, read from the run's job log rather than the workflow
+source. Then hand Chris the re-pin line and roll command (do not run
+either). After Chris rolls and confirms the running image, narrate the
+`mesh_system.ttl` prime — embed gateway checked FIRST, additive only, Chris
+runs every command. Do not start the vector-strip writer fix without an
+explicit new order.
