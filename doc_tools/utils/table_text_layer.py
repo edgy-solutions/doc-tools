@@ -57,10 +57,12 @@ REPLACEMENT_HEADERS: Tuple[str, ...] = (
 # replacement. Declining an ambiguous column is the safe direction — this module already
 # prefers to decline over to guess.
 #
-# Kept CHARACTER-FOR-CHARACTER identical to pdn_parts_diagnostic.ALIAS_HEADERS. The 34%
-# and 14-instance figures were measured with that list; a production list that quietly
-# differs would make the next corpus run compare two different rulers and call the
-# difference a result.
+# Kept CHARACTER-FOR-CHARACTER identical to pdn_parts_diagnostic.ALIAS_HEADERS. The
+# 14-instance figure was measured with that list and CONFIRMED against the real notice on
+# 2026-09-21 (all 14 on TYC-PCN-24-210412.pdf, all quote-wrapped); a production list that
+# quietly differs would make the next corpus run compare two different rulers and call the
+# difference a result. (The 34% figure that used to be cited here alongside it is
+# retracted — it was a diagnostic artifact. See docs/pcn-corpus-validation-2026-09-21.md.)
 ALIAS_HEADERS: Tuple[str, ...] = (
     "product family", "family", "alias", "cross reference", "cross-reference",
     "xref", "equivalent", "pin to pin", "pin-to-pin", "compatible", "base part",
@@ -166,6 +168,16 @@ def find_header_row(grid: Sequence[Sequence[Optional[str]]], search_depth: int =
     return best
 
 
+#: "Table 2 - EOL Devices ..." -> "2". A caption that NUMBERS its table is the document
+#: saying which table this is, and two different numbers are two different tables.
+_TABLE_LABEL = re.compile(r"\btable\s+(\d+)\b")
+
+
+def _table_label(cell: Optional[str]) -> Optional[str]:
+    m = _TABLE_LABEL.search(_norm_header(cell))
+    return m.group(1) if m else None
+
+
 def find_title_row(grid: Sequence[Sequence[Optional[str]]], search_depth: int = 2) -> Optional[int]:
     """Index of a CAPTION row that names the table's contents, or None.
 
@@ -178,6 +190,14 @@ def find_title_row(grid: Sequence[Sequence[Optional[str]]], search_depth: int = 
         if _nonempty(row) == 1 and any(_is_affected(c) for c in row):
             return i
     return None
+
+
+def _caption_label(grid: Sequence[Sequence[Optional[str]]]) -> Optional[str]:
+    """The table NUMBER this grid claims for itself, from its own caption, or None."""
+    ti = find_title_row(grid)
+    if ti is None:
+        return None
+    return next((lab for c in grid[ti] if (lab := _table_label(c))), None)
 
 
 def pair_columns(header: Sequence[Optional[str]]) -> List[Tuple[int, Optional[int]]]:
@@ -212,12 +232,21 @@ class InheritedHeader(NamedTuple):
 
     Carried forward so a CONTINUATION of that table — same table, next page, header
     printed only once — can be read as the paired table it is instead of an anonymous
-    grid. `width` is the declaring header's column count and is the guard: without it
-    an unrelated later table would inherit a stale header, which is a worse defect than
-    the one this fixes (it mislabels parts confidently rather than declining).
+    grid. `width` is the declaring header's column count and is the FIRST guard: without
+    it an unrelated later table would inherit a stale header, which is a worse defect
+    than the one this fixes (it mislabels parts confidently rather than declining).
+
+    `label` is the table NUMBER from the declaring table's own caption, when it has one,
+    and is the SECOND guard — because the width alone is not enough. Diodes PCN 2683
+    pages 3, 4 and 5 are three DIFFERENT tables that share a column count, and pages 4
+    and 5 are captioned "...and No Replacement Parts". Inheriting page 3's
+    `EOL | Replacement` pairing onto them turns 144 genuine EOL devices into replacements
+    and drops them from the affected list. A caption that numbers its table is the
+    document stating which table this is; two numbers that differ are two tables.
     """
     pairs: List[Tuple[int, Optional[int]]]
     width: int
+    label: Optional[str] = None
 
 
 def header_pairing(
@@ -238,7 +267,20 @@ def header_pairing(
     pairs = pair_columns(grid[hi])
     if not pairs:
         return None
-    return InheritedHeader(pairs, len(grid[hi]))
+    return InheritedHeader(pairs, len(grid[hi]), _caption_label(grid))
+
+
+def _names_a_different_table(
+    grid: Sequence[Sequence[Optional[str]]], inherited: InheritedHeader,
+) -> bool:
+    """Does this grid's own caption number a DIFFERENT table than the pairing we carry?
+
+    Only ever True on POSITIVE evidence — both captions number themselves and the numbers
+    differ. A continuation page that repeats its parent's caption, or carries none at all,
+    still inherits, which is the whole point of the mechanism.
+    """
+    own = _caption_label(grid)
+    return bool(own and inherited.label and own != inherited.label)
 
 
 def _grid_width(grid: Sequence[Sequence[Optional[str]]]) -> int:
@@ -260,7 +302,9 @@ def parts_from_grid(
     Column semantics are decided in PRIORITY ORDER, most-evidenced first:
       1. this grid declares a header      -> pair from it
       2. a preceding table declared one,
-         and the column count matches     -> inherit its pairs (continuation page)
+         the column count matches, and
+         this grid's caption does not
+         number itself a DIFFERENT table  -> inherit its pairs (continuation page)
       3. no header, but a CAPTION names
          the contents                     -> every column is an affected part
       4. otherwise                        -> decline
@@ -274,14 +318,22 @@ def parts_from_grid(
     if hi is not None:
         pairs = pair_columns(grid[hi])
         start = hi + 1
-    elif inherited is not None and _grid_width(grid) == inherited.width:
+    elif (inherited is not None
+          and _grid_width(grid) == inherited.width
+          and not _names_a_different_table(grid, inherited)):
         # CONTINUATION TABLE. A parts table that spans pages prints its header once, so
         # every page after the first is an anonymous grid. Read in isolation it hits the
         # caption rule below and EVERY column becomes an affected part — which is how the
         # replacement half of an `EOL | Replacement` table gets emitted as discontinued
-        # parts. Measured on a real notice: 136 of 402 extracted "affected parts" (34%)
-        # appeared ONLY in replacement columns. The header is recoverable from the
-        # preceding table, and a matching column count is what says it is the same table.
+        # parts. The header is recoverable from the preceding table; a matching column
+        # count, and a caption that does not name some OTHER table, are what say it is
+        # the same table.
+        #
+        # Both guards are load-bearing, and the second was learned the hard way: the
+        # "136 of 402 (34%) affected parts came from replacement columns" figure this fix
+        # was originally built on turned out to be an artifact of the DIAGNOSTIC applying
+        # this same inheritance without the caption check. See
+        # docs/pcn-corpus-validation-2026-09-21.md.
         pairs = inherited.pairs
         start = 0
     else:

@@ -115,8 +115,16 @@ def test_replacement_carries_its_own_column_for_per_cell_provenance():
 # CONTINUATION TABLES. A parts table that spans pages prints its header once, so every
 # page after the first is an anonymous grid. Read in isolation it hits the caption rule
 # and EVERY column becomes an affected part — including the replacement half of an
-# `EOL | Replacement` table. Measured on a real notice: 136 of 402 extracted "affected
-# parts" (34%) appeared ONLY in replacement columns.
+# `EOL | Replacement` table.
+#
+# NOTE ON THE MOTIVATING NUMBER. This was originally justified by "136 of 402 extracted
+# affected parts (34%) appeared ONLY in replacement columns", measured on Diodes PCN
+# 2683. Run against the real notice on 2026-09-21 that figure did not hold: all 136 sit
+# on pages captioned "...and No Replacement Parts", and the diagnostic had produced them
+# by applying THIS SAME inheritance without a caption check. Inheritance remains the
+# right reading for a true continuation page — but the corpus never showed the defect,
+# and the near-miss it did show runs the other way (see the caption-veto tests below).
+# docs/pcn-corpus-validation-2026-09-21.md has the measurement.
 #
 # The whole risk here is trading one wrong assumption for another, so BOTH directions
 # are pinned: a genuine bare list must still read all-affected, and a continuation of a
@@ -188,6 +196,64 @@ def test_a_genuine_bare_list_still_reads_every_column_as_affected():
         parts = parts_from_grid(grid, inherited=inherited)
         assert len(parts) == 4, f"inherited={inherited}"
         assert all(p["replacement_mpn"] is None for p in parts)
+
+
+def test_a_caption_numbering_a_DIFFERENT_table_refuses_the_inherited_pairing():
+    """Diodes PCN 2683, measured against the real notice on 2026-09-21. Pages 3, 4 and 5
+    are THREE different tables, and the width guard only saves us because pdfplumber
+    happens to give pages 4/5 eight columns against page 3's six. In the unstructured
+    `text.json` grid space all three are SIX wide, the guard passes, and page 3's
+    `EOL | Replacement` pairing lands on tables whose own captions read "...and No
+    Replacement Parts" — 144 genuine EOL devices silently reclassified as replacements.
+
+    The document already says these are different tables. Read the caption.
+    """
+    declaring = header_pairing([_CAPTION, _HEADER, _ROW1])      # "Table 1 -", width 6
+    assert declaring.label == "1"
+
+    # page 4: same width, its OWN table number, no header of its own
+    page4 = [["Table 2 - EOL Devices with Life-time Buy Opportunity and No Replacement "
+              "Parts", "", "", "", "", ""],
+             ["TLC271ACS-13", "TLC27L1ACS-13", "HX5112001Q", "FN0800047", "FN3600027",
+              "S1700C-12.2880(T)"]]
+    parts = parts_from_grid(page4, inherited=declaring)
+
+    assert [p["affected_mpn"] for p in parts] == [
+        "TLC271ACS-13", "TLC27L1ACS-13", "HX5112001Q", "FN0800047", "FN3600027",
+        "S1700C-12.2880(T)"], "every column here is an EOL device; the caption says so"
+    assert all(p["replacement_mpn"] is None for p in parts), \
+        "Table 2 declares NO replacement parts — none may be invented by inheritance"
+
+
+def test_a_continuation_repeating_its_parents_table_number_still_inherits():
+    """The veto must fire on POSITIVE evidence only. A continuation page that reprints
+    the same caption is still the same table, and must keep reading as the paired table
+    it is — otherwise the fix undoes itself."""
+    declaring = header_pairing([_CAPTION, _HEADER, _ROW1])      # "Table 1 -"
+    cont = [["Table 1 - EOL Devices", "", "", "", "", ""], _CONT_ROW]
+
+    parts = parts_from_grid(cont, inherited=declaring)
+    assert [p["affected_mpn"] for p in parts] == ["FJ4800016", "FKA000028Q", "HX1110001Q"]
+    assert [p["replacement_mpn"] for p in parts] == ["FJ4800400", "HX3AA0006Q", "HX1A10001Q"]
+
+
+def test_an_unnumbered_caption_does_not_veto_inheritance():
+    """A caption with no table number carries no claim about WHICH table this is, so it
+    is not evidence of a different one. Unchanged behaviour: inherit."""
+    declaring = header_pairing([_CAPTION, _HEADER, _ROW1])
+    cont = [["EOL Devices", "", "", "", "", ""], _CONT_ROW]
+    parts = parts_from_grid(cont, inherited=declaring)
+    assert [p["replacement_mpn"] for p in parts] == ["FJ4800400", "HX3AA0006Q", "HX1A10001Q"]
+
+
+def test_a_declaring_table_with_no_caption_never_vetoes():
+    """Symmetric: if the table that lent the pairing never numbered itself, a later
+    caption cannot contradict it, so inheritance stands."""
+    declaring = header_pairing([_HEADER, _ROW1])                # no caption row
+    assert declaring.label is None
+    cont = [["Table 9 - EOL Devices", "", "", "", "", ""], _CONT_ROW]
+    parts = parts_from_grid(cont, inherited=declaring)
+    assert [p["replacement_mpn"] for p in parts] == ["FJ4800400", "HX3AA0006Q", "HX1A10001Q"]
 
 
 def test_an_unlabelled_grid_is_still_declined_when_there_is_nothing_to_inherit():
