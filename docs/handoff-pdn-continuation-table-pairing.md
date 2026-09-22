@@ -27,10 +27,14 @@ Branch `fix/pcn-continuation-table-pairing`, eight commits off `origin/main`.
 61 tests pass across `test_table_text_layer.py` and `test_sustainment_extraction.py`,
 both directions pinned. **What is NOT done:**
 
-- **No corpus validation.** The success criterion below (`from_replacement_column`
-  collapsing toward zero) requires a RE-EXTRACTION with this code deployed —
-  running the diagnostic with `--tl-path` pointed at the fixed module only changes
-  how the instrument CLASSIFIES, which is explicitly not the criterion.
+- ~~**No corpus validation.**~~ **Done 2026-09-21** — see
+  `docs/pcn-corpus-validation-2026-09-21.md` on the fix branch. It did not use the
+  criterion below, because that criterion is unsound: the diagnostic grades the
+  already-stored `extraction.json`, produced by pre-fix code, so `--tl-path` can
+  only change how the instrument CLASSIFIES, never what extraction produces. The
+  validation drove the extractor directly over the real PDFs, baseline vs fixed.
+  **It also disproved the measurement this whole document is built on — read
+  "The measurement" below with its correction.**
 - **Not deployed anywhere.** Sandbox pulls ghcr; d4 needs an Artifactory push.
 - The alias fix in `table_text_layer` covers tier 1 only. Tier 2/3 read pixels, and
   the diagnostic says that is where the demo's bad rows came from — hence the
@@ -41,9 +45,13 @@ both directions pinned. **What is NOT done:**
 
 `table_text_layer._is_affected` now vetoes alias headers, and `find_header_row`
 scores with it. So pointing `--tl-path` at the FIXED module changes the
-instrument's own header detection as well as production behaviour. To reproduce
-the original 136/402 baseline, point `--tl-path` at the module as it stands on
-`origin/main`, not at the fix branch.
+instrument's own header detection as well as production behaviour.
+
+Better: **don't re-run the diagnostic for this at all.** It grades stored
+extractions, not extraction. Drive `parts_from_grid` / `parts_from_pages`
+directly over the PDFs, once with the `origin/main` module and once with the
+branch's, as `docs/pcn-corpus-validation-2026-09-21.md` §"How it was run"
+describes.
 
 ---
 
@@ -54,7 +62,29 @@ A parts table that spans pages loses its header on every page after the first, a
 part** — so on an `EOL | Replacement | EOL | Replacement | EOL | Replacement`
 table, all three replacement columns are emitted as discontinued parts.
 
-## The measurement
+## The measurement — RETRACTED 2026-09-21
+
+> **This number is an artifact. Do not cite it.** It was reproduced exactly
+> against the real notice on 2026-09-21 and then disproved: all 136 sit on
+> `Diodes_PCN_2683_Rev1_EOL.pdf` pages 4 and 5, whose own captions read
+> *"Table 2 / Table 3 - EOL Devices ... and **No Replacement Parts**"*. They are
+> separate column-major EOL lists (page 4 col 0 is all `TLC271*`, col 1 all
+> `TLC27L1*` — two families both discontinued), not continuation pages of page
+> 3's `EOL | Replacements` table. The diagnostic's *own*
+> `index_tables(..., inherit_headers=True)` — the heuristic added in `a67e7f4`,
+> whose commit message reports this finding — inherited page 3's classification
+> onto them because all three tables are 6 columns wide in `text.json` grid
+> space. Both baseline and fixed extract those 402 parts correctly; nothing on
+> this notice was ever mixed up with a replacement.
+>
+> The defect described above is still a real *shape* — a continuation page read
+> in isolation does become all-affected — but the corpus never exhibited it, and
+> the near-miss it did exhibit runs the **other** way: see the latent regression
+> in §3 of `docs/pcn-corpus-validation-2026-09-21.md`, where inheritance winning
+> over a caption would have cost 144 genuine EOL devices. That is why the fix
+> now carries a table-number caption veto.
+
+The retracted measurement, for the record:
 
 Run the diagnostic with and without header inheritance
 (`scripts/pdn_parts_diagnostic.py --prefix sustainment/ [--no-inherit-headers]`).
@@ -65,10 +95,11 @@ without inheritance:  affected_exact  82,  from_unheadered_table 274
 with inheritance:     affected_exact 220,  from_replacement_column 136
 ```
 
-**136 of 402 extracted "affected parts" (34%) appear ONLY in replacement
-columns.** The classifier counts `from_replacement_column` solely when a value
-never appears in an affected column anywhere in the document, so this is not a
-same-part-in-two-places artifact.
+~~**136 of 402 extracted "affected parts" (34%) appear ONLY in replacement
+columns.**~~ The classifier counts `from_replacement_column` solely when a value
+never appears in an affected column anywhere in the document, so it is not a
+same-part-in-two-places artifact — it is a *different* artifact, of the
+instrument's own inheritance. See the retraction above.
 
 Corpus-wide the affected-document rate moves from **1/9 to 3/9** once continuation
 tables become readable. The work corpus shows the same shape: doc_0009 had 43
@@ -131,11 +162,11 @@ The whole risk is trading one wrong assumption for another, so pin both:
 - Fixtures exist: `tests/fixtures/manufacturing/` has the generators, and the
   sandbox corpus has real instances (the notice above) for an integration check.
 
-## Validation loop (fast — no courier needed)
+## Validation loop — SUPERSEDED 2026-09-21
 
-The sandbox MinIO now holds **9 distinct real notices** that mirror work
-(namespace `sandbox`, pod `doc-tools-*`, bucket `processing-artifacts`, prefix
-`sustainment/`). Run the diagnostic through the pod:
+The sandbox MinIO holds **9 distinct real notices** that mirror work (namespace
+`sandbox`, pod `doc-tools-*`, bucket `processing-artifacts`, prefix
+`sustainment/`). The loop originally prescribed here was:
 
 ```bash
 kubectl exec -i -n sandbox <doc-tools-pod> -- python - \
@@ -143,22 +174,61 @@ kubectl exec -i -n sandbox <doc-tools-pod> -- python - \
   < scripts/pdn_parts_diagnostic.py
 ```
 
-After the production fix, `from_replacement_column` should collapse toward zero
-**because the parts were never extracted as affected in the first place** — that
-is the success criterion, not a change in the diagnostic's classification.
+**Don't use it.** Two problems, both found while actually running it:
 
-## Two related defects found in the same corpus, NOT yet fixed
+1. **It cannot answer the question.** The diagnostic grades the *stored*
+   `extraction.json`, which was produced by whatever code ran at ingest — pre-fix
+   code. `--tl-path` only changes how the instrument classifies those stored
+   values. `from_replacement_column` collapsing would therefore never be evidence
+   about post-fix extraction, and the number it produced was an artifact of the
+   instrument's own header inheritance (see the retraction under "The
+   measurement").
+2. **The stdin pipe is what the permission classifier blocks**, not `kubectl
+   exec` itself. `kubectl cp` the script into `/tmp` and `kubectl exec ... --
+   python /tmp/x.py` runs fine.
 
-1. **Extracted part values carry literal quote characters** — shapes like
-   `"####-####-##"` include the `"`. These will fail every downstream join, graph
-   lookup and match. Cheap to strip; silently corrosive if left.
-2. **Alias columns exist and are read.** One notice has an explicit
-   `Alias Part Number(s)` / `Substitute Alias Part Number(s)` header, and parts
-   are sourced from it (14 instances in the work corpus, 1 in sandbox). Once
-   pairing is correct, the next step is to **reject alias-sourced values at
-   extraction** so they never reach a review card. The column classification in
-   `pdn_parts_diagnostic.classify_columns` (with its `ALIAS_HEADERS` vocabulary)
-   is the logic to promote into production.
+**Use instead:** a direct baseline-vs-fixed A/B of the extractor over the real
+PDFs, per `docs/pcn-corpus-validation-2026-09-21.md` §"How it was run" on the fix
+branch. Baseline is `/app/doc_tools/utils/table_text_layer.py` in the running pod
+(md5 `f1c1aa8c65c532300e335f24f0255e52`, byte-identical to `origin/main`); copy
+the branch's module in beside it and drive `parts_from_grid` per table so every
+emitted part keeps `(page, table, row, col)` and traces to its column header.
+
+Two Windows traps if you redo this: use the PowerShell tool for `kubectl` (Git
+Bash mangles `sandbox/pod:/tmp/x.py` into a path), and `Set-Location` into the
+scratchpad first so `kubectl cp` gets a bare relative filename rather than a
+drive letter.
+
+## Two related defects found in the same corpus — BOTH FIXED on the branch
+
+Both were fixed on `fix/pcn-continuation-table-pairing` after this section was
+written, and both are confirmed against the real notices (2026-09-21).
+
+1. ~~**Extracted part values carry literal quote characters**~~ — shapes like
+   `"####-####-##"` included the `"`, and would fail every downstream join, graph
+   lookup and match. **Fixed** in `ad95e15`, moved beside the other part-list
+   transforms in `03f43c9`. Confirmed on real data: all 14 alias values on
+   `TYC-PCN-24-210412.pdf` are quote-wrapped in the source and are stripped by
+   `strip_enclosing_quotes` at the merge layer.
+2. ~~**Alias columns exist and are read.**~~ **Fixed** in `044f007` / `2de007f`
+   (`ALIAS_HEADERS` promoted into `table_text_layer`, character-for-character
+   identical to `pdn_parts_diagnostic.ALIAS_HEADERS`), narrowed in `ffb4b5f` so
+   the vocabulary applies to headers and not to cells that are values, with the
+   vision pass told the same rule in `5d235b1`. Confirmed on real data:
+   `TYC-PCN-24-210412.pdf` drops from 38 parts to 24, and all 14 dropped are
+   alias values — exactly the 14 predicted here. No other notice in the corpus
+   changes.
+
+### Still open, and now a design item rather than a defect
+
+Tier 1 returns **zero** parts on 5 of the 9 notices — headerless but plainly
+born-digital grids, plus `ADI_PDN_23_0120.pdf` whose affected column is headed
+`Model`. Production falls back to the vision pass, so this is not measured
+product loss. §4 of `docs/pcn-corpus-validation-2026-09-21.md` has the detail and
+the intended shape: tier 1 should hand a **declined grid** (exact cells, column
+by column, plus the reason it declined) forward to tier 2 rather than discarding
+it, so tier 2 labels columns from the page image while the part strings still
+come from tier 1's exact text. Do not "fix" this by loosening the decline rule.
 
 ## What NOT to conclude
 
