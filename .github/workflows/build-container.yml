@@ -59,18 +59,58 @@ jobs:
     # makes repeat runs cheap. It runs in PARALLEL with telemetry-contract, so the
     # added wall-clock is whatever it exceeds that job by, not its full duration.
     #
-    # `uv sync` WITHOUT `--frozen`, DELIBERATELY, AND THIS IS NOT THE TIDY CHOICE.
-    # `uv lock --check` currently reports uv.lock as out of date with respect to
-    # pyproject.toml, so `--frozen` would fail this job on its first run — and it
-    # would read as "the new test gate is broken" rather than "the lockfile
-    # drifted", which is the worst way for a new gate to arrive. Resolving fresh
-    # also matches what the IMAGE gets: build-and-push below runs
-    # `uv export --format requirements-txt`, which resolves rather than reading a
-    # pinned set, so the tests run against the dependency set that actually ships.
-    # The cost is that a dependency can change under CI without a commit saying so.
-    # Reconciling uv.lock is a real fix and a SEPARATE one — running `uv lock`
-    # moves versions in the shipped image, which is not a change to make as a side
-    # effect of adding a test job.
+    # `uv sync --locked`, AND THE CONCLUSION HERE FLIPPED — 2026-09-19.
+    #
+    # This block used to argue for a BARE `uv sync`, on two reasons. Both were
+    # true when written. BOTH ARE NOW MEASURABLY FALSE, and killing the second
+    # one reverses what the argument concludes, so the reasoning is kept rather
+    # than quietly replaced.
+    #
+    # REASON 1 AS WRITTEN: "`uv lock --check` currently reports uv.lock as out of
+    # date with respect to pyproject.toml, so `--frozen` would fail this job on
+    # its first run." Re-run with the exact command it names, twice, in two
+    # checkouts:
+    #
+    #     uv lock --check   ->  "Resolved 384 packages"   exit 0
+    #     git status uv.lock -> clean, untouched
+    #
+    # Settled, most likely by 41dccac ("reconcile uv.lock — it was two versions
+    # of reality behind"). The lockfile drift this reason existed for is gone.
+    #
+    # REASON 2 AS WRITTEN: "Resolving fresh also matches what the IMAGE gets:
+    # build-and-push below runs `uv export --format requirements-txt`, which
+    # RESOLVES rather than reading a pinned set, so the tests run against the
+    # dependency set that actually ships." Measured:
+    #
+    #     uv export --format requirements-txt --no-hashes --no-emit-project
+    #       ->  iagent-mesh @ git+...@557976d2f1d4ef27584d305fd9ac0d50d9b51d15
+    #     uv.lock source
+    #       =   ...?rev=v0.9.1#557976d2f1d4ef27584d305fd9ac0d50d9b51d15
+    #     uv.lock after export -> untouched
+    #
+    # `uv export` emits THE LOCK'S RESOLVED COMMIT, character for character. It
+    # reads the lock; it does not resolve independently. So the image has been
+    # shipping the lock all along.
+    #
+    # WHICH INVERTS THE CONCLUSION. This block's stated goal is "the tests run
+    # against the dependency set that actually ships". The image reads the lock
+    # and the test job was resolving fresh — so the BARE FORM IS WHAT DEFEATS
+    # THAT GOAL, and `--locked` is what achieves it. The comment was arguing
+    # against the fix it wanted, on a premise that had expired underneath it.
+    #
+    # BOTH HALVES CARRY THE FLAG, here and on the `uv export` in build-and-push,
+    # so neither can silently re-resolve and drift from the other. One alone
+    # leaves the gap open at the other end.
+    #
+    # `--locked` rather than `--frozen`: --frozen uses the lock without checking
+    # it against pyproject.toml, so a pyproject edit that nobody re-locked would
+    # pass silently. --locked ASSERTS they agree and fails loudly if not, which
+    # is the failure this whole file keeps paying for in other forms.
+    #
+    # STILL TRUE, and left standing: reconciling uv.lock is a real fix and a
+    # SEPARATE one. Running `uv lock` moves versions in the shipped image and is
+    # not a change to make as a side effect. Nothing here re-locks; the lock is
+    # already current, which is the whole point above.
     #
     # Live-service tests (LLM endpoint, Jena) skip cleanly without configuration
     # and are expected to skip here — see their pytest.mark.skipif reasons. A
@@ -85,7 +125,7 @@ jobs:
         with:
           enable-cache: true
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
       - name: Run the test suite
         run: uv run -- python -m pytest -q -rs
 
@@ -131,7 +171,15 @@ jobs:
           # uv export would otherwise add an "-e ." line. The Docker build only COPYs
           # requirements.txt into /app (no pyproject.toml present), so trying to install "."
           # fails with "/app does not appear to be a Python project".
-          uv export --format requirements-txt --no-hashes --no-emit-project > requirements.txt
+          #
+          # --locked added 2026-09-19, the other half of the change in the tests
+          # job above. `uv export` already read the lock rather than resolving —
+          # that was measured, and it is why the tests job moved to `--locked` to
+          # MATCH this step. The flag makes the existing behaviour explicit and
+          # refuses rather than silently re-resolving if pyproject.toml and
+          # uv.lock ever stop agreeing. Without it on BOTH halves, one end can
+          # drift from the other and the gate stops testing what ships.
+          uv export --locked --format requirements-txt --no-hashes --no-emit-project > requirements.txt
 
       - name: Inject Golden Dockerfile
         run: |

@@ -286,6 +286,21 @@ ingest_ontology_job = define_asset_job(
     tags=ontology_k8s_tags
 )
 
+# RULING 3 (2026-09-19) — the per-domain, per-manifest-entry ingest sentinel.
+#
+# A SEPARATE JOB, not an addition to `ingest_ontology_job` above, and the reason
+# is structural rather than tidiness: that job is PARTITIONED (one run per TTL)
+# and `weaviate_ontology_readiness` deliberately is not. A per-partition
+# readiness check cannot see the entry whose partition NEVER RAN, which is the
+# blind spot the ruling exists to close — so the sentinel has to stand outside
+# the partition set and enumerate what should have run. Run it AFTER the
+# partitioned ingest fans in.
+ontology_readiness_job = define_asset_job(
+    name="ontology_readiness_job",
+    selection=["weaviate_ontology_readiness"],
+    tags=ontology_k8s_tags,
+)
+
 design_metadata_job = define_asset_job(
     name="parse_design_metadata_job",
     selection=["parse_design_metadata"],
@@ -317,7 +332,7 @@ defs = Definitions(
     # one-off manual syncs through the Dagster launchpad. The SENSOR
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
     assets=list(_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
-    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, design_metadata_job, iads_ingest_job],
+    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job],
     sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
