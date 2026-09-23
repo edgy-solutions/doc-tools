@@ -2,6 +2,35 @@
 
 When working in `doc-tools`, AI agents should adhere to the following workflow and safety guardrails:
 
+## Domain handoffs — read before touching PCN/PDN extraction
+
+The SUSTAINMENT domain (PCN/PDN parts extraction) carries three documents on
+`main`. Read them rather than re-deriving; two of them exist specifically to stop
+a fresh session repeating a retracted measurement.
+
+- [`docs/handoff-pdn-continuation-table-pairing.md`](docs/handoff-pdn-continuation-table-pairing.md)
+  — the continuation-table / alias-column fix: what it closed, what it did not,
+  and which of its own premises turned out to be false.
+- [`docs/handoff-next-session.md`](docs/handoff-next-session.md) — entry point;
+  PCN/PDN status plus the manufacturing chunking work.
+- [`docs/pcn-corpus-validation-2026-09-21.md`](docs/pcn-corpus-validation-2026-09-21.md)
+  — the baseline-vs-fixed A/B over the 9 real notices in sandbox MinIO. The
+  authority for any claim about how `table_text_layer` behaves on real data.
+
+**Two standing cautions from that work:**
+
+1. **The "136 of 402 (34%)" figure is RETRACTED.** It survives only in the
+   `a67e7f4` commit message, which cannot be edited. It was an artifact of
+   `scripts/pdn_parts_diagnostic.py` applying header inheritance without a
+   caption check. Do not cite it. `tests/test_table_text_layer.py` carries the
+   same retraction where it used to motivate the tests.
+2. **`pdn_parts_diagnostic.py` grades the STORED `extraction.json`**, which was
+   produced by whatever code ran at ingest. Pointing `--tl-path` at a modified
+   module changes only how the instrument classifies — it can never show
+   post-fix extraction behaviour. To measure an extractor change, drive
+   `parts_from_grid` / `parts_from_pages` directly over the PDFs, baseline and
+   candidate, as the validation report's "How it was run" describes.
+
 ## Workflow Guide
 0. **Pre-flight Environment**: Substrate priming (graph constraints, vector schemas, foundational ontologies) lives in the `invincible-agent` chart's `primeSubstrate` Helm Job, which runs `invincible-agent/setup/prime_databases.py`. The historical `setup/setup_env.py` was retired 2026-06-17. The custom TBox extension TTLs (`mro_extension`, `maintenance_extension`, `mil_extension`, `idp_extension`, `mesh_system`) ALSO moved out of doc-tools — they now live at `invincible-agent/setup/ontologies/*.ttl` to eliminate the cross-repo URL coupling that priming used to depend on. Run `helm install/upgrade` on the invincible-agent chart with `--set primeSubstrate.enabled=true` before deploying doc-tools, or Dagster sink adapters will fail against unindexed databases. When you need to edit a class definition (e.g., add a new `mil:*` content kind), edit the TTL in invincible-agent and re-deploy the invincible-agent chart — do NOT add a TTL or priming script back into doc-tools.
 1. **Understanding the Pipeline**: Configured sensors polling MinIO bucket/directory targets dynamically inject a `domain_type` workflow tag string. The pipeline processes documents (PDFs via `unstructured`, PPTXs via `python-pptx`), dynamically dispatches the extracted structure to the correct Plugin mapping, and orchestrates them into Neo4j, Weaviate, and Apache Jena using SPARQL.

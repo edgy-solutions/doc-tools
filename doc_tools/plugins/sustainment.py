@@ -121,7 +121,27 @@ def _fetch_image_b64(s3_client, s3_url: str):
 # timeout. Actually EXTRACTING those parts wants the text-layer path (these notices are
 # born-digital; pdfplumber reads the same tables exactly, in under a second), not a
 # bigger token budget.
+#
+# MEASURED ELSEWHERE, 2026-09-22 — the "per deployment" caveat above is not
+# hypothetical, and the sandbox is the worked example. Against Ollama on a
+# discrete Radeon (no LiteLLM, 600s client timeout, 17-21 tok/s measured over 8
+# crops) the binding constraint is ~12,000 tokens, not ~2,700, and the two
+# densest crops in the corpus emit 2,840 and 3,472 tokens. There 2048 truncated
+# both: PCN23-002 returned 0 of 18 parts and onsemi_Generic_IPCN25300X 2 of 19.
+# values-sandbox.yaml therefore sets 8192. This default is deliberately NOT
+# changed — it is right for the 46 tok/s + 60s deployment described above, and
+# the two deployments disagree by 4x on throughput and 10x on timeout.
 VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
+
+# Early warning for the bound above. Truncation is only detectable AT the cap, by
+# which point rows are already lost; a crop that emits close to the cap is the last
+# observable state before that happens, and the ratio is the ONLY signal available
+# ahead of the loss. A denser table than any yet seen would cross the cap silently
+# otherwise — it fails open, so nothing would be raised. 0.85 comes from the
+# measured corpus: the densest crop emits 3,472 tokens, which is 85% of 4096 and
+# 42% of the 8192 the sandbox now sets, so a crop at or above this ratio is outside
+# everything that has been observed and is worth a human look.
+VISION_NEAR_CAP_RATIO = float(os.getenv("VISION_NEAR_CAP_RATIO", "0.85"))
 
 
 def _vision_call_opts():
@@ -275,7 +295,7 @@ class SustainmentPlugin(AugmentationPlugin):
         )
         embedded = (manifest or {}).get("embedded_images", {}) or {}
         all_parts: List[dict] = []
-        n_crops, missing, failed, truncated = 0, 0, 0, 0
+        n_crops, missing, failed, truncated, near_cap = 0, 0, 0, 0, 0
         for el in tables:
             meta = el.get("metadata") or {}
             html = meta.get("text_as_html", "") or ""
@@ -311,6 +331,16 @@ class SustainmentPlugin(AugmentationPlugin):
                           f"bound (runaway decode on a dense table) — discarding this crop's "
                           f"{len(res or [])} partial row(s) rather than reporting them as complete")
                     continue
+                # Not truncated, but close enough that the next document of this
+                # shape may not be. Recorded per crop so the ratio is visible in
+                # logs before it ever becomes a loss.
+                if used is not None:
+                    ratio = used / VISION_MAX_TOKENS
+                    if ratio >= VISION_NEAR_CAP_RATIO:
+                        near_cap += 1
+                        print(f"[SustainmentPlugin] ExtractParts NEAR CAP: {used}/"
+                              f"{VISION_MAX_TOKENS} output tokens ({ratio:.0%}) — this crop "
+                              f"completed, but a denser table would truncate and lose rows")
                 for p in (res or []):
                     all_parts.append(part_to_dict(p))
             except Exception as e:  # noqa: BLE001
@@ -324,7 +354,8 @@ class SustainmentPlugin(AugmentationPlugin):
         # decode did not converge on this table". Distinguishing them is how we'll know whether
         # banding (or a text-layer path) actually helps, instead of inferring it.
         return all_parts, {"n_crops_used": n_crops, "crops_missing": missing,
-                           "crops_failed": failed, "crops_truncated": truncated}
+                           "crops_failed": failed, "crops_truncated": truncated,
+                           "crops_near_cap": near_cap}
 
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
@@ -359,7 +390,7 @@ class SustainmentPlugin(AugmentationPlugin):
         index = provenance.build_positioned_index(elements)
         ocr_norm = provenance._norm(full_text)
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
-                 "crops_truncated": 0, "vision_used": False}
+                 "crops_truncated": 0, "crops_near_cap": 0, "vision_used": False}
         reasons: List[str] = []
         needs_review = False
         # The doc-level reasons that FORCE review — i.e. the extraction telling us its own
@@ -425,6 +456,18 @@ class SustainmentPlugin(AugmentationPlugin):
                     # a complete one unless we say so. Parts MISSING here get no disposition
                     # and nobody would know.
                     doc_flags.append(f"PARTS MAY BE MISSING: {msg}")
+                    needs_review = True
+                # Deliberately NOT a doc_flag: nothing is known to be missing here,
+                # and "PARTS MAY BE MISSING" on a complete extraction would train
+                # reviewers to ignore the banner that means it. This is a flag for
+                # us — the cap needs raising before a document of this shape loses
+                # rows — so it sets needs_review and says why, without claiming loss.
+                if ps.get("crops_near_cap"):
+                    reasons.append(
+                        f"{ps['crops_near_cap']}/{len(tables)} table crops emitted "
+                        f">={VISION_NEAR_CAP_RATIO:.0%} of the {VISION_MAX_TOKENS}-token output "
+                        f"bound — parts appear COMPLETE, but this corpus is approaching the cap "
+                        f"and a denser table would truncate silently")
                     needs_review = True
             except Exception as e:  # noqa: BLE001
                 reasons.append(f"parts pass failed: {e}")

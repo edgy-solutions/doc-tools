@@ -107,17 +107,48 @@ env:
   LLM_EMBED_MODEL: "nomic-embed-text"
 
   # Vision (gemma) endpoint for the PCN/PDN parts pass.
-  # CRITICAL: keep this on a DIFFERENT box than LLM_BASE_URL. Co-locating the
-  # 120B header model and the gemma vision model on ONE Strix Halo starves gemma
-  # of GPU (shared unified memory) -> dense multi-row table crops time out and
-  # only ~2/19 parts extract. Split across boxes:
-  #   header  (gpt-oss 120B) -> ai1  .126   (LLM_BASE_URL above)
-  #   vision  (gemma4-32k)   -> ai2  .169   (gemma runs alone -> full 19/19)
+  # Keep this on a DIFFERENT box than LLM_BASE_URL so the 120B header model and
+  # the gemma vision model do not compete for one card's memory:
+  #   header  (gpt-oss 120B) -> ai1  .126        (LLM_BASE_URL above)
+  #   vision  (gemma4-32k)   -> .169:11434       (this block)
+  # .169:11434 is a 32 GB discrete Radeon PRO R9700 (endpoint "C" in
+  # ~/git/gpu-servers.md), NOT the ai2 Strix Halo — ai2 answered on this port
+  # until 2026-09-20 and now answers on :11435. Do not compare runs across that
+  # date. C is shared with iagent and the goatyardarchive coding agent and holds
+  # ONE large model at a time, so batch test runs by model.
   # NOTE: .188 is only the OpenWebUI *frontend* (proxies to .169); its own
   # Ollama at :11434 has no model -> 404. Point at .169 directly.
   VISION_LLM_BASE_URL: "http://192.168.1.169:11434/v1"
   VISION_LLM_MODEL: "gemma4-32k:31b"
   VISION_LLM_API_KEY: "any"
+
+  # Output bound for the vision parts pass. Caps GENERATED tokens only; it is
+  # unrelated to the model's 32k context window (which the `-32k` in the model
+  # name selects, and which num_ctx cannot change over the OpenAI-compatible
+  # /v1 path BAML speaks).
+  #
+  # Measured on 0279d83 against this endpoint, 2026-09-22 — the two densest
+  # crops in the corpus emit 2,840 and 3,472 output tokens. The old code
+  # default of 2048 cut both off; BAML fails OPEN on truncation, so the crops
+  # were discarded and PCN23-002 returned 0 of 18 parts while
+  # onsemi_Generic_IPCN25300X returned 2 of 19. At 4096 both complete
+  # (17/18 and 19/19), but 3,472 is 85% of 4096 and overrun is SILENT part
+  # loss, so this is set well clear of the measured ceiling rather than just
+  # above it. A ceiling is not a reservation: a short answer still costs only
+  # what it emits.
+  #
+  # The corpus was then re-run at 32768, where the cap cannot bind, to measure
+  # the model instead of the bound: the densest of 15 crops emitted 2,723
+  # tokens and the whole corpus reached 894/896. Nothing here wants more than
+  # ~3,500 tokens even when offered 32k, and no crop ran away (longest 131s,
+  # against a 600s timeout). 8192 is therefore ~2.4x the largest emission ever
+  # observed, with the run-to-run variance (~20%) covered.
+  #
+  # Upper bound is the per-call timeout, not the context window: at the
+  # measured 17-21 tok/s, 8192 tokens is ~400-480s against the 600s
+  # LLM_REQUEST_TIMEOUT_MS default. Raising this much further trades a
+  # DETECTED truncation for an undetected timeout.
+  VISION_MAX_TOKENS: "8192"
 
 # Doc-tools' unstructured/PDF pipeline is memory-heavy (table parser,
 # layout model, image extraction). Conservative starting point; will
