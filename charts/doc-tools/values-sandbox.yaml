@@ -137,6 +137,13 @@ env:
   # above it. A ceiling is not a reservation: a short answer still costs only
   # what it emits.
   #
+  # The corpus was then re-run at 32768, where the cap cannot bind, to measure
+  # the model instead of the bound: the densest of 15 crops emitted 2,723
+  # tokens and the whole corpus reached 894/896. Nothing here wants more than
+  # ~3,500 tokens even when offered 32k, and no crop ran away (longest 131s,
+  # against a 600s timeout). 8192 is therefore ~2.4x the largest emission ever
+  # observed, with the run-to-run variance (~20%) covered.
+  #
   # Upper bound is the per-call timeout, not the context window: at the
   # measured 17-21 tok/s, 8192 tokens is ~400-480s against the 600s
   # LLM_REQUEST_TIMEOUT_MS default. Raising this much further trades a
