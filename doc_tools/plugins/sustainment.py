@@ -34,7 +34,7 @@ from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
 from doc_tools.utils import table_text_layer as text_layer
 from doc_tools.utils.sustainment_merge import (
-    header_to_dict, part_to_dict, dedup_parts, reconcile_ltb, clean_replacements,
+    header_to_dict, part_to_dict, dequote_parts, dedup_parts, reconcile_ltb, clean_replacements,
     build_review_items, validate_count, empty_header,
 )
 
@@ -228,11 +228,18 @@ class SustainmentPlugin(AugmentationPlugin):
             body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
             parts: List[dict] = []
             with pdfplumber.open(io.BytesIO(body)) as pdf:
-                for pno, page in enumerate(pdf.pages, start=1):
-                    if not text_layer.page_has_text_layer(page):
-                        continue
-                    stats["text_layer_pages"] += 1
-                    parts.extend(text_layer.parts_from_page(page, pno))
+                def _born_digital_pages():
+                    """(page_number, page) for the pages tier 1 can actually read."""
+                    for pno, page in enumerate(pdf.pages, start=1):
+                        if not text_layer.page_has_text_layer(page):
+                            continue
+                        stats["text_layer_pages"] += 1
+                        yield pno, page
+                # parts_from_pages OWNS the page loop because a parts table spanning
+                # pages prints its header only once: page 2 onwards is an anonymous grid,
+                # and read per-page every column of an `EOL | Replacement` continuation
+                # was emitted as a discontinued part (measured: 34% of one notice's 402).
+                parts = text_layer.parts_from_pages(_born_digital_pages())
         except Exception as e:  # noqa: BLE001 — degrade to vision, never fail the doc
             print(f"[SustainmentPlugin] text-layer pass unavailable ({e}); falling back to vision")
             return [], stats
@@ -433,6 +440,13 @@ class SustainmentPlugin(AugmentationPlugin):
             # miss-rate is visible (Phase 0 decision #3: build the coordinate
             # page-crop fallback only if this fires on parts-bearing docs).
             reasons.append("no Table element detected — parts pass skipped (header-only)")
+
+        # De-quote the VALUES, whichever tier produced them — applied after the tiers
+        # converge and BEFORE dedup, so a quoted and an unquoted copy of the same part
+        # collapse into one row instead of surviving as two.
+        n_dequoted = dequote_parts(parts_d)
+        if n_dequoted:
+            stats["parts_dequoted"] = n_dequoted
 
         # dedup across crops, then reconcile per-part LTB (per-row primary,
         # doc-level fallback)
