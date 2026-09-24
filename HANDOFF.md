@@ -258,7 +258,11 @@ asset's NAME argues against all three properties that make it work:
   universal-referent partition that does not match the TTL's — so the recovery
   re-checks the payoff read on its own.
 `file_url` is REQUIRED on `S3FileConfig` (no default), so an empty-config launch
-is rejected before it starts. Do NOT re-fire the whole partition to repair a
+is rejected before it starts. Verified against the rev the IMAGE installs, not
+the local checkout: `uv.lock` pins dag-tools at
+`95c7dc211191dbeb5d28dadcbbf5899f1b4a8cf2` and CI syncs `--locked`, while the
+local `dag-tools` working copy sits ahead at `6c8363a` — the field is required
+at both, but only the first one is evidence. Do NOT re-fire the whole partition to repair a
 red: that re-POSTs to Jena, the one leg with no auto-retry and no clear.
 
 Writer fixes stay held, on this run and as a reaction to it.
