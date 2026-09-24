@@ -102,6 +102,22 @@ rebase. Nothing else rode with it.
       a MagicMock client and never exercises the embed path, so the vectorless
       branch — the branch that creates the orphan — has no test at all.
   The fourth call site is `xml_ingestion.py:381` (`:294` is only the import).
+
+  **The architect has ruled on the SHAPE of the fix (2026-09-23) — still not
+  authorized to build, but no longer open to design when it is:**
+    * **The tally splits.** A count that includes rows with no vector and no
+      id is a count of INSERTS, not of searchable chunks. The fix reports
+      `written` and `written_without_vector` separately, and the second is
+      what the run declares as its own degradation. Same rule as the PDN
+      `needs_review` reason strings: name the degraded case, never hide it
+      inside the success number.
+    * **The test at `:185` changes in the SAME commit as the code**, because
+      it is a seal written to match the code instead of the contract.
+    * **The changed test needs its own mutation check**: removing `uuid=`
+      from the insert must turn it RED. A test that passes both with and
+      without the fix has re-pinned the defect at a new address.
+    * **The embed-failure branch gets its first test then too** — it is the
+      branch that creates the orphan and it currently has no coverage.
 - `aitool_linker.py:602-606` `data.replace` on `Predicate` — same stripping
   shape, unbitten (135 rows, 0 vectorless), architect's ruling, held.
 - The 16 vectorless BFO/IOF_Core rows + the `IOF_Core` double-manifest
@@ -113,26 +129,54 @@ rebase. Nothing else rode with it.
   2026-09-23. No local run is evidence here; any claim of green must name the
   run id and the sha it ran on. The `bee5b4c`/`9a5ae75` correction above is
   what happens when that discipline slips by one commit.
-- **PR #7 — paths-ignore on `build-and-push`.** Ordered to ride with the PCN
-  lane's next CODE PR, not to open as its own. NOT STARTED, and it needs a
-  design decision before it can be: **`paths-ignore` cannot be applied to a
-  job.** It is only valid under `on.<event>`, where it would skip the WHOLE
-  workflow — which contradicts the requirement that tests and telemetry still
-  run on docs PRs. The current `on:` block (`build-container.yml:3-21`) has
-  push/main + tags, pull_request/main, workflow_dispatch, and no path filter
-  at all. The shape that satisfies the order is a job-level `if:` fed by a
-  changed-paths filter, with `charts/**` counted as build-triggering.
-  Two things to carry into that PR:
-    * The chart and the image must stay in lockstep — `values.yaml:24-27`
-      pins `command: ["/opt/venv/bin/python"]` and says in so many words
-      "Keep in lockstep with the Dockerfile in build-container.yml". That is
-      the reason `charts/**` is excluded from the ignore, and it should be
-      cited in the diff, not left implicit.
-    * This repo has VERIFIED "no `if:` anywhere in the workflow, so nothing
-      could have been silently skipped" as a property (recorded above). This
-      change spends that property. Whatever lands must make a skipped build
-      legible as skipped rather than absent — the `3db8dbb` believed-built
-      incident in the same file's comment is the precedent.
+- **PR #7 — the docs-only build skip. NOT THIS LANE'S WORK. DO NOT RE-DO.**
+  Resolved 2026-09-23. PR #7 turned out to BE the PCN lane's PR
+  (`feat/pcn-row-count-detector-router-tests`, open), and it already carries
+  the change. The architect's item 4 as written — "paths-ignore on the
+  build-and-push JOB" — is not expressible; `paths-ignore` lives only under
+  `on.<event>` and would skip all three jobs. The architect has since
+  corrected that himself. **The PCN lane's PR #7 is the reference
+  implementation; read it rather than redesigning it.** What it does:
+    * A new `changes` job runs `git diff --name-only BASE...HEAD` (three
+      dots, against the merge base) and publishes `outputs.code`.
+    * `build-and-push` gains `needs: [..., changes]` and
+      `if: needs.changes.outputs.code == 'true'`. `telemetry-contract` and
+      `tests` are untouched and still run on every PR, docs-only included.
+    * The ignore list is an ALLOWLIST of one entry, `^docs/`. `charts/` is
+      deliberately NOT in it, for the reason this lane would have given:
+      `values-sandbox.yaml` is how a commit reaches a running pod *without*
+      an image. The 8192 vision cap is live in sandbox as a values change
+      only — that is the worked example, and it is in the PR's comment.
+    * It fails open in every ambiguous branch (non-push/PR event, tag push,
+      zero base sha, unreachable sha, failed diff, EMPTY diff). Worst case
+      is an unnecessary build, never a silent skip.
+  The "no `if:` anywhere" property recorded above is now spent — but spent
+  the right way: a gated job reports as **skipped** in the run, which is
+  visible, where `paths-ignore` would have made the run **absent**. That is
+  the distinction the `3db8dbb` incident was about, and it survives.
+
+- **CONSEQUENCE OF PR #7 FOR EVERY PIN THIS LANE NARRATES — read before the
+  next roll.** Once that merges, **not every commit on `main` has an image.**
+  A docs-only merge to main skips `build-and-push`, so no `:<sha>` tag is
+  ever pushed for it. Every runbook sentence of the form "pin the chart to
+  the merge sha" (including the one in this lane's own re-pin runbook, and
+  the agreed PCN sequence "pin commit to the merge sha") becomes conditional:
+  **pin to the last sha whose `main` build actually pushed**, confirmed from
+  that run's job log, not to whatever merged most recently.
+  The failure mode if that is missed is worth naming, because it is NOT the
+  one the chart was hardened against. `values.yaml` uses
+  `required "image.tag is required..."`, which refuses to render when the tag
+  is ABSENT. A tag that is present but was never built renders perfectly and
+  fails at the kubelet — `ImagePullBackOff` on a manifest-unknown, minutes
+  later, on a release Helm already reported as successful. See
+  [[latest-tag-hides-which-code-is-deployed]]: the refusal covers untagged,
+  not never-built.
+
+- **The docs-only skip is UNPROVEN and both lanes know it.** PR #7's own CI
+  exercised `code=true` only; the skip branch has never run. It fails open,
+  which is the safe direction. The first docs-only PR is the test, its body
+  should say so, and **if the build runs anyway on that PR, that is the
+  finding** — not a non-event.
 
 ## Owned by other lanes
 - Lane 74 (fleet repo): reading the gateway/frontend re-post endpoint that
@@ -180,7 +224,8 @@ TWO THINGS THE ORDER DOES NOT YET ACCOUNT FOR, both in the runbook:
   ReadTimeout could double the graph), so re-firing the partition is a
   decision, not a recovery.
 
-NEXT TASK: Chris runs the MESH prime from the runbook — embed gateway first,
+NEXT TASK (unchanged by the PR #7 work, which is not this lane's):
+Chris runs the MESH prime from the runbook — embed gateway first,
 then the one partition, counts either side, then the seals. When he reports
 the numbers and the seal lines, draft the two packets: `ia-74/lane/74` and
 `ia-01/lane/01`, both carrying the landed count, which is what unblocks 32's
