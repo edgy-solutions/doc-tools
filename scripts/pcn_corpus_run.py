@@ -74,6 +74,13 @@ GT_TOTAL = sum(t["gt"] for t in TARGETS)
 # provenance for each. Pinning the manifest key here keeps a later run from silently
 # picking a different copy and reporting the difference as a code change.
 PREFER = {
+    # Three byte-identical copies of the PDF exist (diodes_2683, diodes_bbox,
+    # diodes_tier1 — all MD5 abe083fe8bab0e963874777280e8e293). Identical *source
+    # bytes* do not make the manifests interchangeable: each names its own
+    # text_location, produced by its own partitioning run, and THAT is what this
+    # harness reads. The baseline measured diodes_bbox, so this measures diodes_bbox.
+    "Diodes_PCN_2683_Rev1_EOL.pdf":
+        "sustainment/inbound/diodes_bbox/generated/Diodes_PCN_2683_Rev1_EOL_pdf/manifest.json",
     "ADI_PDN_23_0120.pdf":
         "sustainment/inbound/adi_run3/generated/ADI_PDN_23_0120_pdf/manifest.json",
     "onsemi_Generic_IPCN25300X.pdf":
