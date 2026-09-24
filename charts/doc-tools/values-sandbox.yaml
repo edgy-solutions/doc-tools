@@ -31,6 +31,19 @@ image:
   # RE-PIN ON EVERY DEPLOY. That is the real cost and it is deliberate: it is
   # the same cost the iagent chart already pays, and it buys "is it current?"
   # as a command instead of an archaeology exercise.
+  # CORRECTION to 80866e9's message, which claimed the pod had been capped at
+  # 2048. It had not. Revision 12 (2026-09-23 08:07:10) rolled this file 22
+  # seconds after b11323e merged, so VISION_MAX_TOKENS=8192 went live then; what
+  # revision 12 did NOT do is move the line below, so the pod kept running
+  # 0279d83's code — which reads the cap from the environment and therefore
+  # honoured 8192 all along. The cap is not new here and cannot explain a score
+  # change at this roll.
+  #
+  # What IS new in the pod at dc12ef3: b11323e's truncation/near-cap ACCOUNTING
+  # (the code that reports the cap being approached, as opposed to the cap
+  # itself), and 11fdb67's row-count detector and text-only vision route. Of
+  # those, only the router can add an extracted part; the two detectors can only
+  # raise needs_review, so they move the score down if they move it at all.
   tag: "dc12ef306c96a5c43afb3e0534fc3a7896ca3d53"
   # `Always` retained DELIBERATELY. With a sha tag it is no longer necessary
   # (the tag is immutable) but it is harmless, and changing it in the same edit
