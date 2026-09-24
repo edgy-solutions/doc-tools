@@ -224,6 +224,45 @@ TWO THINGS THE ORDER DOES NOT YET ACCOUNT FOR, both in the runbook:
   ReadTimeout could double the graph), so re-firing the partition is a
   decision, not a recovery.
 
+## OVERNIGHT STANDING ORDER — 2026-09-23
+The prime is **Lane 1's to run, not Chris's and not this lane's.** The runbook is
+placed at
+`invincible-agent/sessions/2026-09-23-packet-to-01-the-mesh-prime-runbook-measured-before-it-runs.md`
+addressed to `ia-01/lane/01` (left UNTRACKED there, matching the three
+`packet-from-ca-*` siblings dated the same day — placing it was the order,
+committing another lane's repo was not).
+
+7f is standing by for: both counts before and after, the `mesh:Thing` row, both
+seal lines VERBATIM, and the run id.
+
+**THE ONE THING THIS LANE IS AUTHORIZED TO RUN.** If the retrievability seal
+reds, materialize `sync_jena_ontologies_to_neo4j` ALONE, partition
+`mesh__mesh_system.ttl`, with:
+
+    ops:
+      sync_jena_ontologies_to_neo4j:
+        config:
+          file_url: "s3://ontologies/mesh/mesh_system.ttl"
+
+Nothing else. Verified in source before accepting the contingency, because the
+asset's NAME argues against all three properties that make it work:
+- **It does not read Jena.** The `n10s.rdf.import.fetch` implementation was
+  replaced; it now fetches the TTL from S3 and parses with rdflib — the same
+  source the ingest reads. A failed Jena leg does not starve it and a red seal
+  does not block it.
+- **It re-resolves domain itself** (`config.extra_metadata` → S3
+  `x-amz-meta-domain` → raise), so with empty `extra_metadata` it takes `MESH`
+  from the object metadata.
+- **It is idempotent** (MERGE on URI, SET-not-create) and ends in a verification
+  readback that raises both on a class that MERGEd but is not there and on a
+  universal-referent partition that does not match the TTL's — so the recovery
+  re-checks the payoff read on its own.
+`file_url` is REQUIRED on `S3FileConfig` (no default), so an empty-config launch
+is rejected before it starts. Do NOT re-fire the whole partition to repair a
+red: that re-POSTs to Jena, the one leg with no auto-retry and no clear.
+
+Writer fixes stay held, on this run and as a reaction to it.
+
 NEXT TASK (unchanged by the PR #7 work, which is not this lane's):
 Chris runs the MESH prime from the runbook — embed gateway first,
 then the one partition, counts either side, then the seals. When he reports
