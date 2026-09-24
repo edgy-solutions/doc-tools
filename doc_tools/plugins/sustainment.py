@@ -6,7 +6,10 @@ The final SustainmentNotice is assembled + reconciled HERE in Python.
 
 Design notes:
   * Router: run the vision parts pass only when unstructured detected >=1 Table
-    element AND a vision endpoint is configured. No table -> header-only.
+    element AND a vision endpoint is configured. No table -> header-only, UNLESS
+    the text itself advertises affected parts (an "Affected Parts"-labelled section
+    plus an MPN-shaped token — see _has_part_shaped_text) — the PCN24-029 shape,
+    a single MPN with no table at all, which used to be lost silently.
   * Per-crop parts calls + dedup: a page-spanning table becomes multiple crops;
     each crop is extracted independently and parts are de-duplicated across
     crops (repeated headers / continued rows). Per-crop also keeps each call's
@@ -23,6 +26,7 @@ Design notes:
 """
 import io
 import os
+import re
 from typing import List, Optional, Tuple, Any, Dict
 
 from pydantic import BaseModel, Field
@@ -144,6 +148,56 @@ VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
 VISION_NEAR_CAP_RATIO = float(os.getenv("VISION_NEAR_CAP_RATIO", "0.85"))
 
 
+# THE PCN24-029 ROUTER GAP. That notice prints a single MPN, `TC4-1TX+`, under the label
+# "MODELS AFFECTED" with no table at all — not a borderless table unstructured missed, an
+# honest absence of one. `provenance.table_elements` therefore returns zero Table
+# elements, the router's `elif not tables:` branch takes the header-only path, and vision
+# is never invoked. The document's only part number is silently lost with nothing to flag
+# it: no crop failed, because no crop was ever attempted.
+#
+# Vocabulary, not a regex on the MPN alone, because an MPN-shaped token appears in plenty
+# of table-less prose that carries no affected part (a revision string, a date code, a
+# document number) — see AFFECTED_HEADERS in table_text_layer.py for the same design
+# choice applied to column headers. A label is what turns "this text contains an
+# alphanumeric token" into "this document is ADVERTISING an affected part".
+_AFFECTED_LABELS = ("models affected", "affected models", "affected parts",
+                    "parts affected", "affected part numbers", "affected devices",
+                    "affected model", "model affected")
+
+
+def _has_part_shaped_text(full_text: str) -> bool:
+    """True only when full_text BOTH names an affected-parts section AND carries at
+    least one MPN-shaped token — the gate that routes a table-less document like
+    PCN24-029 to vision instead of silently taking the header-only path.
+
+    BOTH conditions are required, and this gate is deliberately TIGHT rather than loose:
+    every table-less document that passes it costs a FULL vision call (~100s measured on
+    the deployed endpoint — see VISION_MAX_TOKENS above), so a loose gate turns every
+    ordinary header-only notice — the common case, a process-change notification with no
+    parts list at all — into a slow one for nothing. The label is what distinguishes "this
+    document advertises affected parts" from "this document merely contains alphanumeric
+    tokens": a document number, a revision code or a footer date-stamp all look exactly
+    like an MPN to a plausibility floor that only checks shape.
+    """
+    text = full_text or ""
+    lowered = text.lower()
+    if not any(label in lowered for label in _AFFECTED_LABELS):
+        return False
+    for token in re.split(r"[\s,]+", text):
+        token = token.strip()
+        # A LETTER **and** a digit, not `looks_like_mpn` alone. That helper's floor is
+        # "contains a digit", which is the right floor for a cell already known to sit in
+        # a parts column but far too low here, where the candidate is any whitespace-
+        # delimited token in the whole document: `2026` clears it, and so does every page
+        # number, revision count and date fragment on the page. Requiring both classes of
+        # character is what actually implements the tightness this gate is FOR — `TC4-1TX+`
+        # passes, a bare year does not.
+        if (len(token) >= 4 and text_layer.looks_like_mpn(token)
+                and any(ch.isalpha() for ch in token)):
+            return True
+    return False
+
+
 def _vision_call_opts():
     """(baml_options, collector) for the VISION pass: an output bound + truncation detection.
 
@@ -247,6 +301,7 @@ class SustainmentPlugin(AugmentationPlugin):
         try:
             body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
             parts: List[dict] = []
+            declines: List[dict] = []
             with pdfplumber.open(io.BytesIO(body)) as pdf:
                 def _born_digital_pages():
                     """(page_number, page) for the pages tier 1 can actually read."""
@@ -255,14 +310,23 @@ class SustainmentPlugin(AugmentationPlugin):
                             continue
                         stats["text_layer_pages"] += 1
                         yield pno, page
-                # parts_from_pages OWNS the page loop because a parts table spanning
-                # pages prints its header only once: page 2 onwards is an anonymous grid,
-                # and read per-page every column of an `EOL | Replacement` continuation
-                # was emitted as a discontinued part (measured: 34% of one notice's 402).
-                parts = text_layer.parts_from_pages(_born_digital_pages())
+                # parts_and_declines_from_pages OWNS the page loop because a parts table
+                # spanning pages prints its header only once: page 2 onwards is an
+                # anonymous grid, and read per-page every column of an `EOL | Replacement`
+                # continuation was emitted as a discontinued part (measured: 34% of one
+                # notice's 402). It ALSO carries forward every table whose columns could
+                # not be decided — that decline's row count is the router's only
+                # independent check on the vision pass, so it must survive even when this
+                # tier ends up producing zero parts (see the stats.update below).
+                parts, declines = text_layer.parts_and_declines_from_pages(_born_digital_pages())
         except Exception as e:  # noqa: BLE001 — degrade to vision, never fail the doc
             print(f"[SustainmentPlugin] text-layer pass unavailable ({e}); falling back to vision")
             return [], stats
+        # LOAD-BEARING ORDER: this is set BEFORE the `if not parts` early return below,
+        # because a decline IS the case where `parts` is empty — pdfplumber read a table
+        # and could not decide its columns, so it produced zero rows. Setting this after
+        # that return would mean the one case this detector exists for never reaches it.
+        stats["text_layer_declines"] = declines
         if not parts:
             return [], stats
         stats["text_layer_parts"] = len(parts)
@@ -286,7 +350,8 @@ class SustainmentPlugin(AugmentationPlugin):
 
     @traced(name="extract parts vision (gemma)")
     def _extract_parts(self, tables: List[dict], manifest: Optional[dict],
-                       s3_client, full_text: str) -> Tuple[List[dict], dict]:
+                       s3_client, full_text: str,
+                       tl_declines: Optional[List[dict]] = None) -> Tuple[List[dict], dict]:
         from doc_tools.baml_client.sync_client import b
         from baml_py import Image
         prompt = self._get_dynamic_prompt(
@@ -296,8 +361,17 @@ class SustainmentPlugin(AugmentationPlugin):
         embedded = (manifest or {}).get("embedded_images", {}) or {}
         all_parts: List[dict] = []
         n_crops, missing, failed, truncated, near_cap = 0, 0, 0, 0, 0
+        # The row-short cross-check needs, PER PAGE, how many rows vision actually
+        # returned and whether that page's crop is already known-bad (failed/truncated).
+        # Keyed on the crop's page_number (from unstructured metadata) rather than on the
+        # crop itself, because tier 1's declines are also page-scoped — a table can span
+        # one crop and one pdfplumber grid on the same page, and that page number is the
+        # only key both sides share.
+        rows_by_page: Dict[Any, int] = {}
+        failed_pages: set = set()
         for el in tables:
             meta = el.get("metadata") or {}
+            page_no = meta.get("page_number")
             html = meta.get("text_as_html", "") or ""
             ocr = el.get("text", "") or full_text
             images = []
@@ -327,6 +401,7 @@ class SustainmentPlugin(AugmentationPlugin):
                 if used is not None and used >= VISION_MAX_TOKENS:
                     failed += 1
                     truncated += 1
+                    failed_pages.add(page_no)
                     print(f"[SustainmentPlugin] ExtractParts TRUNCATED at the {VISION_MAX_TOKENS}-token "
                           f"bound (runaway decode on a dense table) — discarding this crop's "
                           f"{len(res or [])} partial row(s) rather than reporting them as complete")
@@ -341,6 +416,12 @@ class SustainmentPlugin(AugmentationPlugin):
                         print(f"[SustainmentPlugin] ExtractParts NEAR CAP: {used}/"
                               f"{VISION_MAX_TOKENS} output tokens ({ratio:.0%}) — this crop "
                               f"completed, but a denser table would truncate and lose rows")
+                # SUCCESS PATH ONLY — a page that reaches here neither truncated nor
+                # raised, so its row count is a fair thing to compare against tier 1's.
+                # Accumulated rather than assigned: a table that spans multiple crops on
+                # the SAME page (a dense table banded into pieces) must not have its
+                # later crops overwrite the count from its earlier ones.
+                rows_by_page[page_no] = rows_by_page.get(page_no, 0) + len(res or [])
                 for p in (res or []):
                     all_parts.append(part_to_dict(p))
             except Exception as e:  # noqa: BLE001
@@ -348,14 +429,110 @@ class SustainmentPlugin(AugmentationPlugin):
                 # loses that crop's rows. Count it so process_fulltext can flag
                 # the doc needs_review — a silent partial must never look clean.
                 failed += 1
+                failed_pages.add(page_no)
                 print(f"[SustainmentPlugin] ExtractParts failed on a table crop: {e}")
         # crops_truncated is a SUBSET of crops_failed, surfaced separately because it names a
         # DIFFERENT cause with a different fix: not "the model was slow / errored" but "the
         # decode did not converge on this table". Distinguishing them is how we'll know whether
         # banding (or a text-layer path) actually helps, instead of inferring it.
+        #
+        # ROW-COUNT CROSS-CHECK — the silent class this pipeline previously had no way to
+        # see. Every failure path above (truncated, missing image, an outright exception)
+        # already produces a signal; this one does not. A crop can complete, raise
+        # nothing, and STILL come back with fewer rows than pdfplumber counted on the
+        # SAME page — the `SYTX9-122HP-1+` shape on PCN23-002: the last row of the table,
+        # sitting immediately above the page footer, dropped with needs_review=False and
+        # nothing in crops_failed or crops_truncated to say so. Tier 1's decline record
+        # (a table it saw but declined to parse — NOT an empty table) carries exactly the
+        # row count needed to catch this, so it is compared here.
+        row_short: List[Dict[str, Any]] = []
+        for d in (tl_declines or []):
+            page = d.get("page_number")
+            if not d.get("n_rows"):
+                continue  # nothing tier 1 saw on this page — no baseline to compare against
+            if page not in rows_by_page:
+                continue  # vision never produced a successful crop for this page at all
+            if page in failed_pages:
+                # A crop that failed or truncated on this page is ALREADY covered by
+                # PARTS MAY BE MISSING above; double-flagging it here would blur what
+                # THIS signal means. row_short exists to name the OTHER class — a crop
+                # that completed, reported no error, and still came back short — so a
+                # page already known bad for a different, louder reason is skipped.
+                continue
+            if rows_by_page[page] < d["n_rows"]:
+                row_short.append({"page_number": page, "tier1_rows": d["n_rows"],
+                                  "vision_rows": rows_by_page[page]})
         return all_parts, {"n_crops_used": n_crops, "crops_missing": missing,
                            "crops_failed": failed, "crops_truncated": truncated,
-                           "crops_near_cap": near_cap}
+                           "crops_near_cap": near_cap, "crops_row_short": len(row_short),
+                           "row_short_detail": row_short}
+
+    def _apply_vision_stats(self, ps: dict, n_tables: int, reasons: List[str],
+                            doc_flags: List[str]) -> bool:
+        """Turn one vision pass's per-crop counters into reviewer-facing reasons (and,
+        where warranted, the doc_flags banner). Extracted so this logic exists exactly
+        ONCE: both the normal table-crop path and the router's text-only path (item 2,
+        PCN24-029 — a document with no Table element but part-shaped prose) run vision and
+        both need the SAME post-hoc accounting; before this method they would otherwise
+        have to duplicate it or drift apart.
+
+        Returns whether these counters force needs_review; the caller ORs it into its own
+        running flag rather than this method setting it directly, because callers also
+        have OTHER reasons (a header failure, an unclassifiable doc_type) to set it.
+        """
+        needs_review = False
+        if ps.get("crops_failed"):
+            trunc = ps.get("crops_truncated") or 0
+            cause = (f"{trunc} of them hit the {VISION_MAX_TOKENS}-token output bound "
+                     f"(the model did not converge on a dense table)" if trunc
+                     else "e.g. vision timeout")
+            msg = (f"{ps['crops_failed']}/{n_tables} table crops failed "
+                   f"({cause}) — extracted parts are likely INCOMPLETE")
+            reasons.append(msg)
+            # THE reviewer-facing case: a partial parts list is indistinguishable from
+            # a complete one unless we say so. Parts MISSING here get no disposition
+            # and nobody would know.
+            doc_flags.append(f"PARTS MAY BE MISSING: {msg}")
+            needs_review = True
+        # Deliberately NOT a doc_flag: nothing is known to be missing here,
+        # and "PARTS MAY BE MISSING" on a complete extraction would train
+        # reviewers to ignore the banner that means it. This is a flag for
+        # us — the cap needs raising before a document of this shape loses
+        # rows — so it sets needs_review and says why, without claiming loss.
+        if ps.get("crops_near_cap"):
+            reasons.append(
+                f"{ps['crops_near_cap']}/{n_tables} table crops emitted "
+                f">={VISION_NEAR_CAP_RATIO:.0%} of the {VISION_MAX_TOKENS}-token output "
+                f"bound — parts appear COMPLETE, but this corpus is approaching the cap "
+                f"and a denser table would truncate silently")
+            needs_review = True
+        # ROW-SHORT — a DIFFERENT class from both of the above, and it gets a DIFFERENT
+        # treatment on purpose. crops_failed means a crop produced no usable result at
+        # all; this means a crop completed cleanly, raised nothing, and STILL returned
+        # fewer rows than tier 1 counted on the same page (the SYTX9-122HP-1+ shape on
+        # PCN23-002: dropped silently, nothing in crops_failed or crops_truncated). The
+        # banner (doc_flags -> "PARTS MAY BE MISSING") is reserved for the FAILED case;
+        # spending it on every row-count disagreement as well would blunt the one signal
+        # reviewers are trained to stop and act on. So this sets needs_review and states
+        # exactly what disagreed, in review_reasons, without claiming a banner-worthy loss.
+        if ps.get("crops_row_short"):
+            for d in ps.get("row_short_detail") or []:
+                # "on this page", NOT "in this table": tier1_rows is one declined grid's
+                # count, but vision_rows is the page TOTAL across every crop that landed
+                # there. On a page carrying two declined tables the two numbers are not
+                # measuring the same span, and the comparison is deliberately the
+                # conservative direction — it under-reports (a page whose total clears the
+                # largest single table's count never flags, even if a smaller table on it
+                # lost rows) rather than inventing a shortfall. Say what is actually being
+                # compared so a reviewer reading this line is not told a table lost rows
+                # when what disagreed was a page.
+                reasons.append(
+                    f"page {d['page_number']}: tier 1's text layer saw {d['tier1_rows']} "
+                    f"MPN-bearing row(s) in a table it could not parse, vision returned "
+                    f"{d['vision_rows']} row(s) for that page — at least "
+                    f"{d['tier1_rows'] - d['vision_rows']} row(s) may be missing")
+            needs_review = True
+        return needs_review
 
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
@@ -390,7 +567,8 @@ class SustainmentPlugin(AugmentationPlugin):
         index = provenance.build_positioned_index(elements)
         ocr_norm = provenance._norm(full_text)
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
-                 "crops_truncated": 0, "crops_near_cap": 0, "vision_used": False}
+                 "crops_truncated": 0, "crops_near_cap": 0, "crops_row_short": 0,
+                 "vision_used": False}
         reasons: List[str] = []
         needs_review = False
         # The doc-level reasons that FORCE review — i.e. the extraction telling us its own
@@ -441,33 +619,11 @@ class SustainmentPlugin(AugmentationPlugin):
             parts_d = tl_parts
         elif tables and vision_ok and s3_client is not None:
             try:
-                parts_d, ps = self._extract_parts(tables, manifest, s3_client, full_text)
+                parts_d, ps = self._extract_parts(tables, manifest, s3_client, full_text,
+                                                  tl_stats.get("text_layer_declines"))
                 stats.update(ps)
                 stats["vision_used"] = True
-                if ps.get("crops_failed"):
-                    trunc = ps.get("crops_truncated") or 0
-                    cause = (f"{trunc} of them hit the {VISION_MAX_TOKENS}-token output bound "
-                             f"(the model did not converge on a dense table)" if trunc
-                             else "e.g. vision timeout")
-                    msg = (f"{ps['crops_failed']}/{len(tables)} table crops failed "
-                           f"({cause}) — extracted parts are likely INCOMPLETE")
-                    reasons.append(msg)
-                    # THE reviewer-facing case: a partial parts list is indistinguishable from
-                    # a complete one unless we say so. Parts MISSING here get no disposition
-                    # and nobody would know.
-                    doc_flags.append(f"PARTS MAY BE MISSING: {msg}")
-                    needs_review = True
-                # Deliberately NOT a doc_flag: nothing is known to be missing here,
-                # and "PARTS MAY BE MISSING" on a complete extraction would train
-                # reviewers to ignore the banner that means it. This is a flag for
-                # us — the cap needs raising before a document of this shape loses
-                # rows — so it sets needs_review and says why, without claiming loss.
-                if ps.get("crops_near_cap"):
-                    reasons.append(
-                        f"{ps['crops_near_cap']}/{len(tables)} table crops emitted "
-                        f">={VISION_NEAR_CAP_RATIO:.0%} of the {VISION_MAX_TOKENS}-token output "
-                        f"bound — parts appear COMPLETE, but this corpus is approaching the cap "
-                        f"and a denser table would truncate silently")
+                if self._apply_vision_stats(ps, len(tables), reasons, doc_flags):
                     needs_review = True
             except Exception as e:  # noqa: BLE001
                 reasons.append(f"parts pass failed: {e}")
@@ -478,6 +634,34 @@ class SustainmentPlugin(AugmentationPlugin):
             doc_flags.append("PARTS NOT EXTRACTED: this document has parts tables but the vision "
                              "model was unavailable")
             needs_review = True
+        elif not tables and vision_ok and s3_client is not None and _has_part_shaped_text(full_text):
+            # THE PCN24-029 SHAPE (see _has_part_shaped_text above): a single MPN under
+            # "MODELS AFFECTED" with no table at all, so unstructured detected zero Table
+            # elements and the ordinary branches above never fire. Route to vision on the
+            # text alone rather than silently taking the header-only path below.
+            try:
+                # A SYNTHETIC element, not a real Table one — there is no crop to point
+                # at, because unstructured never detected a table to crop. With no
+                # `metadata`, provenance.resolve_element_image returns None inside
+                # _extract_parts and its EXISTING `missing += 1` branch already handles
+                # that shape correctly: OCR + HTML only, no image. That degraded shape is
+                # the INTENDED outcome of this path, not a bug tripping the missing-image
+                # counter — there was never an image to have.
+                synthetic = [{"text": full_text, "metadata": {}}]
+                parts_d, ps = self._extract_parts(synthetic, manifest, s3_client, full_text,
+                                                  tl_stats.get("text_layer_declines"))
+                stats.update(ps)
+                stats["vision_used"] = True
+                stats["router_textonly_vision"] = True
+                reasons.append("no Table element detected, but the text names an affected-parts "
+                               "section and carries an MPN-shaped token — routed to vision on the "
+                               "text alone (no crop image available)")
+                if self._apply_vision_stats(ps, len(synthetic), reasons, doc_flags):
+                    needs_review = True
+            except Exception as e:  # noqa: BLE001
+                reasons.append(f"parts pass failed: {e}")
+                doc_flags.append(f"PARTS MAY BE MISSING: the parts pass failed ({e})")
+                needs_review = True
         elif not tables:
             # No table detected -> header-only. Instrumented so the borderless
             # miss-rate is visible (Phase 0 decision #3: build the coordinate

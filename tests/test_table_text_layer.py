@@ -454,6 +454,52 @@ def test_a_single_page_call_still_works_and_inherits_nothing():
     assert parts_from_page(_FakePage([_CONT_ROW]), 1) == []
 
 
+# --------------------------------------------------------------------------- #
+# DECLINE RECORDS. A decline is NOT an empty table — pdfplumber read the grid fine; what
+# could not be decided is what the COLUMNS MEAN. The row count it carries is the only
+# independent check on the vision pass that runs afterwards (doc_tools/plugins/
+# sustainment.py's crops_row_short detector: tier 1 saw N MPN-shaped rows on a page, a
+# vision crop of the SAME page came back with fewer, nothing else would have caught it —
+# the SYTX9-122HP-1+ shape on PCN23-002). Before this, `parts_from_grid` returned a bare
+# `[]` on decline and that row count was simply gone.
+# --------------------------------------------------------------------------- #
+
+def test_headerless_captionless_grid_declines_but_carries_its_row_count():
+    """The PCN23-002 shape: 18 bare MPNs, one per row, no header and no caption. Back-compat
+    (`parts_from_grid`) must still return exactly the bare `[]` every existing caller
+    expects; `grid_outcome` must additionally say WHY and how many rows were really there."""
+    from doc_tools.utils.table_text_layer import grid_outcome
+    grid = [[f"MPN{i:04d}0"] for i in range(18)]
+    assert parts_from_grid(grid) == [], "back-compat: still declines, still a bare list"
+    outcome = grid_outcome(grid)
+    assert outcome.parts == []
+    assert outcome.decline is not None
+    assert outcome.decline.n_rows == 18, "all 18 rows carry an MPN-shaped cell"
+    assert outcome.decline.n_grid_rows == 18, "pdfplumber saw all 18 rows too — nothing to diverge on here"
+    assert outcome.decline.reason == (
+        "no column header, nothing to inherit, and no caption naming the contents")
+
+
+def test_decline_row_count_excludes_captions_and_blanks_but_grid_row_count_does_not():
+    """n_rows counts only rows an MPN could plausibly come from; n_grid_rows counts
+    LITERALLY everything pdfplumber returned, captions and blanks included. They must
+    diverge on a grid that mixes MPN rows with spacer/caption rows, or the
+    crops_row_short comparison would be checking vision against an inflated baseline."""
+    from doc_tools.utils.table_text_layer import grid_outcome
+    grid = [
+        ["Some caption row with no digits at all"],
+        ["MPN00010"],
+        [""],
+        ["MPN00020"],
+        ["   "],
+        ["MPN00030"],
+    ]
+    outcome = grid_outcome(grid)
+    assert outcome.decline is not None
+    assert outcome.decline.n_rows == 3, "only the three MPN-bearing rows"
+    assert outcome.decline.n_grid_rows == 6, "every row pdfplumber returned, blanks and caption included"
+
+
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-q"]))
