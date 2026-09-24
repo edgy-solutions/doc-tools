@@ -21,6 +21,126 @@ on:
   workflow_dispatch:
 
 jobs:
+  changes:
+    # WHY THIS JOB EXISTS, MEASURED: PR #6 touched four files, all under
+    # docs/, and build-and-push still ran the full multi-arch (amd64+arm64,
+    # QEMU-emulated) build end to end — 29m53s wall clock — for a diff that
+    # could not possibly change the image. It published nothing either way,
+    # since the build step's `push:` is already gated on
+    # `github.event_name != 'pull_request'`, so that 29m53s bought nothing
+    # at all. telemetry-contract (12s) and tests (1m15s) are cheap and are
+    # the actual correctness gates, so they are NOT touched here and must
+    # keep running on every PR, docs-only included. Note where the gate
+    # actually lands: this job has no `if:` and neither do those two — the
+    # only `if:` added anywhere is on build-and-push, which is the one job
+    # whose cost this is about.
+    #
+    # GitHub Actions has no such thing as a job-level `paths-ignore` (that
+    # only exists on the workflow `on:` trigger, and putting it there would
+    # skip telemetry-contract and tests too, which is exactly what must NOT
+    # happen). So this job computes the equivalent by hand with a plain
+    # `git diff --name-only` and exposes the verdict as an output that
+    # build-and-push's `if:` reads. Deliberately not dorny/paths-filter or
+    # any other third-party action: the whole point is a single, auditable
+    # `git diff` this file's reader can verify by eye, not a dependency on
+    # someone else's path-matching semantics.
+    #
+    # THE IGNORE LIST IS `^docs/` AND NOTHING ELSE. Read this before adding
+    # anything to it, especially `charts/`. `charts/` MUST NOT go in this
+    # list. Skipping the build on a charts change would be the single worst
+    # version of this optimization, because charts/ is precisely what
+    # DEPLOYS: values-sandbox.yaml carries the image tag pin and the runtime
+    # env — VISION_MAX_TOKENS is live in sandbox right now purely as a
+    # values change, no image rebuild involved. A "charts is just config,
+    # not code" instinct is exactly backwards for what this job is
+    # protecting: build-and-push produces the image, and a values file is
+    # how a commit reaches a running pod WITHOUT one. Treat this list as an
+    # ALLOWLIST of paths that provably CANNOT reach the image — not a
+    # denylist of things that feel unlike code — and `charts/` fails that
+    # test outright.
+    #
+    # FAILS OPEN, ALWAYS. The only acceptable failure mode for this job is
+    # "code=true, build anyway" — an unnecessary 29m53s build. The
+    # unacceptable one is the workflow_dispatch incident this file already
+    # documents below: commit 3db8dbb reached main with no build and no
+    # record that one was skipped, and the feature read as shipped while
+    # existing in no image. A path-filter bug that skips a real build is
+    # that same incident wearing a different hat, so every branch that
+    # cannot POSITIVELY PROVE "every changed path matches ^docs/" falls
+    # through to code=true: a non-push/pull_request event (workflow_dispatch
+    # included), a tag push, a `before` SHA of all zeros (new branch or a
+    # force-push history rewrite), a base or head commit this checkout
+    # can't find, a failed `git diff`, or even an EMPTY diff (zero changed
+    # paths is proof the computation should be distrusted, not proof
+    # nothing needs building). None of those get a second, separate escape
+    # hatch — they all collapse into the same default this step starts
+    # with, so there is exactly one way to end up with code=true and no way
+    # for a new edge case to silently invent a second way to end up with
+    # code=false.
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.decide.outputs.code }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether this diff can skip the build
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # Deliberately NOT `set -e`: a git failure below must fall through
+          # to the CODE=true default already set, not abort the step before
+          # that default is written to GITHUB_OUTPUT.
+          set -uo pipefail
+
+          CODE=true
+
+          if [ "$EVENT_NAME" != "pull_request" ] && [ "$EVENT_NAME" != "push" ]; then
+            echo "event is '$EVENT_NAME' (e.g. workflow_dispatch), no diff range applies -> code=true"
+          elif [ "$IS_TAG" = "true" ]; then
+            echo "tag push -> code=true unconditionally, a release build is never worth a heuristic"
+          elif [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "no usable base sha (new branch / force-push rewrite) -> code=true"
+          elif ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "base sha $BASE_SHA not found in this checkout -> code=true"
+          elif ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+            echo "head sha $HEAD_SHA not found in this checkout -> code=true"
+          else
+            # THREE dots, not two. `git diff A B` compares the two trees
+            # directly, so if the base branch moved ahead after this PR was
+            # cut, every commit main gained shows up here as a REVERSE change
+            # — paths this PR never touched, attributed to it. `A...B` diffs
+            # against the merge base instead, which is the question actually
+            # being asked: what does this branch change relative to where it
+            # left the base? The two-dot form fails safe (spurious paths read
+            # as "not docs" and the build runs) but it makes the skip fire
+            # almost never on a busy base branch, which is the whole feature
+            # silently not working. A missing merge base errors out of git
+            # and lands on the code=true default below.
+            CHANGED=$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")
+            STATUS=$?
+            if [ $STATUS -ne 0 ]; then
+              echo "git diff exited $STATUS -> code=true"
+            elif [ -z "$CHANGED" ]; then
+              echo "diff came back empty -> code=true (not proof of docs-only, just proof to distrust)"
+            elif echo "$CHANGED" | grep -qvE '^docs/'; then
+              echo "at least one changed path is not under docs/ -> code=true"
+              echo "$CHANGED"
+            else
+              CODE=false
+              echo "every changed path matches ^docs/ -> code=false"
+              echo "$CHANGED"
+            fi
+          fi
+
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+
   telemetry-contract:
     # Fast pre-build gate (ADR-0038): the telemetry mapping must name only fields
     # doc-tools actually produces. The truth-check loads the thin telemetry seam by
@@ -132,7 +252,17 @@ jobs:
   build-and-push:
     # BOTH gates, not one. `needs` is what makes them gates rather than reports:
     # a failure in either stops the image from being built or pushed.
-    needs: [telemetry-contract, tests]
+    #
+    # `changes` is added to `needs` too, but it is not a correctness gate in
+    # that same sense — it never fails the build on purpose, it decides
+    # whether this diff needs one at all (see the `changes` job above for
+    # the full fail-open reasoning and why `charts/` can never be added to
+    # its ignore list). `needs` is required here regardless, because reading
+    # another job's `outputs` — `needs.changes.outputs.code` below — only
+    # works for jobs already listed in `needs`. The `if:` is what actually
+    # acts on it.
+    needs: [telemetry-contract, tests, changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
