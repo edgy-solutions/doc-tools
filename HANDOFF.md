@@ -82,6 +82,26 @@ rebase. Nothing else rode with it.
   own remedy is unreachable by the row it is written about. Callers:
   `semantic_assets.py:333` and `:373`, and `xml_ingestion.py:294` imports it.
   Same "backfill" promise the vector-strip finding counted unredeemed.
+
+  Two more facts, found 2026-09-23 after the item was first recorded, both of
+  which change what fixing it costs:
+    * **The caller counts an orphan as a success.** `xml_ingestion.py:375-383`
+      wraps the call in `try/except` and does `written += 1` on return. The
+      vectorless fallback returns normally, so the run's own written-tally
+      reports a row that has neither a vector nor an addressable id. The
+      comment directly above that line states the fallback out loud ("BM25
+      still works, backfill later") — so the tally is not an oversight, it is
+      counting what the design intends. Nothing downstream distinguishes the
+      two kinds of written.
+    * **A test pins the defect.** `tests/test_semantic_assets.py:185`,
+      `test_index_chunk_inserts_via_v4_data_insert`, asserts
+      `data.insert.assert_called_once_with(properties=props)` — exact kwargs.
+      Passing a `uuid=` fails it. So the held fix is a code change AND a test
+      change, and the test that has to change is the one whose name claims to
+      describe correct behaviour. Note also what it does NOT cover: it hands in
+      a MagicMock client and never exercises the embed path, so the vectorless
+      branch — the branch that creates the orphan — has no test at all.
+  The fourth call site is `xml_ingestion.py:381` (`:294` is only the import).
 - `aitool_linker.py:602-606` `data.replace` on `Predicate` — same stripping
   shape, unbitten (135 rows, 0 vectorless), architect's ruling, held.
 - The 16 vectorless BFO/IOF_Core rows + the `IOF_Core` double-manifest
