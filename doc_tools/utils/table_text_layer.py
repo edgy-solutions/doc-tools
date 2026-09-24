@@ -249,6 +249,47 @@ class InheritedHeader(NamedTuple):
     label: Optional[str] = None
 
 
+class GridDecline(NamedTuple):
+    """A grid that COULD NOT be turned into parts, and why — carried, not discarded.
+
+    A decline is NOT an empty table. pdfplumber read the grid fine; `n_grid_rows` proves
+    it. What could not be decided is what the COLUMNS MEAN — no header, nothing inherited,
+    and no caption naming the contents. Discarding that (the old `return []`) threw away
+    the only independent check on the vision pass that runs afterwards: if tier 1 saw 18
+    MPN-shaped rows on a page and a vision crop of the SAME page comes back with 17, that
+    is a silent loss with no error, no truncation flag, and nothing in `crops_failed` — the
+    `SYTX9-122HP-1+` shape on PCN23-002, dropped from the last row above the page footer.
+    `n_rows` is what makes that comparison possible, so it survives the decline on purpose.
+
+    `grid` rides along too, unused by anything today, so the held tier-1-grid-forwarding
+    work (handing tier 2 the actual grid pdfplumber saw, instead of a fresh crop) extends
+    this record rather than replacing it.
+    """
+    reason: str          # why the columns could not be decided
+    n_rows: int          # rows carrying at least one MPN-shaped cell
+    n_grid_rows: int     # every row pdfplumber returned, captions and blanks included
+    grid: Sequence[Sequence[Optional[str]]]
+
+
+class GridOutcome(NamedTuple):
+    """[{affected_mpn, ...}] on success, or a `GridDecline` explaining the miss — never
+    both. `parts_from_grid` stays the back-compat wrapper (`.parts` only) that the existing
+    ~25 tests and every caller besides the decline-detector already depend on."""
+    parts: List[Dict[str, Optional[str]]]
+    decline: Optional[GridDecline]
+
+
+def _mpn_bearing_rows(grid: Sequence[Sequence[Optional[str]]]) -> int:
+    """Count of rows carrying at least one cell that `looks_like_mpn`.
+
+    This is the row count a decline carries forward, not `len(grid)`: a caption row or a
+    blank spacer row is real pdfplumber output but is never going to become a part, and
+    counting it would make tier 1's row count disagree with itself depending on how many
+    caption rows a vendor happens to print.
+    """
+    return sum(1 for row in grid if any(looks_like_mpn(c) for c in row))
+
+
 def header_pairing(
     grid: Sequence[Sequence[Optional[str]]],
     *,
@@ -287,13 +328,14 @@ def _grid_width(grid: Sequence[Sequence[Optional[str]]]) -> int:
     return max((len(r) for r in grid), default=0)
 
 
-def parts_from_grid(
+def grid_outcome(
     grid: Sequence[Sequence[Optional[str]]],
     *,
     header_row: Optional[int] = None,
     inherited: Optional[InheritedHeader] = None,
-) -> List[Dict[str, Optional[str]]]:
-    """[{affected_mpn, replacement_mpn, row, col}] from a grid of cell strings (PURE).
+) -> GridOutcome:
+    """[{affected_mpn, replacement_mpn, row, col}] from a grid of cell strings (PURE),
+    or a `GridDecline` explaining why not.
 
     Values are returned VERBATIM — no normalization, hyphenation or "correction". Part
     numbers legitimately carry slashes, '#' reel codes and module dashes, and the
@@ -313,7 +355,7 @@ def parts_from_grid(
     tables is the caller's job (`parts_from_pages`).
     """
     if not grid:
-        return []
+        return GridOutcome([], GridDecline("empty grid", 0, 0, grid))
     hi = header_row if header_row is not None else find_header_row(grid)
     if hi is not None:
         pairs = pair_columns(grid[hi])
@@ -343,12 +385,16 @@ def parts_from_grid(
         # decline: an unlabelled grid of unknown columns must not be guessed into parts.
         ti = find_title_row(grid)
         if ti is None:
-            return []
+            return GridOutcome([], GridDecline(
+                "no column header, nothing to inherit, and no caption naming the contents",
+                _mpn_bearing_rows(grid), len(grid), grid))
         width = max((len(r) for r in grid[ti + 1:]), default=0)
         pairs = [(c, None) for c in range(width)]
         start = ti + 1
     if not pairs:
-        return []
+        return GridOutcome([], GridDecline(
+            "header row produced no affected/replacement column pairs",
+            _mpn_bearing_rows(grid), len(grid), grid))
     out: List[Dict[str, Optional[str]]] = []
     for r in range(start, len(grid)):
         row = grid[r]
@@ -382,7 +428,40 @@ def parts_from_grid(
                 # highlight THAT cell rather than reusing the affected one.
                 "rep_col": r_col if keep_rep else None,
             })
-    return out
+    return GridOutcome(out, None)
+
+
+def parts_from_grid(
+    grid: Sequence[Sequence[Optional[str]]],
+    *,
+    header_row: Optional[int] = None,
+    inherited: Optional[InheritedHeader] = None,
+) -> List[Dict[str, Optional[str]]]:
+    """[{affected_mpn, replacement_mpn, row, col}] from a grid of cell strings (PURE).
+
+    Values are returned VERBATIM — no normalization, hyphenation or "correction". Part
+    numbers legitimately carry slashes, '#' reel codes and module dashes, and the
+    downstream contract is that an MPN matches the document exactly.
+
+    Column semantics are decided in PRIORITY ORDER, most-evidenced first:
+      1. this grid declares a header      -> pair from it
+      2. a preceding table declared one,
+         the column count matches, and
+         this grid's caption does not
+         number itself a DIFFERENT table  -> inherit its pairs (continuation page)
+      3. no header, but a CAPTION names
+         the contents                     -> every column is an affected part
+      4. otherwise                        -> decline
+
+    Still PURE: the inherited pairing is passed IN. Threading it across a document's
+    tables is the caller's job (`parts_from_pages`).
+
+    Thin wrapper over `grid_outcome` — kept SAME signature, SAME return type, because
+    ~25 existing tests and every non-decline caller depend on getting back a bare list.
+    A decline's detail (the row count pdfplumber actually saw, and why the columns could
+    not be decided) is available via `grid_outcome` for callers that need it.
+    """
+    return grid_outcome(grid, header_row=header_row, inherited=inherited).parts
 
 
 def page_has_text_layer(page, min_chars: int = 200) -> bool:
@@ -408,6 +487,29 @@ def parts_from_page(page, page_number: int) -> List[Dict[str, Any]]:
     return _parts_from_page(page, page_number, None)[0]
 
 
+def parts_and_declines_from_pages(
+    numbered_pages: Iterable[Tuple[int, Any]],
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """(parts, declines) from a document's born-digital pages, header inheritance threaded
+    across pages exactly as `parts_from_pages` does — this function OWNS the page loop for
+    the same reason that one does (see its docstring), and additionally collects one
+    decline entry per table whose columns could not be decided.
+
+    Each decline is `{"page_number", "reason", "n_rows", "n_grid_rows"}` — page-scoped and
+    JSON-shaped (not a `GridDecline` NamedTuple) because this is the boundary where the
+    sustainment plugin picks the record up and drops it straight into `stats` for the
+    review payload; a plain dict needs no further translation there.
+    """
+    results: List[Dict[str, Any]] = []
+    declines: List[Dict[str, Any]] = []
+    inherited: Optional[InheritedHeader] = None
+    for page_number, page in numbered_pages:
+        page_parts, inherited, page_declines = _parts_from_page(page, page_number, inherited)
+        results.extend(page_parts)
+        declines.extend(page_declines)
+    return results, declines
+
+
 def parts_from_pages(numbered_pages: Iterable[Tuple[int, Any]]) -> List[Dict[str, Any]]:
     """Parts from a document's born-digital pages, with header inheritance ACROSS pages.
 
@@ -415,13 +517,11 @@ def parts_from_pages(numbered_pages: Iterable[Tuple[int, Any]]) -> List[Dict[str
     a parts table printed across four pages declares its columns once, on the first, and
     a per-page call can only see an anonymous grid for the other three. Pages are passed
     in as (page_number, page) so the caller keeps its own text-layer filtering and stats.
+
+    Thin wrapper over `parts_and_declines_from_pages`, kept for the callers (and tests)
+    that only ever wanted the parts.
     """
-    results: List[Dict[str, Any]] = []
-    inherited: Optional[InheritedHeader] = None
-    for page_number, page in numbered_pages:
-        page_parts, inherited = _parts_from_page(page, page_number, inherited)
-        results.extend(page_parts)
-    return results
+    return parts_and_declines_from_pages(numbered_pages)[0]
 
 
 def _tables_of(page) -> List[Any]:
@@ -435,8 +535,8 @@ def _tables_of(page) -> List[Any]:
 
 def _parts_from_page(
     page, page_number: int, inherited: Optional[InheritedHeader],
-) -> Tuple[List[Dict[str, Any]], Optional[InheritedHeader]]:
-    """One page's parts, plus the pairing to carry to the NEXT page.
+) -> Tuple[List[Dict[str, Any]], Optional[InheritedHeader], List[Dict[str, Any]]]:
+    """One page's parts, the pairing to carry to the NEXT page, and this page's declines.
 
     Each part carries the exact bbox of the cell its MPN came from, in PDF POINTS, with
     the page's point dimensions alongside — so the sealed `fraction = bbox / page_dims`
@@ -444,6 +544,7 @@ def _parts_from_page(
     instead of the whole table.
     """
     results: List[Dict[str, Any]] = []
+    declines: List[Dict[str, Any]] = []
     tables = _tables_of(page)
     if not tables:
         # A page with NO table at all ends the run: whatever table was spanning pages has
@@ -451,7 +552,7 @@ def _parts_from_page(
         # merely happens to have the same column count. Declining is the safe direction —
         # a vendor who really does resume a headerless table after a prose page gets no
         # parts from it, rather than parts attributed to guessed columns.
-        return results, None
+        return results, None, declines
     dims = {"width": float(page.width), "height": float(page.height)}
     for table in tables:
         grid = table.extract()
@@ -476,7 +577,12 @@ def _parts_from_page(
         if own is not None:
             inherited = own
 
-        for p in parts_from_grid(grid, inherited=None if own is not None else inherited):
+        outcome = grid_outcome(grid, inherited=None if own is not None else inherited)
+        if outcome.decline is not None:
+            d = outcome.decline
+            declines.append({"page_number": page_number, "reason": d.reason,
+                             "n_rows": d.n_rows, "n_grid_rows": d.n_grid_rows})
+        for p in outcome.parts:
             results.append({
                 "affected_mpn": p["affected_mpn"],
                 "replacement_mpn": p["replacement_mpn"],
@@ -486,4 +592,4 @@ def _parts_from_page(
                 "page_dims": dims,
                 "source": "text_layer",
             })
-    return results, inherited
+    return results, inherited, declines
