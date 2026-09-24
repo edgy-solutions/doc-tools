@@ -31,7 +31,7 @@ image:
   # RE-PIN ON EVERY DEPLOY. That is the real cost and it is deliberate: it is
   # the same cost the iagent chart already pays, and it buys "is it current?"
   # as a command instead of an archaeology exercise.
-  tag: "0279d836a57de0f2c4ae00f9e51b3c74009499e7"
+  tag: "dc12ef306c96a5c43afb3e0534fc3a7896ca3d53"
   # `Always` retained DELIBERATELY. With a sha tag it is no longer necessary
   # (the tag is immutable) but it is harmless, and changing it in the same edit
   # would give a rollback two variables instead of one. Drop it in a separate
