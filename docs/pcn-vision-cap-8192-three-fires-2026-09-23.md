@@ -6,6 +6,13 @@
     cap       VISION_MAX_TOKENS=8192, read back from the running module (not just the manifest)
     endpoint  C — 192.168.1.169:11434, gemma4-32k:31b
 
+> **Never size this cap to an observed maximum.** Emission length swings ~40%
+> run to run on *identical* input — 2,171 to 3,040 tokens for the same crop
+> across these three fires alone — while the extracted content does not vary at
+> all. The largest figure in this report is one sample of that distribution, not
+> a ceiling on it, and the run that clips is silent part loss. 8192 is sized to
+> the spread, not to the sample.
+
 This is the follow-up promised in `docs/pcn-vision-cap-sizing-2026-09-22.md`.
 The sizing evidence there rested on two runs; the three-fires ruling applies to
 a notice with a known-flaky history, so it applies here.
