@@ -147,6 +147,16 @@ VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
 # everything that has been observed and is worth a human look.
 VISION_NEAR_CAP_RATIO = float(os.getenv("VISION_NEAR_CAP_RATIO", "0.85"))
 
+# The row-short cross-check's baseline floor. A DECLINED grid is, by definition, one
+# whose columns could not be decided — `n_rows` is a lower bound salvaged from an
+# otherwise-discarded table, not a confident count. Below this many rows that count is
+# not strong enough evidence to accuse the vision pass of dropping something: measured
+# 2026-09-23, three findings on onsemi_Generic_IPCN25300X (tier1 1 vs vision 0, tier1 4
+# vs vision 0 x2) were all noise from thin declines (n_rows 1 and 4) on pages vision read
+# correctly. This is a DELIBERATE threshold that trades detecting small shortfalls for
+# not manufacturing false ones — a real 2-or-3-row loss below the floor goes unflagged.
+MIN_ROW_SHORT_BASELINE = 5
+
 
 # THE PCN24-029 ROUTER GAP. That notice prints a single MPN, `TC4-1TX+`, under the label
 # "MODELS AFFECTED" with no table at all — not a borderless table unstructured missed, an
@@ -445,11 +455,24 @@ class SustainmentPlugin(AugmentationPlugin):
         # nothing in crops_failed or crops_truncated to say so. Tier 1's decline record
         # (a table it saw but declined to parse — NOT an empty table) carries exactly the
         # row count needed to catch this, so it is compared here.
+        #
+        # AGGREGATED PER PAGE, not per decline: `tl_declines` has one entry per declined
+        # TABLE, but `rows_by_page` is a PAGE total — a page with 3 declined tables was
+        # producing up to 3 findings against the same one page total (measured: 2 of
+        # onsemi_Generic_IPCN25300X's 3 false positives on 2026-09-23 were exactly this,
+        # both declines on its page 2 compared separately against the same page-2 vision
+        # count). Grouping by page and taking MAX (not sum) across that page's declines
+        # is the fix — the page total covers at least the largest table on it; summing
+        # would false-positive whenever one page holds several declined tables.
         row_short: List[Dict[str, Any]] = []
+        declines_by_page: Dict[Any, List[dict]] = {}
         for d in (tl_declines or []):
             page = d.get("page_number")
-            if not d.get("n_rows"):
-                continue  # nothing tier 1 saw on this page — no baseline to compare against
+            if (d.get("n_rows") or 0) < MIN_ROW_SHORT_BASELINE:
+                # Baseline floor: a DECLINED grid is one whose columns could not be
+                # decided, so its row count is not confident enough evidence to accuse
+                # the vision pass below this many rows — see MIN_ROW_SHORT_BASELINE.
+                continue
             if page not in rows_by_page:
                 continue  # vision never produced a successful crop for this page at all
             if page in failed_pages:
@@ -459,9 +482,12 @@ class SustainmentPlugin(AugmentationPlugin):
                 # that completed, reported no error, and still came back short — so a
                 # page already known bad for a different, louder reason is skipped.
                 continue
-            if rows_by_page[page] < d["n_rows"]:
-                row_short.append({"page_number": page, "tier1_rows": d["n_rows"],
-                                  "vision_rows": rows_by_page[page]})
+            declines_by_page.setdefault(page, []).append(d)
+        for page, ds in declines_by_page.items():
+            best = max(ds, key=lambda d: d["n_rows"])
+            if rows_by_page[page] < best["n_rows"]:
+                row_short.append({"page_number": page, "tier1_rows": best["n_rows"],
+                                  "vision_rows": rows_by_page[page], "n_declines": len(ds)})
         return all_parts, {"n_crops_used": n_crops, "crops_missing": missing,
                            "crops_failed": failed, "crops_truncated": truncated,
                            "crops_near_cap": near_cap, "crops_row_short": len(row_short),

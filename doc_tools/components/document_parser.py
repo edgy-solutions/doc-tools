@@ -117,7 +117,26 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             context.log.error(f"Extraction error: {extract_err}")
                             if not elements:
                                 elements = [{"type": "Text", "text": "Extracted text content", "metadata": {"page_number": 1}}]
-                        
+
+                        # CROP GEOMETRY REPAIR — unstructured's hi_res path writes Table
+                        # crops using its own detected bbox with zero padding, which on
+                        # measured corpus pages cuts horizontally through the last row's
+                        # glyphs (the SYTX9-122HP-1+ -> SYTYD-122HP-1+ misread on
+                        # PCN23-002). Re-crops each affected Table element's image file
+                        # in place and updates its metadata.coordinates BEFORE the
+                        # upload loop below, so the corrected crop is what gets
+                        # uploaded. PDF-only, and never allowed to fail the parse: a
+                        # geometry repair is strictly a quality improvement over the
+                        # crops unstructured already produced, not a requirement.
+                        if filename.lower().endswith(".pdf"):
+                            try:
+                                from doc_tools.utils.crop_geometry import repair_table_crops
+                                n_repaired = repair_table_crops(file_path, elements, temp_extract_dir)
+                                if n_repaired:
+                                    context.log.info(f"Crop geometry: re-cropped {n_repaired} table image(s)")
+                            except Exception as geom_err:
+                                context.log.warning(f"Crop geometry repair failed (continuing with original crops): {geom_err}")
+
                         # Upload images via Boto3
                         base_name = filename.replace('.', '_')
                         if os.path.exists(temp_extract_dir):
