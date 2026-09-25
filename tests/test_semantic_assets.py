@@ -9,6 +9,7 @@ build_knowledge_graph orchestration is intentionally left to integration tests.
 from unittest.mock import MagicMock, patch
 
 from dagster import build_asset_context
+from weaviate.util import generate_uuid5
 
 from doc_tools.assets.semantic_assets import (
     upload_to_jena,
@@ -183,11 +184,21 @@ def test_ensure_weaviate_collection_skips_when_present():
 
 
 def test_index_chunk_inserts_via_v4_data_insert():
+    # NOTE: _index_chunk now derives a deterministic uuid from chunk_id and
+    # upserts (see tests/test_index_chunk_identity.py for the full identity
+    # / no-strip-on-embed-failure coverage). This regression guard just
+    # confirms the v4 .data.insert() call shape still holds for the
+    # brand-new-row-with-a-vector path.
     client = MagicMock()
+    client.collections.get.return_value.data.exists.return_value = False
     props = {"text": "hi", "doc_id": "d", "chunk_id": "d_p1", "domain": "MANUFACTURING"}
-    _index_chunk(client, "Chunks", props)
+    with patch("doc_tools.utils.embed.embed_document", return_value=[0.1, 0.2]):
+        verdict = _index_chunk(client, "Chunks", props)
     client.collections.get.assert_called_once_with("Chunks")
-    client.collections.get.return_value.data.insert.assert_called_once_with(properties=props)
+    client.collections.get.return_value.data.insert.assert_called_once_with(
+        uuid=generate_uuid5("d_p1"), properties=props, vector=[0.1, 0.2]
+    )
+    assert verdict == "written"
 
 
 # --------------------------------------------------------------------------- #

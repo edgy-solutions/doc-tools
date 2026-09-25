@@ -1,4 +1,6 @@
 import os
+from collections import Counter
+
 import boto3
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -372,23 +374,34 @@ def index_xml_chunks_to_weaviate(
 
         written = 0
         failed = 0
+        verdicts: Counter[str] = Counter()
         for chunk in chunks:
             try:
                 # _index_chunk embeds via doc_tools.utils.embed.embed_document
                 # (LiteLLM nomic-embed-text, `search_document:` prefix) and
-                # inserts. On embed-gateway failure it writes the row
-                # without a vector — BM25 still works, backfill later.
-                _index_chunk(weaviate_client, "DocumentChunk", chunk)
+                # writes at uuid = generate_uuid5(chunk["chunk_id"]).
+                # It returns a verdict rather than assuming a write
+                # happened: on embed-gateway failure it inserts a NEW row
+                # without a vector (BM25 still works, backfill later), but
+                # it will NOT overwrite an EXISTING row without one,
+                # because `replace` is a whole-object PUT and would strip
+                # the vector that row already has. That case returns
+                # "skipped_would_strip_vector" and is counted separately —
+                # counting it as written would report a refresh that did
+                # not happen.
+                verdicts[
+                    _index_chunk(weaviate_client, "DocumentChunk", chunk)
+                ] += 1
                 written += 1
             except Exception as e:
                 # Per [[feedback-trailing-steps-nonfatal]]: per-chunk
                 # failure must not kill the whole batch. Log loudly,
-                # count, continue. Operators can re-run with the same
-                # config to retry idempotently (chunks are deterministic
-                # in shape; re-running produces dup rows only if
-                # Weaviate's auto-id assignment picks new UUIDs — see
-                # follow-up to make this fully idempotent via
-                # deterministic UUIDs from doc_id+section).
+                # count, continue. Re-running is now idempotent: the
+                # chunker stamps a deterministic chunk_id (doc_id +
+                # section + text hash) and _index_chunk hashes it into
+                # the uuid, so a retry replaces its rows instead of
+                # minting new ones. This is the follow-up the previous
+                # comment here pointed at.
                 failed += 1
                 context.log.warning(
                     f"index_xml_chunks_to_weaviate: failed to write "
@@ -398,13 +411,18 @@ def index_xml_chunks_to_weaviate(
 
         context.log.info(
             f"index_xml_chunks_to_weaviate: wrote {written}/{len(chunks)} "
-            f"chunks to DocumentChunk for {root_uri} (failures: {failed})."
+            f"chunks to DocumentChunk for {root_uri} (failures: {failed}). "
+            f"Verdicts: {dict(verdicts)}."
         )
         return MaterializeResult(
             metadata={
                 "chunks_written": written,
                 "chunks_failed": failed,
                 "chunks_total": len(chunks),
+                "chunks_without_vector": verdicts["written_without_vector"],
+                "chunks_skipped_would_strip_vector": verdicts[
+                    "skipped_would_strip_vector"
+                ],
                 "root_uri": root_uri,
                 "s3_key": s3_key,
                 "collection": "DocumentChunk",

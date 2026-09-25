@@ -10,7 +10,7 @@ import pytest
 
 from doc_tools.utils.table_text_layer import (
     find_header_row, find_title_row, header_pairing, looks_like_mpn, pair_columns,
-    parts_from_grid, parts_from_pages, strip_enclosing_quotes,
+    parts_from_grid, parts_from_pages, split_composite_cell, strip_enclosing_quotes,
 )
 
 # The real page-3 shape: a CAPTION, then a header declaring THREE (EOL, Replacement) pairs.
@@ -537,6 +537,112 @@ def test_looks_like_mpn_is_unchanged_for_column_pairing():
     inside it. looks_like_mpn is still used, unmodified, by pair_columns/cell-to-column
     matching — a JEDEC standard id must still register as MPN-shaped for THAT job."""
     assert looks_like_mpn("JESD22-A103") is True
+
+
+# --------------------------------------------------------------------------- #
+# COMPOSITE CELLS. A tier-1 cell can hold SEVERAL part-shaped strings joined by
+# comma+newline — measured on TYC-PCN-24-210412.pdf, where `looks_like_mpn` accepted
+# each of 'TYC1056344-1,\n9501815SP-1' and '160303P1,\n160303P001' whole (a newline is
+# not a space to `str.count(" ")`), so four real parts were read as two.
+# --------------------------------------------------------------------------- #
+
+def test_split_composite_cell_splits_the_real_tyc_shapes():
+    """The two exact cells measured in the corpus."""
+    assert split_composite_cell("TYC1056344-1,\n9501815SP-1") == [
+        "TYC1056344-1", "9501815SP-1"]
+    assert split_composite_cell("160303P1,\n160303P001") == [
+        "160303P1", "160303P001"]
+
+
+def test_composite_affected_cell_yields_two_parts_sharing_row_and_col():
+    """Both fragments come from the ONE cell, so they share its row/col/rep_col — the
+    bbox provenance really does point at that one cell for both of them."""
+    grid = [["Affected Part", "Replacement"],
+            ["TYC1056344-1,\n9501815SP-1", "REPL-1"]]
+    parts = parts_from_grid(grid)
+    assert [p["affected_mpn"] for p in parts] == ["TYC1056344-1", "9501815SP-1"]
+    assert parts[0]["row"] == parts[1]["row"] == 1
+    assert parts[0]["col"] == parts[1]["col"] == 0
+    assert parts[0]["rep_col"] == parts[1]["rep_col"] == 1
+
+
+def test_composite_cell_with_a_non_mpn_fragment_is_not_split():
+    """If even one fragment fails the MPN-shape floor, a PARTIAL split would invent a
+    part the document never separated out — the whole value is kept, unsplit."""
+    assert split_composite_cell("TYC1056344-1,\nsee note 4") == []
+    grid = [["Affected Part", "Replacement"], ["TYC1056344-1,\nsee note 4", ""]]
+    parts = parts_from_grid(grid)
+    assert len(parts) == 1
+    assert parts[0]["affected_mpn"] == "TYC1056344-1,\nsee note 4"
+
+
+def test_prose_fragments_are_rejected_by_shape_not_by_luck():
+    """The floor for a SPLIT fragment is stricter than `looks_like_mpn` on purpose.
+
+    `looks_like_mpn` accepts all three strings below: each is short, carries at most
+    two spaces and contains a digit. That is the right floor when the document already
+    separated a value out, and the WRONG floor for deciding to create two values where
+    the document printed one — the failure mode there is a part number that exists
+    nowhere in the source, and 'see note 4' is a convincing-looking one.
+    """
+    for prose in ("see note 4", "note4", "revision 2 only"):
+        assert looks_like_mpn(prose), (
+            f"fixture assumes {prose!r} clears the single-cell floor; if it no "
+            f"longer does, this test is no longer testing the gap it was written for"
+        )
+        assert split_composite_cell("TYC1056344-1,\n" + prose) == []
+
+
+def test_a_lowercase_or_spaced_real_mpn_is_kept_glued_not_invented_apart():
+    """The rule fails toward NOT splitting. A fragment that is genuinely a part but
+    carries a space or lowercase is left glued — which is the behaviour that shipped
+    before the split rule existed, and a miss the corpus score already reports. The
+    asymmetry is deliberate: a miss is recoverable by tightening later, an invented
+    part is a spurious emission that looks plausible."""
+    glued = "TYC1056344-1,\nabc-123"
+    assert split_composite_cell(glued) == []
+    grid = [["Affected Part", "Replacement"], [glued, ""]]
+    parts = parts_from_grid(grid)
+    assert len(parts) == 1
+    assert parts[0]["affected_mpn"] == glued
+
+
+def test_plain_single_line_comma_separated_value_is_not_split():
+    """Deliberately narrow: a plain ', ' on ONE line (no newline) was never observed
+    in this corpus, and a real part number can legitimately contain a comma — a
+    broader rule risks inventing a split the document never intended."""
+    assert split_composite_cell("ABC-1, DEF-2") == []
+    grid = [["Affected Part", "Replacement"], ["ABC-1, DEF-2", ""]]
+    parts = parts_from_grid(grid)
+    assert len(parts) == 1
+    assert parts[0]["affected_mpn"] == "ABC-1, DEF-2"
+
+
+def test_replacement_pairing_is_positional_when_fragment_counts_match():
+    """Counts matching is the only reading the page supports: fragment i pairs with
+    replacement fragment i."""
+    grid = [["Affected Part", "Replacement"],
+            ["TYC1056344-1,\n9501815SP-1", "TYC1056344-2,\n9501815SP-2"]]
+    parts = parts_from_grid(grid)
+    assert [p["affected_mpn"] for p in parts] == ["TYC1056344-1", "9501815SP-1"]
+    assert [p["replacement_mpn"] for p in parts] == ["TYC1056344-2", "9501815SP-2"]
+
+
+def test_replacement_pairing_repeats_the_unsplit_value_when_counts_differ():
+    """No positional correspondence the page states -> every fragment gets the whole,
+    un-split replacement value rather than a guessed pairing."""
+    grid = [["Affected Part", "Replacement"],
+            ["TYC1056344-1,\n9501815SP-1", "SINGLE-REPL-1"]]
+    parts = parts_from_grid(grid)
+    assert [p["replacement_mpn"] for p in parts] == ["SINGLE-REPL-1", "SINGLE-REPL-1"]
+
+
+def test_split_composite_cell_strips_enclosing_quotes_per_fragment():
+    """A quoted composite must behave like a quoted single (sustainment_merge.
+    dequote_parts strips a whole cell's enclosing quotes; here each fragment gets the
+    same treatment so neither one is left with a stray quote at the cut point)."""
+    assert split_composite_cell('"TYC1056344-1",\n"9501815SP-1"') == [
+        "TYC1056344-1", "9501815SP-1"]
 
 
 if __name__ == "__main__":

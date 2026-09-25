@@ -2,6 +2,7 @@ import os
 import json
 import httpx
 import urllib.parse
+import collections
 from typing import Any, Dict
 from dagster import asset, AssetExecutionContext, MaterializeResult, AutomationCondition
 from neo4j import GraphDatabase
@@ -14,6 +15,7 @@ from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
 from doc_tools.plugins.sustainment import SustainmentPlugin
 import weaviate.classes as wvc
+from weaviate.util import generate_uuid5
 
 
 def _ensure_weaviate_collection(client, name: str) -> None:
@@ -39,8 +41,9 @@ def _ensure_weaviate_collection(client, name: str) -> None:
         write_collection_marker(client, name)
 
 
-def _index_chunk(client, name: str, properties: dict) -> None:
-    """Insert one chunk object using the Weaviate v4 API.
+def _index_chunk(client, name: str, properties: dict) -> str:
+    """Upsert one chunk object using the Weaviate v4 API, keyed by a
+    deterministic uuid derived from the chunk's business key.
 
     Computes the vector via doc_tools.utils.embed.embed_text() (LiteLLM
     /embeddings, default model nomic-embed-text) and passes it explicitly
@@ -48,14 +51,39 @@ def _index_chunk(client, name: str, properties: dict) -> None:
     involved — code owns the contract for "what embedding model." See
     doc_tools/utils/embed.py for the rationale.
 
-    If the embedding gateway is unavailable we still write the row WITHOUT
-    a vector — BM25 queries still work, and a follow-up backfill can
-    populate vectors once the gateway is restored. The alternative (hard
-    failure) would gate ingestion on the LLM stack being healthy, which
-    is the fragility we're explicitly avoiding.
+    Identity: uuid = generate_uuid5(properties["chunk_id"]). chunk_id
+    alone is the key — NOT chunk_id + collection name — because mixing in
+    the collection would silently re-mint every uuid on a collection
+    rename. chunk_id is already unique per collection: built by callers as
+    f"{doc_id}_p{page_num}" (page chunks), f"{doc_id}_fig_{stem}" (figure
+    chunks), or doc_id + section + text-hash (XML chunks, stamped in
+    doc_tools/utils/xml_chunks.py). Without this, a re-ingest of the same
+    document minted a fresh random uuid every time and DUPLICATED every
+    chunk row.
+
+    Returns one of three verdicts so callers can tally outcomes:
+      - "written": wrote (insert or replace) WITH a vector.
+      - "written_without_vector": embedding failed/unavailable and no row
+        existed yet, so we wrote the row anyway with no vector — BM25
+        queries still work, and a follow-up backfill can populate the
+        vector once the gateway is restored. The alternative (hard
+        failure) would gate ingestion on the LLM stack being healthy,
+        which is the fragility we're explicitly avoiding.
+      - "skipped_would_strip_vector": embedding failed/unavailable AND a
+        row already existed at this uuid. See the comment below — this
+        is the load-bearing case.
     """
     from doc_tools.utils.embed import embed_document  # local import: keeps
     # module-load cheap for callers that monkey-patch this for tests.
+
+    chunk_id = properties.get("chunk_id")
+    if not chunk_id:
+        raise ValueError(
+            "_index_chunk requires a non-empty properties['chunk_id'] to "
+            "derive a stable uuid; a chunk with no stable identity is "
+            "exactly the duplication defect this function exists to fix."
+        )
+    chunk_uuid = generate_uuid5(chunk_id)
 
     text = properties.get("text", "")
     try:
@@ -67,10 +95,34 @@ def _index_chunk(client, name: str, properties: dict) -> None:
               f"writing without vector (BM25-only until backfill): {e}")
         vector = None
 
-    insert_kwargs: dict = {"properties": properties}
+    collection = client.collections.get(name)
+    exists = collection.data.exists(chunk_uuid)
+
     if vector is not None:
-        insert_kwargs["vector"] = vector
-    client.collections.get(name).data.insert(**insert_kwargs)
+        if exists:
+            collection.data.replace(uuid=chunk_uuid, properties=properties, vector=vector)
+        else:
+            collection.data.insert(uuid=chunk_uuid, properties=properties, vector=vector)
+        return "written"
+
+    if not exists:
+        # No row yet: write it without a vector (degraded but recoverable
+        # — see the "written_without_vector" case in the docstring).
+        collection.data.insert(uuid=chunk_uuid, properties=properties)
+        return "written_without_vector"
+
+    # vector is None AND a row already exists at this uuid: DO NOT call
+    # collection.data.replace(...) here. replace() is a documented
+    # whole-object PUT — calling it with no vector STRIPS whatever vector
+    # the existing row already had. This collection is self_provided
+    # (doc-tools computes vectors itself via LiteLLM; there is no
+    # server-side text2vec module to re-embed it later), so a stripped row
+    # stays unsearchable by vector until something explicitly repairs it.
+    # Skipping this write is recoverable (the next successful embed will
+    # upsert it); stripping is a silent, irreversible-until-backfill loss.
+    # The asymmetry is the whole argument: "always write something" reads
+    # as the safer default, but here the write is the destructive branch.
+    return "skipped_would_strip_vector"
 
 
 def _extraction_payload(document_nodes, doc_id: str, domain_type: str) -> dict:
@@ -291,6 +343,12 @@ def build_knowledge_graph(
     except Exception as e:
         context.log.error(f"Global plugin extraction failed: {e}")
 
+    # Tally _index_chunk verdicts across both the page-chunk loop and the
+    # embedded-image figure loop below, so we can log a single reconciled
+    # count of written / degraded / skipped-to-avoid-a-strip / erroring
+    # chunk writes for this document.
+    chunk_index_tally: collections.Counter = collections.Counter()
+
     # Process each page/chunk
     for page_num, texts in pages.items():
         chunk_text = "\n".join(texts)
@@ -330,11 +388,13 @@ def build_knowledge_graph(
 
         # Vector Indexing (Per Chunk, v4 API)
         try:
-            _index_chunk(weaviate_client, collection_name, {
+            verdict = _index_chunk(weaviate_client, collection_name, {
                 "text": chunk_text, "doc_id": doc_id, "chunk_id": chunk_id, "domain": domain_label,
             })
+            chunk_index_tally[verdict] += 1
         except Exception as e:
             context.log.error(f"Vector indexing failed for chunk {chunk_id}: {e}")
+            chunk_index_tally["errors"] += 1
 
     # ────────────────────────────────────────────────────────────────
     # Per-figure chunks for embedded images (closes the PDF-side
@@ -370,20 +430,33 @@ def build_knowledge_graph(
             figure_chunk_id = f"{doc_id}_fig_{stem}"
             figure_text = f"Figure {caption}:\n\n![{caption}]({img_s3_url})"
             try:
-                _index_chunk(weaviate_client, collection_name, {
+                verdict = _index_chunk(weaviate_client, collection_name, {
                     "text": figure_text,
                     "doc_id": doc_id,
                     "chunk_id": figure_chunk_id,
                     "domain": domain_label,
                 })
+                chunk_index_tally[verdict] += 1
             except Exception as e:
                 context.log.error(
                     f"Figure chunk indexing failed for {figure_chunk_id}: {e}"
                 )
+                chunk_index_tally["errors"] += 1
         context.log.info(
             f"Indexed {len(embedded_images)} embedded-image figure chunks "
             f"for doc {doc_id}."
         )
+
+    context.log.info(
+        "Chunk vector indexing for doc %s: written=%d written_without_vector=%d "
+        "skipped_would_strip_vector=%d errors=%d" % (
+            doc_id,
+            chunk_index_tally.get("written", 0),
+            chunk_index_tally.get("written_without_vector", 0),
+            chunk_index_tally.get("skipped_would_strip_vector", 0),
+            chunk_index_tally.get("errors", 0),
+        )
+    )
 
     # Derive image_prefix from text_location
     # e.g. text_location: "manufacturing/IID/generated/test_pdf/text.json"

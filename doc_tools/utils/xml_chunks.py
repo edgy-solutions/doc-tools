@@ -28,6 +28,10 @@ matches the live ``DocumentChunk`` schema:
   - section  : str   — where in the document this chunk came from
                        ("title" | "step:N" | "warning:N" |
                        "prop:<predicate_local>")
+  - chunk_id : str   — stable identity, doc_id + section + text hash;
+                       `_index_chunk` hashes it into the Weaviate uuid
+                       so a re-ingest replaces rows rather than
+                       duplicating them
 
 Engine W's source projection (agent_fleet/weaviate_expert/service.py
 :_collect_weaviate_source) reads these fields and falls back to
@@ -38,6 +42,7 @@ proves out.
 """
 from __future__ import annotations
 
+import hashlib
 from typing import Iterable
 
 import rdflib
@@ -78,9 +83,11 @@ def extract_chunks_from_graph(
     """Walk an RDF graph rooted at ``root_uri`` and yield chunk dicts.
 
     Each chunk dict matches the Weaviate ``DocumentChunk`` live schema
-    (text, doc_id, domain, section). Caller passes the result list
-    directly to ``_index_chunk`` from doc_tools/assets/semantic_assets
-    (which handles the per-row embed + insert).
+    (text, doc_id, domain, section, chunk_id). Caller passes the result
+    list directly to ``_index_chunk`` from doc_tools/assets/semantic_assets
+    (which handles the per-row embed + write). ``chunk_id`` is REQUIRED by
+    that function — it derives the row uuid from it — so every chunk built
+    here is stamped with one before returning.
 
     Args:
         g: The parser's RDF graph (e.g. ``builder.graph`` after
@@ -220,6 +227,31 @@ def extract_chunks_from_graph(
             "section": f"prop:{pred_local}",
             "domain": domain,
         })
+
+    # 6. Stamp a deterministic chunk_id on every chunk built above.
+    #    `_index_chunk` derives the Weaviate uuid from this field, so it
+    #    is what makes a re-ingest overwrite rows instead of adding them.
+    #    Done in one place, after construction, so a new chunk kind added
+    #    above cannot forget it.
+    #
+    #    Keyed on doc_id + section + a hash of the text, NOT on an
+    #    enumeration index. The `step:N` / `warning:N` labels are already
+    #    ordinals over `g.triples(...)`, and rdflib iteration order is
+    #    only reliably stable for an unchanged in-memory graph — a
+    #    re-parse that reorders two steps would, under a pure ordinal
+    #    key, re-mint both uuids and resurrect the duplicate-row defect
+    #    the deterministic uuid exists to prevent. Hashing the text makes
+    #    the identity follow the content. `section` stays in the key so
+    #    the same sentence appearing as both a step and a warning remains
+    #    two retrievable chunks; two chunks identical in all three fields
+    #    are the same chunk, and collapsing them is deliberate.
+    for chunk in chunks:
+        text_key = hashlib.sha1(
+            chunk["text"].encode("utf-8")
+        ).hexdigest()[:12]
+        chunk["chunk_id"] = (
+            f"{chunk['doc_id']}_{chunk['section']}_{text_key}"
+        )
 
     return chunks
 
