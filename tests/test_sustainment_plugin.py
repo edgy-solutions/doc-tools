@@ -135,7 +135,43 @@ def test_a_completed_crop_short_of_tier_1s_row_count_is_flagged(plugin, monkeypa
     assert len(parts) == 17, "the 17 rows the crop DID return are kept — this is not a failure"
     assert stats["crops_row_short"] == 1
     assert stats["row_short_detail"] == [
-        {"page_number": 2, "tier1_rows": 18, "vision_rows": 17}], stats["row_short_detail"]
+        {"page_number": 2, "tier1_rows": 18, "vision_rows": 17, "n_declines": 1}
+    ], stats["row_short_detail"]
+
+
+def test_multiple_declines_on_one_page_produce_at_most_one_finding(plugin, monkeypatch):
+    """`tl_declines` has one entry per declined TABLE, but `rows_by_page` is a PAGE total.
+    Three declines on one page must not produce three findings against the same page
+    total — measured 2026-09-23 on onsemi_Generic_IPCN25300X page 2 (2 of its 3 false
+    positives were exactly this). The finding takes the MAX across the page's declines,
+    not the sum."""
+    sixteen = [_part(f"MPN{i}") for i in range(16)]
+    _patch_b(monkeypatch, [sixteen])
+    _patch_tokens(monkeypatch, round(VISION_MAX_TOKENS * 0.1))
+    declines = [
+        {"page_number": 2, "reason": "declined", "n_rows": 18, "n_grid_rows": 18},
+        {"page_number": 2, "reason": "declined", "n_rows": 20, "n_grid_rows": 20},
+        {"page_number": 2, "reason": "declined", "n_rows": 6, "n_grid_rows": 6},
+    ]
+    parts, stats = plugin._extract_parts([_table_element(2)], None, None, "full text",
+                                         tl_declines=declines)
+    assert stats["crops_row_short"] == 1, "3 declines on one page -> at most one finding"
+    assert stats["row_short_detail"] == [
+        {"page_number": 2, "tier1_rows": 20, "vision_rows": 16, "n_declines": 3}
+    ], stats["row_short_detail"]
+
+
+def test_declines_below_the_baseline_floor_produce_no_finding(plugin, monkeypatch):
+    """A decline's column-blind row count is not confident evidence below the floor
+    (measured: onsemi_Generic_IPCN25300X's false positives were n_rows 1 and 4) — see
+    MIN_ROW_SHORT_BASELINE."""
+    _patch_b(monkeypatch, [[_part("A1")]])
+    _patch_tokens(monkeypatch, round(VISION_MAX_TOKENS * 0.1))
+    declines = [{"page_number": 1, "reason": "declined", "n_rows": 1, "n_grid_rows": 1}]
+    parts, stats = plugin._extract_parts([_table_element(1)], None, None, "full text",
+                                         tl_declines=declines)
+    assert stats["crops_row_short"] == 0
+    assert stats["row_short_detail"] == []
 
 
 def test_a_truncated_page_is_not_ALSO_double_flagged_row_short(plugin, monkeypatch):

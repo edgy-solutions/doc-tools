@@ -279,15 +279,44 @@ class GridOutcome(NamedTuple):
     decline: Optional[GridDecline]
 
 
+# A PROSE cell, for the row-short baseline ONLY — not a redefinition of `looks_like_mpn`,
+# which stays correct for its other job (column pairing) and is deliberately left alone
+# (see the comment on `_mpn_bearing_rows`). A parts-list row does not carry a sentence;
+# these thresholds catch the JEDEC qualification-standard rows on
+# onsemi_Generic_IPCN25300X ("High Temperature Storage Life", "Ta= -40°C to +125°C",
+# "130°C, 85% RH, 18.8psi", "MSL 1 @ 260 °C") that `looks_like_mpn` waves through because
+# they contain a digit.
+_PROSE_MIN_SPACES = 3
+_PROSE_MIN_LEN = 30
+
+
+def _is_prose_cell(value: Optional[str]) -> bool:
+    v = (value or "").strip()
+    return v.count(" ") >= _PROSE_MIN_SPACES or len(v) >= _PROSE_MIN_LEN
+
+
 def _mpn_bearing_rows(grid: Sequence[Sequence[Optional[str]]]) -> int:
-    """Count of rows carrying at least one cell that `looks_like_mpn`.
+    """Count of rows carrying at least one cell that `looks_like_mpn`, excluding any row
+    that also carries a PROSE cell.
 
     This is the row count a decline carries forward, not `len(grid)`: a caption row or a
     blank spacer row is real pdfplumber output but is never going to become a part, and
     counting it would make tier 1's row count disagree with itself depending on how many
     caption rows a vendor happens to print.
+
+    The prose exclusion is deliberately layered ON TOP of `looks_like_mpn` rather than
+    inside it: `looks_like_mpn` is "contains a digit" after length/space caps, which is
+    correct for its OTHER caller (`pair_columns` / cell-to-column matching) — a lone MPN
+    cell should still pair regardless of what prose sits elsewhere on the page. It is only
+    wrong as a SHORTFALL DENOMINATOR, where a qualification-standard row like
+    `["", "High Temperature Storage Life", "", "", "JESD22-A103", ...]` has a cell
+    (`JESD22-A103`) that trivially looks_like_mpn and inflates the row-short baseline
+    against a vision pass that (correctly) never counted that row as a part.
     """
-    return sum(1 for row in grid if any(looks_like_mpn(c) for c in row))
+    return sum(
+        1 for row in grid
+        if any(looks_like_mpn(c) for c in row) and not any(_is_prose_cell(c) for c in row)
+    )
 
 
 def header_pairing(

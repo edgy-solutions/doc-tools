@@ -500,6 +500,45 @@ def test_decline_row_count_excludes_captions_and_blanks_but_grid_row_count_does_
     assert outcome.decline.n_grid_rows == 6, "every row pdfplumber returned, blanks and caption included"
 
 
+# --------------------------------------------------------------------------- #
+# _mpn_bearing_rows — the row_short baseline denominator. `looks_like_mpn` alone
+# ("contains a digit" after length/space caps) is correct for column PAIRING but
+# over-counts as a shortfall baseline: a JEDEC qualification-standard row carries a
+# cell like "JESD22-A103" that trivially looks_like_mpn even though the row is prose,
+# not a part row. Measured on onsemi_Generic_IPCN25300X.
+# --------------------------------------------------------------------------- #
+def test_mpn_bearing_rows_counts_the_pcn23_002_shape():
+    """18 bare single-cell MPN rows, no prose anywhere — every row counts."""
+    from doc_tools.utils.table_text_layer import _mpn_bearing_rows
+    grid = [[f"MPN{i:04d}0"] for i in range(18)]
+    assert _mpn_bearing_rows(grid) == 18
+
+
+def test_mpn_bearing_rows_excludes_jedec_prose_rows():
+    """The real onsemi_Generic_IPCN25300X shape: JESD22-A103 etc. contain digits and
+    would pass looks_like_mpn on their own, but each row also carries a prose cell
+    (a sentence-length or multi-space description) and must not count as a part row."""
+    from doc_tools.utils.table_text_layer import _mpn_bearing_rows
+    grid = [
+        ["", "High Temperature Storage Life", "", "", "JESD22-A103", "", "",
+         "Ta= -40°C to +125°C", "", "", "1008 hrs"],
+        ["", "Preconditioning", "", "", "J-STD-020 JESD-A113", "", "",
+         "MSL 1 @ 260 °C", "", "", ""],
+        ["", "Temperature Cycling", "", "", "JESD22-A104", "", "",
+         "-65°C to +150°C, 500 cycles", "", "", ""],
+        ["", "Autoclave", "", "", "JESD22-A118", "", "",
+         "130°C, 85% RH, 18.8psi", "", "", "96 hrs"],
+    ]
+    assert _mpn_bearing_rows(grid) == 0
+
+
+def test_looks_like_mpn_is_unchanged_for_column_pairing():
+    """Regression guard: the row_short prose exclusion lives ABOVE looks_like_mpn, not
+    inside it. looks_like_mpn is still used, unmodified, by pair_columns/cell-to-column
+    matching — a JEDEC standard id must still register as MPN-shaped for THAT job."""
+    assert looks_like_mpn("JESD22-A103") is True
+
+
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-q"]))
