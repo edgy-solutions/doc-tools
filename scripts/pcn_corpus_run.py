@@ -7,10 +7,22 @@ two reconstructions cannot be compared with any confidence. It lives in `scripts
 now so the next run is a copy plus one command, and so the corpus list and the
 ground-truth counts have exactly one home.
 
-USAGE (from a checkout, against a deployed pod):
+SCORING IS BY PART NUMBER, NOT BY COUNT. This script drives the corpus and
+records what came back; `pcn_score.py` decides what that is worth, against the
+part numbers in `pcn_ground_truth.json`. The split is deliberate — see the top
+of `pcn_score.py` for the run that made it necessary, where a misread part
+number filled the slot of the real one and a miss printed as 896/896.
 
-    kubectl cp scripts/pcn_corpus_run.py sandbox/<pod>:/tmp/pcn_corpus_run.py
+USAGE (from a checkout, against a deployed pod). All three files travel together;
+the run aborts at startup if the corpus list and the ground truth disagree:
+
+    for f in pcn_corpus_run.py pcn_score.py pcn_ground_truth.json; do
+        kubectl cp "scripts/$f" "sandbox/<pod>:/tmp/$f"
+    done
     kubectl exec -n sandbox <pod> -- python /tmp/pcn_corpus_run.py
+
+    # score a saved run again later, without re-extracting anything:
+    python scripts/pcn_score.py /tmp/pcn_corpus.json
 
     # long runs (the vision notices take 130-300s each) — detach and poll:
     kubectl exec -n sandbox <pod> -- sh -c \
@@ -25,7 +37,8 @@ string: PowerShell expands its own `$?` (a boolean) before the payload reaches t
 pod, and you get `EXIT_CODE=True`. This script's completion signal is the final line
 of its own output and the presence of every notice key in the JSON.
 
-WRITES: `/tmp/pcn_corpus.json` in the pod, and nothing else. No S3 writes, no Neo4j,
+WRITES: `/tmp/pcn_corpus.json` and `/tmp/pcn_score.json` in the pod, and nothing
+else. No S3 writes, no Neo4j,
 no Jena, no Weaviate, no DataHub, no Dagster materialization. The extraction
 functions are called directly and results are kept in memory.
 """
@@ -46,9 +59,13 @@ os.environ.setdefault("PROMPT_SOURCE", "file")
 
 import boto3
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import pcn_score  # noqa: E402  (sibling module, not an installed package)
+
 BUCKET = os.getenv("PCN_BUCKET", "processing-artifacts")
 PREFIX = "sustainment/inbound/"
 OUT = os.getenv("PCN_OUT", "/tmp/pcn_corpus.json")
+SCORE_OUT = os.getenv("PCN_SCORE_OUT", "/tmp/pcn_score.json")
 
 # THE CORPUS AND THE GROUND TRUTH, in one place.
 #
@@ -67,6 +84,8 @@ TARGETS = [
     {"file": "onsemi_Generic_IPCN25300X.pdf",   "gt": 19},
     {"file": "onsemi_Generic_PD26044X1.pdf",    "gt": 25},
 ]
+# Progress-line denominator only. The score comes from the PART NUMBERS in
+# pcn_ground_truth.json, and check_ground_truth() makes a disagreement fatal.
 GT_TOTAL = sum(t["gt"] for t in TARGETS)
 
 # Three notices have MORE THAN ONE manifest in the bucket and the copies are not
@@ -180,7 +199,33 @@ def run_one(plugin, c, fn, manifest_key, manifest):
     }
 
 
+def check_ground_truth():
+    """TARGETS and pcn_ground_truth.json must agree, or the run has two answers.
+
+    TARGETS carries a count so the progress lines have something to print against
+    while the run is still going; the ground-truth file carries the part numbers
+    that actually decide the score. Two places holding the same fact is how they
+    drift, so the disagreement is made fatal at startup rather than discovered in
+    a report afterwards.
+    """
+    gt = pcn_score.load_ground_truth()
+    for t in TARGETS:
+        entry = gt.get(t["file"])
+        if entry is None:
+            raise SystemExit(f"{t['file']} is in TARGETS but not in the ground-truth file")
+        if entry["count"] != t["gt"]:
+            raise SystemExit(f"{t['file']}: TARGETS says gt={t['gt']}, "
+                             f"ground truth says {entry['count']}")
+        if len(entry["mpns"]) != entry["count"]:
+            raise SystemExit(f"{t['file']}: ground truth lists {len(entry['mpns'])} "
+                             f"MPNs but declares count={entry['count']}")
+    extra = set(gt) - {t["file"] for t in TARGETS}
+    if extra:
+        raise SystemExit(f"ground truth has notices TARGETS does not: {sorted(extra)}")
+
+
 def main():
+    check_ground_truth()
     c = s3_client()
     print(f"bucket={BUCKET} endpoint={os.getenv('S3_ENDPOINT_URL')}")
     print(f"pipeline_version={os.getenv('DOC_TOOLS_VERSION', 'doc-tools@unstamped')}")
@@ -220,24 +265,37 @@ def main():
     with open(OUT, "w") as f:
         json.dump(results, f, indent=2, default=str)
 
-    got = sum(r.get("parts", 0) for r in results.values() if r.get("ok"))
+    # The per-notice flag table stays, because the instrumentation counters are
+    # what say HOW a notice went wrong. It deliberately no longer carries a
+    # gt/got/gap column: a count next to ground truth invites reading the count
+    # as the score, and on 2026-09-23 exactly that turned a substitution into a
+    # reported pass. The score comes from pcn_score, below, and only from there.
     print()
-    print(f"{'notice':38} {'gt':>4} {'got':>4} {'gap':>4}  review  flags")
+    print(f"{'notice':38} {'emitted':>8}  review  flags")
     for t in TARGETS:
         r = results[t["file"]]
         if not r.get("ok"):
-            print(f"{t['file']:38} {t['gt']:>4} {'ERR':>4} {'?':>4}  {r.get('error')}")
+            print(f"{t['file']:38} {'ERR':>8}  {r.get('error')}")
             continue
         st = r["stats"]
         flags = ",".join(k for k in
                          ("crops_failed", "crops_truncated", "crops_near_cap", "crops_row_short")
                          if st.get(k)) or "-"
-        print(f"{t['file']:38} {t['gt']:>4} {r['parts']:>4} {t['gt'] - r['parts']:>4}  "
-              f"{str(r['needs_review']):>6}  {flags}")
+        print(f"{t['file']:38} {r['parts']:>8}  {str(r['needs_review']):>6}  {flags}")
+
     print()
-    print(f"TOTAL {got} / {GT_TOTAL}")
-    print(f"WROTE {OUT}")
-    return 0 if all(r.get("ok") for r in results.values()) else 1
+    scored = pcn_score.score_run(results, pcn_score.load_ground_truth())
+    print(pcn_score.render(scored))
+    with open(SCORE_OUT, "w") as f:
+        json.dump(scored, f, indent=2)
+    print(f"\nWROTE {OUT}")
+    print(f"WROTE {SCORE_OUT}")
+
+    if not all(r.get("ok") for r in results.values()):
+        return 1
+    tt = scored["totals"]
+    return 0 if (tt["exact"] == tt["gt"] and not tt["spurious"]
+                 and not tt["missing"] and not tt["malformed"]) else 1
 
 
 if __name__ == "__main__":
