@@ -1,8 +1,8 @@
 {
-  "_construction": "Build scripts/pcn_ground_truth.json from evidence, not from a run's say-so.\n\nCONSTRUCTION, stated so it can be audited:\n\n  An MPN enters ground truth only if it is VERBATIM PRESENT in the source PDF's\n  text layer. That is an independent check \u2014 the string is on the page or it is\n  not \u2014 and it is what separates a real extraction from a misread. 893 of the\n  896 MPNs the 2026-09-23 run emitted pass it.\n\n  The three that do not are handled explicitly, never silently:\n\n  - SYTYD-122HP-1+ (PCN23-002) is a MISREAD of a crop clipped 47% through its\n    glyphs. It is excluded, and the part it misreads, SYTX9-122HP-1+, is added\n    by hand: it IS verbatim in the source, it is the documented eighteenth part,\n    and no run has yet emitted it.\n  - TYC's two composite cells hold two customer part numbers each in one string\n    (\"TYC1056344-1,\\n9501815SP-1\"). Their CONTENT is real \u2014 both halves are on\n    the page \u2014 but their SHAPE is wrong. They are included so TYC's total is the\n    documented 24, and flagged `malformed` so the scorer reports them separately\n    rather than scoring them as clean.\n\n  Every resulting per-notice count is then checked against the counts in\n  docs/pcn-corpus-validation-2026-09-21.md. A disagreement aborts.\n",
+  "_construction": "Build scripts/pcn_ground_truth.json from evidence, not from a run's say-so.\n\nCONSTRUCTION, stated so it can be audited:\n\n  An MPN enters ground truth only if it is VERBATIM PRESENT in the source PDF's\n  text layer. That is an independent check \u2014 the string is on the page or it is\n  not \u2014 and it is what separates a real extraction from a misread. 893 of the\n  896 MPNs the 2026-09-23 run emitted pass it.\n\n  The three that do not are handled explicitly, never silently:\n\n  - SYTYD-122HP-1+ (PCN23-002) is a MISREAD of a crop clipped 47% through its\n    glyphs. It is excluded, and the part it misreads, SYTX9-122HP-1+, is added\n    by hand: it IS verbatim in the source, it is the documented eighteenth part,\n    and no run has yet emitted it.\n  - TYC's two composite cells hold two customer part numbers each in one string\n    (\"TYC1056344-1,\\n9501815SP-1\"). Their CONTENT is real \u2014 both halves are on\n    the page \u2014 but their SHAPE is wrong.\n\n    THEY WERE CARRIED GLUED UNTIL 2026-09-24, flagged `malformed`, so that TYC's\n    total read as the documented 24. THAT WAS A DEFECT IN THIS FILE, not a\n    labelling choice: a tier-1 cell holding two part-shaped strings joined by\n    comma+newline IS TWO PARTS, and ground truth that says otherwise asserts a\n    wrong fact about the notice. Each is now SPLIT, so TYC's count is 26 and the\n    corpus denominator is 898. The `malformed` list for TYC is consequently\n    empty.\n\n    This was found by the harness itself: the 2026-09-24 run scored TYC\n    exact=24 AND malf=2, a combination that can only mean the malformed strings\n    were in ground truth. Until the extractor learns the same split rule, TYC\n    will score 24 exact + 2 spurious + 4 missing, i.e. the corpus reads 893/898.\n    That shortfall is REAL and must not be closed by re-gluing this file. Prior\n    reports citing a denominator of 896 stand as written; see\n    docs/pcn-roll-c460ac6-2026-09-24.md.\n\n  Every resulting per-notice count is then checked against the counts in\n  docs/pcn-corpus-validation-2026-09-21.md. A disagreement aborts.\n",
   "notices": {
     "TYC-PCN-24-210412.pdf": {
-      "count": 24,
+      "count": 26,
       "mpns": [
         "1052926-1",
         "1052982-1",
@@ -10,9 +10,11 @@
         "1053451-1",
         "1055670-1",
         "1056344-1",
-        "TYC1056344-1,\n9501815SP-1",
+        "TYC1056344-1",
+        "9501815SP-1",
         "1056703-1",
-        "160303P1,\n160303P001",
+        "160303P1",
+        "160303P001",
         "1057289-1",
         "TYC1057289-1",
         "1057465-1",
@@ -29,11 +31,8 @@
         "1061372-1",
         "1063681-1"
       ],
-      "malformed": [
-        "TYC1056344-1,\n9501815SP-1",
-        "160303P1,\n160303P001"
-      ],
-      "source": "16 from the 'Part Number' column + 8 from 'Customer Part Number'; both ruled genuine affected-part columns in docs/pcn-corpus-validation-2026-09-21.md s1. Two of the 8 are single cells holding two part numbers \u2014 see malformed.",
+      "malformed": [],
+      "source": "16 from the 'Part Number' column + 10 from 'Customer Part Number'; both ruled genuine affected-part columns in docs/pcn-corpus-validation-2026-09-21.md s1. The Customer column has 8 CELLS, two of which hold two part numbers each (comma+newline), so it contributes 10 PARTS. CORRECTED 2026-09-24 from count=24: the two composite cells were previously carried glued, which made this file assert that a two-part cell is one part. See _construction.",
       "manifest": "sustainment/inbound/generated/TYC-PCN-24-210412_pdf/manifest.json"
     },
     "Diodes_PCN_2683_Rev1_EOL.pdf": {

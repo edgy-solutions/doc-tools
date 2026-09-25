@@ -36,15 +36,31 @@ image:
   # seconds after b11323e merged, so VISION_MAX_TOKENS=8192 went live then; what
   # revision 12 did NOT do is move the line below, so the pod kept running
   # 0279d83's code — which reads the cap from the environment and therefore
-  # honoured 8192 all along. The cap is not new here and cannot explain a score
-  # change at this roll.
+  # honoured 8192 all along. The cap has not moved since, and cannot explain a
+  # score change at this or any later roll.
   #
-  # What IS new in the pod at dc12ef3: b11323e's truncation/near-cap ACCOUNTING
-  # (the code that reports the cap being approached, as opposed to the cap
-  # itself), and 11fdb67's row-count detector and text-only vision route. Of
-  # those, only the router can add an extracted part; the two detectors can only
-  # raise needs_review, so they move the score down if they move it at all.
-  tag: "dc12ef306c96a5c43afb3e0534fc3a7896ca3d53"
+  # What IS new in the pod at c460ac6 (PRs #9 and #10, 2026-09-24): the two
+  # crops_row_short fixes — prose-bearing rows excluded from the shortfall
+  # baseline, and declines compared per PAGE instead of per decline — which
+  # together take onsemi_Generic_IPCN25300X from 3 false positives to 0 on a
+  # notice that scored 19/19. Both are plugin code and go live with this roll.
+  #
+  # What is NOT new in the pod, despite shipping in c460ac6: THE CROP-GEOMETRY
+  # REPAIR. repair_table_crops runs at INGEST, inside document_parser.py, and
+  # rewrites crop PNGs before they are uploaded to S3. Every manifest in this
+  # bucket was written by an earlier image, so the crops the vision pass
+  # downloads are still sliced through the last row's glyphs on 9 tables across
+  # 5 of the 9 notices. Rolling this image does not change one pixel of them.
+  # PCN23-002 will keep emitting SYTYD-122HP-1+ for SYTX9-122HP-1+ until those
+  # notices are RE-INGESTED through this image or a later one. So a shortfall on
+  # PCN23-002 at this pin is the EXPECTED result and not a failed fix; do not
+  # read it as one, and do not read a later recovery as this roll's doing.
+  # The run at this pin printed 895/896; the same emissions score 893/898 after
+  # the ground-truth correction that shipped with this pin edit (two glued TYC
+  # cells split into four parts). See docs/pcn-roll-c460ac6-2026-09-24.md.
+  # scripts/pcn_crop_seal.py measures that gap directly — its `stored` verdict
+  # is the re-ingest backlog, its `repaired` verdict is the shipped rule.
+  tag: "c460ac69216a0f0ceec69fe37e8efaaee51b3b81"
   # `Always` retained DELIBERATELY. With a sha tag it is no longer necessary
   # (the tag is immutable) but it is harmless, and changing it in the same edit
   # would give a rollback two variables instead of one. Drop it in a separate
