@@ -113,7 +113,14 @@ def test_shipped_ground_truth_is_self_consistent():
         assert len(e["mpns"]) == e["count"], fn
         assert len(set(e["mpns"])) == e["count"], f"{fn} has duplicate MPNs"
         assert all(m and m.strip() for m in e["mpns"]), fn
-    assert sum(e["count"] for e in gt.values()) == 896
+    # 898, not 896. Two tier-1 cells in TYC-PCN-24-210412.pdf each held two real
+    # MPNs glued by comma+newline and were carried in this file as one string apiece;
+    # splitting them into their four parts on 2026-09-24 raised TYC's count 24 -> 26.
+    # Reports dated before that keep their 896. Changing this number is only ever
+    # legitimate when a count in the JSON was WRONG — and note the direction it moved
+    # the score: 895/896 became 893/898. A correction lowers the score; a tune raises
+    # it. If you are here because this assert went red, confirm which one you did.
+    assert sum(e["count"] for e in gt.values()) == 898
 
 
 def test_shipped_ground_truth_declares_its_provenance():

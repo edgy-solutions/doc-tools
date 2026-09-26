@@ -63,6 +63,30 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pcn_score  # noqa: E402  (sibling module, not an installed package)
 import pcn_crop_seal  # noqa: E402  (sibling module, not an installed package)
 
+# Belt-and-braces cwd check. The load-bearing fix lives in
+# doc_tools/plugins/base.py::AugmentationPlugin._ensure_prompts_available (raises
+# PromptUnavailableError naming every missing prompt file), because THIS harness is
+# not the only caller of the plugin — a Dagster run is another. But this script is
+# launched directly, sometimes from the wrong cwd, and the failure mode measured
+# 2026-09-24 was ugly to diagnose: three notices returned 0 parts while a fourth
+# looked fine (it never needed a prompt, reading the deterministic text-layer tier
+# instead), and the only tell was wall time. Failing here, before a single S3 call,
+# gives a name and a fix instead of a silent partial run.
+_REQUIRED_PROMPT_FILES = [
+    "prompts/sustainment_header_instructions.md",
+    "prompts/sustainment_parts_instructions.md",
+]
+
+
+def _assert_prompts_resolvable():
+    missing = [p for p in _REQUIRED_PROMPT_FILES if not os.path.exists(p)]
+    if missing:
+        raise SystemExit(
+            f"Required prompt file(s) not found from cwd={os.getcwd()!r}: {missing}. "
+            "Run this script from the application root (/app in the pod)."
+        )
+
+
 BUCKET = os.getenv("PCN_BUCKET", "processing-artifacts")
 PREFIX = "sustainment/inbound/"
 OUT = os.getenv("PCN_OUT", "/tmp/pcn_corpus.json")
@@ -235,6 +259,7 @@ def check_ground_truth():
 
 
 def main():
+    _assert_prompts_resolvable()
     check_ground_truth()
     c = s3_client()
     print(f"bucket={BUCKET} endpoint={os.getenv('S3_ENDPOINT_URL')}")

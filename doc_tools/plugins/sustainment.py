@@ -31,7 +31,7 @@ from typing import List, Optional, Tuple, Any, Dict
 
 from pydantic import BaseModel, Field
 
-from doc_tools.plugins.base import AugmentationPlugin
+from doc_tools.plugins.base import AugmentationPlugin, PromptUnavailableError
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.jena_client import escape_sparql_string
 from doc_tools.utils import provenance
@@ -268,6 +268,17 @@ def _baml_call_opts() -> dict:
 # --------------------------------------------------------------------------- #
 class SustainmentPlugin(AugmentationPlugin):
     """PCN/PDN two-pass extraction with a router, merge, validation + review lane."""
+
+    # The two prompt files this plugin's extraction actually uses. Declared here so
+    # AugmentationPlugin._ensure_prompts_available (called once, at the top of
+    # process_fulltext below) can validate BOTH exist up front and name every
+    # missing one at once, rather than discovering a missing prompt lazily, deep
+    # inside a per-document extraction call that a broad handler is waiting to
+    # degrade instead of raise.
+    REQUIRED_PROMPT_FILES = [
+        "prompts/sustainment_header_instructions.md",
+        "prompts/sustainment_parts_instructions.md",
+    ]
 
     @traced(name="extract header (gpt-oss)")
     def _extract_header(self, full_text: str):
@@ -583,6 +594,10 @@ class SustainmentPlugin(AugmentationPlugin):
         # but that BREAKS the review join above unless the review seeds identically — it
         # re-derives from review.json.trace_id. Prefer tagging/naming spans per run so runs stay
         # separable INSIDE the unified trace; the join is the reason this seed exists.
+        # First-use validation: raises PromptUnavailableError (loudly, naming every
+        # missing file) before any per-document work starts, rather than letting a
+        # missing prompt surface lazily inside a broad per-document except clause.
+        self._ensure_prompts_available()
         with observed_trace(MAPPING, {"request_key": doc_id}, name="sustainment extraction"):
             return self._extract_fulltext(full_text, doc_id, metadata=metadata, elements=elements,
                                           manifest=manifest, s3_client=s3_client, bucket=bucket)
@@ -611,6 +626,14 @@ class SustainmentPlugin(AugmentationPlugin):
         header = None
         try:
             header = self._extract_header(full_text)
+        except PromptUnavailableError:
+            # A missing prompt file is a CONFIGURATION defect, not a per-document
+            # extraction failure — it affects every document identically and no
+            # retry fixes it. The broad `except Exception` below exists to degrade
+            # a genuine per-document failure (a vision timeout, a bad response); it
+            # must not also absorb this, or a deployment error silently looks like
+            # a normal 0-parts run. See doc_tools/plugins/base.py::PromptUnavailableError.
+            raise
         except Exception as e:  # noqa: BLE001
             reasons.append(f"header pass failed: {e}")
             doc_flags.append(f"header extraction failed: {e}")
@@ -651,6 +674,9 @@ class SustainmentPlugin(AugmentationPlugin):
                 stats["vision_used"] = True
                 if self._apply_vision_stats(ps, len(tables), reasons, doc_flags):
                     needs_review = True
+            except PromptUnavailableError:
+                # See the comment on the header pass's identical clause above.
+                raise
             except Exception as e:  # noqa: BLE001
                 reasons.append(f"parts pass failed: {e}")
                 doc_flags.append(f"PARTS MAY BE MISSING: the parts pass failed ({e})")
@@ -684,6 +710,9 @@ class SustainmentPlugin(AugmentationPlugin):
                                "text alone (no crop image available)")
                 if self._apply_vision_stats(ps, len(synthetic), reasons, doc_flags):
                     needs_review = True
+            except PromptUnavailableError:
+                # See the comment on the header pass's identical clause above.
+                raise
             except Exception as e:  # noqa: BLE001
                 reasons.append(f"parts pass failed: {e}")
                 doc_flags.append(f"PARTS MAY BE MISSING: the parts pass failed ({e})")

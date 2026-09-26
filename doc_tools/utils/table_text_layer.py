@@ -357,6 +357,87 @@ def _grid_width(grid: Sequence[Sequence[Optional[str]]]) -> int:
     return max((len(r) for r in grid), default=0)
 
 
+# A cell holding SEVERAL part-shaped strings joined by comma + newline. Measured on
+# TYC-PCN-24-210412.pdf: two Customer-Part-Number cells each glue two real, distinct
+# MPNs — 'TYC1056344-1,\n9501815SP-1' and '160303P1,\n160303P001' — which
+# `looks_like_mpn` accepts whole (a newline is not a space to `str.count(" ")`), so
+# four parts were being read as two.
+#
+# Separator is a comma followed by whitespace that INCLUDES a newline, deliberately
+# NOT a plain ", " on one line: that shape was never observed in this corpus, and a
+# real part number legitimately containing a comma on a single line is a risk a
+# broader rule could not tell apart from two genuinely different parts. A narrow rule
+# that covers the MEASURED defect is worth more than a broad one that might invent a
+# split the document never intended.
+_COMPOSITE_CELL_SEP = re.compile(r",\s*\n\s*")
+
+
+def _is_composite_fragment(fragment: str) -> bool:
+    """True when `fragment` is part-shaped enough to trust as one half of a SPLIT cell.
+
+    Deliberately STRICTER than `looks_like_mpn`, and the difference is the point.
+    `looks_like_mpn` allows up to two spaces and any case, which is right for a cell
+    the document itself presented as one part — it is deciding "is this a part?" about
+    a value someone already separated out. Here the function is deciding whether to
+    CREATE two values where the document printed one, and a false positive invents a
+    part number that exists nowhere in the source. `looks_like_mpn` alone accepts
+    'see note 4' (10 chars, two spaces, contains a digit), so a cell reading
+    'TYC1056344-1,' + newline + 'see note 4' would have yielded a part called
+    'see note 4'.
+
+    So a fragment must additionally be:
+      - free of whitespace — every measured composite is a bare token; prose is not
+      - free of lowercase letters — part numbers in these notices are uppercase or
+        numeric ('TYC1056344-1', '9501815SP-1', '160303P001'); 'see note 4' and
+        'note4' are not
+
+    Both rules fail toward NOT splitting, which is the pre-existing behaviour: a
+    lowercase or space-bearing real MPN keeps being read as one glued value, a miss
+    the corpus score already reports. That is the recoverable direction. Inventing a
+    part is not — it would show up as a spurious emission and, worse, as a plausible
+    one.
+    """
+    if not looks_like_mpn(fragment):
+        return False
+    if any(ch.isspace() for ch in fragment):
+        return False
+    return not any("a" <= ch <= "z" for ch in fragment)
+
+
+def split_composite_cell(value: Optional[str]) -> List[str]:
+    """[fragment, ...] if `value` is a genuine comma+newline-joined composite of part-
+    shaped strings, else [] (PURE).
+
+    Conservative by construction: a split is only trusted when there are >= 2
+    fragments AND EVERY fragment independently passes `_is_composite_fragment` (a
+    deliberately stricter floor than `looks_like_mpn` — see there) and is not itself
+    a header cell (`_is_affected`/`_is_replacement` — a repeated column header is not
+    a part). If even one fragment fails either check, [] is returned and the caller
+    must fall back to treating `value` as a single, unsplit cell — a PARTIAL split
+    would invent a part number the document never separated out.
+
+    Each fragment gets `strip_enclosing_quotes` applied, the same normalization a
+    non-composite cell eventually gets (`sustainment_merge.dequote_parts`) — so a
+    quoted composite behaves like a quoted single instead of surviving with a stray
+    quote character stranded at the cut point.
+    """
+    if not value:
+        return []
+    raw_fragments = _COMPOSITE_CELL_SEP.split(value)
+    if len(raw_fragments) < 2:
+        return []
+    fragments = [strip_enclosing_quotes(f.strip()) for f in raw_fragments]
+    if not all(
+        f
+        and _is_composite_fragment(f)
+        and not _is_affected(f)
+        and not _is_replacement(f)
+        for f in fragments
+    ):
+        return []
+    return fragments
+
+
 def grid_outcome(
     grid: Sequence[Sequence[Optional[str]]],
     *,
@@ -440,22 +521,51 @@ def grid_outcome(
             # merely contains "series", "generic" or "family" as a substring.
             if _is_affected(affected) or _is_replacement(affected):
                 continue
-            # find_tables() also returns prose blocks that merely look tabular; a sentence
-            # is not a part number.
-            if not looks_like_mpn(affected):
-                continue
             rep = ""
             if r_col is not None and r_col < len(row):
                 rep = (row[r_col] or "").strip()
             keep_rep = bool(rep and looks_like_mpn(rep))
+            rep_value = rep if keep_rep else None
+            rep_col_value = r_col if keep_rep else None
+
+            # A cell can hold SEVERAL part-shaped strings joined by comma+newline
+            # (TYC-PCN-24-210412.pdf) — split_composite_cell returns [] unless every
+            # fragment independently checks out, so this never fires on an ordinary
+            # single-value cell.
+            affected_fragments = split_composite_cell(affected)
+            if affected_fragments:
+                # The replacement cell may ALSO be composite. Positional pairing
+                # (fragment i <-> fragment i) is the only reading the page supports
+                # when both counts match; anything else — counts differ, or the
+                # replacement isn't composite at all — has no positional
+                # correspondence the page states, so every fragment gets the whole
+                # un-split replacement value instead of a guessed pairing.
+                rep_fragments = split_composite_cell(rep) if keep_rep else []
+                positional = (bool(rep_fragments)
+                             and len(rep_fragments) == len(affected_fragments))
+                for i, frag in enumerate(affected_fragments):
+                    out.append({
+                        "affected_mpn": frag,
+                        "replacement_mpn": rep_fragments[i] if positional else rep_value,
+                        # SAME row/col/rep_col as the cell they both came from — the
+                        # bbox provenance really does point at that one cell.
+                        "row": r,
+                        "col": a_col,
+                        "rep_col": rep_col_value,
+                    })
+                continue
+            # find_tables() also returns prose blocks that merely look tabular; a sentence
+            # is not a part number.
+            if not looks_like_mpn(affected):
+                continue
             out.append({
                 "affected_mpn": affected,
-                "replacement_mpn": rep if keep_rep else None,
+                "replacement_mpn": rep_value,
                 "row": r,
                 "col": a_col,
                 # the replacement lives in its OWN cell — carried so provenance can
                 # highlight THAT cell rather than reusing the affected one.
-                "rep_col": r_col if keep_rep else None,
+                "rep_col": rep_col_value,
             })
     return GridOutcome(out, None)
 

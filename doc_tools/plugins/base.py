@@ -6,12 +6,34 @@ from doc_tools.plugins.models import BaseSection, DocumentNode
 import logging
 from langfuse import Langfuse
 
+
+class PromptUnavailableError(RuntimeError):
+    """The prompt could not be resolved AT ALL — a configuration/deployment defect,
+    not a per-document extraction failure.
+
+    A missing prompt file affects every document identically and no retry can fix
+    it (commonly: a relative prompt path plus the wrong process working directory).
+    That is categorically different from a per-document failure (a vision timeout,
+    a malformed response) that a broad ``except Exception`` around one document's
+    extraction is meant to degrade gracefully. Per-document handlers MUST re-raise
+    this exception rather than swallowing it, so a configuration defect surfaces
+    loudly instead of masquerading as "this document produced zero parts".
+    """
+
+
 class AugmentationPlugin(ABC):
     """
     The abstract base class for a Domain-Specific LLM Extractor plugin.
     Plugins must implement the extract logic (to query LLMs/BAML) and
     the persistence mapping to emit Cypher/SPARQL statements.
     """
+
+    # Prompt files this plugin's extraction depends on, as paths relative to the
+    # process cwd (matching how `_get_dynamic_prompt`'s `fallback_file` is used
+    # elsewhere). Declared by a SUBCLASS (e.g. SustainmentPlugin) so `_ensure_
+    # prompts_available` can validate them all up front; empty by default so a
+    # plugin that does not opt in is unaffected.
+    REQUIRED_PROMPT_FILES: List[str] = []
 
     def __init__(self, domain_type: str):
         self.domain_type = domain_type
@@ -24,6 +46,41 @@ class AugmentationPlugin(ABC):
         # telemetry stamps these so a trace names WHICH prompt version produced an
         # extraction (ADR-0038 Phase 4). Populated as prompts are resolved.
         self._prompt_refs: Dict[str, str] = {}
+        # Cache flag for `_ensure_prompts_available`: validated once per process
+        # (per instance), not on every extraction call.
+        self._prompts_validated = False
+
+    def _ensure_prompts_available(self) -> None:
+        """Validate every path in ``REQUIRED_PROMPT_FILES`` exists, once per instance.
+
+        Prompts are otherwise resolved LAZILY, deep inside an extraction call whose
+        broad ``except Exception`` handler is waiting to swallow a missing-file error
+        as though it were a per-document failure — see ``PromptUnavailableError``.
+        Calling this at the first extraction entry point turns that into a loud,
+        immediate, configuration-level failure naming EVERY missing file at once,
+        instead of a 0-parts result discovered call by call, document by document.
+        A no-op after the first successful call (or when ``REQUIRED_PROMPT_FILES``
+        is empty, the default for a plugin that has not opted in).
+
+        This validates in BOTH ``PROMPT_SOURCE`` modes, deliberately. Under
+        ``PROMPT_SOURCE=langfuse`` the file is not the primary source, but it IS the
+        documented graceful-degradation target when Langfuse is unreachable — so an
+        unresolvable file there means the fallback is broken and the next Langfuse
+        outage becomes an outage of this pipeline. Better to learn that now than
+        during the outage.
+        """
+        if self._prompts_validated:
+            return
+        missing = [p for p in self.REQUIRED_PROMPT_FILES if not os.path.exists(p)]
+        if missing:
+            cwd = os.getcwd()
+            detail = "; ".join(
+                f"'{p}' (resolved absolute path: '{os.path.abspath(p)}')" for p in missing
+            )
+            raise PromptUnavailableError(
+                f"{len(missing)} required prompt file(s) not found (cwd='{cwd}'): {detail}"
+            )
+        self._prompts_validated = True
 
     @property
     def langfuse(self) -> Langfuse:
@@ -76,7 +133,23 @@ class AugmentationPlugin(ABC):
 
     def _load_prompt_from_file(self, fallback_file: str, prompt_name: str = None,
                                **compile_kwargs) -> str:
-        """Read a canonical prompt from disk and substitute ``{{ var }}`` placeholders."""
+        """Read a canonical prompt from disk and substitute ``{{ var }}`` placeholders.
+
+        A MISSING file is distinguished from every other read error: it means the
+        prompt could not be resolved at all (see ``PromptUnavailableError``), most
+        often a relative ``fallback_file`` combined with the wrong process cwd —
+        which is exactly why the message below names the given path, ITS resolved
+        absolute path, and the cwd, so a reader can diagnose it without a second
+        run. Any other failure (permissions, decode) keeps the prior behavior:
+        log and bare ``raise``.
+        """
+        if not os.path.exists(fallback_file):
+            cwd = os.getcwd()
+            abs_path = os.path.abspath(fallback_file)
+            msg = (f"Prompt file not found: given path='{fallback_file}', "
+                  f"resolved absolute path='{abs_path}', cwd='{cwd}'")
+            self.logger.error(msg)
+            raise PromptUnavailableError(msg)
         try:
             with open(fallback_file, 'r') as file:
                 raw_text = file.read().strip()
