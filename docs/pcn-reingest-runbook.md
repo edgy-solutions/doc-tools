@@ -99,8 +99,14 @@ than the storage.
 Re-ingest is confirmed by the seal and the score, not by the ingest logs:
 
 ```bash
-cd /app && python /tmp/pcn_corpus_run.py        # identity score + crop seal
+cd /app && python scripts/pcn_corpus_run.py     # identity score + crop seal
 ```
+
+Run the copy the IMAGE ships, at `/app/scripts/`, not a copy pushed into `/tmp`.
+The image contains `scripts/` and `prompts/`, so the in-image harness is provably
+the code at the pinned sha — including its ground truth. A `/tmp` copy can be any
+vintage, which is how a run gets scored against a denominator that no longer
+matches the notice set.
 
 Expect, once all five cut-crop notices are re-ingested:
 

@@ -39,13 +39,31 @@ image:
   # honoured 8192 all along. The cap has not moved since, and cannot explain a
   # score change at this or any later roll.
   #
-  # What IS new in the pod at c460ac6 (PRs #9 and #10, 2026-09-24): the two
-  # crops_row_short fixes — prose-bearing rows excluded from the shortfall
-  # baseline, and declines compared per PAGE instead of per decline — which
-  # together take onsemi_Generic_IPCN25300X from 3 false positives to 0 on a
-  # notice that scored 19/19. Both are plugin code and go live with this roll.
+  # PIN IS THE #12 MERGE, NOT THE #11 MERGE — and that is not a preference.
+  # PRs #11 and #12 merged back to back on 2026-09-25. The #11 merge commit
+  # (d7434d6) has NO IMAGE: #11 corrected the ground-truth denominator to 898
+  # but left test_shipped_ground_truth_is_self_consistent asserting 896, so its
+  # main build failed the `tests` job and `build-and-push` was skipped. #12
+  # fixed that assert, so 600c454 is the first main sha since c460ac6 that has
+  # an image at all. Pinning d7434d6 would have rendered perfectly here and then
+  # died at the kubelet with ImagePullBackOff. Verify the tag exists in ghcr
+  # before committing a pin; a green PR does not imply a built merge commit.
   #
-  # What is NOT new in the pod, despite shipping in c460ac6: THE CROP-GEOMETRY
+  # What IS new in the pod at 600c454 (PRs #11 and #12, 2026-09-25):
+  #   - _index_chunk writes at uuid = generate_uuid5(chunk_id) and returns one
+  #     of three verdicts. Previously it called data.insert with no uuid, so a
+  #     re-ingest DUPLICATED every chunk row — this is the change that makes the
+  #     five-notice re-ingest safe to run, and it is the reason to roll.
+  #     `skipped_would_strip_vector` is the load-bearing verdict: replace() is a
+  #     whole-object PUT, so re-writing a row with no vector strips the one it
+  #     has, and this collection is self_provided with nothing to re-embed it.
+  #   - An unresolvable prompt now raises PromptUnavailableError instead of
+  #     being swallowed by the per-document handlers and returning 0 parts.
+  #   - A tier-1 cell holding two part-shaped strings joined by comma+newline is
+  #     read as two parts. This is plugin code and goes live with this roll.
+  #   - Ground truth is 898 (two glued TYC cells split into four parts).
+  #
+  # What is STILL NOT new in the pod, exactly as at c460ac6: THE CROP-GEOMETRY
   # REPAIR. repair_table_crops runs at INGEST, inside document_parser.py, and
   # rewrites crop PNGs before they are uploaded to S3. Every manifest in this
   # bucket was written by an earlier image, so the crops the vision pass
@@ -55,12 +73,17 @@ image:
   # notices are RE-INGESTED through this image or a later one. So a shortfall on
   # PCN23-002 at this pin is the EXPECTED result and not a failed fix; do not
   # read it as one, and do not read a later recovery as this roll's doing.
-  # The run at this pin printed 895/896; the same emissions score 893/898 after
-  # the ground-truth correction that shipped with this pin edit (two glued TYC
-  # cells split into four parts). See docs/pcn-roll-c460ac6-2026-09-24.md.
+  #
+  # PREDICTION ON RECORD, so the run can contradict it: 897/898 at this pin
+  # BEFORE any re-ingest. TYC-PCN-24-210412 should reach 26/26 unaided, because
+  # its parts come from the TEXT LAYER (its stored_cut was 0) and the split rule
+  # is text-layer code, taking it from 22 exact + 2 spurious + 4 missing to 26
+  # exact. PCN23-002's cut crop is then the only remaining gap. 898/898 requires
+  # the re-ingest, per docs/pcn-reingest-runbook.md — whose CHECK 1 (the
+  # approval_state grep) runs before anything touches S3.
   # scripts/pcn_crop_seal.py measures that gap directly — its `stored` verdict
   # is the re-ingest backlog, its `repaired` verdict is the shipped rule.
-  tag: "c460ac69216a0f0ceec69fe37e8efaaee51b3b81"
+  tag: "600c4542e9c060bbfaff997ede2562f263ee36f0"
   # `Always` retained DELIBERATELY. With a sha tag it is no longer necessary
   # (the tag is immutable) but it is harmless, and changing it in the same edit
   # would give a rollback two variables instead of one. Drop it in a separate
