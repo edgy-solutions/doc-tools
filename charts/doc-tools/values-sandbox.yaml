@@ -49,63 +49,69 @@ image:
   # died at the kubelet with ImagePullBackOff. Verify the tag exists in ghcr
   # before committing a pin; a green PR does not imply a built merge commit.
   #
-  # What IS new in the pod at 600c454 (PRs #11 and #12, 2026-09-25):
-  #   - _index_chunk writes at uuid = generate_uuid5(chunk_id) and returns one
-  #     of three verdicts. Previously it called data.insert with no uuid, so a
-  #     re-ingest DUPLICATED every chunk row — this is the change that makes the
-  #     five-notice re-ingest safe to run, and it is the reason to roll.
-  #     `skipped_would_strip_vector` is the load-bearing verdict: replace() is a
-  #     whole-object PUT, so re-writing a row with no vector strips the one it
-  #     has, and this collection is self_provided with nothing to re-embed it.
-  #   - An unresolvable prompt now raises PromptUnavailableError instead of
-  #     being swallowed by the per-document handlers and returning 0 parts.
-  #   - A tier-1 cell holding two part-shaped strings joined by comma+newline is
-  #     read as two parts. This is plugin code and goes live with this roll.
-  #   - Ground truth is 898 (two glued TYC cells split into four parts).
+  # THE 600c454 ROLL IS CLOSED, 2026-09-25. It read 897/898 at that pin, then
+  # 898/898 after four notices were re-ingested in place -- four, not the five
+  # predicted: TYC read stored=0 and already scored 26/26, so it had nothing to
+  # fix. The crop seal came fully clean, stored_cut 0 (was 8). The long
+  # prediction block that used to live here has served its purpose and is not
+  # reproduced; docs/pcn-roll-600c454-2026-09-25.md is the record.
   #
-  # What is STILL NOT new in the pod, exactly as at c460ac6: THE CROP-GEOMETRY
-  # REPAIR. repair_table_crops runs at INGEST, inside document_parser.py, and
-  # rewrites crop PNGs before they are uploaded to S3. Every manifest in this
-  # bucket was written by an earlier image, so the crops the vision pass
-  # downloads are still sliced through the last row's glyphs on 9 tables across
-  # 5 of the 9 notices. Rolling this image does not change one pixel of them.
-  # PCN23-002 will keep emitting SYTYD-122HP-1+ for SYTX9-122HP-1+ until those
-  # notices are RE-INGESTED through this image or a later one. So a shortfall on
-  # PCN23-002 at this pin is the EXPECTED result and not a failed fix; do not
-  # read it as one, and do not read a later recovery as this roll's doing.
+  # IN PARTICULAR, THE PARAGRAPH HERE THAT SAID THE CROP-GEOMETRY REPAIR WAS
+  # "STILL NOT NEW IN THE POD" IS NOW FALSE and has been removed rather than
+  # left to age. The repair runs at INGEST, so it needed those re-ingests to
+  # take effect -- and they have happened. Any future change to crop geometry
+  # re-opens the same backlog, because the fix is still ingest-time.
   #
-  # PREDICTION ON RECORD, so the run can contradict it: 897/898 at this pin
-  # BEFORE any re-ingest. TYC-PCN-24-210412 should reach 26/26 unaided, because
-  # its parts come from the TEXT LAYER (its stored_cut was 0) and the split rule
-  # is text-layer code, taking it from 22 exact + 2 spurious + 4 missing to 26
-  # exact. PCN23-002's cut crop is then the only remaining gap. 898/898 requires
-  # the re-ingest, per docs/pcn-reingest-runbook.md — whose CHECK 1 (the
-  # approval_state grep) runs before anything touches S3.
-  # scripts/pcn_crop_seal.py measures that gap directly — its `stored` verdict
-  # is the re-ingest backlog, its `repaired` verdict is the shipped rule.
-  # STILL A TAG PIN, AND THEREFORE STILL ACKNOWLEDGED BELOW. Left as a tag on
-  # purpose in this commit: swapping it for a digest would change WHICH image
-  # sandbox runs in the same commit that changes HOW the chart decides, and the
-  # morning roll needs one of those to be a constant. This pin is the same
-  # 600c454 verified against ghcr in the block above; nothing about the rendered
-  # image reference changes here.
+  # What IS new in the pod at 55a6292, over and above 600c454 (PRs #13 and #14):
+  #   - sync_ontology_to_weaviate REFUSES a vectorless write that would strip a
+  #     stored vector, rather than performing it. batch.add_object(uuid=...) is
+  #     a whole-object PUT, so the old embed-failure fallback was not writing a
+  #     thinner row -- it deleted a healthy vector on every re-drive that hit a
+  #     gateway blip, undetectably. It now refuses AND RECORDS: a warning, plus
+  #     rows_written / rows_written_without_vector /
+  #     rows_refused_would_strip_vector in the asset's metadata. An ingest
+  #     during an embed outage now records instead of destroying.
+  #   - The chart refuses a pin it cannot show is real. This file is the first
+  #     thing to use the digest path that change added.
+  #   - From #14: the roll report and the re-ingest runbook, plus a tweak to
+  #     scripts/pcn_crop_seal.py. NO EXTRACTION BEHAVIOUR CHANGED between
+  #     600c454 and here, so the corpus is expected to read 898/898 UNCHANGED
+  #     at this pin. A DIFFERENT number is a regression to investigate, not an
+  #     improvement to celebrate -- there is nothing in this delta that could
+  #     legitimately raise it.
+  # PINNED BY DIGEST -- the first time this file has been, and the reason the
+  # `tag` and `unverifiedTagAck` lines that stood here are gone rather than
+  # merely updated. A tag is guessable from `git log`, which is exactly how
+  # d7434d6 came to be pinned (see above); a digest exists only as the output of
+  # a real push, so it cannot name an image that was never built. There is no
+  # ack on this line because there is nothing left to attest to: the pin now
+  # carries its own proof of build instead of a human promise that someone
+  # checked.
   #
-  # NEXT RE-PIN SHOULD USE THE DIGEST, not this line. The build-and-push job
-  # summary prints a ready-to-paste `digest:` for every build. Replace `tag` and
-  # `unverifiedTagAck` with `digest` and the never-built-pin class of failure is
-  # gone by construction rather than by attestation.
-  tag: "600c4542e9c060bbfaff997ede2562f263ee36f0"
-  # Why this is a URL and not a boolean: a flag says "someone thought about it",
-  # which is unfalsifiable. A run URL says WHICH BUILD produced the tag above,
-  # and a reviewer can open it. This is run 36212331481, the `main` build of the
-  # #12 merge — the first main sha since c460ac6 with an image at all, which is
-  # the whole reason the pin is 600c454 and not the #11 merge d7434d6.
-  # REPLACE THIS WHENEVER THE TAG CHANGES. A stale ack pointing at the previous
-  # build is worse than none: it reads as verification of a pin nobody checked.
-  unverifiedTagAck: "https://github.com/edgy-solutions/doc-tools/actions/runs/36212331481"
-  # `Always` retained DELIBERATELY. With a sha tag it is no longer necessary
-  # (the tag is immutable) but it is harmless, and changing it in the same edit
-  # would give a rollback two variables instead of one. Drop it in a separate
+  # THIS IS THE INDEX (manifest-list) DIGEST, not a per-platform child.
+  # Verified against ghcr before committing, with
+  # `docker manifest inspect ghcr.io/edgy-solutions/doc-tools:55a6292...`:
+  #     linux/amd64  sha256:6c228f08b00a32365791d585324bacb5194696a3602f4e58c155077996c7345e
+  #     linux/arm64  sha256:5bc62452d02252f942595900e77ffffcb0ac8d820c6a0f5d49dac9dac44e5a4b
+  #
+  # THE arm64 CHILD IS THE ONE THAT MATTERS HERE and it must be checked on every
+  # re-pin. Sandbox schedules onto arm workers, so an index whose arm64 child is
+  # missing renders perfectly in Helm and then fails at the kubelet -- the same
+  # failure SHAPE as the never-built tag, one layer further down, and not
+  # something the chart guard can see. Helm validates that a digest is
+  # well-formed; only the registry knows what is inside it.
+  #
+  # (The index also carries two unknown/unknown entries. Those are buildx
+  # attestation manifests -- provenance and SBOM -- not platforms. Expected.)
+  #
+  # 55a6292 is the #14 merge; build run 36248235787:
+  # https://github.com/edgy-solutions/doc-tools/actions/runs/36248235787
+  digest: "sha256:13c570ede614bb6f9249defecbf43b362c0508a84f3f208eec08d203d4080627"
+  # `Always` retained DELIBERATELY. Against a digest it is not merely
+  # unnecessary but inert -- a digest names exactly one immutable object, so
+  # there is nothing a re-pull could fetch differently. It stays because
+  # changing it in the same edit that changes the pin would give a rollback two
+  # variables instead of one. Drop it in a separate
   # change if ever wanted. CI publishes multi-arch (linux/amd64 + linux/arm64)
   # per build-container.yml so arm nodes (worker1, worker6) get the right binary.
   pullPolicy: Always
