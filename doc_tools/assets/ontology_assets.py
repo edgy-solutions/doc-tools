@@ -678,6 +678,64 @@ def seal_a_written_row_is_RETRIEVABLE(
     return probe_uri
 
 
+def _vectorless_write_verdict(collection, row_uuid, uri: str, context) -> str:
+    """Would writing this row WITHOUT a vector destroy a vector that is already
+    stored? Returns "written_without_vector" (safe to write) or
+    "skipped_would_strip_vector" (refuse).
+
+    THE DEFECT THIS GUARDS. `batch.add_object(uuid=...)` onto an existing id is a
+    whole-object PUT in weaviate-client 4.21.3, the same as `data.replace`: the
+    stored object is substituted, not merged. Omitting "vector" therefore does not
+    write a THINNER row over a healthy one, it ERASES the healthy row's vector.
+    The asymmetry is what makes it worth a round-trip: a backfill can populate a
+    vector that was never written, but nothing downstream can identify which
+    vectors an embed-gateway blip deleted, because the row still reads as present,
+    correct and merely unvectorised -- indistinguishable from a row that arrived
+    that way.
+
+    Only consulted when the embed FAILED, so the healthy path pays nothing.
+
+    Every error path returns the refusal. A store we cannot interrogate is a store
+    whose vectors we cannot promise to preserve, and the two verdicts do not cost
+    the same: refusing wrongly leaves a stale-but-searchable row and is reported in
+    the tally, while writing wrongly destroys a vector silently. If the row is
+    genuinely absent as well, `seal_declared_classes_are_rows` fails the asset on
+    read-back -- a loud red, which is the other thing a refusal must never be able
+    to turn into a silent zero-write.
+    """
+    try:
+        if not collection.data.exists(row_uuid):
+            return "written_without_vector"
+    except Exception as e:
+        context.log.warning(
+            f"cannot determine whether {uri} already holds a vector "
+            f"(exists() failed: {e}); REFUSING the vectorless write rather than "
+            f"risk stripping one. The row seal will fail the asset if this row "
+            f"is in fact absent."
+        )
+        return "skipped_would_strip_vector"
+
+    try:
+        stored = collection.query.fetch_object_by_id(row_uuid, include_vector=True)
+    except Exception as e:
+        context.log.warning(
+            f"cannot read back {uri} to check for a stored vector ({e}); "
+            f"REFUSING the vectorless write."
+        )
+        return "skipped_would_strip_vector"
+
+    # Vanished between the two calls: nothing to lose.
+    if stored is None:
+        return "written_without_vector"
+
+    # A row that never had a vector is refreshed, not refused -- the refusal is
+    # about LOSS, not about vectorlessness. Reads any named space and the legacy
+    # unnamed slot alike: whatever is in there is a vector this run would drop.
+    if getattr(stored, "vector", None):
+        return "skipped_would_strip_vector"
+    return "written_without_vector"
+
+
 def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, context: AssetExecutionContext, response_shapes: set[str] | None = None, source_ontology: str | None = None):
     """
     Takes parsed ontology classes (from rdflib/Jena) and dual-writes them to Weaviate.
@@ -842,66 +900,114 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
             words = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", words)
             return re.sub(r"\s+", " ", words).strip()
 
-        with collection.batch.dynamic() as batch:
-            for cls in domain_classes:
-                # Use the URI to generate a deterministic UUID
-                deterministic_uuid = generate_uuid5(str(cls["uri"]))
+        # -- PASS 1: DECIDE. PASS 2: WRITE. ------------------------------
+        # Deciding a row's fate can require a round-trip to the store (see
+        # _vectorless_write_verdict), and that must not happen with a batch
+        # held open. Same reason the partition above runs before this block.
+        #
+        # REFUSE-AND-RECORD, NEVER REFUSE-AND-RAISE. A hard failure raised from
+        # inside a writer is swallowed by any caller that wraps each item in its
+        # own `except` and counts on, and the asset then materializes green over
+        # a pool it wrote nothing into -- measured in `_index_chunk`'s callers,
+        # where a raise would have silently zeroed every XML chunk write. So a
+        # refusal leaves by two doors that cannot be swallowed: a warning log,
+        # and the tally this function RETURNS to its caller for the run's
+        # metadata. A degradation the run does not report is not best-effort,
+        # it is a hidden loss.
+        planned: list[dict] = []
+        vector_bearing: list[dict] = []
+        wrote_without_vector: list[str] = []
+        refused_to_strip: list[str] = []
 
-                safe_label = str(cls["label"]) if cls.get("label") else str(cls["uri"]).split("#")[-1].split("/")[-1]
-                # NO FILLER, deliberately. The old default ('No definition
-                # provided.') was both EMBEDDED and STORED: hundreds of
-                # definition-less classes shared the same suffix, so their
-                # vectors clustered on the filler instead of their names,
-                # and the stored filler leaked verbatim into Engine O's
-                # candidate prompts (token noise on every /resolve).
-                # Absent stays absent: empty string in the row, label-only
-                # in the vector.
-                safe_definition = str(cls["definition"]) if cls.get("definition") else ""
+        for cls in domain_classes:
+            # Use the URI to generate a deterministic UUID
+            deterministic_uuid = generate_uuid5(str(cls["uri"]))
 
-                # Embed "<humanized label> — <definition>" for richer
-                # signal than label alone; definition-less classes embed
-                # the humanized label by itself. Best-effort: on gateway
-                # failure, write without a vector so ingestion still
-                # completes (BM25 still works; backfill can populate
-                # later).
-                embed_input = (
-                    f"{_humanize_label(safe_label)} — {safe_definition}"
-                    if safe_definition
-                    else _humanize_label(safe_label)
+            safe_label = str(cls["label"]) if cls.get("label") else str(cls["uri"]).split("#")[-1].split("/")[-1]
+            # NO FILLER, deliberately. The old default ('No definition
+            # provided.') was both EMBEDDED and STORED: hundreds of
+            # definition-less classes shared the same suffix, so their
+            # vectors clustered on the filler instead of their names,
+            # and the stored filler leaked verbatim into Engine O's
+            # candidate prompts (token noise on every /resolve).
+            # Absent stays absent: empty string in the row, label-only
+            # in the vector.
+            safe_definition = str(cls["definition"]) if cls.get("definition") else ""
+
+            # Embed "<humanized label> — <definition>" for richer
+            # signal than label alone; definition-less classes embed
+            # the humanized label by itself. Best-effort on gateway
+            # failure, but only where best-effort is FREE: the row is
+            # written without a vector when nothing is lost by it (no
+            # row yet, or a row that never had one), and refused when
+            # the write would strip a stored vector. Ingestion still
+            # completes either way — see _vectorless_write_verdict.
+            embed_input = (
+                f"{_humanize_label(safe_label)} — {safe_definition}"
+                if safe_definition
+                else _humanize_label(safe_label)
+            )
+            try:
+                cls_vector = embed_document(embed_input)
+            except Exception as e:
+                context.log.warning(
+                    f"embed_document failed for {cls.get('uri','<?>')}; "
+                    f"writing without vector (BM25-only until backfill): {e}"
                 )
-                try:
-                    cls_vector = embed_document(embed_input)
-                except Exception as e:
-                    context.log.warning(
-                        f"embed_document failed for {cls.get('uri','<?>')}; "
-                        f"writing without vector (BM25-only until backfill): {e}"
-                    )
-                    cls_vector = None
+                cls_vector = None
 
-                add_kwargs: dict = {
-                    "properties": {
-                        "uri": str(cls["uri"]),
-                        "label": safe_label,
-                        "definition": safe_definition,
-                        "domain": domain.upper(),
-                        # Absent on rows written before 2026-09-19. The sentinel
-                        # reports that as UNATTRIBUTED rather than as a missing
-                        # ingest — an old row and an absent row are different
-                        # facts and must not be collapsed.
-                        "source_ontology": source_ontology or "",
-                    },
-                    "uuid": deterministic_uuid,
-                }
-                if cls_vector is not None:
-                    # BY NAME, not `vector=cls_vector`. The bare-list form
-                    # writes the legacy unnamed slot, which is the half of the
-                    # defect that made every row look vectorised to every
-                    # instrument while the index stayed empty. Keyed on the same
-                    # space declared at create above — see the block there; the
-                    # two are one change.
-                    add_kwargs["vector"] = {"default": cls_vector}
+            add_kwargs: dict = {
+                "properties": {
+                    "uri": str(cls["uri"]),
+                    "label": safe_label,
+                    "definition": safe_definition,
+                    "domain": domain.upper(),
+                    # Absent on rows written before 2026-09-19. The sentinel
+                    # reports that as UNATTRIBUTED rather than as a missing
+                    # ingest — an old row and an absent row are different
+                    # facts and must not be collapsed.
+                    "source_ontology": source_ontology or "",
+                },
+                "uuid": deterministic_uuid,
+            }
+            if cls_vector is None:
+                # The embed failed. Writing now is a whole-object PUT that
+                # would erase a stored vector if this uri already has one.
+                if _vectorless_write_verdict(
+                    collection, deterministic_uuid, str(cls["uri"]), context
+                ) == "skipped_would_strip_vector":
+                    refused_to_strip.append(str(cls["uri"]))
+                    continue
+                wrote_without_vector.append(str(cls["uri"]))
+                planned.append(add_kwargs)
+                continue
 
-                batch.add_object(**add_kwargs)
+            # BY NAME, not `vector=cls_vector`. The bare-list form
+            # writes the legacy unnamed slot, which is the half of the
+            # defect that made every row look vectorised to every
+            # instrument while the index stayed empty. Keyed on the same
+            # space declared at create above — see the block there; the
+            # two are one change.
+            add_kwargs["vector"] = {"default": cls_vector}
+            planned.append(add_kwargs)
+            vector_bearing.append(cls)
+
+        if refused_to_strip:
+            context.log.warning(
+                f"REFUSED {len(refused_to_strip)} vectorless write(s) for domain "
+                f"{domain!r} that would have stripped a stored vector. These rows "
+                f"keep their existing vector and their PREVIOUS label/definition — "
+                f"stale but searchable, which is recoverable by re-driving this "
+                f"partition once the embedding gateway is healthy. Writing them "
+                f"would not have been: an erased vector is not distinguishable "
+                f"afterwards from one that was never written. URIs: "
+                f"{sorted(refused_to_strip)[:10]}"
+            )
+
+        # PASS 2. Nothing is decided in here.
+        with collection.batch.dynamic() as batch:
+            for planned_kwargs in planned:
+                batch.add_object(**planned_kwargs)
 
         # THE BATCH DOES NOT RAISE, AND THIS IS WHERE RULING 1 WOULD OTHERWISE
         # STOP SHORT. Making the caller's `except` re-raise closes the case
@@ -933,7 +1039,7 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
                 sample.append(f"{props.get('uri', '<?>')}: {getattr(err, 'message', err)}")
             raise Exception(
                 f"Weaviate batch REJECTED {len(failed)} of "
-                f"{len(domain_classes)} OntologyClass row(s) for domain "
+                f"{len(planned)} OntologyClass row(s) for domain "
                 f"{domain!r}. The batch does not raise on per-object failure — "
                 f"it collects them and logs — so without this read the asset "
                 f"would report a green materialisation over a grounding pool "
@@ -952,12 +1058,29 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
         # different questions: the one above is "is the row there", this one is
         # "can the store find it". On the substrate measured 2026-09-19 the first
         # is green over 26,239 rows and the second is the only thing that fails.
+        #
+        # Probed on `vector_bearing`, not `domain_classes`: the seal's own
+        # contract is "a row THIS RUN wrote, carrying a vector", and since the
+        # refusal above a declared class may have been skipped entirely or
+        # written vectorless. Handing it the declared list would let it pick
+        # such a row and SKIP itself — reporting green from a run whose every
+        # vectorised write it never checked. An empty list (every embed failed)
+        # skips honestly, and the tally says why.
         probed = seal_a_written_row_is_RETRIEVABLE(
-            collection, domain_classes, domain, context
+            collection, vector_bearing, domain, context
         )
+        # "{n} accepted, 0 rejected" was true only while every row was written
+        # unconditionally. It now names the three outcomes separately, because a
+        # row written without a vector is not a searchable chunk and a refused
+        # row is not a written one — collapsing either into the success count is
+        # the same error as hiding a PDN needs_review reason inside a pass.
         context.log.info(
             f"Weaviate sync complete for domain {domain!r}: "
-            f"{len(domain_classes)} row(s) accepted, 0 rejected, "
+            f"{len(planned)} row(s) accepted, 0 rejected "
+            f"({len(vector_bearing)} with a vector, "
+            f"{len(wrote_without_vector)} WITHOUT a vector — BM25-only until "
+            f"backfill), {len(refused_to_strip)} REFUSED to avoid stripping a "
+            f"stored vector, "
             f"{rows_found} confirmed present on read-back, "
             f"retrievability probed on {probed or '<no vector-bearing row>'}. "
             f"{len(exclusions)} declared class(es) excluded by reason: "
@@ -967,10 +1090,21 @@ def sync_ontology_to_weaviate(extracted_classes: list[dict], domain: str, contex
             f"{len(domain_classes)} + {len(exclusions)} == "
             f"{len(extracted_classes)} declared."
         )
+
+        # RETURNED, not just logged: the caller puts this in the run's metadata
+        # so a degraded run is visible in Dagster without reading logs.
+        write_tally = {
+            "written": len(vector_bearing),
+            "written_without_vector": len(wrote_without_vector),
+            "skipped_would_strip_vector": len(refused_to_strip),
+            "declared": len(domain_classes),
+        }
         
     finally:
         # Crucial for Dagster: cleanly close the tunnel when the asset finishes
         client.close()
+
+    return write_tally
 
 @asset(partitions_def=ontology_partitions)
 def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig, s3: S3Resource, jena: JenaResource) -> MaterializeResult:
@@ -1259,12 +1393,18 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
                 f"treating this as benign."
             )
 
+        # A run with no classes reports zeros, not an absent key: "the tally is
+        # missing" and "nothing was degraded" must not look the same in Dagster.
+        write_tally: dict = {
+            "written": 0, "written_without_vector": 0,
+            "skipped_would_strip_vector": 0, "declared": 0,
+        }
         if extracted_classes:
             # Computed HERE because this is where the rdflib graph lives; the
             # SPARQL above deliberately selects only uri/label/definition and a
             # response shape is identified by its subClassOf root, not by any
             # column in that projection.
-            sync_ontology_to_weaviate(
+            write_tally = sync_ontology_to_weaviate(
                 extracted_classes, domain, context,
                 response_shapes=response_shape_uris(g),
                 source_ontology=obj_key,
@@ -1294,9 +1434,15 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
         #
         # WHAT IS DELIBERATELY *NOT* WIDENED, because the distinction the ruling
         # turns on is ROW MISSING vs ROW PRESENT BUT THINNER:
-        #   * `embed_document` failure inside `sync_ontology_to_weaviate` writes
-        #     the row without a vector and says so. BM25 still answers and a
-        #     backfill can populate the vector later. Stays best-effort.
+        #   * `embed_document` failure inside `sync_ontology_to_weaviate` still
+        #     does not raise. BM25 answers a vector-less row and a backfill can
+        #     populate it later, so a gateway blip must not turn a recoverable
+        #     condition red. Amended 2026-09-25 for the one case where the
+        #     fallback was not degrading a row but DESTROYING one: an omitted
+        #     vector on an existing uuid is a whole-object PUT, so the write
+        #     erased the stored vector. That case is now REFUSED and counted,
+        #     not raised — the row keeps its vector and the run reports the
+        #     refusal in its metadata. Still best-effort, still never fatal.
         #   * `write_collection_marker` is metadata about the collection, not a
         #     row in it. Stays best-effort, never raises.
         # Both are degraded rows. This one is an absent row.
@@ -1315,7 +1461,16 @@ def ingest_ontology_to_jena(context: AssetExecutionContext, config: S3FileConfig
             "domain": domain,
             "graph_uri": graph_uri,
             "triples": len(g),
-            "s3_path": f"s3://{bucket}/{obj_key}"
+            "s3_path": f"s3://{bucket}/{obj_key}",
+            # THE DEGRADATION IS REPORTED, not folded into the success count.
+            # `rows_written` counts SEARCHABLE rows; the other two are the run
+            # declaring its own damage where a Dagster viewer sees it without
+            # opening logs. A vector-less row answers BM25 only, and a refused
+            # row kept its vector but NOT this run's label/definition.
+            "rows_written": write_tally["written"],
+            "rows_written_without_vector": write_tally["written_without_vector"],
+            "rows_refused_would_strip_vector":
+                write_tally["skipped_would_strip_vector"],
         }
     )
 

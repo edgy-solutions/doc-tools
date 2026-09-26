@@ -592,6 +592,9 @@ jobs:
           du -sh .git 2>/dev/null || echo "no .git"
 
       - name: Build and Push
+        # id: so the NEXT step can read steps.build.outputs.digest. The action has
+        # always exported it; nothing ever read it.
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -617,3 +620,43 @@ jobs:
             DOC_TOOLS_VERSION=doc-tools@${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # THE PIN A REVIEWER CAN TRUST, PRINTED WHERE THEY WILL LOOK.
+      # charts/doc-tools/templates/_helpers.tpl now refuses a tag that has not
+      # been shown to exist, and prefers a digest, because a tag is GUESSABLE
+      # FROM GIT and a digest is not: a digest exists only as the output of a
+      # real push, so it cannot name an image that was never built. That guard
+      # is only usable if the digest is easy to find, and it was not printed
+      # anywhere -- getting it meant querying the ghcr API with a read:packages
+      # token, which is exactly the friction that makes people pin the tag they
+      # can read out of git log instead.
+      #
+      # Skipped on pull_request because push is false there, and the digest of a
+      # build that was never pushed is not a pin anyone can deploy.
+      - name: Publish the image digest as the pin to copy
+        if: github.event_name != 'pull_request'
+        run: |
+          DIGEST="${{ steps.build.outputs.digest }}"
+          IMAGE="${{ steps.meta.outputs.image }}"
+          if [[ -z "$DIGEST" ]]; then
+            echo "::warning::build-push-action reported no digest for this build, so there is no digest pin to copy. Pinning by tag will require image.unverifiedTagAck."
+            exit 0
+          fi
+          {
+            echo "## Image pin"
+            echo
+            echo "Paste into \`charts/doc-tools/values-<env>.yaml\` under \`image:\`, and DELETE the \`tag:\` and \`unverifiedTagAck:\` lines, which a digest replaces:"
+            echo
+            echo '```yaml'
+            echo "  digest: \"$DIGEST\""
+            echo '```'
+            echo
+            echo "| field | value |"
+            echo "|---|---|"
+            echo "| digest | \`$DIGEST\` |"
+            echo "| commit | \`${{ github.sha }}\` |"
+            echo "| tags pushed | \`${{ steps.meta.outputs.version }}\`, \`${{ github.sha }}\` |"
+            echo
+            echo "Verify independently of this log: \`docker pull $IMAGE@$DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "digest=$DIGEST"

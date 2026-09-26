@@ -83,7 +83,26 @@ image:
   # approval_state grep) runs before anything touches S3.
   # scripts/pcn_crop_seal.py measures that gap directly — its `stored` verdict
   # is the re-ingest backlog, its `repaired` verdict is the shipped rule.
+  # STILL A TAG PIN, AND THEREFORE STILL ACKNOWLEDGED BELOW. Left as a tag on
+  # purpose in this commit: swapping it for a digest would change WHICH image
+  # sandbox runs in the same commit that changes HOW the chart decides, and the
+  # morning roll needs one of those to be a constant. This pin is the same
+  # 600c454 verified against ghcr in the block above; nothing about the rendered
+  # image reference changes here.
+  #
+  # NEXT RE-PIN SHOULD USE THE DIGEST, not this line. The build-and-push job
+  # summary prints a ready-to-paste `digest:` for every build. Replace `tag` and
+  # `unverifiedTagAck` with `digest` and the never-built-pin class of failure is
+  # gone by construction rather than by attestation.
   tag: "600c4542e9c060bbfaff997ede2562f263ee36f0"
+  # Why this is a URL and not a boolean: a flag says "someone thought about it",
+  # which is unfalsifiable. A run URL says WHICH BUILD produced the tag above,
+  # and a reviewer can open it. This is run 36212331481, the `main` build of the
+  # #12 merge — the first main sha since c460ac6 with an image at all, which is
+  # the whole reason the pin is 600c454 and not the #11 merge d7434d6.
+  # REPLACE THIS WHENEVER THE TAG CHANGES. A stale ack pointing at the previous
+  # build is worse than none: it reads as verification of a pin nobody checked.
+  unverifiedTagAck: "https://github.com/edgy-solutions/doc-tools/actions/runs/36212331481"
   # `Always` retained DELIBERATELY. With a sha tag it is no longer necessary
   # (the tag is immutable) but it is harmless, and changing it in the same edit
   # would give a rollback two variables instead of one. Drop it in a separate
