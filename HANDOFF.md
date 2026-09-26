@@ -57,11 +57,68 @@ decision, so that no commit could move the head the merge gate was measured
 at. The decision came; it is now committed by name, on its own, after the
 rebase. Nothing else rode with it.
 
+## PCN lane — open, 2026-09-24
+
+**PR #11 OPEN**, branch `pcn/pin-c460ac6-and-crop-seal`, commit `a759a0b`:
+https://github.com/edgy-solutions/doc-tools/pull/11 — the `c460ac6` pin (which
+had been live on the cluster at helm rev 14 while existing nowhere in git),
+`scripts/pcn_crop_seal.py`, the seal wiring in `pcn_corpus_run.py`, the
+ground-truth correction, and `docs/pcn-roll-c460ac6-2026-09-24.md`. **Standing
+rule amended: a pin edit is committed before or with the roll, never after.**
+
+Cluster at helm rev 14, pod `doc-tools-5ccf4db94-tvbll`, imageID
+`sha256:d38c3cb0…`. Corpus reads **893/898** by identity (see project memory
+[[pcn-corpus-denominator-is-898-not-896]]); seal reports `repaired_cut=0` of 35
+tables and `stored_cut=8` — the latter is the re-ingest backlog and stays red.
+
+**PR #12 OPEN** — all three next-PR items plus the runbook, done and pushed:
+https://github.com/edgy-solutions/doc-tools/pull/12, branch
+`pcn/chunk-uuid-prompt-hardfail-cell-split`. Base is set to
+`pcn/pin-c460ac6-and-crop-seal` so the diff shows only its own 14 files
+(+1161/−37); **GitHub retargets it to `main` automatically when #11 merges, so
+merge #11 first.** Full suite green: **487 passed, 9 skipped.**
+
+1. `_index_chunk` deterministic uuid + three-verdict tally. ✅
+2. Prompt resolution hard-fails via `PromptUnavailableError`, re-raised ahead of
+   all three broad handlers; `_ensure_prompts_available` validates up front. ✅
+3. Tier-1 split rule for comma+newline-joined part-shaped cells. ✅ code + tests,
+   **but the TYC 26/26 seal is NOT run** — no local fixture for the notice, so it
+   needs a pod run after the roll.
+
+**Three things found while building it, each worth more than the item it came
+from:**
+- **The `_index_chunk` hard-fail would have silently zeroed every XML chunk
+  write.** `index_xml_chunks_to_weaviate` was an unspec'd third caller passing
+  chunks with no `chunk_id`; its own per-chunk `except` would have swallowed the
+  `ValueError` and materialized successfully with 0 rows. Fixed by stamping a
+  content-derived `chunk_id` (`doc_id + section + sha1(text)[:12]`, NOT an
+  ordinal — rdflib iteration order is only stable for an unchanged graph) in one
+  place in `extract_chunks_from_graph`. Nothing had ever tested that function.
+- **PR #11 would have gone red on its own corpus.** The ground-truth correction
+  to 898 left `test_shipped_ground_truth_is_self_consistent` asserting 896. Fixed
+  in #12.
+- **The split rule as first built would have invented a part named
+  `see note 4`.** `looks_like_mpn` accepts it (ten chars, two spaces, a digit).
+  The fragment floor is now stricter than `looks_like_mpn` on purpose: a rule
+  that CREATES values needs a higher bar than one that classifies a value the
+  document already separated out.
+
+Then re-ingest the 5 cut-crop notices **in place** (ruled; `review.json` checked
+and carries no human state), per `docs/pcn-reingest-runbook.md`, whose CHECK 1 is
+the `approval_state` grep. Expected: 898/898, `stored_cut` 0, detector 0 fires.
+Interim prediction: after #12 merges and rolls but BEFORE the re-ingest, TYC
+should reach 26/26 unaided (its parts come from the text layer; its `stored_cut`
+was 0), giving **897/898** with PCN23-002's cut crop the only remaining gap.
+Unisolated and left labelled: which table accounts for survey-9 vs seal-8.
+
+**Do NOT merge either PR — Chris merges both in the morning, #11 first.**
+
 ## Held / not started (do not build without new authorization)
 - The vector-strip writer fix itself — "first writer item after the walks
-  draw," explicitly kept out of PR #1. STILL NOT AUTHORIZED (2026-09-23).
+  draw," explicitly kept out of PR #1. **No longer indefinitely held as of
+  2026-09-24** — item 1 above is its trigger.
 - **SECOND WRITER ITEM: `_index_chunk`** (`semantic_assets.py:42-73`), held
-  under the same order. Read and confirmed 2026-09-23, a DIFFERENT shape from
+  under the same order — **now authorized as item 1 of the next PR.** Read and confirmed 2026-09-23, a DIFFERENT shape from
   the vector strip, not a restatement of it:
 
       insert_kwargs = {"properties": properties}
