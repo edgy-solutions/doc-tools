@@ -61,20 +61,30 @@ import boto3
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pcn_score  # noqa: E402  (sibling module, not an installed package)
+import pcn_crop_seal  # noqa: E402  (sibling module, not an installed package)
 
 BUCKET = os.getenv("PCN_BUCKET", "processing-artifacts")
 PREFIX = "sustainment/inbound/"
 OUT = os.getenv("PCN_OUT", "/tmp/pcn_corpus.json")
 SCORE_OUT = os.getenv("PCN_SCORE_OUT", "/tmp/pcn_score.json")
+SEAL_OUT = os.getenv("PCN_SEAL_OUT", "/tmp/pcn_crop_seal.json")
 
 # THE CORPUS AND THE GROUND TRUTH, in one place.
 #
 # `gt` is the affected-part count established in docs/pcn-corpus-validation-2026-09-21.md
 # and re-confirmed against stored extraction.json in
-# docs/pcn-product-baseline-2026-09-22.md section 5. The total is 896. Do not adjust a
+# docs/pcn-product-baseline-2026-09-22.md section 5. The total is 898. Do not adjust a
 # gt value to make a run look better; a disagreement with these numbers is the finding.
+#
+# TYC MOVED 24 -> 26 ON 2026-09-24, and with it the total 896 -> 898. This is the one
+# permitted kind of change to these numbers: ground truth was WRONG, not unflattering.
+# Two of TYC's Customer-Part-Number cells hold two part numbers each joined by
+# comma+newline, and pcn_ground_truth.json carried them glued so the total would read
+# as the documented 24. A two-part cell is two parts. Splitting them raises the
+# denominator and LOWERS the score (893/898), which is the direction that tells you it
+# was a correction and not a tune. Reports predating this keep their 896.
 TARGETS = [
-    {"file": "TYC-PCN-24-210412.pdf",           "gt": 24},
+    {"file": "TYC-PCN-24-210412.pdf",           "gt": 26},
     {"file": "Diodes_PCN_2683_Rev1_EOL.pdf",    "gt": 402},
     {"file": "Diodes_PCN_2683_FULLGREEN.pdf",   "gt": 402},
     {"file": "EOL-36_BYV34-400,-BYV34-500.pdf", "gt": 4},
@@ -291,11 +301,32 @@ def main():
     print(f"\nWROTE {OUT}")
     print(f"WROTE {SCORE_OUT}")
 
+    # Crop-seal: does the shipped crop-bottom repair actually contain the glyphs
+    # on these notices' real PDFs? Read-only, no S3 writes — see pcn_crop_seal.py.
+    # Wrapped broad: a scoring run that already succeeded must not be reported as
+    # failed because the seal itself hit an unrelated problem.
+    sealed = None
+    try:
+        # bucket/pick_fn/files passed explicitly so the seal never imports this
+        # module back — see pcn_crop_seal._harness for why that matters.
+        sealed = pcn_crop_seal.seal_corpus(
+            c, by_file, files=[t["file"] for t in TARGETS],
+            bucket=BUCKET, pick_fn=pick)
+        print()
+        print(pcn_crop_seal.render(sealed))
+        with open(SEAL_OUT, "w") as f:
+            json.dump(sealed, f, indent=2, default=str)
+        print(f"WROTE {SEAL_OUT}")
+    except Exception as e:
+        print(f"CROP SEAL SKIPPED: {type(e).__name__}: {e}")
+
     if not all(r.get("ok") for r in results.values()):
         return 1
     tt = scored["totals"]
+    seal_ok = sealed is None or (
+        sealed["totals"]["repaired_cut_tables"] == 0 and sealed["totals"]["errors"] == 0)
     return 0 if (tt["exact"] == tt["gt"] and not tt["spurious"]
-                 and not tt["missing"] and not tt["malformed"]) else 1
+                 and not tt["missing"] and not tt["malformed"] and seal_ok) else 1
 
 
 if __name__ == "__main__":
