@@ -50,7 +50,12 @@ spec:
             Failing at RENDER is the point — the error arrives before anything
             is applied, and names its own remedy.
           */}}
-          image: "{{ .Values.image.repository }}:{{ required "image.tag is required — pin an image sha (see values-sandbox.yaml). The chart has no safe default: an unset tag used to fall back to the scaffold appVersion, which is not a publishable image." .Values.image.tag }}"
+          # Built by doc-tools.image (_helpers.tpl), which REFUSES a pin that
+          # cannot be shown to exist. The `required` that used to live inline
+          # here caught an ABSENT tag but not a never-built one — see that
+          # helper for the d7434d6 incident and for why a digest is the only
+          # pin that carries its own proof of build.
+          image: {{ include "doc-tools.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.command }}
           command:

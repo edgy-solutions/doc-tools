@@ -17,6 +17,28 @@ image:
   # the `required` there — either alone restores the silent-substitution bug.
   #
   # Set it per environment: see values-sandbox.yaml.
+  #
+  # PREFER `digest` OVER `tag`. Added 2026-09-25, and the reason is narrower than
+  # "digests are more precise": a tag is GUESSABLE FROM GIT and a digest is not.
+  # `tag: <sha>` can be written by reading `git log`, which is precisely how an
+  # image that was never built gets pinned — a commit whose `main` build failed
+  # or was skipped still has a perfectly plausible-looking sha. That pin renders
+  # cleanly, Helm reports success, and the pod lands in ImagePullBackOff minutes
+  # later on a manifest-unknown, where it reads as a cluster fault. A digest
+  # exists only as the output of a real push, so it cannot name an image that was
+  # never pushed. See `doc-tools.image` in templates/_helpers.tpl.
+  #
+  #   digest: "sha256:<64 hex>"    # copy from the build-and-push job summary
+  #
+  # THE TAG PATH IS REFUSED BY DEFAULT. If you must pin by tag, confirm the tag
+  # exists in the registry and then record that you did:
+  #
+  #   unverifiedTagAck: "https://github.com/edgy-solutions/doc-tools/actions/runs/<id>"
+  #
+  # That string is not decoration and the chart does not check it — Helm cannot
+  # reach a registry at render time, so a human statement in a tracked file is
+  # the only evidence a reviewer gets. Do not set it to "yes" or "ok"; the value
+  # is supposed to be checkable by the next person.
 
 # Dagster gRPC server for user code deployment.
 # Override CMD from the distroless image (which defaults to webserver).
