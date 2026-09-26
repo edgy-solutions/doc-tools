@@ -22,9 +22,17 @@ WHY THEY DIFFER, AND WHY ONLY `repaired` GATES THE EXIT CODE. The crop repair
 runs at INGEST time, inside `doc_tools/components/document_parser.py`, and
 rewrites crop PNGs before they are uploaded to S3. The manifests this seal
 reads were produced by an EARLIER image, built before that repair existed, so
-`stored_cut` is non-empty for 9 tables across 5 of the 9 corpus notices — the
-same 9 tables the 2026-09-24 clipping survey found — and will stay non-empty
-until those 5 notices are re-ingested through an image that carries the fix.
+`stored_cut` is non-empty for 8 tables across 4 of the 9 corpus notices, and
+will stay non-empty until those 4 notices are re-ingested through an image that
+carries the fix.
+
+That 8/4 is NOT the 9/5 the 2026-09-24 clipping survey reported, and the
+difference is not a disagreement. The survey counted nine table INSTANCES, and
+Diodes appears three times in its table and onsemi twice, so its nine rows span
+only four distinct documents — plus a fifth notice, TYC, whose row is the
+99%-of-glyph-kept one that the survey's own repair table marks `unchanged /
+COVERED`. This module does not count that table as cut, because no glyph is
+sliced. Measured at pin 600c454: `TYC … n_tables=5 stored=0 repaired=0`.
 That is expected. It is not a code regression; it is a live measure of the
 re-ingest backlog, and `stored_cut` never affects the exit code because of it.
 `repaired_cut` is the one that must stay at zero: it tests the shipped rule

@@ -94,6 +94,73 @@ idempotent, so a fresh prefix buys nothing and doubles the S3 artifacts — and 
 would also fork the corpus every prior baseline was measured on, which is worse
 than the storage.
 
+### Do NOT try to trigger it by re-uploading the PDF
+
+The intuitive move — put the PDF back and let `sustainment_sensor` fire — is a
+**silent no-op**, blocked twice over in `dag_tools`' `S3SensorComponent`:
+
+1. `run_key = f"{ETag}-{obj_key}"`. Dagster deduplicates on `run_key`, and
+   re-uploading identical bytes produces an identical ETag, so the run request
+   is discarded as already-seen.
+2. Object listing starts after `sensor_context.cursor`, so an object already
+   behind the cursor is never even listed.
+
+Nothing errors. The sensor just skips, and it looks like the re-ingest "ran".
+
+### Launch the partition explicitly instead
+
+Mirror exactly what the sensor would have built, via the webserver's GraphQL at
+`http://iagent-dagster:3000/graphql` (reachable from inside the doc-tools pod):
+
+```
+selector      = { repositoryLocationName: "doc-tools",
+                  repositoryName:         "__repository__",
+                  pipelineName:           "process_document_artifact_job" }
+runConfigData = {"ops": {"process_document_artifact":
+                         {"config": {"file_url": "s3://processing-artifacts/<key>"}}}}
+tags          = [{ key: "dagster/partition", value: <key with "/" -> "__"> }]
+```
+
+This is strictly better than a re-upload: it **writes nothing to the source
+prefix**, touching only the derived `generated/` artifacts, which is the whole
+intent of a re-ingest.
+
+Three things that make the launch safe to trust:
+
+- The run launcher is `DefaultRunLauncher`, so the run executes **in-process on
+  the code-location pod** — the doc-tools pod itself, running
+  `dagster api grpc -m doc_tools.definitions` on the pinned image. The re-ingest
+  therefore provably runs the pinned code, and that is also why the namespace
+  contains no dagster run Jobs to go looking for.
+- Run **one notice at a time**, even though `QueuedRunCoordinator` permits 2.
+  The runs execute inside a pod capped at 4Gi, and `dagster.yaml` records an
+  OOMKill of a code-location pod that took its run down with it, leaving the run
+  STARTED with all steps IN_PROGRESS for ~8 hours and no failure event — a gap
+  `DefaultRunLauncher` cannot close, because it has no worker to health-check.
+- A `kubectl exec` that runs the poller can drop without affecting the run. Poll
+  from a process **inside** the pod (or re-query by `runId`) rather than
+  concluding anything from the exec's exit code.
+
+### Re-ingest the copy that is actually SCORED
+
+Several notices exist as byte-identical copies under multiple prefixes (Diodes
+×3, all ETag `abe083fe`; onsemi_IPCN25300X ×7, all `c9674b38`). Identical source
+bytes do **not** make the manifests interchangeable: each names its own
+`text_location`, and `PREFER` in `scripts/pcn_corpus_run.py` pins which manifest
+the score reads. Re-ingesting the wrong copy writes a manifest nothing reads and
+moves no number, while looking like a success.
+
+| notice | key to re-ingest |
+|---|---|
+| PCN23-002 | `sustainment/inbound/PCN23-002.pdf` |
+| Diodes_PCN_2683_Rev1_EOL | `sustainment/inbound/diodes_bbox/Diodes_PCN_2683_Rev1_EOL.pdf` |
+| Diodes_PCN_2683_FULLGREEN | `sustainment/inbound/Diodes_PCN_2683_FULLGREEN.pdf` |
+| onsemi_Generic_IPCN25300X | `sustainment/inbound/onsemi_truthkey/onsemi_Generic_IPCN25300X.pdf` |
+
+Those four are the full set with any `stored_cut` to clear. TYC is **not** in it:
+it reads `stored=0` and already scores 26/26 — see the 8/4-vs-9/5 note in
+`scripts/pcn_crop_seal.py` for why the backlog was ever described as five.
+
 ## Verification
 
 Re-ingest is confirmed by the seal and the score, not by the ingest logs:
