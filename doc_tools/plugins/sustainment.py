@@ -301,13 +301,48 @@ def _valid_grid_roles(roles: Any, n_cols: int) -> bool:
 
     `header_rows` is deliberately NOT validated here — per the spec, an out-of-range header
     row index is silently ignored at emission time rather than failing the whole label.
+
+    A NULL `affected_col` is NOT an invalid label and is not rejected here: it is the
+    model declining the table, handled separately by the caller. See
+    `_GRID_NO_PARTS_COL_NOTE`.
     """
+    if roles.affected_col is None:
+        return True
     if not (0 <= roles.affected_col < n_cols):
         return False
     for col in (roles.replacement_col, roles.ltb_date_col):
         if col is not None and not (0 <= col < n_cols):
             return False
     return True
+
+
+# Why `affected_col` is allowed to come back NULL.
+#
+# Measured on the 9-notice corpus at pin sha256:0136991e (507013f), which scored
+# 897/898 where the previous pin scored 898/898. The single regression:
+# onsemi_Generic_IPCN25300X emitted `'20kAlSiCu, 40kAlSi'` — a wire-bond material — as
+# an affected MPN. The label call's own `reason` explained exactly why: "'Before Change
+# Description' in c3 (affected state) and 'After Change Description' in c4". That table
+# is a CHANGE-DESCRIPTION table. It has no parts column at all.
+#
+# The model was not wrong; it was not ALLOWED to be right. `affected_col` was a required
+# int and the prompt said "Always pick your best candidate, even if you are not fully
+# certain", so a declined non-parts table could only ever produce a guess, and the grid
+# then faithfully emitted whatever sat in the guessed column. That is the SAME defect
+# this whole feature was built to fix, one tier along: tier 1 could not say "declined"
+# and returned [], so tier 2 could not say "no parts here" and returned a row.
+#
+# `looks_like_mpn` is not the fix. It let this string through (it has one space and 18
+# characters, under `_is_prose_cell`'s 3-space/30-char thresholds), and tightening a
+# predicate that tier 1 uses everywhere to catch one wire-bond alloy trades a precision
+# bug for a recall risk across all 898 parts.
+#
+# So: null `affected_col` means "this table has no affected-part column". The page then
+# DEGRADES TO THE PIXEL PATH rather than emitting nothing, which is deliberate and
+# recall-safe — the pixel path is what ran before grid forwarding existed and what
+# scored 898/898, and on this very table it correctly returned []. A model wrongly
+# declining a real parts table therefore costs a vision call, never a row.
+_GRID_NO_PARTS_COL_NOTE = __doc__
 
 
 # --------------------------------------------------------------------------- #
@@ -435,6 +470,7 @@ class SustainmentPlugin(AugmentationPlugin):
         all_parts: List[dict] = []
         n_crops, missing, failed, truncated, near_cap = 0, 0, 0, 0, 0
         grid_forwarded, grid_label_failed, grid_rows_emitted = 0, 0, 0
+        grid_no_parts_col = 0
         # The row-short cross-check needs, PER PAGE, how many rows vision actually
         # returned and whether that page's crop is already known-bad (failed/truncated).
         # Keyed on the crop's page_number (from unstructured metadata) rather than on the
@@ -513,6 +549,18 @@ class SustainmentPlugin(AugmentationPlugin):
                 except Exception as e:  # noqa: BLE001 — degrade, never fail the document
                     print(f"[SustainmentPlugin] LabelGridColumns failed on page "
                           f"{page_no}: {e} — degrading this page to the pixel path")
+                    page_ok = False
+                    continue
+                if roles.affected_col is None:
+                    # The model declined the table: no affected-part column exists (a
+                    # change-description table, a spec table, a revision-history table).
+                    # Counted apart from grid_label_failed because it is not a failure —
+                    # it is the answer, and the one the old required-int schema could not
+                    # express. See _GRID_NO_PARTS_COL_NOTE.
+                    print(f"[SustainmentPlugin] LabelGridColumns reports NO affected-part "
+                          f"column on page {page_no} ({roles.reason!r}) — degrading this "
+                          f"page to the pixel path")
+                    grid_no_parts_col += 1
                     page_ok = False
                     continue
                 # header_rows entries out of range are IGNORED, not a validation failure —
@@ -680,7 +728,8 @@ class SustainmentPlugin(AugmentationPlugin):
                            "crops_near_cap": near_cap, "crops_row_short": len(row_short),
                            "row_short_detail": row_short,
                            "grid_forwarded": grid_forwarded, "grid_label_failed": grid_label_failed,
-                           "grid_rows_emitted": grid_rows_emitted}
+                           "grid_rows_emitted": grid_rows_emitted,
+                           "grid_no_parts_col": grid_no_parts_col}
 
     def _apply_vision_stats(self, ps: dict, n_tables: int, reasons: List[str],
                             doc_flags: List[str]) -> bool:
@@ -788,7 +837,7 @@ class SustainmentPlugin(AugmentationPlugin):
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
                  "crops_truncated": 0, "crops_near_cap": 0, "crops_row_short": 0,
                  "vision_used": False, "grid_forwarded": 0, "grid_label_failed": 0,
-                 "grid_rows_emitted": 0}
+                 "grid_rows_emitted": 0, "grid_no_parts_col": 0}
         reasons: List[str] = []
         needs_review = False
         # The doc-level reasons that FORCE review — i.e. the extraction telling us its own
