@@ -138,6 +138,57 @@ function ExtractParts(ocr_text: string, html_table: string, table_images: image[
 // though Ollama tolerates it. Image-last yields a clean [text, image] that both
 // backends accept. Do NOT move ctx.output_format below the image.
 
+// -- Grid forwarding (tier-1 declined grid -> tier-2 LABELS ONLY, never re-transcribes). --
+// When pdfplumber reads a table's grid but cannot decide what the columns MEAN, the grid
+// itself is exact — it came from the PDF's own text layer, not a pixel re-read. Handing
+// THAT grid to vision instead of a fresh crop means vision's only remaining job is naming
+// which column is which. GridColumnRoles therefore returns INDICES ONLY, never part
+// strings: pixels are not a trustworthy source for MPN characters (long alphanumerics are
+// easily misread — SYTX9-122HP-1+ on PCN23-002 is the measured case), and a clipped or
+// re-cut crop must be able to cost a column LABEL but must NEVER be allowed to cost a ROW
+// or corrupt an MPN's characters. Part strings are read verbatim from the grid cells in
+// Python (doc_tools/plugins/sustainment.py), not from this function's output.
+class GridColumnRoles {
+    affected_col int @description("0-based index of the grid column holding the affected/discontinued manufacturer part number. Required - pick the best candidate even if unsure.")
+    replacement_col int? @description("0-based index of the column holding the recommended replacement/substitute part number, or null if this table has no replacement column at all.")
+    ltb_date_col int? @description("0-based index of a PER-ROW last-time-buy date column, or null if the table carries no per-row dates.")
+    header_rows int[] @description("0-based indices of rows that are headers, captions or spacers rather than parts. Empty list if every row is a part row.")
+    reason string @description("One sentence naming the evidence in the image or grid for this column assignment.")
+}
+
+// -- Grid-forwarding pass: LABELS ONLY, multimodal, on Gemma (client Vision). --
+// Section order matches ExtractParts above (load-bearing for vLLM/gemma - see its NOTEs):
+// grid text, then the column-count hint, then OUTPUT FORMAT, then the image(s) LAST with
+// no text after them. The grid, not the image, is authoritative for cell text.
+function LabelGridColumns(grid_text: string, n_cols: int, table_images: image[], system_instructions: string) -> GridColumnRoles {
+  client Vision
+  prompt #"
+    {{ _.role("system") }}
+    {{ system_instructions }}
+
+    {{ _.role("user") }}
+    ### GRID (AUTHORITATIVE for all cell text) ###
+    ---
+    {{ grid_text }}
+    ---
+    The FIRST line above names the DATA COLUMNS: c0, c1, ... ({{ n_cols }} in all).
+    Return the N from cN for affected_col, replacement_col and ltb_date_col - read the
+    number off the heading, do not count columns.
+
+    The `[row N]` label starting every line is a ROW NAME, NOT a data column. Use its N
+    for header_rows. Never count it as a column: answering 1 for the first data column
+    would mispair every row in the table.
+
+    ### OUTPUT FORMAT ###
+    {{ ctx.output_format }}
+
+    ### TABLE IMAGE(S) (structure/pairing hint ONLY - never a source of part characters) ###
+    {% for img in table_images %}
+    {{ img }}
+    {% endfor %}
+  "#
+}
+
 // -- Legacy single-pass extractor. Retained for backward compat
 //    (scripts/test_fallback_resilience.py, ad-hoc runs); NOT used by the
 //    two-pass router in sustainment.py. --

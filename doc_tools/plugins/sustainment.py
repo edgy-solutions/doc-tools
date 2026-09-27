@@ -263,13 +263,60 @@ def _baml_call_opts() -> dict:
     return {"abort_controller": AbortController(timeout_ms=ms)}
 
 
+def _grid_to_text(grid: List[List[Any]]) -> str:
+    """A tab-separated rendering of a declined grid in which every index the model is asked
+    to return is PRINTED IN THE TEXT rather than counted.
+
+    Data columns are headed `c0 c1 c2 …`, and each row is labelled `[row N]`. Both halves
+    are load-bearing:
+
+    - The row label MUST NOT read as a data column. The first version of this function put
+      a bare `str(i)` in the leading tab-separated field, which shows the model a table
+      whose first column is the row number — an open invitation to answer `1` for the FIRST
+      data column. That off-by-one would silently hand back the replacement column as
+      `affected_col`, mispairing every row, and NO test can catch it: the label call is
+      stubbed in tests, so the defect lives only in the wording the model actually sees.
+    - A printed `cN` heading means `affected_col` is READ OFF the grid instead of inferred
+      by counting, which is the difference between a model that miscounts and a model that
+      copies.
+
+    `n_cols`, `_valid_grid_roles` and the emission loop in `_extract_parts` are all
+    DATA-relative (`row[affected_col]`), so this rendering is the single place the two
+    conventions could drift apart. `tests/test_grid_forwarding_seal.py` pins the contract.
+    """
+    n_cols = max((len(r) for r in grid), default=0)
+    lines = ["[row]\t" + "\t".join(f"c{j}" for j in range(n_cols))]
+    for i, row in enumerate(grid):
+        cells = [(c or "").strip() for c in row] + [""] * (n_cols - len(row))
+        lines.append(f"[row {i}]\t" + "\t".join(cells))
+    return "\n".join(lines)
+
+
+def _valid_grid_roles(roles: Any, n_cols: int) -> bool:
+    """True when every column index `LabelGridColumns` returned is IN RANGE of the grid it
+    was given. A model can name a column that does not exist (miscounting, or echoing a
+    stale n_cols); trusting that would either read garbage out of the wrong column or raise
+    a plain IndexError deep in the row-emission loop. Checked up front and treated as a
+    label failure (falls back to the pixel path) rather than either of those.
+
+    `header_rows` is deliberately NOT validated here — per the spec, an out-of-range header
+    row index is silently ignored at emission time rather than failing the whole label.
+    """
+    if not (0 <= roles.affected_col < n_cols):
+        return False
+    for col in (roles.replacement_col, roles.ltb_date_col):
+        if col is not None and not (0 <= col < n_cols):
+            return False
+    return True
+
+
 # --------------------------------------------------------------------------- #
 # Plugin
 # --------------------------------------------------------------------------- #
 class SustainmentPlugin(AugmentationPlugin):
     """PCN/PDN two-pass extraction with a router, merge, validation + review lane."""
 
-    # The two prompt files this plugin's extraction actually uses. Declared here so
+    # The prompt files this plugin's extraction actually uses. Declared here so
     # AugmentationPlugin._ensure_prompts_available (called once, at the top of
     # process_fulltext below) can validate BOTH exist up front and name every
     # missing one at once, rather than discovering a missing prompt lazily, deep
@@ -278,6 +325,7 @@ class SustainmentPlugin(AugmentationPlugin):
     REQUIRED_PROMPT_FILES = [
         "prompts/sustainment_header_instructions.md",
         "prompts/sustainment_parts_instructions.md",
+        "prompts/sustainment_grid_columns_instructions.md",
     ]
 
     @traced(name="extract header (gpt-oss)")
@@ -379,9 +427,14 @@ class SustainmentPlugin(AugmentationPlugin):
             prompt_name="sustainment_parts_instructions",
             fallback_file="prompts/sustainment_parts_instructions.md",
         )
+        grid_prompt = self._get_dynamic_prompt(
+            prompt_name="sustainment_grid_columns_instructions",
+            fallback_file="prompts/sustainment_grid_columns_instructions.md",
+        )
         embedded = (manifest or {}).get("embedded_images", {}) or {}
         all_parts: List[dict] = []
         n_crops, missing, failed, truncated, near_cap = 0, 0, 0, 0, 0
+        grid_forwarded, grid_label_failed, grid_rows_emitted = 0, 0, 0
         # The row-short cross-check needs, PER PAGE, how many rows vision actually
         # returned and whether that page's crop is already known-bad (failed/truncated).
         # Keyed on the crop's page_number (from unstructured metadata) rather than on the
@@ -390,9 +443,131 @@ class SustainmentPlugin(AugmentationPlugin):
         # only key both sides share.
         rows_by_page: Dict[Any, int] = {}
         failed_pages: set = set()
+
+        # ONE map, built ONCE: page_number -> this page's declined grids (tier 1 saw the
+        # table, exact cell text and all, but could not decide what the columns MEANT).
+        # The row-short cross-check further below used to rebuild an equivalent map from
+        # `tl_declines` AFTER this loop finished; it now reuses THIS one instead of
+        # rebuilding it, so the two paths cannot drift apart on what "this page's declines"
+        # means.
+        declines_by_page: Dict[Any, List[dict]] = {}
+        for d in (tl_declines or []):
+            declines_by_page.setdefault(d.get("page_number"), []).append(d)
+
+        # GRID FORWARDING. A page carrying >=1 declined grid gets its columns LABELED by
+        # vision instead of having its parts RE-READ from a fresh crop — the whole point of
+        # this branch (see table_text_layer.GridDecline / is_part_row docstrings): a
+        # clipped or re-cut crop can cost a column label, but it can no longer cost a row,
+        # because every part string below comes verbatim out of `grid`, never out of
+        # LabelGridColumns' response. Runs BEFORE the ordinary per-crop loop so that loop
+        # can skip every element on a page this succeeded for (`grid_handled_pages`) —
+        # ExtractParts must not also run for a page tier 2 already handled by labeling.
+        elements_by_page: Dict[Any, List[dict]] = {}
+        for el in tables:
+            elements_by_page.setdefault((el.get("metadata") or {}).get("page_number"), []).append(el)
+
+        grid_handled_pages: set = set()
+        for page_no, page_declines in declines_by_page.items():
+            page_images = []
+            for el in elements_by_page.get(page_no, []):
+                url = provenance.resolve_element_image(el, embedded)
+                if url:
+                    media, b64 = _fetch_image_b64(s3_client, url)
+                    if b64:
+                        page_images.append(Image.from_base64(media, b64))
+            # `page_images` may end up EMPTY (no crop was ever made, or its fetch failed) —
+            # that is fine and expected: the prompt tells the model to label from the grid
+            # text alone when the image is unusable, and the grid text is what carries the
+            # real evidence anyway.
+            page_ok = True
+            page_emitted = 0
+            for d in page_declines:
+                grid = d.get("grid") or []
+                if not grid:
+                    continue
+                n_cols = max((len(r) for r in grid), default=0)
+                if n_cols == 0:
+                    continue
+                try:
+                    opts, collector = _vision_call_opts()
+                    roles = b.LabelGridColumns(
+                        grid_text=_grid_to_text(grid), n_cols=n_cols,
+                        table_images=page_images, system_instructions=grid_prompt,
+                        baml_options=opts,
+                    )
+                    used = _vision_output_tokens(collector)
+                    if used is not None and used >= VISION_MAX_TOKENS:
+                        print(f"[SustainmentPlugin] LabelGridColumns TRUNCATED on page "
+                              f"{page_no} — degrading this page to the pixel path")
+                        page_ok = False
+                        continue
+                    if not _valid_grid_roles(roles, n_cols):
+                        print(f"[SustainmentPlugin] LabelGridColumns returned an "
+                              f"out-of-range column index on page {page_no} "
+                              f"(affected_col={roles.affected_col!r}, "
+                              f"replacement_col={roles.replacement_col!r}, "
+                              f"ltb_date_col={roles.ltb_date_col!r}, n_cols={n_cols}) — "
+                              f"degrading this page to the pixel path")
+                        page_ok = False
+                        continue
+                except Exception as e:  # noqa: BLE001 — degrade, never fail the document
+                    print(f"[SustainmentPlugin] LabelGridColumns failed on page "
+                          f"{page_no}: {e} — degrading this page to the pixel path")
+                    page_ok = False
+                    continue
+                # header_rows entries out of range are IGNORED, not a validation failure —
+                # the model naming a header row that does not exist costs nothing, unlike
+                # an out-of-range affected_col/replacement_col/ltb_date_col above.
+                header_rows = {i for i in (roles.header_rows or []) if 0 <= i < len(grid)}
+                for i, row in enumerate(grid):
+                    if i in header_rows or not text_layer.is_part_row(row):
+                        continue
+                    a_col = roles.affected_col
+                    affected = (row[a_col] or "").strip() if a_col < len(row) else ""
+                    if not affected or not text_layer.looks_like_mpn(affected):
+                        continue
+                    rep = None
+                    r_col = roles.replacement_col
+                    if r_col is not None and r_col < len(row):
+                        rep = (row[r_col] or "").strip() or None
+                    ltb = None
+                    l_col = roles.ltb_date_col
+                    if l_col is not None and l_col < len(row):
+                        ltb = (row[l_col] or "").strip() or None
+                    # VERBATIM, both value and "source" — the grid cell IS the source, and
+                    # NEVER pixels. Stripped of surrounding whitespace only: no
+                    # normalization, no case change, no hyphen fixing (see the GridDecline
+                    # / GridColumnRoles docstrings for why this is the entire point).
+                    all_parts.append({
+                        "affected_mpn": affected, "affected_mpn_source": affected,
+                        "replacement_mpn": rep, "replacement_mpn_source": rep,
+                        "ltb_date": ltb, "ltb_date_source": ltb,
+                    })
+                    page_emitted += 1
+            if page_ok and page_emitted > 0:
+                grid_forwarded += 1
+                grid_rows_emitted += page_emitted
+                rows_by_page[page_no] = rows_by_page.get(page_no, 0) + page_emitted
+                grid_handled_pages.add(page_no)
+            else:
+                # DEGRADE, NEVER FAIL: a label failure, a truncation, a bad validation, or
+                # simply zero rows emitted all fall through to the EXISTING pixel path for
+                # every element on this page — this page's grid attempt (if any rows WERE
+                # emitted before a later decline on the same page failed) must not survive
+                # as a partial result sitting alongside a full pixel-path re-read of the
+                # same page.
+                grid_label_failed += 1
+                if page_emitted:
+                    del all_parts[-page_emitted:]
+
         for el in tables:
             meta = el.get("metadata") or {}
             page_no = meta.get("page_number")
+            if page_no in grid_handled_pages:
+                # Already extracted, verbatim, from the grid above — ExtractParts (the
+                # pixel path) must NOT also run for this page, or its re-read from pixels
+                # could reintroduce exactly the misread this whole change exists to stop.
+                continue
             html = meta.get("text_as_html", "") or ""
             ocr = el.get("text", "") or full_text
             images = []
@@ -475,14 +650,17 @@ class SustainmentPlugin(AugmentationPlugin):
         # count). Grouping by page and taking MAX (not sum) across that page's declines
         # is the fix — the page total covers at least the largest table on it; summing
         # would false-positive whenever one page holds several declined tables.
+        # Reuses the SAME declines_by_page map built above (before the grid-forwarding
+        # loop) rather than rebuilding it — one map, filtered per-purpose here, so the
+        # grid-forwarding path and this cross-check can never disagree about what tier 1
+        # declined on a given page.
         row_short: List[Dict[str, Any]] = []
-        declines_by_page: Dict[Any, List[dict]] = {}
-        for d in (tl_declines or []):
-            page = d.get("page_number")
-            if (d.get("n_rows") or 0) < MIN_ROW_SHORT_BASELINE:
-                # Baseline floor: a DECLINED grid is one whose columns could not be
-                # decided, so its row count is not confident enough evidence to accuse
-                # the vision pass below this many rows — see MIN_ROW_SHORT_BASELINE.
+        for page, all_ds in declines_by_page.items():
+            ds = [d for d in all_ds if (d.get("n_rows") or 0) >= MIN_ROW_SHORT_BASELINE]
+            # Baseline floor: a DECLINED grid is one whose columns could not be
+            # decided, so its row count is not confident enough evidence to accuse
+            # the vision pass below this many rows — see MIN_ROW_SHORT_BASELINE.
+            if not ds:
                 continue
             if page not in rows_by_page:
                 continue  # vision never produced a successful crop for this page at all
@@ -493,8 +671,6 @@ class SustainmentPlugin(AugmentationPlugin):
                 # that completed, reported no error, and still came back short — so a
                 # page already known bad for a different, louder reason is skipped.
                 continue
-            declines_by_page.setdefault(page, []).append(d)
-        for page, ds in declines_by_page.items():
             best = max(ds, key=lambda d: d["n_rows"])
             if rows_by_page[page] < best["n_rows"]:
                 row_short.append({"page_number": page, "tier1_rows": best["n_rows"],
@@ -502,7 +678,9 @@ class SustainmentPlugin(AugmentationPlugin):
         return all_parts, {"n_crops_used": n_crops, "crops_missing": missing,
                            "crops_failed": failed, "crops_truncated": truncated,
                            "crops_near_cap": near_cap, "crops_row_short": len(row_short),
-                           "row_short_detail": row_short}
+                           "row_short_detail": row_short,
+                           "grid_forwarded": grid_forwarded, "grid_label_failed": grid_label_failed,
+                           "grid_rows_emitted": grid_rows_emitted}
 
     def _apply_vision_stats(self, ps: dict, n_tables: int, reasons: List[str],
                             doc_flags: List[str]) -> bool:
@@ -609,7 +787,8 @@ class SustainmentPlugin(AugmentationPlugin):
         ocr_norm = provenance._norm(full_text)
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
                  "crops_truncated": 0, "crops_near_cap": 0, "crops_row_short": 0,
-                 "vision_used": False}
+                 "vision_used": False, "grid_forwarded": 0, "grid_label_failed": 0,
+                 "grid_rows_emitted": 0}
         reasons: List[str] = []
         needs_review = False
         # The doc-level reasons that FORCE review — i.e. the extraction telling us its own
@@ -664,12 +843,23 @@ class SustainmentPlugin(AugmentationPlugin):
         # default for text that is already machine-readable.
         tl_parts, tl_stats = self._extract_parts_text_layer(manifest, s3_client, bucket)
         stats.update(tl_stats)
+        # tl_stats["text_layer_declines"] carries each decline's full `grid` (spec item 1) so
+        # tier 2 can forward it verbatim instead of re-reading a crop. That grid must NOT ride
+        # into `stats["text_layer_declines"]`: `stats` is persisted into extraction.json / the
+        # review payload, and scripts/pcn_corpus_run.py reads that file as a corpus manifest —
+        # embedding every declined table's full grid there would bloat it for no reader. Keep
+        # the grid-bearing list local (tl_declines_with_grid) and hand THAT to _extract_parts;
+        # what lands in `stats` is the same list with `grid` projected out.
+        tl_declines_with_grid = tl_stats.get("text_layer_declines") or []
+        stats["text_layer_declines"] = [
+            {k: v for k, v in d.items() if k != "grid"} for d in tl_declines_with_grid
+        ]
         if tl_parts:
             parts_d = tl_parts
         elif tables and vision_ok and s3_client is not None:
             try:
                 parts_d, ps = self._extract_parts(tables, manifest, s3_client, full_text,
-                                                  tl_stats.get("text_layer_declines"))
+                                                  tl_declines_with_grid)
                 stats.update(ps)
                 stats["vision_used"] = True
                 if self._apply_vision_stats(ps, len(tables), reasons, doc_flags):
@@ -701,7 +891,7 @@ class SustainmentPlugin(AugmentationPlugin):
                 # counter — there was never an image to have.
                 synthetic = [{"text": full_text, "metadata": {}}]
                 parts_d, ps = self._extract_parts(synthetic, manifest, s3_client, full_text,
-                                                  tl_stats.get("text_layer_declines"))
+                                                  tl_declines_with_grid)
                 stats.update(ps)
                 stats["vision_used"] = True
                 stats["router_textonly_vision"] = True

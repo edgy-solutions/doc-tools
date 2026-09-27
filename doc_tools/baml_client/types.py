@@ -68,7 +68,7 @@ class ProcessCategory(str, Enum):
     pass
 
 # #########################################################################
-# Generated classes (16)
+# Generated classes (17)
 # #########################################################################
 
 class ComplianceAugmentation(BaseModel):
@@ -86,6 +86,13 @@ class Concept(BaseModel):
     description: str
     related_terms: typing.List[str]
     salience: float
+
+class GridColumnRoles(BaseModel):
+    affected_col: int = Field(description='0-based index of the grid column holding the affected/discontinued manufacturer part number. Required - pick the best candidate even if unsure.')
+    replacement_col: typing.Optional[int] = Field(default=None, description='0-based index of the column holding the recommended replacement/substitute part number, or null if this table has no replacement column at all.')
+    ltb_date_col: typing.Optional[int] = Field(default=None, description='0-based index of a PER-ROW last-time-buy date column, or null if the table carries no per-row dates.')
+    header_rows: typing.List[int] = Field(description='0-based indices of rows that are headers, captions or spacers rather than parts. Empty list if every row is a part row.')
+    reason: str = Field(description='One sentence naming the evidence in the image or grid for this column assignment.')
 
 class LearningObjective(BaseModel):
     description: str

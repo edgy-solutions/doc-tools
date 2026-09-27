@@ -25,6 +25,9 @@ type_map = {
     "types.Concept": types.Concept,
     "stream_types.Concept": stream_types.Concept,
 
+    "types.GridColumnRoles": types.GridColumnRoles,
+    "stream_types.GridColumnRoles": stream_types.GridColumnRoles,
+
     "types.LearningObjective": types.LearningObjective,
     "stream_types.LearningObjective": stream_types.LearningObjective,
 

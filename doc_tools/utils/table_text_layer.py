@@ -261,9 +261,11 @@ class GridDecline(NamedTuple):
     `SYTX9-122HP-1+` shape on PCN23-002, dropped from the last row above the page footer.
     `n_rows` is what makes that comparison possible, so it survives the decline on purpose.
 
-    `grid` rides along too, unused by anything today, so the held tier-1-grid-forwarding
-    work (handing tier 2 the actual grid pdfplumber saw, instead of a fresh crop) extends
-    this record rather than replacing it.
+    `grid` rides along too, and IS used: the sustainment plugin's grid-forwarding path
+    (doc_tools/plugins/sustainment.py) hands tier 2 this actual grid instead of a fresh
+    crop, so vision's only job becomes LABELING THE COLUMNS — part strings are taken
+    verbatim from these cells, never re-read from pixels. A re-cut crop can then cost a
+    column label, but it can no longer cost a row.
     """
     reason: str          # why the columns could not be decided
     n_rows: int          # rows carrying at least one MPN-shaped cell
@@ -295,6 +297,15 @@ def _is_prose_cell(value: Optional[str]) -> bool:
     return v.count(" ") >= _PROSE_MIN_SPACES or len(v) >= _PROSE_MIN_LEN
 
 
+def is_part_row(row: Sequence[Optional[str]]) -> bool:
+    """True when this grid row is one that could become a part: carries an MPN-shaped cell
+    and no prose cell. The row predicate `_mpn_bearing_rows` counts, factored out so the
+    grid-forwarding path in the sustainment plugin emits EXACTLY the rows tier 1 counted —
+    if these two ever disagree, the row-short cross-check starts lying in both directions.
+    """
+    return any(looks_like_mpn(c) for c in row) and not any(_is_prose_cell(c) for c in row)
+
+
 def _mpn_bearing_rows(grid: Sequence[Sequence[Optional[str]]]) -> int:
     """Count of rows carrying at least one cell that `looks_like_mpn`, excluding any row
     that also carries a PROSE cell.
@@ -313,10 +324,7 @@ def _mpn_bearing_rows(grid: Sequence[Sequence[Optional[str]]]) -> int:
     (`JESD22-A103`) that trivially looks_like_mpn and inflates the row-short baseline
     against a vision pass that (correctly) never counted that row as a part.
     """
-    return sum(
-        1 for row in grid
-        if any(looks_like_mpn(c) for c in row) and not any(_is_prose_cell(c) for c in row)
-    )
+    return sum(1 for row in grid if is_part_row(row))
 
 
 def header_pairing(
@@ -634,10 +642,13 @@ def parts_and_declines_from_pages(
     the same reason that one does (see its docstring), and additionally collects one
     decline entry per table whose columns could not be decided.
 
-    Each decline is `{"page_number", "reason", "n_rows", "n_grid_rows"}` — page-scoped and
-    JSON-shaped (not a `GridDecline` NamedTuple) because this is the boundary where the
-    sustainment plugin picks the record up and drops it straight into `stats` for the
-    review payload; a plain dict needs no further translation there.
+    Each decline is `{"page_number", "reason", "n_rows", "n_grid_rows", "grid"}` —
+    page-scoped and JSON-shaped (not a `GridDecline` NamedTuple) because this is the
+    boundary where the sustainment plugin picks the record up: the grid-forwarding path
+    reads `grid` directly (label the columns, take cell text verbatim), while
+    `stats["text_layer_declines"]` in the review payload carries a `grid`-stripped
+    projection of this same list (see sustainment.py) so the review manifests are not
+    bloated with every declined grid's full cell contents.
     """
     results: List[Dict[str, Any]] = []
     declines: List[Dict[str, Any]] = []
@@ -720,7 +731,8 @@ def _parts_from_page(
         if outcome.decline is not None:
             d = outcome.decline
             declines.append({"page_number": page_number, "reason": d.reason,
-                             "n_rows": d.n_rows, "n_grid_rows": d.n_grid_rows})
+                             "n_rows": d.n_rows, "n_grid_rows": d.n_grid_rows,
+                             "grid": [list(r) for r in d.grid]})
         for p in outcome.parts:
             results.append({
                 "affected_mpn": p["affected_mpn"],

@@ -202,6 +202,21 @@ class BamlAsyncClient:
                 "text": text,"system_instructions": system_instructions,
             })
             return typing.cast(types.MatAugmentation, __result__.cast_to(types, types, stream_types, False, __runtime__))
+    async def LabelGridColumns(self, grid_text: str,n_cols: int,table_images: typing.List[baml_py.Image],system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> types.GridColumnRoles:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            # Use streaming internally when on_tick is provided
+            __stream__ = self.stream.LabelGridColumns(grid_text=grid_text,n_cols=n_cols,table_images=table_images,system_instructions=system_instructions,
+                baml_options=baml_options)
+            return await __stream__.get_final_response()
+        else:
+            # Original non-streaming code
+            __result__ = await self.__options.merge_options(baml_options).call_function_async(function_name="LabelGridColumns", args={
+                "grid_text": grid_text,"n_cols": n_cols,"table_images": table_images,"system_instructions": system_instructions,
+            })
+            return typing.cast(types.GridColumnRoles, __result__.cast_to(types, types, stream_types, False, __runtime__))
     
 
 
@@ -307,6 +322,18 @@ class BamlStreamClient:
           lambda x: typing.cast(types.MatAugmentation, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
+    def LabelGridColumns(self, grid_text: str,n_cols: int,table_images: typing.List[baml_py.Image],system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlStream[stream_types.GridColumnRoles, types.GridColumnRoles]:
+        __ctx__, __result__ = self.__options.merge_options(baml_options).create_async_stream(function_name="LabelGridColumns", args={
+            "grid_text": grid_text,"n_cols": n_cols,"table_images": table_images,"system_instructions": system_instructions,
+        })
+        return baml_py.BamlStream[stream_types.GridColumnRoles, types.GridColumnRoles](
+          __result__,
+          lambda x: typing.cast(stream_types.GridColumnRoles, x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(types.GridColumnRoles, x.cast_to(types, types, stream_types, False, __runtime__)),
+          __ctx__,
+        )
     
 
 class BamlHttpRequestClient:
@@ -371,6 +398,13 @@ class BamlHttpRequestClient:
             "text": text,"system_instructions": system_instructions,
         }, mode="request")
         return __result__
+    async def LabelGridColumns(self, grid_text: str,n_cols: int,table_images: typing.List[baml_py.Image],system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="LabelGridColumns", args={
+            "grid_text": grid_text,"n_cols": n_cols,"table_images": table_images,"system_instructions": system_instructions,
+        }, mode="request")
+        return __result__
     
 
 class BamlHttpStreamRequestClient:
@@ -433,6 +467,13 @@ class BamlHttpStreamRequestClient:
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="ExtractWorkInstructions", args={
             "text": text,"system_instructions": system_instructions,
+        }, mode="stream")
+        return __result__
+    async def LabelGridColumns(self, grid_text: str,n_cols: int,table_images: typing.List[baml_py.Image],system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="LabelGridColumns", args={
+            "grid_text": grid_text,"n_cols": n_cols,"table_images": table_images,"system_instructions": system_instructions,
         }, mode="stream")
         return __result__
     
