@@ -249,6 +249,68 @@ jobs:
       - name: Run the test suite
         run: uv run -- python -m pytest -q -rs
 
+  verify-image-pin:
+    # THE CLAIM MADE CHECKED, NOT JUST REVIEWABLE. `_helpers.tpl` (see the
+    # comment above `doc-tools.image`) turned an invisible assumption into a
+    # reviewable claim: a digest pin, or a tag pin with a human's written ack
+    # that they checked. Neither Helm nor that guard ever reaches a registry --
+    # `helm template`/`helm upgrade` cannot issue an HTTP request -- so
+    # "reviewable" was as far as rendering alone could ever get. This job is
+    # what makes the claim a CHECKED FACT: it queries ghcr.io directly, in CI,
+    # for every tracked values-*.yaml, and reds if the pinned manifest is not
+    # actually there. It is the same incident class as d7434d6 (see
+    # scripts/verify_image_pin.py's module docstring for the full account) --
+    # this job is what would have caught that pin BEFORE it reached sandbox,
+    # rather than at the kubelet several minutes into a "successful" release.
+    #
+    # NOT GATED ON `needs.changes.outputs.code`. That gate exists to skip the
+    # expensive multi-arch build on a docs-only diff (see the `changes` job's
+    # comment on why `charts/` can never join that ignore list) -- this job is
+    # not expensive, it is a handful of HTTPS GETs, and charts/values changes
+    # are EXACTLY what it exists to protect. Skipping it on the one class of
+    # diff it is watching for would be the same mistake the `changes` job's
+    # comment already warns against, one level up.
+    #
+    # NOT IN `build-and-push`'s `needs:`. A ghcr.io hiccup (rate limit, a
+    # transient 5xx -- this script's own UNDETERMINED/exit-2 bucket) must not
+    # block a build that has nothing to do with the registry read succeeding
+    # right now. This job protects the values files that are ALREADY merged
+    # against naming a phantom image; it is not a precondition for producing a
+    # new one.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # NO `packages: read`. The image is public: an anonymous
+      # `GET https://ghcr.io/token?...` already returns a usable pull token,
+      # measured directly against ghcr.io (see verify_image_pin.py's
+      # docstring). If the package is ever made private, this job REDS with
+      # exit 2 (UNDETERMINED, not a false green) rather than silently passing
+      # a registry it can no longer read -- and the fix is to set
+      # `packages: read` here and let the script's GITHUB_TOKEN Basic-auth
+      # path (already implemented) take over, not to add a token nobody needs
+      # today.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Resolve the pinned image against ghcr.io
+        # --no-project: stdlib + PyYAML only, no reason to sync the whole
+        # doc-tools dependency set (unstructured[all-docs] et al.) for a
+        # script that never imports the package. `--require-platform` for
+        # BOTH arches is asserted HERE, in CI, rather than in the chart,
+        # because Helm cannot reach a registry to check it there. This is not
+        # a formality: sandbox schedules onto arm workers (worker1, worker6),
+        # so an index missing its arm64 child renders perfectly through every
+        # Helm-side guard and fails only at the kubelet, on real hardware,
+        # after the release already reports successful -- the exact failure
+        # shape one layer further down from d7434d6.
+        run: |
+          uv run --no-project --with pyyaml \
+            python scripts/verify_image_pin.py \
+            --require-platform linux/amd64 \
+            --require-platform linux/arm64
+
   build-and-push:
     # BOTH gates, not one. `needs` is what makes them gates rather than reports:
     # a failure in either stops the image from being built or pushed.
