@@ -90,9 +90,12 @@ image:
   #
   # THIS IS THE INDEX (manifest-list) DIGEST, not a per-platform child.
   # Verified against ghcr before committing, with
-  # `docker manifest inspect ghcr.io/edgy-solutions/doc-tools:55a6292...`:
-  #     linux/amd64  sha256:6c228f08b00a32365791d585324bacb5194696a3602f4e58c155077996c7345e
-  #     linux/arm64  sha256:5bc62452d02252f942595900e77ffffcb0ac8d820c6a0f5d49dac9dac44e5a4b
+  # `docker manifest inspect ghcr.io/edgy-solutions/doc-tools:507013f...`:
+  #     linux/amd64  sha256:ccf07667d0c535022740e16a380c8de337ffa3cd76c41e9bf6bf395233cc8e56
+  #     linux/arm64  sha256:145c185e9a881dad5e7692907532c6cb6c0cc26d4375b7cc87a65423d5ceb6f0
+  # The arm64 child was inspected in turn, not merely listed: it resolves to an
+  # OCI image manifest with 20 layers. A child can appear in the index and still
+  # not be fetchable, which is the failure this check exists to catch.
   #
   # THE arm64 CHILD IS THE ONE THAT MATTERS HERE and it must be checked on every
   # re-pin. Sandbox schedules onto arm workers, so an index whose arm64 child is
@@ -104,9 +107,19 @@ image:
   # (The index also carries two unknown/unknown entries. Those are buildx
   # attestation manifests -- provenance and SBOM -- not platforms. Expected.)
   #
-  # 55a6292 is the #14 merge; build run 36248235787:
-  # https://github.com/edgy-solutions/doc-tools/actions/runs/36248235787
-  digest: "sha256:13c570ede614bb6f9249defecbf43b362c0508a84f3f208eec08d203d4080627"
+  # 507013f is the #17 merge (grid forwarding), which sits on d5f0174, the #16
+  # merge (the ghcr resolve check that now runs as `verify-image-pin` on every
+  # PR -- this pin is the first one that gate has seen). Build run 36332937254:
+  # https://github.com/edgy-solutions/doc-tools/actions/runs/36332937254
+  #
+  # What this bump carries into sandbox, and the one number to watch: grid
+  # forwarding re-routes a tier-1 DECLINED table to a labels-only vision call and
+  # reads the part strings out of the pdfplumber grid. On the 9-notice corpus it
+  # engages on exactly three notices -- PCN23-002 (18), onsemi IPCN25300X (19),
+  # onsemi PD26044X1 (25) -- because the router short-circuits wherever tier 1
+  # emitted any parts. So 62 of 898 parts change route with this pin, and the
+  # pre-pin baseline on sha256:13c570e was 898/898 exact, stored_cut 0.
+  digest: "sha256:0136991e9a2b2eb54ca6e76ebeec637a7cc6a6bb6710e46eb1eb3b144714f1a3"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
