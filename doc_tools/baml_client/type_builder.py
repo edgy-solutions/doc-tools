@@ -20,7 +20,7 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["ComplianceAugmentation","ComplianceRule","Concept","LearningObjective","MaintenanceStep","ManufacturingStep","MatAugmentation","MroAugmentation","NoticeHeader","Outline","PartImpact","PartRow","Section","SlideAugmentation","StrategicAssessment","SustainmentNotice",]
+          ["ComplianceAugmentation","ComplianceRule","Concept","GridColumnRoles","LearningObjective","MaintenanceStep","ManufacturingStep","MatAugmentation","MroAugmentation","NoticeHeader","Outline","PartImpact","PartRow","Section","SlideAugmentation","StrategicAssessment","SustainmentNotice",]
         ), enums=set(
           ["ChangeCategory","DocType","HazardClass","InspectionType","MaintenanceLevel","PersonnelRole","ProcessCategory",]
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
@@ -59,7 +59,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 16
+    # Generated classes 17
     # #########################################################################
 
     @property
@@ -73,6 +73,10 @@ class TypeBuilder(type_builder.TypeBuilder):
     @property
     def Concept(self) -> "ConceptViewer":
         return ConceptViewer(self)
+
+    @property
+    def GridColumnRoles(self) -> "GridColumnRolesViewer":
+        return GridColumnRolesViewer(self)
 
     @property
     def LearningObjective(self) -> "LearningObjectiveViewer":
@@ -454,7 +458,7 @@ class ProcessCategoryValues:
 
 
 # #########################################################################
-# Generated classes 16
+# Generated classes 17
 # #########################################################################
 
 class ComplianceAugmentationAst:
@@ -598,6 +602,61 @@ class ConceptProperties:
     @property
     def salience(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("salience"))
+    
+    
+
+
+class GridColumnRolesAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("GridColumnRoles")
+        self._properties: typing.Set[str] = set([  "affected_col",  "replacement_col",  "ltb_date_col",  "header_rows",  "reason",  ])
+        self._props = GridColumnRolesProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "GridColumnRolesProperties":
+        return self._props
+
+
+class GridColumnRolesViewer(GridColumnRolesAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class GridColumnRolesProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def affected_col(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("affected_col"))
+    
+    @property
+    def replacement_col(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("replacement_col"))
+    
+    @property
+    def ltb_date_col(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("ltb_date_col"))
+    
+    @property
+    def header_rows(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("header_rows"))
+    
+    @property
+    def reason(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("reason"))
     
     
 

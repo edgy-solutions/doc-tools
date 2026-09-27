@@ -111,12 +111,14 @@ def test_ensure_prompts_available_reports_every_missing_file_at_once(monkeypatch
     assert "two_instructions.md" in msg
 
 
-def test_sustainment_plugin_declares_its_two_prompt_files():
+def test_sustainment_plugin_declares_its_three_prompt_files():
     """Only SustainmentPlugin is wired to this validation; its declared set is
-    exactly the two files it uses."""
+    exactly the three files it uses (header, parts, and the grid-forwarding
+    column-labeling prompt added for tier-1 grid forwarding)."""
     assert SustainmentPlugin.REQUIRED_PROMPT_FILES == [
         "prompts/sustainment_header_instructions.md",
         "prompts/sustainment_parts_instructions.md",
+        "prompts/sustainment_grid_columns_instructions.md",
     ]
 
 

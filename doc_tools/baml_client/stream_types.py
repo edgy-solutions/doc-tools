@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (16)
+# Generated classes (17)
 # #########################################################################
 
 class ComplianceAugmentation(BaseModel):
@@ -41,6 +41,13 @@ class Concept(BaseModel):
     description: typing.Optional[str] = None
     related_terms: typing.List[str]
     salience: typing.Optional[float] = None
+
+class GridColumnRoles(BaseModel):
+    affected_col: typing.Optional[int] = Field(default=None, description='0-based index of the grid column holding the affected/discontinued manufacturer part number. Required - pick the best candidate even if unsure.')
+    replacement_col: typing.Optional[int] = Field(default=None, description='0-based index of the column holding the recommended replacement/substitute part number, or null if this table has no replacement column at all.')
+    ltb_date_col: typing.Optional[int] = Field(default=None, description='0-based index of a PER-ROW last-time-buy date column, or null if the table carries no per-row dates.')
+    header_rows: typing.List[int] = Field(description='0-based indices of rows that are headers, captions or spacers rather than parts. Empty list if every row is a part row.')
+    reason: typing.Optional[str] = Field(default=None, description='One sentence naming the evidence in the image or grid for this column assignment.')
 
 class LearningObjective(BaseModel):
     description: typing.Optional[str] = None

@@ -71,6 +71,12 @@ class LlmResponseParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractWorkInstructions", llm_response=llm_response, mode="request")
         return typing.cast(types.MatAugmentation, __result__)
 
+    def LabelGridColumns(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> types.GridColumnRoles:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="LabelGridColumns", llm_response=llm_response, mode="request")
+        return typing.cast(types.GridColumnRoles, __result__)
+
     
 
 class LlmStreamParser:
@@ -126,5 +132,11 @@ class LlmStreamParser:
     ) -> stream_types.MatAugmentation:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractWorkInstructions", llm_response=llm_response, mode="stream")
         return typing.cast(stream_types.MatAugmentation, __result__)
+
+    def LabelGridColumns(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> stream_types.GridColumnRoles:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="LabelGridColumns", llm_response=llm_response, mode="stream")
+        return typing.cast(stream_types.GridColumnRoles, __result__)
 
     
