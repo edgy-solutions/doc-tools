@@ -259,6 +259,22 @@ def test_tracked_files_boundary_untracked_file_not_picked_up(tmp_path):
     )
 
 
+@requires_git
+def test_discovery_failure_is_2_not_1(tmp_path):
+    """A chart dir that is not a git checkout must exit 2, NOT 1.
+
+    This is the exit-code split applied to the discovery step rather than to a
+    pin: 1 means a human must go fix a values file, 2 means this check could
+    not run. Before this was handled, `git ls-files` failing raised
+    CalledProcessError out of main and Python exited 1 on the traceback, which
+    would have sent a reader hunting for a bad pin that was never there.
+    """
+    not_a_repo = tmp_path / "nope"
+    not_a_repo.mkdir()
+    rc = vip.main(["--chart", str(not_a_repo)])
+    assert rc == 2, f"expected UNDETERMINED (2) for a non-checkout, got {rc}"
+
+
 # ---------------------------------------------------------------------------
 # The one live test. Opt-in only: everything above proves the LOGIC without a
 # socket; this proves the actual, committed pin still resolves in the real

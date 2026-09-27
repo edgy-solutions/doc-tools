@@ -134,13 +134,22 @@ def _tracked_values_files(chart_dir: Path) -> list[Path]:
     untracked local overlays like values-sandbox.secret.yaml, which carry no
     image stanza and were never meant to be checked on their own.
     """
-    result = subprocess.run(
-        ["git", "ls-files", "values-*.yaml"],
-        cwd=str(chart_dir),
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "values-*.yaml"],
+            cwd=str(chart_dir),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as e:
+        # No git on PATH, or not a checkout. The target set is then UNKNOWN,
+        # which is not the same as empty. Letting this propagate would exit 1
+        # on an uncaught traceback, and 1 is reserved for "the pin is wrong" --
+        # precisely the confusion the EXIT CODES section exists to prevent.
+        raise VerifyError(
+            f"could not list tracked values files in {chart_dir}: {e}"
+        ) from e
     names = result.stdout.split()
     return [chart_dir / name for name in names]
 
@@ -421,7 +430,11 @@ def main(argv=None) -> int:
     if args.values:
         values_files = args.values
     else:
-        values_files = _tracked_values_files(args.chart)
+        try:
+            values_files = _tracked_values_files(args.chart)
+        except VerifyError as e:
+            print(f"{e} -- UNDETERMINED.", file=sys.stderr)
+            return 2
 
     if not values_files:
         print("no values files to check (tracked set is empty) -- treating as "

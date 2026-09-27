@@ -300,7 +300,8 @@ jobs:
         # script that never imports the package. `--require-platform` for
         # BOTH arches is asserted HERE, in CI, rather than in the chart,
         # because Helm cannot reach a registry to check it there. This is not
-        # a formality: sandbox schedules onto arm workers (worker1, worker6),
+        # a formality: every node in the sandbox k3s cluster is arm64 (all 7
+        # measured, server and workers alike),
         # so an index missing its arm64 child renders perfectly through every
         # Helm-side guard and fails only at the kubelet, on real hardware,
         # after the release already reports successful -- the exact failure
