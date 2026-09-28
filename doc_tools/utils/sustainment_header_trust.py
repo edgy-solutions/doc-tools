@@ -393,10 +393,37 @@ HEADER_SOURCED_FIELDS = (
 )
 
 
-def refuse_unsourced_header_values(header_d: dict, index: List[dict]) -> List[str]:
+def refuse_unsourced_header_values(header_d: dict, index: List[dict],
+                                   witness_index: Optional[List[dict]] = None) -> List[str]:
     """Drop any header value in `HEADER_SOURCED_FIELDS` that is not verbatim in the
     document. MUTATES `header_d` IN PLACE. Returns the doc-level reason strings (one per
     refused field, never raises).
+
+    THE SECOND WITNESS. `witness_index` is an optional second positioned index built from
+    the page's own PIXELS — the vision tier's transcription of the page image — and it is
+    consulted ONLY when the text layer fails to corroborate a value. Verbatim in either
+    witness passes; verbatim in neither refuses.
+
+    It exists because "the document does not print this" and "this document's text layer
+    cannot print this" are different facts that the refusal could not tell apart.
+    `TYC-PCN-24-210412` prints its vendor's name as `TE Connecvity`: the embedded font has
+    no mapping for the `ti` ligature, so every `ti` in the document is dropped on
+    extraction. A human reading that PDF sees `TE Connectivity`. The model reads the page
+    and says `TE Connectivity`. The text layer cannot agree, so the refusal drops a
+    CORRECT value — and the same mechanism will silently corrupt an MPN containing `ti`
+    on the next such notice, which is the more expensive half.
+
+    The caller decides whether to build a witness at all, gated on
+    `doc_tools.utils.text_layer_health.assess_elements` firing. A healthy document never
+    pays for one, and — this is the part that matters — an UNGATED witness would be a
+    standing second chance for every fabrication to be ratified by a noisy transcription.
+    The witness is admitted on a MEASURED condition of the document, not on the model
+    having been contradicted.
+
+    It is passed as a separate index rather than concatenated onto `index` on purpose: the
+    same string would then be found twice, and `provenance.resolve_value` would downgrade
+    every previously-unique match to `region_preferred` at confidence 0.7. Corroboration
+    must not degrade the provenance of documents that never needed it.
 
     This is a REFUSAL, not a review flag — the same rule the parts side already applies
     via identity scoring: a value the document does not contain is not written at all,
@@ -422,6 +449,19 @@ def refuse_unsourced_header_values(header_d: dict, index: List[dict]) -> List[st
             continue
         source = header_d.get(source_field)
         ok, method, effective_source = locate_header_source(value, source, index, mode=mode)
+        if not ok and witness_index:
+            # Asked in the SAME way, against pixels instead of the text layer. The value
+            # is still the anchor; the witness grants no standing to a citation that the
+            # text layer would not have accepted.
+            w_ok, w_method, w_source = locate_header_source(value, source, witness_index,
+                                                            mode=mode)
+            if w_ok:
+                ok, effective_source = True, w_source
+                reasons.append(
+                    f"header.{field} corroborated by the page image: '{_clip(value)}' is "
+                    f"absent from this document's degraded text layer but is printed on "
+                    f"the page ({w_method})"
+                )
         if ok:
             header_d[source_field] = effective_source
             continue

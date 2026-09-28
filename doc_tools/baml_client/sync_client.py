@@ -220,6 +220,20 @@ class BamlSyncClient:
                 "grid_text": grid_text,"n_cols": n_cols,"table_images": table_images,"system_instructions": system_instructions,
             })
             return typing.cast(types.GridColumnRoles, __result__.cast_to(types, types, stream_types, False, __runtime__))
+    def TranscribePage(self, page_image: baml_py.Image,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> str:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            __stream__ = self.stream.TranscribePage(page_image=page_image,system_instructions=system_instructions,
+                baml_options=baml_options)
+            return __stream__.get_final_response()
+        else:
+            # Original non-streaming code
+            __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="TranscribePage", args={
+                "page_image": page_image,"system_instructions": system_instructions,
+            })
+            return typing.cast(str, __result__.cast_to(types, types, stream_types, False, __runtime__))
     
 
 
@@ -337,6 +351,18 @@ class BamlStreamClient:
           lambda x: typing.cast(types.GridColumnRoles, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
+    def TranscribePage(self, page_image: baml_py.Image,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlSyncStream[str, str]:
+        __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="TranscribePage", args={
+            "page_image": page_image,"system_instructions": system_instructions,
+        })
+        return baml_py.BamlSyncStream[str, str](
+          __result__,
+          lambda x: typing.cast(str, x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(str, x.cast_to(types, types, stream_types, False, __runtime__)),
+          __ctx__,
+        )
     
 
 class BamlHttpRequestClient:
@@ -408,6 +434,13 @@ class BamlHttpRequestClient:
             "grid_text": grid_text,"n_cols": n_cols,"table_images": table_images,"system_instructions": system_instructions,
         }, mode="request")
         return __result__
+    def TranscribePage(self, page_image: baml_py.Image,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="TranscribePage", args={
+            "page_image": page_image,"system_instructions": system_instructions,
+        }, mode="request")
+        return __result__
     
 
 class BamlHttpStreamRequestClient:
@@ -477,6 +510,13 @@ class BamlHttpStreamRequestClient:
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="LabelGridColumns", args={
             "grid_text": grid_text,"n_cols": n_cols,"table_images": table_images,"system_instructions": system_instructions,
+        }, mode="stream")
+        return __result__
+    def TranscribePage(self, page_image: baml_py.Image,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="TranscribePage", args={
+            "page_image": page_image,"system_instructions": system_instructions,
         }, mode="stream")
         return __result__
     

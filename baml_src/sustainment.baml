@@ -198,6 +198,42 @@ function LabelGridColumns(grid_text: string, n_cols: int, table_images: image[],
   "#
 }
 
+// -- Second witness: one full page raster, transcribed verbatim, multimodal on Gemma
+// (client Vision). Used ONLY when doc_tools.utils.text_layer_health flags a document's
+// text layer as degraded (see doc_tools/utils/sustainment_header_trust.py's witness_index
+// parameter) — a header value the broken text layer cannot corroborate gets one more
+// chance against the page's own pixels before it is refused. Plain string output, not a
+// typed class: this is a raw transcription, not an extraction, and has no fields to name.
+//
+// NO `### OUTPUT FORMAT ###` / `{{ ctx.output_format }}` HERE, unlike the house layout in
+// AGENTS.md — deliberately, and it was measured, not assumed. `ctx.output_format` renders
+// the schema of the return type; for a typed extraction class (NoticeHeader, PartsGrid,
+// ...) that is real content the model needs. This function returns a bare `string`, which
+// has no fields to describe, so `ctx.output_format` renders to the EMPTY STRING. Rendering
+// the actual request (b.request.TranscribePage) with the section header left in showed the
+// user turn as a `### OUTPUT FORMAT ###` heading over nothing, immediately before the
+// image — a dangling section at best, and at worst an invitation for the model to try to
+// satisfy an empty format spec, directly against this prompt's own "plain text only" rule.
+// `### PAGE ###` below is a plain section label, not a request for a format.
+function TranscribePage(page_image: image, system_instructions: string) -> string {
+  client Vision
+  prompt #"
+    {{ _.role("system") }}
+    ### INSTRUCTIONS ###
+    {{ system_instructions }}
+
+    {{ _.role("user") }}
+    ### PAGE ###
+
+    {{ page_image }}
+  "#
+}
+// NOTE: same image-placement rules as ExtractParts/LabelGridColumns above, and for the
+// same reason (vLLM's gemma multimodal template only inserts the image placeholder for an
+// image in a USER turn, and fails to place it at all when text follows it in that turn).
+// The image is therefore the LAST thing in the user block, with nothing after it, and
+// system_instructions rides in the system role rather than the user block.
+
 // -- Legacy single-pass extractor. Retained for backward compat
 //    (scripts/test_fallback_resilience.py, ad-hoc runs); NOT used by the
 //    two-pass router in sustainment.py. --
