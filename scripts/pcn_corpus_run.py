@@ -32,6 +32,17 @@ the run aborts at startup if the corpus list and the ground truth disagree:
 On Windows/Git-Bash prefix kubectl calls with MSYS_NO_PATHCONV=1, or MSYS rewrites
 `/tmp/...` into a Windows path before kubectl ever sees it.
 
+TO MEASURE A CANDIDATE TREE rather than the deployed pin, set PYTHONPATH — copying a
+checkout into the pod is NOT enough:
+
+    kubectl exec -n sandbox <pod> -- sh -c \
+        'cd /tmp/cand && PYTHONPATH=/tmp/cand:/app python scripts/pcn_corpus_run.py'
+
+The pod sets `PYTHONPATH=/app` and this file lives in `scripts/`, so without that the
+candidate's `doc_tools` is never imported and the run measures the image while looking
+entirely normal. Every run prints `extractor = <path>` twice for exactly this reason;
+read it before quoting a number. See `import_provenance` below.
+
 DO NOT trust an `echo EXIT_CODE=$?` sentinel written from a PowerShell double-quoted
 string: PowerShell expands its own `$?` (a boolean) before the payload reaches the
 pod, and you get `EXIT_CODE=True`. This script's completion signal is the final line
@@ -85,6 +96,50 @@ def _assert_prompts_resolvable():
             f"Required prompt file(s) not found from cwd={os.getcwd()!r}: {missing}. "
             "Run this script from the application root (/app in the pod)."
         )
+
+
+def import_provenance(doc_tools_file: str, driver_file: str) -> dict:
+    """Which `doc_tools` this run imported, and whether it is this driver's own tree.
+
+    Sibling of `_assert_prompts_resolvable` above, for the same failure shape: the run
+    completes, prints plausible numbers, and never touched the thing under test. Measured
+    2026-09-27, and it voided two measurements before anyone looked.
+
+    The pod sets `PYTHONPATH=/app`, and this driver lives in `scripts/`. So `sys.path[0]`
+    is `<tree>/scripts` — a directory with no `doc_tools` package inside it — and `/app`
+    wins every import. That is CORRECT for the documented use (measure the deployed pin)
+    and silently wrong for the other one (copy a candidate tree into /tmp and measure it):
+    the candidate's modules are never loaded. The half of that bug which announced itself
+    was an `AttributeError` for a symbol only the candidate defines; the half that did not
+    was a baseline-vs-candidate A/B in which both arms ran identical `/app` code and
+    dutifully agreed.
+
+    The spot-check that hides it is `cd <tree> && python -c "import doc_tools"`, because
+    `-c` puts the cwd first and prints the candidate path. Only a script under `scripts/`
+    reproduces what a real run resolves.
+    """
+    pkg_dir = os.path.realpath(os.path.dirname(doc_tools_file))
+    tree = os.path.realpath(
+        os.path.join(os.path.dirname(os.path.abspath(driver_file)), os.pardir))
+    return {"package": pkg_dir, "tree": tree,
+            "is_driver_tree": pkg_dir == os.path.realpath(os.path.join(tree, "doc_tools"))}
+
+
+def render_import_provenance(p: dict) -> str:
+    """Two lines naming what is being measured, plus a warning when those differ.
+
+    Printed twice on purpose — once at startup and once beside the score — because a
+    report is copied from the tail of a log, and a provenance line scrolled off the top
+    protects nobody.
+    """
+    lines = [f"extractor  = {p['package']}", f"driver     = {p['tree']}"]
+    if not p["is_driver_tree"]:
+        lines.append(
+            "WARNING  the extractor is NOT this driver's tree, so every number below "
+            f"describes {p['package']} and says nothing about uncommitted work in "
+            f"{p['tree']}. To measure this tree instead, relaunch with "
+            f"PYTHONPATH={p['tree']}:/app")
+    return "\n".join(lines)
 
 
 BUCKET = os.getenv("PCN_BUCKET", "processing-artifacts")
@@ -266,6 +321,12 @@ def main():
     print(f"pipeline_version={os.getenv('DOC_TOOLS_VERSION', 'doc-tools@unstamped')}")
     print(f"VISION_MAX_TOKENS={os.getenv('VISION_MAX_TOKENS')}")
 
+    # WHICH doc_tools is about to be measured. Before the first S3 call, and before the
+    # plugin import below can make the question look answered.
+    import doc_tools
+    prov = import_provenance(doc_tools.__file__, __file__)
+    print(render_import_provenance(prov))
+
     from doc_tools.plugins.sustainment import SustainmentPlugin
     plugin = SustainmentPlugin(domain_type="sustainment")
 
@@ -320,6 +381,7 @@ def main():
 
     print()
     scored = pcn_score.score_run(results, pcn_score.load_ground_truth())
+    print(render_import_provenance(prov))
     print(pcn_score.render(scored))
     with open(SCORE_OUT, "w") as f:
         json.dump(scored, f, indent=2)
