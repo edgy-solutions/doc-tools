@@ -528,7 +528,12 @@ def build_knowledge_graph(
         context.log.info(f"SPARQL Queries to emit to Jena: {len(sparql_queries)}")
         for idx, s_query in enumerate(sparql_queries):
             try:
-                jena_client.execute_update(s_query)
+                # Runtime instance triples go to the domain's INSTANCE graph, never the
+                # vocabulary graph (AGENTS.md "Domain Semantic Graph") — prime DROPs the
+                # latter on every re-ingest, so instance data would be wiped if it shared it.
+                jena_client.execute_update(
+                    s_query, graph_uri=f"http://internal/{plugin.domain_label}_INSTANCES"
+                )
             except Exception as e:
                 context.log.error(f"Failed executing domain SPARQL query {idx}: {e}")
 

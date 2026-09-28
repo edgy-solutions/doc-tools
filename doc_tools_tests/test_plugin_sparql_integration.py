@@ -435,7 +435,9 @@ def test_plugin_dirty_sparql_executes_against_live_jena(plugin_builder, name, di
     failures = []
     for i, sparql in enumerate(sparql_qs):
         try:
-            r = client.execute_update(sparql)
+            r = client.execute_update(
+                sparql, graph_uri=f"http://internal/{plugin.domain_label}_INSTANCES"
+            )
             if r.status_code != 204:
                 failures.append((i, f"unexpected status {r.status_code}", sparql))
         except Exception as e:

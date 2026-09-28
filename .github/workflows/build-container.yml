@@ -248,6 +248,60 @@ jobs:
     # assumes gets a red job instead of a green one. Note what stays true: helm
     # is a TEST FIXTURE here, not a dependency of the image; nothing in the
     # built container shells out to it.
+    #
+    # FUSEKI SERVICE CONTAINER, added alongside the default-graph seal
+    # (doc_tools_tests/test_default_graph_stays_empty.py). Same shape as the
+    # helm story above: doc_tools_tests/test_plugin_sparql_integration.py has
+    # carried four live-Fuseki tests since it was written, and every one of
+    # them has SKIPPED on every run there has ever been, because no CI job
+    # has ever had a Jena to talk to — `JENA_INTEGRATION_URL` was never set.
+    # A skip is not a pass, and the seal added in this lane (the Jena default
+    # graph is empty after driving all four plugins' real SPARQL through the
+    # scoping writer) is exactly the kind of check that reads as covered
+    # while being grey — the same trap this job already exists to close for
+    # the suite as a whole. This service container gives those five tests
+    # something real to run against, and REQUIRE_JENA (below, mirroring
+    # REQUIRE_HELM) turns "Fuseki went missing" into a FAILURE instead of a
+    # silent return to skipping.
+    #
+    # `stain/jena-fuseki`, not `apache/jena-fuseki` — checked, not assumed:
+    # `apache/jena-fuseki` does not exist on Docker Hub (pull returns "pull
+    # access denied ... repository does not exist") and there is no
+    # `ghcr.io/apache/jena-fuseki` either (pull returns "not found"). Pinned
+    # to 5.1.0, verified by pulling and running it locally.
+    #
+    # THE HEALTH CHECK PROBES THE DATASET, NOT `/$/ping`, and the difference
+    # was measured rather than guessed. `/$/ping` answers 200 as soon as the
+    # JVM is up; `FUSEKI_DATASET_1=ds` then auto-creates the `ds` dataset
+    # over the admin API a moment afterwards. Timed locally from container
+    # start: ping at 2797ms, `ds` present in `/$/datasets` at 4195ms — a
+    # ~1.4s window in which a ping-based check reports HEALTHY and every
+    # request to `/ds` 404s. The job's own checkout and `uv sync` would
+    # almost always cover that gap, which is exactly what makes it a flake
+    # rather than an outage: it would fail rarely, on a slow runner, and
+    # look like something else. Probing `/$/datasets` for `/ds` closes it —
+    # the job starts when the dataset the tests actually use exists.
+    # (`ci-fuseki-admin` is this service container's throwaway password, set
+    # by `ADMIN_PASSWORD` immediately above and never leaving the runner.)
+    #
+    # COST, STATED HONESTLY: a service container's image pull plus JVM
+    # startup on every run of this job, in addition to the suite itself.
+    # `stain/jena-fuseki:5.1.0` is not a common image, so a GitHub-hosted
+    # runner should not be expected to already have it cached — budget for
+    # a real pull most runs. Startup to a queryable `ds` was ~4s locally.
+    services:
+      fuseki:
+        image: stain/jena-fuseki:5.1.0
+        ports:
+          - 3030:3030
+        env:
+          ADMIN_PASSWORD: ci-fuseki-admin
+          FUSEKI_DATASET_1: ds
+        options: >-
+          --health-cmd "curl -sf -u admin:ci-fuseki-admin http://localhost:3030/\$/datasets | grep -q '/ds' || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -305,6 +359,16 @@ jobs:
         # nothing. With this set, a missing helm reds the job and says why.
         env:
           REQUIRE_HELM: "1"
+          # Points at the `fuseki` service container declared on this job
+          # above. REQUIRE_JENA mirrors REQUIRE_HELM: turns "Fuseki is
+          # unreachable" from a silent skip of five tests into a job
+          # failure that says why, rather than a job that stays green over
+          # an unproven guard.
+          JENA_INTEGRATION_URL: http://localhost:3030
+          JENA_INTEGRATION_DS: ds
+          JENA_INTEGRATION_USER: admin
+          JENA_INTEGRATION_PASSWORD: ci-fuseki-admin
+          REQUIRE_JENA: "1"
         run: uv run -- python -m pytest -q -rs
 
   verify-image-pin:
