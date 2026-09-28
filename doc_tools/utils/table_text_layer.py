@@ -32,7 +32,7 @@ is unit-testable without pdfplumber or a PDF.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Set, Tuple
 
 # Column-header VOCABULARY — data, not code, so a new vendor's wording is a list entry
 # rather than a branch. Matched case-insensitively against the normalized header cell.
@@ -744,3 +744,91 @@ def _parts_from_page(
                 "source": "text_layer",
             })
     return results, inherited, declines
+
+
+# --------------------------------------------------------------------------- #
+# PREFER THE TEXT LAYER WHERE A CROP WAS CUT THROUGH THE GLYPHS
+# --------------------------------------------------------------------------- #
+# Measured on ADI_PDN_23_0120, corpus pin sha256:0136991e, 2026-09-27. The vision
+# pass returned `7873ACPZ` where ground truth is `AD7873ACPZ`, and the prompt that
+# produced it is in the run log, so the cause is not a guess:
+#
+#   ### OCR TEXT (AUTHORITATIVE for the exact characters of every MPN) ###
+#   Pin To Pin Product Family Replacement Part Compatible Comments AD7873 AD7873ARUZ Yes
+#
+#   ### HTML TABLE (rough hint only - may be sparse or wrong) ###
+#   <th>del</th> ... <td>7873ACPZ</td><td>AD7873</td><td>| AD7873ARUZ</td>
+#
+# The authoritative OCR slice contains NEITHER `AD7873ACPZ` nor `7873ACPZ`: the crop is
+# cut on its LEFT edge, so the model had only the rough HTML hint to read, and that hint
+# carries the same cut (`del` is what survives of `Model`, `7873ACPZ` of `AD7873ACPZ`).
+# This is the crop-clipping defect class of 2026-09-20 on a different edge -- the geometry
+# repair extended the BOTTOM edge only.
+#
+# The geometry fix (all four edges) is the primary cure and it re-renders crops, which
+# means it only helps documents ingested AFTER it ships. This function is the second half:
+# it repairs an ALREADY-STORED cut crop at read time, from the page text layer, which is
+# not clipped. `AD7873ACPZ` appears twice in the document text (`Obsolescence of
+# AD7873ACPZ`), so the characters the crop lost were never actually missing from the PDF.
+#
+# WHY THE TWO CONDITIONS TOGETHER ARE THE EVIDENCE OF A CUT, and why neither alone is:
+#   - a part number that is ABSENT verbatim from the document text layer is either
+#     misread or clipped; a real part prints somewhere in the notice prose or its table.
+#   - a UNIQUE longer MPN-shaped token that the emitted string is a prefix or a suffix of
+#     is what a clipped edge leaves behind: characters are lost from ONE END, never the
+#     middle.
+# Requiring both is what keeps this from being normalization. A genuinely short real part
+# such as `AD7873` is present verbatim (condition 1 fails) and is returned untouched even
+# though `AD7873ARUZ` and `AD7873ACPZ` both extend it.
+#
+# DELIBERATELY NOT DONE: substring containment. `endswith`/`startswith` model an edge cut.
+# A containment test would rewrite `7873` into any part number holding those digits
+# anywhere, which is a different and unjustified claim about what happened.
+_MIN_AFFIX_REPAIR_LEN = 4  # matches looks_like_mpn: below this a prefix match means nothing
+
+# Splits document text into candidate part tokens. Whitespace plus the separators a table
+# flattened into text leaves behind; `-`, `.`, `/`, `+` and `#` are NOT separators, because
+# real MPNs contain every one of them (`SYTX9-122HP-1+`).
+_DOC_TOKEN = re.compile(r"[^\s|,;()\[\]<>]+")
+_TOKEN_TRAILERS = ".,;:"
+
+
+def doc_text_tokens(text: Optional[str]) -> Set[str]:
+    """Tokenize a document TEXT layer into a set of candidate part strings (PURE).
+
+    Fed the concatenated element text, never `text_as_html`: the ExtractParts prompt
+    itself declares the HTML a rough hint, and on a cut crop the HTML carries the SAME
+    cut -- repairing a clipped string from the clipped source would be a no-op that
+    looks like a check.
+    """
+    tokens: Set[str] = set()
+    for raw in _DOC_TOKEN.findall(text or ""):
+        t = raw.strip().rstrip(_TOKEN_TRAILERS)
+        dequoted = strip_enclosing_quotes(t) or t
+        for cand in (t, dequoted):
+            if cand:
+                tokens.add(cand)
+    return tokens
+
+
+def prefer_text_layer_mpn(emitted: Optional[str], doc_tokens: Set[str]) -> Optional[str]:
+    """Return `emitted`, or the one longer text-layer MPN it is a cut fragment of (PURE).
+
+    Conservative by construction -- it returns `emitted` unchanged unless BOTH pieces of
+    cut evidence are present AND the longer form is unambiguous. Zero candidates means no
+    evidence; two or more means we cannot tell which end was cut off, and a coin flip
+    between two real part numbers is worse than reporting the fragment, because the
+    fragment matches nothing downstream while a wrong MPN matches the wrong part.
+    """
+    v = (emitted or "").strip()
+    if len(v) < _MIN_AFFIX_REPAIR_LEN or not looks_like_mpn(v):
+        return emitted
+    if v in doc_tokens:
+        return emitted          # present verbatim: the crop lost nothing
+    candidates = {
+        t for t in doc_tokens
+        if len(t) > len(v) and looks_like_mpn(t) and (t.endswith(v) or t.startswith(v))
+    }
+    if len(candidates) == 1:
+        return candidates.pop()
+    return emitted
