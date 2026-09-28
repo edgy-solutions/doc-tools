@@ -65,14 +65,23 @@ def test_jena_execute_update_posts_sparql_update(mock_client_cls):
     mock_client_cls.return_value.__enter__.return_value = client
     client.post.return_value = MagicMock(raise_for_status=lambda: None)
 
+    # graph_uri is now REQUIRED for an unscoped body: execute_update refuses a
+    # default-graph write outright (UnscopedUpdateError, no HTTP at all). This
+    # test still owns the TRANSPORT contract -- url, content-type, auth -- and
+    # additionally pins that what reaches the wire is the SCOPED body, not the
+    # caller's. The scoping decision itself is sealed in
+    # doc_tools_tests/test_jena_update_is_graph_scoped.py.
     JenaClient(url="http://jena:3030", dataset="ds", username="u", password="p").execute_update(
-        "INSERT DATA { <a> <b> <c> }"
+        "INSERT DATA { <a> <b> <c> }",
+        graph_uri="http://internal/TEST_INSTANCES",
     )
 
     assert client.post.call_args.args[0] == "http://jena:3030/ds/update"
     kw = client.post.call_args.kwargs
     assert kw["headers"]["Content-Type"] == "application/sparql-update"
-    assert kw["content"] == b"INSERT DATA { <a> <b> <c> }"
+    assert kw["content"] == (
+        b"INSERT DATA {GRAPH <http://internal/TEST_INSTANCES> { <a> <b> <c> }}"
+    )
     assert mock_client_cls.call_args.kwargs["auth"] == ("u", "p")
 
 
