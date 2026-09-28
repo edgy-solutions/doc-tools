@@ -82,14 +82,19 @@ def test_value_self_sourced_when_source_is_missing_but_value_is_verbatim():
         "a missing source must be backfilled to the verbatim value that proved it"
 
     ok, method, effective_source = locate_header_source("SEMELAB PLC", None, _index())
-    assert ok and method == "value_self_sourced" and effective_source == "SEMELAB PLC"
+    assert ok and effective_source == "SEMELAB PLC", \
+        f"the bare value must ground itself; got ok={ok} method={method!r}"
 
 
 def test_typographic_fold_saves_a_source_that_differs_only_by_dash_and_nbsp():
     """`pub_date_source` as extracted ('05-Dec 2023', ASCII hyphen + space) differs from
     the document's own typography ('05–Dec 2023', en-dash + NBSP) only in ways a
     human reader would call identical. Proven NOT resolvable by the exact matcher alone,
-    so the fold — not a coincidence — is what keeps the field."""
+    so the fold — not a coincidence — is what keeps the field.
+
+    This is also the `mode="date"` path: `pub_date` is "2023-12-05", which the document
+    does NOT print in that form and never will, so a date is proven by a citation that
+    resolves AND denotes the same calendar date — not by the value being verbatim."""
     index = _index()
     source = "05-Dec 2023"
 
@@ -106,8 +111,42 @@ def test_typographic_fold_saves_a_source_that_differs_only_by_dash_and_nbsp():
     assert header_d["pub_date"] == "2023-12-05"
     assert header_d["pub_date_source"] == source
 
-    ok, method, _ = locate_header_source("2023-12-05", source, index)
-    assert ok and method == "typographic_fold"
+    ok, method, _ = locate_header_source("2023-12-05", source, index, mode="date")
+    assert ok and method == "source_dates_value_fold", \
+        (f"the citation resolves only after folding and it names 5 Dec 2023, so the date "
+         f"must be kept on the folded-citation path; got ok={ok} method={method!r}")
+
+
+def test_a_citation_naming_a_DIFFERENT_date_is_refused():
+    """The date path's own fabrication shape. "12–Dec 2023" resolves in this document, so
+    a source-anchored rule would accept it as proof of 2023-12-05 — a five-day error
+    delivered with a citation. The citation must name the date it is cited for."""
+    index = provenance.build_positioned_index([_el("Pub Date: 05–Dec 2023"),
+                                               _el("Superseded: 12–Dec 2023")])
+    ok, method, eff = locate_header_source("2023-12-05", "12-Dec 2023", index, mode="date")
+    assert not ok and eff is None, \
+        "a citation that resolves but names another date must not prove this one"
+    assert method == "source_is_a_different_date", \
+        "the wrong-date shape must be named distinctly from an absent citation"
+
+
+def test_a_two_digit_year_in_the_citation_still_dates_the_value():
+    """MEASURED: TYC's page prints "6/10/24, 11:28 AM" and the model read it as
+    2024-06-10. Requiring the 4-digit year refused a date the citation really did name."""
+    index = provenance.build_positioned_index([_el("6/10/24, 11:28 AM")])
+    ok, method, _ = locate_header_source("2024-06-10", "6/10/24, 11:28 AM", index,
+                                        mode="date")
+    assert ok, f"a 2-digit year must still date the value; got method={method!r}"
+
+
+def test_a_citation_with_no_date_in_it_cannot_prove_a_date():
+    """The URL shape, on the date path: a footer URL resolves and says nothing about when
+    the notice was published."""
+    url = "https://www.ttelectronics.com/brands/semelab/"
+    index = provenance.build_positioned_index([_el("Pub Date: 05–Dec 2023"), _el(url, page=2)])
+    ok, method, _ = locate_header_source("2023-12-05", url, index, mode="date")
+    assert not ok and method == "source_is_a_different_date", \
+        "a citation carrying no date at all must not be accepted as dating the notice"
 
 
 def test_doc_level_ltb_date_refused_to_none_not_empty_string():
@@ -125,10 +164,16 @@ def test_doc_level_ltb_date_refused_to_none_not_empty_string():
     assert header_d["doc_level_ltb_date_source"] is None
 
 
-def test_field_table_declares_the_right_blank_sentinel_per_field():
-    by_field = {f: blank for f, _src, blank in HEADER_SOURCED_FIELDS}
-    assert by_field["mfr"] == "" and by_field["pub_date"] == ""
-    assert by_field["doc_level_ltb_date"] is None
+def test_field_table_declares_the_right_blank_sentinel_and_mode_per_field():
+    rows = {f: (blank, mode) for f, _src, blank, mode in HEADER_SOURCED_FIELDS}
+    assert rows["mfr"][0] == "" and rows["pub_date"][0] == ""
+    assert rows["doc_level_ltb_date"][0] is None
+
+    assert rows["mfr"][1] == "verbatim", \
+        "a manufacturer is COPIED off the page, so the value itself must be located"
+    assert rows["pub_date"][1] == "date" and rows["doc_level_ltb_date"][1] == "date", \
+        ("dates are ISO-normalized by the model and are not verbatim in any vendor "
+         "notice — value-anchoring them would refuse every correctly-read date")
 
 
 # --------------------------------------------------------------------------- #
@@ -255,14 +300,48 @@ def test_an_overreaching_source_does_not_refuse_a_value_the_document_prints():
     ok, method, eff = locate_header_source(
         "SEMELAB PLC", "SEMELAB PLC, Coventry, United Kingdom", _index())
     assert ok, "a value printed in the document must survive an unresolvable source snippet"
-    assert method == "value_over_bad_source", \
-        "the weaker grounding must be reported distinctly, not laundered as a clean match"
     assert eff == "SEMELAB PLC", \
-        "the effective source must be narrowed to what actually resolves, not the bad quote"
+        "the effective source must be what actually resolves, not the bad quote"
+    # No "weaker grounding" method is reported, deliberately: the value was located in the
+    # document, which is the entire test. Whether the model also quoted well is a separate
+    # (and unexamined) question — the citation is not consulted at all on this path.
 
 
 def test_a_bad_source_does_not_rescue_a_value_that_is_also_absent():
     """The relaxation must not become a way in for fabrications."""
     ok, method, eff = locate_header_source(
         "TT Electronics", "TT Electronics plc, Woking", _index())
-    assert not ok and method == "not_found" and eff is None
+    assert not ok and eff is None
+    assert method == "value_absent_source_unresolvable", \
+        "an absent value with an unlocatable citation must be named as exactly that"
+
+
+def test_a_RESOLVING_citation_does_not_rescue_a_value_the_document_never_prints():
+    """THE MEASURED HOLE, and the reason this module is value-anchored.
+
+    `EOL-36_BYV34-400,-BYV34-500` is a SEMELAB notice. Two real fires both returned
+    `mfr` = "TT Electronics", absent from the PDF; one cited
+    `mfr_source` = "https://www.ttelectronics.com/brands/semelab/" — and that URL IS
+    printed in the document's footer, Semelab being a TT Electronics brand. The earlier,
+    source-anchored version of this function returned `(True, "region_preferred", …)` for
+    exactly that pair, so the check meant to stop the fabrication would have WRITTEN it.
+
+    Note what this also says about `mfr_source` as a review flag: it caught this on the
+    fire that cited nothing and missed it on the fire that cited a real URL.
+    """
+    url = "https://www.ttelectronics.com/brands/semelab/"
+    index = provenance.build_positioned_index([
+        _el("This notice is issued by SEMELAB PLC regarding discontinuance."),
+        _el(url, page=2),  # the real document prints this in its footer
+    ])
+
+    assert provenance.resolve_value(url, index, prefer_region="narrative")["found"], \
+        "the citation must really resolve, or this test is not exercising the hole"
+
+    ok, method, eff = locate_header_source("TT Electronics", url, index)
+    assert not ok, \
+        ("a citation that resolves is not evidence for a value it does not contain — this "
+         "is the fabrication the header pass actually produced")
+    assert method == "value_absent_source_resolves", \
+        "the fabrication-with-a-plausible-citation shape must be named distinctly"
+    assert eff is None

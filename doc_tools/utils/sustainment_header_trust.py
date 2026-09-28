@@ -96,59 +96,116 @@ def _folded_hit(snippet: str, index: List[dict]) -> bool:
 # --------------------------------------------------------------------------- #
 # 2b. Is a header value backed by the document?
 # --------------------------------------------------------------------------- #
-def locate_header_source(value, source, index: List[dict]) -> Tuple[bool, str, Optional[str]]:
+_ISO_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+_MONTH_ABBR = ("jan", "feb", "mar", "apr", "may", "jun",
+               "jul", "aug", "sep", "oct", "nov", "dec")
+
+
+def _date_components_consistent(iso_value: str, source_text: str) -> bool:
+    """Does `source_text` denote the same calendar date as ISO `iso_value`?
+
+    Deliberately NOT a date parser. A printed "05/12/2023" is 5 December or 12 May
+    depending on the vendor's country, and guessing which would trade a fabrication risk
+    for a silent off-by-seven-months risk. Instead this asks the weaker question that has
+    no ambiguous answer: does the cited text contain this date's YEAR, its DAY and its
+    MONTH (as a number or an English abbreviation), each on a token boundary?
+
+    That is enough to kill the two shapes that matter — a citation with no date in it at
+    all (the measured URL case), and a citation naming a DIFFERENT date than the value —
+    while accepting every vendor typography for the right date. It cannot distinguish
+    05/12 from 12/05 when both numbers appear, and does not claim to.
+    """
+    m = _ISO_DATE_RE.match(iso_value.strip())
+    if not m:
+        return False
+    year, month, day = m.group(1), int(m.group(2)), int(m.group(3))
+    low = fold_typography(source_text).lower()
+
+    # A 2-digit year counts: "6/10/24" is how TYC's own page prints 10 June 2024, and
+    # measured, demanding the 4-digit form refused a date the citation really did name.
+    # Loose on its own, but it is one of three components that must ALL hit in one snippet.
+    if not re.search(rf"\b({year}|{year[2:]})\b", low):
+        return False
+    if not re.search(rf"\b0?{day}\b", low):
+        return False
+    month_num = re.search(rf"\b0?{month}\b", low)
+    month_name = 1 <= month <= 12 and _MONTH_ABBR[month - 1] in low
+    return bool(month_num or month_name)
+
+
+def locate_header_source(value, source, index: List[dict],
+                         mode: str = "verbatim") -> Tuple[bool, str, Optional[str]]:
     """Where (if anywhere) a header value is grounded in the document. Never raises.
 
-    Returns `(ok, method, effective_source)`. First hit wins, in this order:
+    THE VALUE IS THE ANCHOR, NOT THE CITATION. Only `value` is looked for in the
+    document; `source` never grants trust on its own. Returns
+    `(ok, method, effective_source)`:
 
-    1. `source` is non-empty and matches verbatim via `provenance.resolve_value` (region
-       preference "narrative" — a header's mfr/date/etc. reads off the notice's own prose,
-       not a parts table) -> `(True, <that call's match_method>, source)`.
-    2. `source` is non-empty but only matches after `fold_typography` on both sides ->
-       `(True, "typographic_fold", source)`.
-    3. `source` is empty/None, but the VALUE ITSELF clears the same two checks ->
-       `(True, "value_self_sourced" | "value_self_sourced_fold", str(value))`.
-    4. Otherwise -> `(False, "no_source" if not source else "not_found", None)`.
+    1. `value` matches verbatim via `provenance.resolve_value` (region preference
+       "narrative" — a header's mfr/date/etc. reads off the notice's own prose, not a
+       parts table) -> `(True, <that call's match_method>, str(value))`.
+    2. `value` matches only after `fold_typography` on both sides ->
+       `(True, "typographic_fold", str(value))`.
+    3. Otherwise refused, with the METHOD naming the shape of the failure:
+       `"value_absent_source_resolves"` (see below), `"value_absent_source_unresolvable"`,
+       `"value_absent_no_source"`, or `"no_value"`.
 
-    Step 3's rationale is the whole point of this function: the operative rule is that
-    the VALUE must be verbatim in the document; `*_source` is the MECHANISM for proving
-    that, not the requirement itself. A model that correctly read a manufacturer name
-    off page 1 but omitted the source snippet has not fabricated anything — dropping
-    that value on a missing-source technicality would throw away a field the model got
-    right. A genuine fabrication ("TT Electronics" against a SEMELAB notice) is still
-    caught here regardless of whether a source was offered, because the value itself
-    is not in the document under ANY folding. This mirrors `build_review_items`
-    (`doc_tools/utils/sustainment_merge.py`), which already falls back to `src or val`
-    when resolving a header field's location for the review payload.
+    MEASURED, and it is why this function was rewritten. An earlier version trusted a
+    `source` that resolved, on the reasoning that a located citation proves the field.
+    Two real fires on `EOL-36_BYV34-400,-BYV34-500` (a SEMELAB notice) both returned
+    `mfr` = "TT Electronics", which appears nowhere in the PDF; one of them cited
+    `mfr_source` = "https://www.ttelectronics.com/brands/semelab/", and that URL IS
+    printed in the document's footer — Semelab being a TT Electronics brand. So the
+    citation resolved, the source-anchored rule returned `(True, "region_preferred", …)`,
+    and the fabricated manufacturer would have been WRITTEN by the very check meant to
+    stop it. A resolving citation is not evidence for a value it does not contain. Note
+    this is also the failure mode `mfr_source`-as-a-review-flag could not catch: the flag
+    fired only on the fire that happened to cite nothing.
 
-    Step 3 runs whether `source` was empty OR present-but-unresolvable, and the two are
-    distinguished only in the reported METHOD. A source snippet that does not resolve is a
-    provenance defect — commonly an over-long quote ("SEMELAB PLC, Coventry" where the page
-    prints the name and the town in separate elements) — and refusing a manufacturer that
-    IS printed on page 1 because its snippet overreached would discard a correct field for a
-    citation error. The thing being tested is the VALUE's presence in the document; a
-    snippet that cannot be located weakens the citation, not the value. Fabrication is
-    still caught either way: "TT Electronics" is absent from a SEMELAB notice under every
-    folding, with or without a source.
+    On success the `effective_source` is the VALUE string, not the model's snippet: it is
+    the text actually located, so `*_source` means one thing everywhere downstream — the
+    verbatim document text that was verified — rather than an unverified quote.
+
+    A cited source that cannot be located is still reported distinctly
+    (`"value_absent_source_unresolvable"` vs `"value_absent_source_resolves"`), because
+    an overreaching quote ("SEMELAB PLC, Coventry" where the page prints the name and the
+    town in separate elements) is a citation defect, while a quote that resolves around an
+    absent value is the fabrication shape above. Neither rescues the value; the difference
+    is diagnostic, and it goes in the reason string a human reads.
+
+    `mode="date"` IS A DIFFERENT RULE, and it has to be. `pub_date` and
+    `doc_level_ltb_date` are ISO-normalized by the model — a notice printing "05–Dec 2023"
+    yields "2023-12-05", which is not verbatim in the document and never will be. Value-
+    anchoring alone would therefore refuse every correctly-read date in the corpus. For a
+    DERIVED value the citation is the only possible proof, so the rule becomes: the cited
+    source must RESOLVE in the document AND must denote the same calendar date
+    (`_date_components_consistent`). That is strictly stronger than the rule this replaced,
+    which accepted any citation that resolved even when it named a different date, and it
+    still refuses a citation carrying no date at all — the measured URL shape. A document
+    that does print an ISO date is matched verbatim first, before any of this.
     """
+    if not value:
+        return False, "no_value", None
+
+    val_str = str(value)
+    rec = provenance.resolve_value(val_str, index, prefer_region="narrative")
+    if rec["found"]:
+        return True, rec["match_method"], val_str
+    if _folded_hit(val_str, index):
+        return True, "typographic_fold", val_str
+
     if source:
-        rec = provenance.resolve_value(source, index, prefer_region="narrative")
-        if rec["found"]:
-            return True, rec["match_method"], source
-        if _folded_hit(source, index):
-            return True, "typographic_fold", source
-
-    if value:
-        val_str = str(value)
-        rec = provenance.resolve_value(val_str, index, prefer_region="narrative")
-        if rec["found"]:
-            return True, "value_self_sourced" if not source else "value_over_bad_source", \
-                val_str
-        if _folded_hit(val_str, index):
-            return True, ("value_self_sourced_fold" if not source
-                          else "value_over_bad_source_fold"), val_str
-
-    return False, "no_source" if not source else "not_found", None
+        src = str(source)
+        exact = provenance.resolve_value(src, index, prefer_region="narrative")["found"]
+        src_resolves = exact or _folded_hit(src, index)
+        if mode == "date" and src_resolves:
+            if _date_components_consistent(val_str, src):
+                return True, ("source_dates_value" if exact
+                              else "source_dates_value_fold"), src
+            return False, "source_is_a_different_date", None
+        return False, ("value_absent_source_resolves" if src_resolves
+                       else "value_absent_source_unresolvable"), None
+    return False, "value_absent_no_source", None
 
 
 # --------------------------------------------------------------------------- #
@@ -160,10 +217,35 @@ def locate_header_source(value, source, index: List[dict]) -> Tuple[bool, str, O
 # here — it is handled separately, from the document's own title (see 2d), because a
 # missing/wrong doc_type is a MISROUTING risk (wrong disposition ruleset), not a
 # fabricated-value risk, and blanking it would leave nothing for the router to key on.
+# The refusal reason has to tell a human WHICH failure this was, because the three read
+# very differently in a review queue: a resolving citation around an absent value is the
+# fabrication shape (measured: "TT Electronics" cited to a ttelectronics.com URL that the
+# footer really does print), an unresolvable citation is usually an overreaching quote,
+# and no citation at all is the model declining to show its work.
+_REFUSAL_CLAUSE = {
+    "value_absent_source_resolves":
+        "is not printed in the document; its cited source resolves but does not contain "
+        "it — cited",
+    "value_absent_source_unresolvable":
+        "is not printed in the document, and its cited source could not be located "
+        "either — cited",
+    "value_absent_no_source": "is not printed in the document, and no source was cited",
+    "source_is_a_different_date":
+        "is not supported by the document; its cited source names a different date — cited",
+    "no_value": "is not a usable value",
+}
+
+
+def _clip(s, limit: int = 80) -> str:
+    """A cited source can be a whole paragraph; a reason string is read in a queue."""
+    s = str(s)
+    return s if len(s) <= limit else s[:limit - 1] + "…"
+
+
 HEADER_SOURCED_FIELDS = (
-    ("mfr", "mfr_source", ""),
-    ("pub_date", "pub_date_source", ""),
-    ("doc_level_ltb_date", "doc_level_ltb_date_source", None),
+    ("mfr", "mfr_source", "", "verbatim"),
+    ("pub_date", "pub_date_source", "", "date"),
+    ("doc_level_ltb_date", "doc_level_ltb_date_source", None, "date"),
 )
 
 
@@ -183,26 +265,28 @@ def refuse_unsourced_header_values(header_d: dict, index: List[dict]) -> List[st
     nothing left to flag.
 
     A field that clears `locate_header_source` gets its `*_source` REWRITTEN to the
-    `effective_source` returned (verbatim value for a self-sourced hit) — so a value the
-    model produced with no snippet at all still carries a source afterward, and
-    everything downstream (`build_review_items`, the review UI) sees a normal sourced
-    field rather than a hole.
+    `effective_source` returned — which is now always the VERIFIED VALUE STRING, never
+    the model's own snippet. So a value produced with no snippet at all still carries a
+    source afterward (downstream `build_review_items` and the review UI see a normal
+    sourced field, not a hole), and a snippet that was never checked can no longer
+    masquerade as proof.
     """
     reasons: List[str] = []
-    for field, source_field, blank_value in HEADER_SOURCED_FIELDS:
+    for field, source_field, blank_value, mode in HEADER_SOURCED_FIELDS:
         value = header_d.get(field)
         if not value:
             continue
         source = header_d.get(source_field)
-        ok, method, effective_source = locate_header_source(value, source, index)
+        ok, method, effective_source = locate_header_source(value, source, index, mode=mode)
         if ok:
             header_d[source_field] = effective_source
             continue
         header_d[field] = blank_value
         header_d[source_field] = None
+        clause = _REFUSAL_CLAUSE.get(method, f"was refused ({method})")
         reasons.append(
-            f"header.{field} refused: no verbatim source in the document "
-            f"(method: {method}; value dropped: '{value}')"
+            f"header.{field} refused: '{value}' {clause}"
+            + (f": '{_clip(source)}'" if source and clause.endswith("cited") else "")
         )
     return reasons
 
