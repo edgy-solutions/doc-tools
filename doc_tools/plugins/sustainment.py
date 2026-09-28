@@ -498,6 +498,7 @@ class SustainmentPlugin(AugmentationPlugin):
         n_crops, missing, failed, truncated, near_cap = 0, 0, 0, 0, 0
         grid_forwarded, grid_label_failed, grid_rows_emitted = 0, 0, 0
         grid_no_parts_col = 0
+        tl_repairs: List[dict] = []
         # The row-short cross-check needs, PER PAGE, how many rows vision actually
         # returned and whether that page's crop is already known-bad (failed/truncated).
         # Keyed on the crop's page_number (from unstructured metadata) rather than on the
@@ -635,6 +636,11 @@ class SustainmentPlugin(AugmentationPlugin):
                 if page_emitted:
                     del all_parts[-page_emitted:]
 
+        # The page TEXT LAYER, tokenized once for the clipped-crop repair below. Built
+        # from `full_text` and NOT from any `text_as_html`: on a cut crop the HTML carries
+        # the SAME cut, so checking a clipped string against it would confirm the cut
+        # rather than catch it (measured on ADI_PDN_23_0120 -- see prefer_text_layer_mpn).
+        doc_tokens = text_layer.doc_text_tokens(full_text)
         for el in tables:
             meta = el.get("metadata") or {}
             page_no = meta.get("page_number")
@@ -694,7 +700,34 @@ class SustainmentPlugin(AugmentationPlugin):
                 # later crops overwrite the count from its earlier ones.
                 rows_by_page[page_no] = rows_by_page.get(page_no, 0) + len(res or [])
                 for p in (res or []):
-                    all_parts.append(part_to_dict(p))
+                    d = part_to_dict(p)
+                    # PIXEL PATH ONLY. The grid path above reads its strings from
+                    # pdfplumber cells, which are never clipped, so it needs no repair;
+                    # these rows came from an IMAGE that may have been cut through the
+                    # glyphs on any edge.
+                    # The `_source` companions are repaired by the SAME rule, not copied
+                    # from the repaired value. They are the provenance JOIN KEY (see the
+                    # @description in sustainment.baml): build_review_items feeds them to
+                    # resolve_value, which string-matches them against the positioned OCR
+                    # index to place the reviewer's highlight box. A clipped fragment left
+                    # there resolves to the wrong span or to nothing at all, so the fix
+                    # would be invisible on the review card even though the MPN was right.
+                    # Repairing them independently rather than assigning the new value
+                    # keeps every field held to the same evidence, with no special case.
+                    # The audit trail of what the model actually returned is in
+                    # `text_layer_repair_detail`, which records every field it changed.
+                    for key in ("affected_mpn", "affected_mpn_source",
+                                "replacement_mpn", "replacement_mpn_source"):
+                        was = d.get(key)
+                        now = text_layer.prefer_text_layer_mpn(was, doc_tokens)
+                        if now != was:
+                            d[key] = now
+                            tl_repairs.append({"page_number": page_no, "field": key,
+                                               "from": was, "to": now})
+                            print(f"[SustainmentPlugin] clipped-crop repair on page "
+                                  f"{page_no}: {key} {was!r} -> {now!r} (absent verbatim "
+                                  f"from the text layer; unique longer MPN there)")
+                    all_parts.append(d)
             except Exception as e:  # noqa: BLE001
                 # A per-crop failure (commonly a vision timeout on a dense table)
                 # loses that crop's rows. Count it so process_fulltext can flag
@@ -756,7 +789,9 @@ class SustainmentPlugin(AugmentationPlugin):
                            "row_short_detail": row_short,
                            "grid_forwarded": grid_forwarded, "grid_label_failed": grid_label_failed,
                            "grid_rows_emitted": grid_rows_emitted,
-                           "grid_no_parts_col": grid_no_parts_col}
+                           "grid_no_parts_col": grid_no_parts_col,
+                           "text_layer_repairs": len(tl_repairs),
+                           "text_layer_repair_detail": tl_repairs}
 
     def _apply_vision_stats(self, ps: dict, n_tables: int, reasons: List[str],
                             doc_flags: List[str]) -> bool:
@@ -864,7 +899,8 @@ class SustainmentPlugin(AugmentationPlugin):
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
                  "crops_truncated": 0, "crops_near_cap": 0, "crops_row_short": 0,
                  "vision_used": False, "grid_forwarded": 0, "grid_label_failed": 0,
-                 "grid_rows_emitted": 0, "grid_no_parts_col": 0}
+                 "grid_rows_emitted": 0, "grid_no_parts_col": 0,
+                 "text_layer_repairs": 0, "text_layer_repair_detail": []}
         reasons: List[str] = []
         needs_review = False
         # The doc-level reasons that FORCE review — i.e. the extraction telling us its own

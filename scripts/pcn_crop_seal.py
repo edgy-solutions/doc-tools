@@ -1,22 +1,32 @@
-"""SEAL: does the shipped crop-bottom repair actually contain the glyphs, on the
-real corpus PDFs? Read-only. No S3 writes, no crop PNGs downloaded or modified,
-no manifest mutated. `repair_table_crops` (doc_tools/utils/crop_geometry.py) is
-never called here — this only calls the pure `corrected_bottom` and
-`_rows_for_best_table` helpers it is built from, against real page geometry.
+"""SEAL: does the shipped crop repair actually contain the glyphs, on the real
+corpus PDFs? Read-only. No S3 writes, no crop PNGs downloaded or modified, no
+manifest mutated. `repair_table_crops` (doc_tools/utils/crop_geometry.py) is
+never called here — this only calls the pure `corrected_box` and
+`_rows_and_cells_for_best_table` helpers it is built from, against real page
+geometry.
 
 WHAT IT MEASURES. For every Table element that carries
 `metadata.coordinates.points` + `layout_height`, this recomputes the element's
 box in PDF points and asks pdfplumber's `extract_words()`, on the real source
-PDF, which words that box's bottom edge slices through — see `_cut_words` for
-the exact rule, including the mandatory sibling-exclusion clause (below). It
-reports TWO verdicts per table:
+PDF, which words that box's edges slice through — ALL FOUR edges, reported per
+edge; see `_cut_words_by_edge` for the exact rule, including the mandatory
+sibling-exclusion clause (below). It reports TWO verdicts per table:
 
-  stored    words cut by the bottom edge AS RECORDED in the manifest — i.e.
-            what is actually sitting in S3 right now and what the vision model
-            actually saw when a notice was ingested.
-  repaired  words cut by the bottom edge `corrected_bottom` would produce —
-            i.e. what the SHIPPED rule in crop_geometry.py produces when run
-            against the same real geometry.
+  stored    words cut by the box AS RECORDED in the manifest — i.e. what is
+            actually sitting in S3 right now and what the vision model actually
+            saw when a notice was ingested.
+  repaired  words cut by the box `corrected_box` would produce — i.e. what the
+            SHIPPED rule in crop_geometry.py produces when run against the same
+            real geometry.
+
+WHY FOUR EDGES, NOT ONE. Until 2026-09-27 this module tested the BOTTOM edge
+alone, and that blindness is the reason it reported `stored_cut_words 0` on a
+corpus containing `ADI_PDN_23_0120`, whose table crop is cut on its LEFT edge
+hard enough that the ingest read `7873ACPZ` for `AD7873ACPZ` and `del` for the
+`Model` header. A zero from a one-edge instrument is not a clean corpus; it is
+an unmeasured one. The top-line `*_cut_words` / `*_cut_tables` counters are now
+TOTALS ACROSS ALL FOUR EDGES, and every report carries the per-edge breakdown
+so a left cut can never again hide inside a bottom-edge zero.
 
 WHY THEY DIFFER, AND WHY ONLY `repaired` GATES THE EXIT CODE. The crop repair
 runs at INGEST time, inside `doc_tools/components/document_parser.py`, and
@@ -39,6 +49,13 @@ re-ingest backlog, and `stored_cut` never affects the exit code because of it.
 against the real PDFs, independent of which image produced whatever happens to
 be sitting in S3 today. A non-zero `repaired_cut_tables` means the fix itself
 is wrong, not that a notice is stale.
+
+EVERY NUMBER QUOTED ABOVE IS A BOTTOM-ONLY MEASUREMENT (pin 600c454, before the
+four-edge change). The 8/4 backlog count and the `stored=0 repaired=0` TYC line
+are what the one-edge instrument saw; the four-edge instrument has not yet been
+run against the corpus (it needs S3 + the real PDFs), so both are expected to
+move, `stored_cut` upward at minimum — the ADI left cut is a real cut that the
+old counter scored as zero. Re-measure before citing any of them again.
 
 SIBLING EXCLUSION IS LOAD-BEARING, NOT AN OPTIMIZATION. unstructured routinely
 splits one visual table into several Table elements (a header block, a body
@@ -110,34 +127,91 @@ def source_key(c, key: str, man: dict, fn: str, bucket: str) -> Optional[str]:
     return None
 
 
-def _cut_words(words: List[dict], el_box_pts: Box, bottom: float,
-               sibling_boxes: List[Box]) -> List[str]:
-    """Words from one page cut by a bottom edge at `bottom`, per the spec rule:
-    the edge must pass through the word's vertical extent, the word must be
-    horizontally within the element's own column span, and the word must not
-    be fully contained (1pt tolerance) in any sibling Table element's box on
-    the same page.
+EDGES = ("left", "top", "right", "bottom")
 
-    `sibling_boxes` must come from the SAME world as `bottom`: stored sibling
-    boxes for the stored verdict, repaired ones for the repaired verdict. See
-    the pass-2 comment in `_measure_notice` for why mixing them misreports."""
-    x0, _top, x1, _bottom = el_box_pts
-    cut: List[str] = []
+
+def _covered_by_sibling(w: dict, sibling_boxes: List[Box]) -> bool:
+    """Is this word shown WHOLE (1pt tolerance, all four sides) inside some other
+    Table element's box on the same page? See SIBLING EXCLUSION in the module
+    docstring — without this clause a first survey pass reported 924 false cuts."""
+    for sx0, stop, sx1, sbot in sibling_boxes:
+        if (sx0 - 1 <= w["x0"] and w["x1"] <= sx1 + 1
+                and stop - 1 <= w["top"] and w["bottom"] <= sbot + 1):
+            return True
+    return False
+
+
+def _cut_words_by_edge(words: List[dict], box: Box,
+                       sibling_boxes: List[Box]) -> Dict[str, List[str]]:
+    """Words from one page cut by `box`, grouped by WHICH EDGE cuts them.
+
+    `box` is the `(x0, top, x1, bottom)` under test — the stored box for the
+    stored verdict, the repaired box for the repaired verdict. It supplies BOTH
+    the edges being tested and the in-range span for the other-axis check; there
+    is no separate element box, because all four edges now vary together (the
+    bottom-only version took `el_box_pts` and `bottom` apart precisely because
+    only `bottom` moved — for a stored box the two are the same box, so the
+    bottom-edge verdict is unchanged by that simplification, which
+    `tests/test_crop_seal_edges.py` pins).
+
+    An edge cuts a word when BOTH hold:
+      - the edge passes THROUGH the word's extent on that edge's own axis
+        (>0.5pt of the word on each side of the edge), and
+      - the word overlaps the box on the OTHER axis (1pt tolerance) — without
+        this, every word on the page level with the bottom edge, however far
+        away horizontally, would read as cut.
+
+    A word fully contained in any sibling Table element's box is that sibling's
+    content and is excluded (see `_covered_by_sibling`). `sibling_boxes` must
+    come from the SAME world as `box`: stored sibling boxes for the stored
+    verdict, repaired ones for the repaired verdict. See the pass-2 comment in
+    `_measure_notice` for why mixing them misreports.
+
+    Returns `{"left": [...], "top": [...], "right": [...], "bottom": [...]}`;
+    a word cut by two edges at once is listed under both."""
+    x0, top, x1, bottom = box
+    cut: Dict[str, List[str]] = {e: [] for e in EDGES}
     for w in words:
-        if not (w["top"] < bottom - 0.5 and w["bottom"] > bottom + 0.5):
+        # Other-axis overlap, paired to the edge's OWN axis: the left/right
+        # edges are vertical lines, so their other axis is y (`in_y`); the
+        # top/bottom edges are horizontal lines, so theirs is x (`in_x` — the
+        # column-span check the bottom-only version already had).
+        in_x = w["x1"] > x0 - 1 and w["x0"] < x1 + 1
+        in_y = w["bottom"] > top - 1 and w["top"] < bottom + 1
+        edges: List[str] = []
+        if in_y:
+            if w["x1"] > x0 + 0.5 and w["x0"] < x0 - 0.5:
+                edges.append("left")
+            if w["x0"] < x1 - 0.5 and w["x1"] > x1 + 0.5:
+                edges.append("right")
+        if in_x:
+            if w["bottom"] > top + 0.5 and w["top"] < top - 0.5:
+                edges.append("top")
+            if w["top"] < bottom - 0.5 and w["bottom"] > bottom + 0.5:
+                edges.append("bottom")
+        if not edges:
             continue
-        if not (w["x1"] > x0 - 1 and w["x0"] < x1 + 1):
+        if _covered_by_sibling(w, sibling_boxes):
             continue
-        covered_by_sibling = False
-        for sx0, stop, sx1, sbot in sibling_boxes:
-            if (sx0 - 1 <= w["x0"] and w["x1"] <= sx1 + 1
-                    and stop - 1 <= w["top"] and w["bottom"] <= sbot + 1):
-                covered_by_sibling = True
-                break
-        if covered_by_sibling:
-            continue
-        cut.append(w["text"])
+        for e in edges:
+            cut[e].append(w["text"])
     return cut
+
+
+def _cut_record(page_number: int, box: Box,
+                by_edge: Dict[str, List[str]]) -> dict:
+    """One cut table's report row. `words` is the flat list across all four edges
+    (so a word cut twice counts twice — it is two distinct defects), and is the
+    key the totals and `render` have always summed; `by_edge` and `edges` are
+    what make a left cut visible rather than folded into that one number."""
+    return {
+        "page": page_number,
+        "box_pts": [round(v, 1) for v in box],
+        "bottom_pts": round(box[3], 1),  # kept: the pre-four-edge report key
+        "by_edge": by_edge,
+        "edges": [e for e in EDGES if by_edge[e]],
+        "words": [t for e in EDGES for t in by_edge[e]],
+    }
 
 
 def _measure_notice(pdf_path: str, elements: List[dict]) -> Tuple[int, List[dict], List[dict]]:
@@ -199,13 +273,12 @@ def _measure_notice(pdf_path: str, elements: List[dict]) -> Tuple[int, List[dict
             pp_page = pdf.pages[page_number - 1]
             if page_number not in tables_cache:
                 tables_cache[page_number] = pp_page.find_tables()
-            row_boxes = crop_geometry._rows_for_best_table(
+            row_boxes, cell_boxes = crop_geometry._rows_and_cells_for_best_table(
                 tables_cache[page_number], el_box_pts)
-            e["repaired_bottom"] = crop_geometry.corrected_bottom(
-                el_box_pts, row_boxes, pp_page.height)
+            e["repaired_box"] = crop_geometry.corrected_box(
+                el_box_pts, row_boxes, cell_boxes, pp_page.width, pp_page.height)
             rep_boxes_by_page.setdefault(page_number, []).append(
-                (e["idx"], (el_box_pts[0], el_box_pts[1], el_box_pts[2],
-                            e["repaired_bottom"])))
+                (e["idx"], e["repaired_box"]))
 
         stored_cut: List[dict] = []
         repaired_cut: List[dict] = []
@@ -223,18 +296,16 @@ def _measure_notice(pdf_path: str, elements: List[dict]) -> Tuple[int, List[dict
             repaired_sibs = [b for (j, b) in rep_boxes_by_page[page_number]
                              if j != e["idx"]]
 
-            stored_words = _cut_words(words, el_box_pts, el_box_pts[3], stored_sibs)
-            if stored_words:
-                stored_cut.append({"page": page_number,
-                                   "bottom_pts": round(el_box_pts[3], 1),
-                                   "words": stored_words})
+            stored_by_edge = _cut_words_by_edge(words, el_box_pts, stored_sibs)
+            if any(stored_by_edge.values()):
+                stored_cut.append(_cut_record(page_number, el_box_pts,
+                                              stored_by_edge))
 
-            repaired_words = _cut_words(words, el_box_pts, e["repaired_bottom"],
-                                        repaired_sibs)
-            if repaired_words:
-                repaired_cut.append({"page": page_number,
-                                     "bottom_pts": round(e["repaired_bottom"], 1),
-                                     "words": repaired_words})
+            repaired_by_edge = _cut_words_by_edge(words, e["repaired_box"],
+                                                  repaired_sibs)
+            if any(repaired_by_edge.values()):
+                repaired_cut.append(_cut_record(page_number, e["repaired_box"],
+                                                repaired_by_edge))
 
     return len(entries), stored_cut, repaired_cut
 
@@ -260,9 +331,18 @@ def seal_corpus(c, by_file: Dict[str, list], files: Optional[List[str]] = None,
             pick_fn = h.pick
 
     by_notice: Dict[str, dict] = {}
+    # The four `*_cut_tables` / `*_cut_words` keys keep their names and their
+    # meaning as the top-line counters (pcn_corpus_run gates on
+    # `repaired_cut_tables`), but they are now sums over ALL FOUR edges. The
+    # `*_by_edge` companions exist so that total can always be taken apart —
+    # see WHY FOUR EDGES in the module docstring.
     totals = {
         "n_tables": 0, "stored_cut_tables": 0, "repaired_cut_tables": 0,
         "stored_cut_words": 0, "repaired_cut_words": 0, "errors": 0,
+        "stored_cut_tables_by_edge": {e: 0 for e in EDGES},
+        "repaired_cut_tables_by_edge": {e: 0 for e in EDGES},
+        "stored_cut_words_by_edge": {e: 0 for e in EDGES},
+        "repaired_cut_words_by_edge": {e: 0 for e in EDGES},
     }
 
     for fn in files:
@@ -296,6 +376,13 @@ def seal_corpus(c, by_file: Dict[str, list], files: Optional[List[str]] = None,
             totals["repaired_cut_tables"] += len(repaired_cut)
             totals["stored_cut_words"] += sum(len(e["words"]) for e in stored_cut)
             totals["repaired_cut_words"] += sum(len(e["words"]) for e in repaired_cut)
+            for which, cut in (("stored", stored_cut), ("repaired", repaired_cut)):
+                for rec in cut:
+                    for edge in EDGES:
+                        n = len(rec["by_edge"][edge])
+                        if n:
+                            totals[f"{which}_cut_tables_by_edge"][edge] += 1
+                            totals[f"{which}_cut_words_by_edge"][edge] += n
         except Exception as e:  # noqa: BLE001 - one bad PDF/manifest must not stop the corpus
             by_notice[fn] = {"ok": False, "error": f"{type(e).__name__}: {e}"}
             totals["errors"] += 1
@@ -305,8 +392,15 @@ def seal_corpus(c, by_file: Dict[str, list], files: Optional[List[str]] = None,
     return {"by_notice": by_notice, "totals": totals}
 
 
+def _edge_line(label: str, tables: Dict[str, int], words: Dict[str, int]) -> str:
+    cells = " ".join(f"{e}={tables.get(e, 0)}t/{words.get(e, 0)}w" for e in EDGES)
+    return f"EDGES {label:9} {cells}"
+
+
 def render(sealed: dict) -> str:
-    """Compact text report: one line per notice, then a FAIL line for every
+    """Compact text report: one line per notice, the top-line totals, a per-edge
+    breakdown of those totals (so a left cut cannot hide inside a bottom-edge
+    zero), then a FAIL line naming the cutting edge(s) and words for every
     repaired-cut table (the only ones that indicate a real problem)."""
     by_notice, t = sealed["by_notice"], sealed["totals"]
     out = [f"{'notice':38} {'tables':>6} {'stored_cut':>10} {'repaired_cut':>12}"]
@@ -321,11 +415,19 @@ def render(sealed: dict) -> str:
               f"stored_cut_words={t['stored_cut_words']} "
               f"repaired_cut_tables={t['repaired_cut_tables']} "
               f"repaired_cut_words={t['repaired_cut_words']} errors={t['errors']}")
+    out.append(_edge_line("stored", t.get("stored_cut_tables_by_edge") or {},
+                          t.get("stored_cut_words_by_edge") or {}))
+    out.append(_edge_line("repaired", t.get("repaired_cut_tables_by_edge") or {},
+                          t.get("repaired_cut_words_by_edge") or {}))
     for fn, r in by_notice.items():
         if not r.get("ok"):
             continue
         for e in r["repaired_cut"]:
-            out.append(f"FAIL {fn} p{e['page']} bottom={e['bottom_pts']} words={e['words']}")
+            per_edge = " ".join(f"{edge}={e['by_edge'][edge]}"
+                                for edge in e.get("edges") or EDGES
+                                if e["by_edge"].get(edge))
+            out.append(f"FAIL {fn} p{e['page']} box={tuple(e['box_pts'])} "
+                       f"cut_by={','.join(e.get('edges') or [])} {per_edge}")
     return "\n".join(out)
 
 
