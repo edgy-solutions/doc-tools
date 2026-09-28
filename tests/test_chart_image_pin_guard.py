@@ -24,10 +24,26 @@ parse refuses everything and would satisfy any grep-based test. That is not
 hypothetical: the first draft of this helper had a doubled closing paren and
 refused every input, including the digest path it exists to enable.
 
-Skipped when helm is absent. CI has no helm step today, so a skip here means
-"unproven", not "fine".
+Skipped when helm is absent, so a developer without helm is not blocked by a
+chart test.
+
+CORRECTION, 2026-09-27. This docstring used to end: "CI has no helm step today,
+so a skip here means unproven, not fine." The first half was true and the
+conclusion drawn from it was false. There is no helm STEP, but the runner image
+SHIPS helm (ubuntu-24.04: 3.22.0), so these twelve have been running in CI since
+they merged. Checked across three main runs: zero occurrences of the skip reason
+below, which `-rs` had been printing the whole time. Three reports out of this
+lane repeated the wrong version, sourced from this sentence rather than from the
+log. It is corrected here because this file is where the claim originated.
+
+What WAS wrong is that the proof depended on an ambient binary nobody declared,
+which GitHub may remove in any image update -- at which point all twelve go grey
+and the job stays green. The `tests` job now installs a pinned helm AND sets
+REQUIRE_HELM=1. See test_helm_is_present_when_CI_says_it_must_be below: it is
+the one test here that a missing helm does not skip.
 """
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -38,6 +54,36 @@ CHART = Path(__file__).resolve().parents[1] / "charts" / "doc-tools"
 
 HELM = shutil.which("helm")
 requires_helm = pytest.mark.skipif(HELM is None, reason="helm binary not on PATH")
+
+# Set by the `tests` job in .github/workflows/build-container.yml. Anywhere it
+# is set, a missing helm is a BUG IN THE ENVIRONMENT, not a reason to pass.
+REQUIRE_HELM = os.environ.get("REQUIRE_HELM") == "1"
+
+
+def test_helm_is_present_when_CI_says_it_must_be():
+    """The skip guard, guarded.
+
+    Every other test in this file is `requires_helm`, so helm disappearing from
+    CI would not turn a single one red -- it would turn all twelve grey and
+    leave the job green. A check that exists and gates nothing is the precise
+    failure this file was written about, turned one level inward on the file
+    itself. It is not hypothetical here: the guard's CI coverage rested on an
+    undeclared runner binary for two days while three reports said it did not
+    exist at all.
+
+    This is the one test a missing helm does not skip. Locally it skips, since
+    REQUIRE_HELM is unset and a workstation without helm is fine. In CI it
+    asserts.
+    """
+    if not REQUIRE_HELM:
+        pytest.skip("REQUIRE_HELM unset: a local run may legitimately lack helm")
+    assert HELM is not None, (
+        "REQUIRE_HELM=1 but no helm binary is on PATH. The twelve chart-guard "
+        "tests in this file would all SKIP and this job would stay GREEN over "
+        "an unproven guard. Restore the `Install helm` step in the `tests` job "
+        "of .github/workflows/build-container.yml, or unset REQUIRE_HELM and "
+        "accept that the chart guard is unproven in CI."
+    )
 
 GOOD_DIGEST = "sha256:" + "0123456789abcdef" * 4  # 64 hex, 71 chars total
 

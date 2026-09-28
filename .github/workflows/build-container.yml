@@ -236,6 +236,18 @@ jobs:
     # and are expected to skip here — see their pytest.mark.skipif reasons. A
     # SKIP is not a pass, and if that set ever grows this job quietly weakens;
     # `-rs` prints the skip reasons in the log so the set stays visible.
+    #
+    # THE VISIBILITY WORKED AND WAS READ BACKWARDS — 2026-09-27. `-rs` was
+    # printing this job's skip list on every run, and that list did NOT contain
+    # "helm binary not on PATH". Three reports nonetheless claimed the twelve
+    # chart-guard tests were skipping in CI, on the strength of a stale
+    # docstring rather than the log sitting right there. Printing a fact is not
+    # the same as anyone checking it. The helm step below is not there to make
+    # those tests run — they already did — but to stop them depending on an
+    # ambient runner binary, and REQUIRE_HELM is there so the next person who
+    # assumes gets a red job instead of a green one. Note what stays true: helm
+    # is a TEST FIXTURE here, not a dependency of the image; nothing in the
+    # built container shells out to it.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -244,9 +256,55 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+      - name: Install helm
+        # THE TWELVE CHART TESTS WERE ALREADY RUNNING HERE. That is not what
+        # anyone believed, this lane included -- the docstring of
+        # tests/test_chart_image_pin_guard.py said "CI has no helm step today,
+        # so a skip here means unproven", three reports repeated it, and it was
+        # WRONG. Measured across three main runs (55a6292, f3daa3b, 8eeda5e):
+        # ZERO occurrences of the "helm binary not on PATH" skip reason, which
+        # `-rs` had been printing all along. The runner image ships helm
+        # (ubuntu-24.04: Helm 3.22.0), so the guard has been genuinely proven in
+        # CI since #13 merged.
+        #
+        # WHAT WAS ACTUALLY WRONG IS SUBTLER, AND IS WHAT THIS STEP FIXES. The
+        # proof rested on an AMBIENT binary nobody declared: not requested, not
+        # version-controlled, and outside this repo's control entirely. GitHub
+        # can drop or move helm in any runner image update, and on the day they
+        # do, all twelve tests return to SKIPPING and this job stays GREEN over
+        # an unproven guard. Declaring the dependency is the difference between
+        # "it works" and "it is arranged to work".
+        #
+        # PINNED, not `latest`. The binary is the test fixture: an unpinned helm
+        # means the rendering under test can change with no commit in this repo,
+        # the same drift this file spends eighty lines arguing against for the
+        # dependency set. v3.14.3 is the version that renders sandbox IN
+        # PRACTICE -- it is what runs `helm upgrade` by hand -- so CI proves the
+        # guard against the helm that actually deploys rather than against
+        # whatever the runner shipped this week.
+        #
+        # THE TRADE, STATED: this moves CI from 3.22.0 to 3.14.3, so CI stops
+        # exercising a modern helm. That is deliberate (deploy-side fidelity
+        # beats novelty for a guard whose whole job is to predict what happens
+        # at `helm upgrade` time) but it is a real narrowing, not a free win.
+        # Both versions pass today -- 3.22.0 in CI on the three runs above,
+        # 3.14.3 locally -- so the guard is not version-fragile so far. When the
+        # workstation helm moves, move this with it.
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.3
       - name: Install dependencies
         run: uv sync --locked
       - name: Run the test suite
+        # REQUIRE_HELM turns a missing binary from a SKIP into a FAILURE -- see
+        # tests/test_chart_image_pin_guard.py. This is the half that actually
+        # protects anything: the install step above only fixes today, and
+        # without this, deleting it (or a future runner change) sends twelve
+        # tests back to grey with the job still green. THAT is the state this
+        # repo keeps rediscovering -- a check that exists, is honest, and gates
+        # nothing. With this set, a missing helm reds the job and says why.
+        env:
+          REQUIRE_HELM: "1"
         run: uv run -- python -m pytest -q -rs
 
   verify-image-pin:
