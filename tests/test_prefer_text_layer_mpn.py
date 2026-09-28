@@ -153,9 +153,10 @@ class _FakeB:
         return self._parts
 
 
-def _part(affected, replacement=None):
-    return SimpleNamespace(affected_mpn=affected, affected_mpn_source=None,
-                           replacement_mpn=replacement, replacement_mpn_source=None,
+def _part(affected, replacement=None, affected_source=None, replacement_source=None):
+    return SimpleNamespace(affected_mpn=affected, affected_mpn_source=affected_source,
+                           replacement_mpn=replacement,
+                           replacement_mpn_source=replacement_source,
                            ltb_date=None, ltb_date_source=None)
 
 
@@ -187,6 +188,27 @@ def test_the_pixel_path_repairs_the_clipped_mpn_and_counts_it(plugin, monkeypatc
     assert stats["text_layer_repairs"] == 1
     assert stats["text_layer_repair_detail"] == [
         {"page_number": 1, "field": "affected_mpn", "from": "7873ACPZ", "to": "AD7873ACPZ"}]
+
+
+def test_the_provenance_join_key_is_repaired_too(plugin, monkeypatch):
+    """`affected_mpn_source` is what places the reviewer's highlight box.
+
+    build_review_items feeds it to resolve_value, which string-matches it against the
+    positioned OCR index. Leaving the clipped fragment there resolves to the wrong span or
+    to nothing, so the repair would be invisible on the review card even with the MPN
+    right. Both fields are held to the SAME evidence, and both changes are recorded.
+    """
+    parts, stats = _run(monkeypatch, plugin,
+                        [_part("7873ACPZ", "AD7873ARUZ", affected_source="7873ACPZ")],
+                        ADI_TEXT)
+
+    assert parts[0]["affected_mpn"] == "AD7873ACPZ"
+    assert parts[0]["affected_mpn_source"] == "AD7873ACPZ", \
+        "a clipped join key resolves to the wrong span, or to nothing"
+    assert stats["text_layer_repairs"] == 2, \
+        "the counter counts FIELDS repaired, and the source is a field"
+    assert [r["field"] for r in stats["text_layer_repair_detail"]] == \
+        ["affected_mpn", "affected_mpn_source"]
 
 
 def test_a_clean_pixel_read_is_not_touched_and_counts_zero(plugin, monkeypatch):
