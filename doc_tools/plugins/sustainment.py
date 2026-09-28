@@ -678,7 +678,19 @@ class SustainmentPlugin(AugmentationPlugin):
                     # pdfplumber cells, which are never clipped, so it needs no repair;
                     # these rows came from an IMAGE that may have been cut through the
                     # glyphs on any edge.
-                    for key in ("affected_mpn", "replacement_mpn"):
+                    # The `_source` companions are repaired by the SAME rule, not copied
+                    # from the repaired value. They are the provenance JOIN KEY (see the
+                    # @description in sustainment.baml): build_review_items feeds them to
+                    # resolve_value, which string-matches them against the positioned OCR
+                    # index to place the reviewer's highlight box. A clipped fragment left
+                    # there resolves to the wrong span or to nothing at all, so the fix
+                    # would be invisible on the review card even though the MPN was right.
+                    # Repairing them independently rather than assigning the new value
+                    # keeps every field held to the same evidence, with no special case.
+                    # The audit trail of what the model actually returned is in
+                    # `text_layer_repair_detail`, which records every field it changed.
+                    for key in ("affected_mpn", "affected_mpn_source",
+                                "replacement_mpn", "replacement_mpn_source"):
                         was = d.get(key)
                         now = text_layer.prefer_text_layer_mpn(was, doc_tokens)
                         if now != was:
