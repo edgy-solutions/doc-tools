@@ -88,7 +88,7 @@ class Concept(BaseModel):
     salience: float
 
 class GridColumnRoles(BaseModel):
-    affected_col: int = Field(description='0-based index of the grid column holding the affected/discontinued manufacturer part number. Required - pick the best candidate even if unsure.')
+    affected_col: typing.Optional[int] = Field(default=None, description='Index of the grid column holding the affected/discontinued manufacturer part number, read off its cN heading. NULL when this table has NO affected-part column at all - a change-description table, a spec/material table, a revision history. Null is a real answer, not a failure: guessing a column on a table that holds no parts emits whatever sits in the guessed column as if it were a part number.')
     replacement_col: typing.Optional[int] = Field(default=None, description='0-based index of the column holding the recommended replacement/substitute part number, or null if this table has no replacement column at all.')
     ltb_date_col: typing.Optional[int] = Field(default=None, description='0-based index of a PER-ROW last-time-buy date column, or null if the table carries no per-row dates.')
     header_rows: typing.List[int] = Field(description='0-based indices of rows that are headers, captions or spacers rather than parts. Empty list if every row is a part row.')

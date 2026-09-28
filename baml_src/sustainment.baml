@@ -143,13 +143,16 @@ function ExtractParts(ocr_text: string, html_table: string, table_images: image[
 // itself is exact — it came from the PDF's own text layer, not a pixel re-read. Handing
 // THAT grid to vision instead of a fresh crop means vision's only remaining job is naming
 // which column is which. GridColumnRoles therefore returns INDICES ONLY, never part
-// strings: pixels are not a trustworthy source for MPN characters (long alphanumerics are
+// strings, and `affected_col` may be NULL to say the table holds no parts at all -- see
+// _GRID_NO_PARTS_COL_NOTE in doc_tools/plugins/sustainment.py, where a forced guess on a
+// change-description table emitted a wire-bond material as an MPN and cost 898 -> 897 on
+// the corpus. Pixels are not a trustworthy source for MPN characters (long alphanumerics are
 // easily misread — SYTX9-122HP-1+ on PCN23-002 is the measured case), and a clipped or
 // re-cut crop must be able to cost a column LABEL but must NEVER be allowed to cost a ROW
 // or corrupt an MPN's characters. Part strings are read verbatim from the grid cells in
 // Python (doc_tools/plugins/sustainment.py), not from this function's output.
 class GridColumnRoles {
-    affected_col int @description("0-based index of the grid column holding the affected/discontinued manufacturer part number. Required - pick the best candidate even if unsure.")
+    affected_col int? @description("Index of the grid column holding the affected/discontinued manufacturer part number, read off its cN heading. NULL when this table has NO affected-part column at all - a change-description table, a spec/material table, a revision history. Null is a real answer, not a failure: guessing a column on a table that holds no parts emits whatever sits in the guessed column as if it were a part number.")
     replacement_col int? @description("0-based index of the column holding the recommended replacement/substitute part number, or null if this table has no replacement column at all.")
     ltb_date_col int? @description("0-based index of a PER-ROW last-time-buy date column, or null if the table carries no per-row dates.")
     header_rows int[] @description("0-based indices of rows that are headers, captions or spacers rather than parts. Empty list if every row is a part row.")
@@ -178,6 +181,12 @@ function LabelGridColumns(grid_text: string, n_cols: int, table_images: image[],
     The `[row N]` label starting every line is a ROW NAME, NOT a data column. Use its N
     for header_rows. Never count it as a column: answering 1 for the first data column
     would mispair every row in the table.
+
+    If NO column in this table holds manufacturer part numbers - it describes a change, a
+    material, a process or a revision history rather than listing parts - return
+    affected_col as null and say so in reason. Do NOT pick a closest candidate: every row
+    of the column you name is emitted verbatim as a part number, so naming a description
+    column turns its text into parts that do not exist.
 
     ### OUTPUT FORMAT ###
     {{ ctx.output_format }}

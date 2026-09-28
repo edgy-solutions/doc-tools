@@ -24,6 +24,7 @@ import pytest
 from doc_tools.baml_client import sync_client as sync_client_module
 from doc_tools.baml_client.types import GridColumnRoles
 from doc_tools.plugins import sustainment as sustainment_module
+from doc_tools.utils import table_text_layer as text_layer
 from doc_tools.plugins.sustainment import SustainmentPlugin, VISION_MAX_TOKENS
 
 # The real PCN23-002 ground truth (scripts/pcn_ground_truth.json), in the exact printed
@@ -329,6 +330,114 @@ def test_grid_to_text_pads_ragged_rows_so_cN_stays_aligned():
         assert len(line.split("\t")) == 1 + 3, "every row must carry all n_cols fields"
     assert lines[2].split("\t") == ["[row 1]", "x", "", ""]
     assert lines[3].split("\t") == ["[row 2]", "p", "q", ""]
+
+
+
+
+# --------------------------------------------------------------------------- #
+# (9) A DECLINED TABLE: affected_col is null. Regression from the real corpus run.
+# --------------------------------------------------------------------------- #
+# Measured at pin sha256:0136991e (507013f): the corpus went 898/898 -> 897/898, and
+# onsemi_Generic_IPCN25300X emitted '20kAlSiCu, 40kAlSi' -- a wire-bond material -- as an
+# affected MPN. The label call's own reason said why: "'Before Change Description' in c3
+# (affected state) and 'After Change Description' in c4". That table lists no parts at all.
+#
+# `affected_col` was a required int and the prompt said "always pick your best candidate",
+# so the model could not answer correctly: a declined non-parts table could only ever
+# produce a guess, and the grid then emitted whatever sat in the guessed column, verbatim
+# and confidently. Same defect this feature was built to fix, one tier along -- tier 1
+# could not say "declined" and returned [], so tier 2 could not say "no parts here" and
+# returned a row.
+
+# The real shape of the onsemi table, trimmed to what matters: no part number anywhere,
+# c3/c4 are before/after descriptions of a wire-material change.
+CHANGE_DESCRIPTION_GRID = [
+    ["Item", "Change Type", "Category", "Before Change Description", "After Change Description"],
+    ["", "", "", "", ""],
+    ["1", "Assembly", "Wire", "20kAlSiCu, 40kAlSi", "20kAlSiCu, 40kAlSi, 50kAlSi"],
+]
+
+
+def _no_parts_decline(page_number=1):
+    return {"page_number": page_number, "reason": "no column header, nothing to inherit",
+            "n_rows": 3, "n_grid_rows": len(CHANGE_DESCRIPTION_GRID),
+            "grid": CHANGE_DESCRIPTION_GRID}
+
+
+def test_null_affected_col_emits_nothing_and_falls_back_to_the_pixel_path(plugin, monkeypatch):
+    """A table with no parts column must cost a vision call, never a fabricated part."""
+    declined = GridColumnRoles(
+        affected_col=None, replacement_col=None, ltb_date_col=None, header_rows=[0, 1],
+        reason="This table describes a wire-material change; no column holds part numbers.")
+    fake = _patch_b(monkeypatch, label_results=[declined], extract_parts_results=[[]])
+    _patch_tokens(monkeypatch, round(VISION_MAX_TOKENS * 0.1))
+
+    parts, stats = plugin._extract_parts([_table_element(1)], None, None, "full text",
+                                         tl_declines=[_no_parts_decline()])
+
+    assert parts == [], \
+        "a table with no parts column must emit NOTHING from the grid - not a guess"
+    assert stats["grid_no_parts_col"] == 1, \
+        "the decline is its own outcome, counted apart from a label FAILURE"
+    assert stats["grid_forwarded"] == 0
+    assert stats["grid_rows_emitted"] == 0
+    # Recall-safe by design: the page still goes to the pixel path, which is what ran
+    # before grid forwarding existed and what scored 898/898 -- and which returned [] on
+    # this very table. A model wrongly declining a REAL parts table costs a vision call,
+    # never a row.
+    assert fake.extract_parts_calls == 1, \
+        "the page must degrade to the pixel path, not be silently dropped"
+
+
+def test_the_material_string_would_pass_looks_like_mpn_so_the_filter_is_not_the_guard():
+    """`looks_like_mpn` is not the fix, and must not be mistaken for one.
+
+    '20kAlSiCu, 40kAlSi' passes it -- one space, 18 characters, under `_is_prose_cell`'s
+    3-space / 30-character thresholds. Tightening a predicate tier 1 uses EVERYWHERE, to
+    catch one wire-bond alloy, trades this precision bug for a recall risk across all 898
+    corpus parts. This test documents why that obvious fix was not taken; if it ever goes
+    red, re-read _GRID_NO_PARTS_COL_NOTE before assuming the decline path is redundant.
+    """
+    assert text_layer.looks_like_mpn("20kAlSiCu, 40kAlSi")
+
+
+def test_valid_grid_roles_accepts_null_affected_col_but_still_rejects_out_of_range():
+    """Null is a decline, not an invalid label -- and the range check must survive it."""
+    declined = GridColumnRoles(affected_col=None, replacement_col=None, ltb_date_col=None,
+                               header_rows=[], reason="no parts column")
+    assert sustainment_module._valid_grid_roles(declined, 5) is True
+
+    out_of_range = GridColumnRoles(affected_col=9, replacement_col=None, ltb_date_col=None,
+                                   header_rows=[], reason="guess")
+    assert sustainment_module._valid_grid_roles(out_of_range, 5) is False
+
+# --------------------------------------------------------------------------- #
+# (12) The guard on the WORDING, which is where the 897/898 defect actually lived.
+# --------------------------------------------------------------------------- #
+def test_the_prompt_and_schema_both_authorize_declining_a_table():
+    """The cause of 897/898 was WORDING, so the guard has to be on the wording.
+
+    The schema said `affected_col int` (required) and the canonical prompt said "Always
+    pick your best candidate, even if you are not fully certain." Between them the model
+    was FORBIDDEN from answering correctly about a table that holds no part numbers -- it
+    had to name a column, and every row of the column it named was emitted verbatim as a
+    part. No stubbed test can see either string: `LabelGridColumns` is faked in every test
+    in this file, so the two files the model actually reads are asserted directly.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    baml = (root / "baml_src" / "sustainment.baml").read_text(encoding="utf-8")
+    prompt = (root / "prompts" / "sustainment_grid_columns_instructions.md").read_text(
+        encoding="utf-8")
+
+    assert "affected_col int?" in baml,         "affected_col must stay NULLABLE - a required int cannot express 'no parts column'"
+    assert "affected_col as null" in baml,         "the BAML prompt block must tell the model null is an available answer"
+
+    low = prompt.lower()
+    assert "always pick your best candidate" not in low,         "the instruction that forced a guess on a non-parts table must not come back"
+    assert "null only if" in low,         "the canonical prompt must state WHEN null is the right answer"
+    assert "invents parts that do not exist" in low,         "the prompt must say what a wrong guess COSTS, not merely that null is allowed"
 
 
 if __name__ == "__main__":
