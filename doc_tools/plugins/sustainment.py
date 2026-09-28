@@ -36,6 +36,7 @@ from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.jena_client import escape_sparql_string
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
+from doc_tools.utils import sustainment_header_trust as header_trust
 from doc_tools.utils import table_text_layer as text_layer
 from doc_tools.utils.sustainment_merge import (
     header_to_dict, part_to_dict, dequote_parts, dedup_parts, reconcile_ltb, clean_replacements,
@@ -137,6 +138,20 @@ def _fetch_image_b64(s3_client, s3_url: str):
 # the two deployments disagree by 4x on throughput and 10x on timeout.
 VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
 
+# Greedy decoding for the HEADER pass. NOT a tuning knob -- an identity requirement.
+#
+# `ExtractHeader` (client `LLM`, gpt-oss) reads the SAME 1713 input tokens every fire and
+# answers differently. On `EOL-36_BYV34-400,-BYV34-500` it produced `mfr` = "TT Electronics"
+# against a SEMELAB document -- a value that is not in the PDF at all -- and flipped
+# `doc_type` PCN/PDN/PCN across repeated fires on identical input. The client set no
+# temperature, so the server default applied and the call SAMPLED; a sampled header means
+# doc_id, mfr and doc_type -- all identity/routing fields -- can come back different on a
+# re-run of the same document.
+#
+# Deliberately NOT env-overridable, same reasoning as `VISION_TEMPERATURE` would be: an env
+# knob is a way for the pin to be quietly undone in the one environment where it matters.
+HEADER_TEMPERATURE = 0
+
 # Greedy decoding for the parts pass. NOT a tuning knob -- an identity requirement.
 #
 # Measured 2026-09-27 on pin sha256:0136991e: `ADI_PDN_23_0120` emitted 'AD7873ACPZ' in
@@ -157,10 +172,13 @@ VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
 # the real defect and is fixed separately.
 #
 # Deliberately NOT env-overridable, unlike the cap above: an env knob is a way for the
-# gate to be quietly unpinned in the one environment where it matters. The text client
-# (`client<llm> LLM` in baml_src/main.baml) still samples -- it does not feed the
-# part-number gate and it is shared by every other domain, so it is named in the PR
-# rather than changed here.
+# gate to be quietly unpinned in the one environment where it matters.
+#
+# The closing note here used to read that the text client (`client<llm> LLM` in
+# baml_src/main.baml) "still samples ... named in the PR rather than changed here". It is
+# now pinned too -- see HEADER_TEMPERATURE above -- because leaving it sampling produced a
+# fabricated manufacturer. Neither client is pinned in main.baml: both are built at runtime
+# through `baml_py.ClientRegistry`, so no other domain sharing `LLM` is affected.
 VISION_TEMPERATURE = 0
 
 # Early warning for the bound above. Truncation is only detectable AT the cap, by
@@ -290,6 +308,43 @@ def _baml_call_opts() -> dict:
     return {"abort_controller": AbortController(timeout_ms=ms)}
 
 
+def _header_call_opts() -> dict:
+    """BAML call options for the HEADER pass: greedy decoding via ClientRegistry.
+
+    Fixes two observed defects, both from the SAME root cause (an un-pinned temperature
+    on identical 1713-token input): a fabricated `mfr` ("TT Electronics" against a
+    SEMELAB document — not present anywhere in the PDF), and `doc_type` flipping
+    PCN/PDN/PCN across repeated fires with nothing about the document changed.
+
+    The bound is applied via ClientRegistry rather than in `main.baml`, for the SAME
+    reason as `_vision_call_opts`: it keeps the pin live on pod restart, with no
+    `baml-cli generate` deploy seam between an edited `.baml` file and the running
+    pod. `main.baml`'s declared `client<llm> LLM` block is mirrored here field-for-field
+    (including the Ollama-only `num_ctx` passthrough) so registering this client does
+    not silently drop config the declared one carries.
+
+    No Collector: unlike the vision pass, there is no truncation check on this pass.
+    """
+    from baml_py import AbortController, ClientRegistry
+    ms = int(os.getenv("LLM_REQUEST_TIMEOUT_MS", "600000"))
+    cr = ClientRegistry()
+    options = {
+        "base_url": os.environ.get("LLM_BASE_URL", ""),
+        "api_key": os.environ.get("LLM_API_KEY", "") or "any",
+        "model": os.environ.get("LLM_MODEL", ""),
+        "temperature": HEADER_TEMPERATURE,
+    }
+    num_ctx = os.environ.get("LLM_NUM_CTX")
+    if num_ctx:
+        try:
+            options["options"] = {"num_ctx": int(num_ctx)}
+        except ValueError:
+            pass
+    cr.add_llm_client("HeaderBounded", "openai-generic", options)
+    cr.set_primary("HeaderBounded")
+    return {"abort_controller": AbortController(timeout_ms=ms), "client_registry": cr}
+
+
 def _grid_to_text(grid: List[List[Any]]) -> str:
     """A tab-separated rendering of a declined grid in which every index the model is asked
     to return is PRINTED IN THE TEXT rather than counted.
@@ -398,7 +453,7 @@ class SustainmentPlugin(AugmentationPlugin):
             fallback_file="prompts/sustainment_header_instructions.md",
         )
         return b.ExtractHeader(doc=full_text, system_instructions=prompt,
-                               baml_options=_baml_call_opts())
+                               baml_options=_header_call_opts())
 
     def _extract_parts_text_layer(self, manifest: Optional[dict], s3_client,
                                   bucket: Optional[str]) -> Tuple[List[dict], dict]:
@@ -939,11 +994,57 @@ class SustainmentPlugin(AugmentationPlugin):
         # on the SAME clean slug; stash the raw printed form for faithful display.
         header_d["doc_id_raw"] = header_d.get("doc_id")
         header_d["doc_id"] = norm.normalize_doc_id(header_d.get("doc_id"))
-        if header is not None and not norm.is_known_doc_type(getattr(header, "doc_type", None)):
-            reasons.append("doc_type unclassifiable — defaulted to PCN")
+        # doc_type is derived from the DOCUMENT'S OWN TITLE, not from the header model's
+        # `doc_type` field: that field flipped PCN/PDN/PCN across repeated fires on
+        # byte-identical input (see HEADER_TEMPERATURE's comment above and the module
+        # docstring of `sustainment_header_trust`). A vendor's title is printed once and
+        # does not sample. `header_to_dict` still normalizes the model's raw label via
+        # `norm.normalize_doc_type` — that normalization is harmless and kept for the
+        # `header_d["doc_type"]` slot's default shape — but the plugin OVERRIDES it right
+        # here, and the model's own label survives only inside the reason text below when
+        # it is not used, never as the value actually routed on.
+        derived, dt_source = header_trust.doc_type_from_titles(
+            header_trust.titles_from_elements(elements))
+        if derived:
+            header_d["doc_type"] = derived
+            header_d["doc_type_source"] = dt_source
+        else:
+            # No usable title evidence (or the title itself disagrees with itself — an
+            # explicit code alongside the opposite keyword class). Keep the existing
+            # routing default of PCN, but say so explicitly and KEEP forcing review:
+            # doc_type SELECTS THE DISPOSITION RULESET, so a defaulted value is a real
+            # risk to whoever reviews this notice, not a cosmetic gap.
+            raw_label = getattr(header, "doc_type", None) if header is not None else None
+            model_label = getattr(raw_label, "value", raw_label)  # unwrap the DocType enum
+            evidence_desc = {"title-ambiguous": "ambiguous",
+                             "no-title-evidence": "none"}.get(dt_source, dt_source)
+            header_d["doc_type"] = "PCN"
+            header_d["doc_type_source"] = dt_source
+            reasons.append(
+                f"doc_type not derivable from the document title (title evidence "
+                f"{evidence_desc}; the header pass said {model_label!r}, not used) "
+                f"— defaulted to PCN"
+            )
             doc_flags.append("notice type could not be classified — defaulted to PCN "
                              "(dispositions proposed under PCN rules may be wrong)")
             needs_review = True
+
+        # Refuse any header value (mfr / pub_date / doc_level_ltb_date) that is not
+        # verbatim in the document, and do it HERE — as soon as the header dict is final.
+        #
+        # Two ordering constraints, and this is the only point that satisfies both:
+        #   AFTER `index` (built at the top of this method), because "verbatim in the
+        #   document" is decided against the positioned index and nothing else.
+        #   BEFORE `reconcile_ltb` below, because that BACKFILLS every part lacking its own
+        #   LTB date from `header_d["doc_level_ltb_date"]`. Refusing the header field after
+        #   that point would null the header's copy while leaving the refused date written
+        #   onto every part that inherited it — an unsourced value surviving in the data
+        #   after the field it came from was rejected, which is precisely the defect the
+        #   refusal exists to prevent, one hop further out.
+        #
+        # It is also before `build_review_items`, so a refused field produces NO review
+        # item rather than a review item for a value already dropped.
+        reasons += header_trust.refuse_unsourced_header_values(header_d, index)
 
         # ---- Router + Pass 2: parts (multimodal, Gemma) ----
         tables = provenance.table_elements(elements)
@@ -1126,7 +1227,20 @@ class SustainmentPlugin(AugmentationPlugin):
                   # would turn every unextracted notice UNCLASSIFIABLE. Same shape as
                   # `review_state_source`: the classification field keeps its usable value, and a
                   # provenance field says where that value came from.
-                  "doc_type_source": ("extraction" if header_d.get("doc_type") else "defaulted"),
+                  #
+                  # The value now comes from the DOCUMENT'S OWN TITLE TEXT (see
+                  # `sustainment_header_trust.doc_type_from_titles`), not from the header
+                  # model's label — that label flipped PCN/PDN/PCN across repeated fires on
+                  # identical input, so it is no longer trusted for routing. `header_d`
+                  # carries the ACTUAL provenance of the value that landed in `doc_type` as
+                  # `doc_type_source`: "title" (unambiguous title evidence), "title-ambiguous"
+                  # (the title contradicts itself), or "no-title-evidence" (nothing to derive
+                  # from). "extraction" is no longer a possible value for this field — there
+                  # is no longer any path that trusts the model's raw label enough to attest
+                  # to it. `empty_header` (the `header is None` path) sets no `doc_type_source`
+                  # key at all, which the `or "defaulted"` fallback below covers the same way
+                  # it always covered a missing value.
+                  "doc_type_source": header_d.get("doc_type_source") or "defaulted",
                   "categories": [str(getattr(c, "value", c))
                                  for c in (header_d.get("categories") or [])],
                   # EXTRACTION-QUALITY WARNINGS the reviewer must see (the doc-level reasons
