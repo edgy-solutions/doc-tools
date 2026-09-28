@@ -137,6 +137,32 @@ def _fetch_image_b64(s3_client, s3_url: str):
 # the two deployments disagree by 4x on throughput and 10x on timeout.
 VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
 
+# Greedy decoding for the parts pass. NOT a tuning knob -- an identity requirement.
+#
+# Measured 2026-09-27 on pin sha256:0136991e: `ADI_PDN_23_0120` emitted 'AD7873ACPZ' in
+# one corpus run and '7873ACPZ' in two others from BYTE-IDENTICAL input -- same prompt,
+# 1299 in-tokens in all three, and that notice has no tier-1 activity at all, so no code
+# path differed between the runs. The client set no temperature, so the server default
+# applied and the call SAMPLED.
+#
+# That makes a corpus score a draw rather than a measurement: 898/898 can pass or fail on
+# unchanged code, and a gate that happens to land heads is worse than no gate, because it
+# certifies whatever was sampled. Every "898/898" recorded before this date is one sample,
+# not a property of the extractor.
+#
+# Why this notice is sampling-sensitive at all: its stored table cell is CLIPPED on the
+# left edge -- the header reads 'del' for 'Model', the cell reads '7873ACPZ' for
+# 'AD7873ACPZ' -- so the model must RECOVER two missing characters from context. Greedy
+# decoding makes that recovery repeatable; it does not make it correct. The clipping is
+# the real defect and is fixed separately.
+#
+# Deliberately NOT env-overridable, unlike the cap above: an env knob is a way for the
+# gate to be quietly unpinned in the one environment where it matters. The text client
+# (`client<llm> LLM` in baml_src/main.baml) still samples -- it does not feed the
+# part-number gate and it is shared by every other domain, so it is named in the PR
+# rather than changed here.
+VISION_TEMPERATURE = 0
+
 # Early warning for the bound above. Truncation is only detectable AT the cap, by
 # which point rows are already lost; a crop that emits close to the cap is the last
 # observable state before that happens, and the ratio is the ONLY signal available
@@ -234,6 +260,7 @@ def _vision_call_opts():
         "api_key": os.environ.get("VISION_LLM_API_KEY", "") or "any",
         "model": os.environ.get("VISION_LLM_MODEL", ""),
         "max_tokens": VISION_MAX_TOKENS,
+        "temperature": VISION_TEMPERATURE,
     })
     cr.set_primary("VisionBounded")
     collector = Collector(name="vision")
