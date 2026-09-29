@@ -85,6 +85,10 @@ class _NotMeasured:
 
 NOT_MEASURED = _NotMeasured()
 
+# Notices whose written values `--written` refused to replay because the product would
+# have consulted a second witness it cannot build. Reported by `main()`.
+WITNESS_DECLINED = set()
+
 # Written fields derived from the block itself; `doc_type` is excluded because it comes
 # from the notice's Title elements, not from the model's output, so log damage cannot
 # make it unmeasured.
@@ -249,7 +253,20 @@ def written_from_raw(fires, index_by_file):
         for fn, hdr in raw.items():
             if fn not in index_by_file or not isinstance(hdr, dict):
                 continue
-            index, titles = index_by_file[fn]
+            index, titles, degraded = index_by_file[fn]
+            if degraded:
+                # THE PRODUCT PASSES A WITNESS HERE AND THIS REPLAY CANNOT. Building one
+                # means page-image vision calls: non-deterministic, minutes long, and
+                # already timed out once on this very notice. Replaying the refusal
+                # without it measures the PRE-witness trust logic, and a value refused
+                # for want of a witness that the product would have consulted is not
+                # evidence the fires disagree. Declining is the only honest option.
+                w[fn] = dict(
+                    {k: NOT_MEASURED for k in WRITTEN_FROM_BLOCK},
+                    doc_type=sht.doc_type_from_titles(titles)[0],
+                )
+                WITNESS_DECLINED.add(fn)
+                continue
             d = dict(hdr)
             reasons = sht.refuse_unsourced_header_values(d, index)
             doc_type, _doc_type_source = sht.doc_type_from_titles(titles)
@@ -274,6 +291,7 @@ def build_index_by_file():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import pcn_corpus_run as R  # noqa: E402  (sibling module, not an installed package)
     from doc_tools.utils import provenance  # noqa: E402
+    from doc_tools.utils import text_layer_health  # noqa: E402
     from doc_tools.utils import sustainment_header_trust as sht  # noqa: E402
 
     # Which doc_tools this run measures, before a single S3 call — same reason
@@ -290,9 +308,13 @@ def build_index_by_file():
         key, m = R.pick(fn, by_file[fn])
         elements = json.loads(
             c.get_object(Bucket=R.BUCKET, Key=m["text_location"])["Body"].read())
+        # Whether the PRODUCT would build a second witness for this notice. Gated on
+        # the same assessment the plugin uses, so the replay can tell when it is NOT
+        # replaying the product rather than quietly differing from it.
         index_by_file[fn] = (
             provenance.build_positioned_index(elements),
             sht.titles_from_elements(elements),
+            bool(text_layer_health.assess_elements(elements)["text_layer_degraded"]),
         )
     return index_by_file
 
@@ -390,6 +412,15 @@ def main(argv):
 
     if written:
         print()
+        if WITNESS_DECLINED:
+            print()
+            print(f"NOT REPLAYED: {len(WITNESS_DECLINED)} notice(s) have a degraded text "
+                  f"layer, so the product builds a SECOND WITNESS this replay cannot "
+                  f"(it needs page-image vision calls). Their written fields are "
+                  f"reported NOT MEASURED, not refused:")
+            for fn in sorted(WITNESS_DECLINED):
+                print(f"   {fn}")
+        print()
         print(f"refusals: {len(refusals)} over {len(fires)} fires")
         for name, fn, reason in refusals:
             print(f"   {name:20s} {fn[:30]:30s} {reason}")
@@ -401,9 +432,13 @@ def main(argv):
         if unmeasured:
             # Say what is true: the gate is not met, but these fields carry no verdict
             # on whether the fires agree. Re-run the fire to measure them.
+            # Do NOT name a cause here. There are two, they look identical in the
+            # table, and asserting the wrong one is how a witness the replay cannot
+            # build gets reported as a damaged log. The PARSER NOTE and NOT REPLAYED
+            # sections above each name their own notices.
             print(f"HEADER AGREEMENT NOT ESTABLISHED on {len(unmeasured)} further "
-                  f"field(s): a fire's log was damaged where that field is emitted, "
-                  f"so no comparison was possible. This is not a disagreement.")
+                  f"field(s): no comparison was possible, for the reasons named above. "
+                  f"This is not a disagreement.")
         return 1
     # "agreed", never "identical" — see WHY "AGREE", NOT "IDENTICAL BYTES" above. The
     # distinction is the whole point of the gate and must not leak out of the summary line.

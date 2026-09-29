@@ -351,7 +351,8 @@ def test_written_mode_marks_a_written_field_whose_raw_input_was_lost(tmp_path):
         raw_missing = {k: v for k, v in BASE_HEADER.items() if k != "mfr"}
         fires = [("fire1", {"T.pdf": raw_missing}),
                  ("fire2", {"T.pdf": dict(BASE_HEADER)})]
-        written, _refusals = hdr.written_from_raw(fires, {"T.pdf": (object(), [])})
+        written, _refusals = hdr.written_from_raw(
+            fires, {"T.pdf": (object(), [], False)})
     finally:
         for k, v in saved.items():
             if v is None:
@@ -363,3 +364,58 @@ def test_written_mode_marks_a_written_field_whose_raw_input_was_lost(tmp_path):
     assert written[0][1]["T.pdf"]["doc_type"] == "PCN", (
         "doc_type comes from the titles, so log damage cannot unmeasure it"
     )
+
+
+def test_written_mode_declines_a_degraded_notice_instead_of_replaying_pre_witness_logic():
+    """The product passes a `witness_index` to `refuse_unsourced_header_values` whenever
+    `text_layer_health` reports the document degraded (sustainment.py:1132-1137) -- the
+    second witness, which exists so a document whose text layer cannot print a correct
+    value is not refused for it. This replay cannot build one: that needs page-image
+    vision calls, non-deterministic and minutes long.
+
+    So a degraded notice must come back NOT MEASURED. Replaying the refusal without the
+    witness measures the PRE-witness trust logic, and a value refused for want of a
+    witness the product would have consulted is not evidence that the fires disagree.
+    On the real corpus 1 of 9 notices is degraded, and that one carried three of four
+    reported failures -- this is the difference between a verdict and an artifact.
+    """
+    class _ShtStub:
+        @staticmethod
+        def refuse_unsourced_header_values(d, index, witness_index=None):
+            # A degraded notice must never reach this at all.
+            raise AssertionError("the refusal was replayed without a witness")
+
+        @staticmethod
+        def doc_type_from_titles(titles):
+            return "PCN", "title"
+
+    import sys as _sys
+    import types as _types
+    pkg = _types.ModuleType("doc_tools")
+    utils = _types.ModuleType("doc_tools.utils")
+    utils.sustainment_header_trust = _ShtStub
+    pkg.utils = utils
+    saved = {k: _sys.modules.get(k) for k in ("doc_tools", "doc_tools.utils")}
+    _sys.modules["doc_tools"] = pkg
+    _sys.modules["doc_tools.utils"] = utils
+    hdr.WITNESS_DECLINED.clear()
+    try:
+        fires = [("fire1", {"T.pdf": dict(BASE_HEADER)}),
+                 ("fire2", {"T.pdf": dict(BASE_HEADER, mfr="Other Corp")})]
+        written, refusals = hdr.written_from_raw(
+            fires, {"T.pdf": (object(), [], True)})   # degraded
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                _sys.modules.pop(k, None)
+            else:
+                _sys.modules[k] = v
+
+    for field in hdr.WRITTEN_FROM_BLOCK:
+        assert written[0][1]["T.pdf"][field] is hdr.NOT_MEASURED
+    assert written[0][1]["T.pdf"]["doc_type"] == "PCN", (
+        "doc_type comes from the titles, which the witness has nothing to do with"
+    )
+    assert refusals == [], "a declined replay produces no refusal reasons to report"
+    assert "T.pdf" in hdr.WITNESS_DECLINED
+    hdr.WITNESS_DECLINED.clear()
