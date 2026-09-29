@@ -90,13 +90,13 @@ image:
   #
   # THIS IS THE INDEX (manifest-list) DIGEST, not a per-platform child.
   # Verified against ghcr before committing, by fetching the index itself from
-  # ghcr.io/v2/edgy-solutions/doc-tools/manifests/sha256:72e725ca...:
-  #     linux/amd64  sha256:d9d4e17b987d6d44c674d0e0f0e5344d5cecdade3abe342215e4b214446f0fe9
-  #     linux/arm64  sha256:656d87dc065b571834d2f27dfe9136e8c0810693607c5f012233f3d57f47839c
+  # ghcr.io/v2/edgy-solutions/doc-tools/manifests/sha256:7104b595...:
+  #     linux/amd64  sha256:e269e6882584bc697107d46702b3aa9feb131aa7c7ad0ae7bf5290ef31dc1dc7
+  #     linux/arm64  sha256:000e7af6cb68ac4769d8a7b03acd5e4b827d94f986b0645fe1b296588e9b66f9
   # Each child was then fetched by its own digest, not merely read out of the
-  # index: both return 200 as OCI image manifests. A child can appear in the
-  # index and still not be fetchable, which is the failure this check exists to
-  # catch.
+  # index: both return 200 as OCI image manifests carrying 19 layers. A child
+  # can appear in the index and still not be fetchable, which is the failure
+  # this check exists to catch.
   #
   # THE arm64 CHILD IS THE ONE THAT MATTERS HERE and it must be checked on every
   # re-pin. Sandbox schedules onto arm workers, so an index whose arm64 child is
@@ -108,33 +108,39 @@ image:
   # (The index also carries two unknown/unknown entries. Those are buildx
   # attestation manifests -- provenance and SBOM -- not platforms. Expected.)
   #
-  # dbeb546 is the #24 merge. This is the pin the re-ingest gate was waiting on:
-  # it is the first image carrying ALL FIVE of #19, #20, #22, #23 and #24, and
-  # every fire measured before it was measured against an image missing at least
-  # one of them. Build run 36427057131:
-  # https://github.com/edgy-solutions/doc-tools/actions/runs/36427057131
+  # 4825646 is the #26 merge. The pin it replaces, sha256:72e725ca (#24 merge
+  # dbeb546), was rolled as helm rev 20 and was live for roughly an hour; #26
+  # merged two minutes before that roll completed, which is the whole reason
+  # this bump exists so soon after the last one.
   #
-  # What this bump carries into sandbox, and the numbers to watch:
-  #   - #19 a DECLINED grid with no parts column now emits nothing rather than a
-  #     guess. This is the one with a predicted number: `spur` was 1 on every
-  #     fire of the previous pin (onsemi IPCN emitting `20kAlSiCu, 40kAlSi`, a
-  #     string that is not a part), so `spur` should read 0 here. A score alone
-  #     could never show this -- 898/898 was already true WITH the fabrication,
-  #     because the score counts real parts found, not false ones emitted.
-  #   - #20 the parts client decodes greedily (VisionBounded, temperature 0).
-  #   - #22 crop geometry is row-bounded on all FOUR edges, not just the bottom,
-  #     plus a text-layer repair for crops already stored. Watch stored_cut: the
-  #     four-edge measurement on the previous pin read 15 tables / 37 words, of
-  #     which left 11t/23w, top 4t/8w, right 3t/6w, bottom 0. The repair is
-  #     INGEST-TIME, so those numbers move when the re-ingest runs, not here.
-  #   - #23 the Jena writer scopes every update, so no plugin can write to the
-  #     default graph where the mesh cannot see it.
-  #   - #24 the header client is pinned at temperature 0 (HeaderBounded) AND a
-  #     header value the document does not print is refused rather than flagged.
-  #     Header agreement across fires is part of this gate, not just the parts
-  #     count: the previous pin scored 898/898 three times while `mfr` flipped
-  #     and one fire invented `TT Electronics` on a SEMELAB notice.
-  digest: "sha256:72e725caa13aa44c262e9d02b0fde47d2a83ce2d126dfa2e48434fa5f2b6f59a"
+  # WHAT THE PREVIOUS PIN ALREADY PROVED, so it is not re-litigated here: one
+  # full corpus fire on sha256:72e725ca scored 898 / 898 exact by part number
+  # with spur 0, miss 0, malf 0, repaired_cut 0, errors 0. `spur` had been 1 on
+  # EVERY fire of the pin before it (onsemi IPCN emitting `20kAlSiCu, 40kAlSi`,
+  # which is not a part), so #19 landed exactly as predicted. That fire is kept
+  # as the pre-#26 baseline; the parts path is not expected to move here.
+  #
+  # What this bump adds on top of #19/#20/#22/#23/#24:
+  #   - #26 commit 1 (`dd3dde6`), the document wins on a refused manufacturer.
+  #     When a header value fails the verbatim test and the document supports
+  #     exactly ONE contraction of what the model named, that string is written
+  #     with `mfr_source` pointing at it, instead of the field being dropped.
+  #     Expected effect on the header gate: the `mfr` disagreement narrows from
+  #     two notices to one, onsemi IPCN resolving to `onsemi` with a verbatim
+  #     source. TYC remains the survivor and is a DIFFERENT condition -- that
+  #     notice prints no correct spelling anywhere, only `TE Connecvity`.
+  #   - #26 commit 2 (`2684e9e`), text-layer damage is measured and a damaged
+  #     document gets a second witness (`doc_tools/utils/text_layer_health.py`,
+  #     `refuse_unsourced_header_values(witness_index=...)`). NOTE THE SHIPPED
+  #     FORM: the parts second witness FLAGS, it does not correct. Per the
+  #     2026-09-28 ruling it converts to correcting only after a corpus run at
+  #     THIS pin, scored by identity, shows the correction lowers nothing --
+  #     flagging cannot move 898 and replacing can, so the measurement comes
+  #     first and the correcting form does not ship on reasoning alone.
+  #
+  # Build run 36508935366:
+  # https://github.com/edgy-solutions/doc-tools/actions/runs/36508935366
+  digest: "sha256:7104b595726e8a343685c513599950eac1c8b6ead2e70ac3dbbaa8bd37db7238"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
