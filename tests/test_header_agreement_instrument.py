@@ -141,3 +141,110 @@ def test_headers_from_log_keeps_last_block_directly(tmp_path):
     parsed = hdr.headers_from_log(log1)
 
     assert parsed["A.pdf"]["doc_id"] == "LAST"
+
+
+# --- the bounded-region / interleaved-log fix --------------------------------
+#
+# All four tests below are built on ONE real observation, not a hypothetical:
+# on fire 1 of the 2026-09-28 three-fire gate at pin 7104b595, BAML's async
+# logging spliced another function's line into the middle of the TYC block's
+# `summary` value:
+#
+#     "summary": "... parts due2026-09-29T03:13:52.328 [BAML INFO] Function TranscribePage:
+#
+# so that block's JSON string never closed. The brace matcher then ran to
+# end-of-file and the loop resumed there, so the 8 notices AFTER TYC were never
+# seen at all and were reported as ABSENT. Two real TYC differences arrived
+# dressed as 16 field disagreements, and the gate failed for a logging artifact.
+
+INTERLEAVED = (
+    '2026-09-29T03:13:52.328 [BAML INFO] Function TranscribePage:'
+    ' Prompt (truncated)'
+)
+
+
+def _corrupt_block(name, header, tail_field="summary"):
+    """A notice block whose LAST field is cut mid-string by an interleaved BAML
+    log line, exactly as observed. Every field before `tail_field` is intact and
+    the closing brace never arrives."""
+    body = _indented_json(header).rstrip()
+    assert body.endswith("}")
+    body = body[: body.rindex("}")].rstrip().rstrip(",")
+    return (
+        f"--- {name}  (1 manifest(s), using some/key)\n"
+        f"{MARKER}\n"
+        f"{body},\n"
+        f'  "{tail_field}": "five connector parts due{INTERLEAVED}\n'
+    )
+
+
+def test_a_corrupt_block_does_not_swallow_the_notices_after_it(tmp_path):
+    """THE REGRESSION. The corrupt block is first; the two good notices after it
+    must still be measured. Before the fix this returned 1 notice."""
+    text = (
+        _corrupt_block("TYC.pdf", BASE_HEADER)
+        + _notice_block("B.pdf", BASE_HEADER)
+        + _notice_block("C.pdf", BASE_HEADER)
+    )
+    log = _write_log(tmp_path, "fire1.log", text)
+
+    got = hdr.headers_from_log(log)
+
+    assert sorted(got) == ["B.pdf", "C.pdf", "TYC.pdf"], (
+        "a block that never closes must not consume the rest of the log"
+    )
+    assert got["B.pdf"] == BASE_HEADER
+    assert got["C.pdf"] == BASE_HEADER
+
+
+def test_scalar_fields_before_the_damage_are_recovered(tmp_path):
+    """Recovery is only worth having if it returns the fields the gate compares.
+    All of RAW_FIELDS precede `summary` in the emitted object, so all of them
+    survive; the truncated field itself must NOT be invented."""
+    log = _write_log(tmp_path, "fire1.log", _corrupt_block("TYC.pdf", BASE_HEADER))
+
+    got = hdr.headers_from_log(log)["TYC.pdf"]
+
+    for field in hdr.RAW_FIELDS:
+        assert field in got, f"{field} was readable before the damage but is missing"
+        assert got[field] == BASE_HEADER[field]
+    assert "summary" not in got, (
+        "a value cut mid-string must be absent, never half-recovered"
+    )
+
+
+def test_a_recovered_parse_is_reported_not_silent(tmp_path, capsys):
+    """Agreement measured off a damaged log must say so. The verdict may still be
+    HELD — the compared fields really did agree — but the reader has to be told
+    which block needed recovery, or 'HELD' implies a clean log."""
+    hdr.PARSE_RECOVERED.clear()
+    good = _notice_block("B.pdf", BASE_HEADER)
+    log1 = _write_log(tmp_path, "fire1.log",
+                      _corrupt_block("TYC.pdf", BASE_HEADER) + good)
+    log2 = _write_log(tmp_path, "fire2.log",
+                      _notice_block("TYC.pdf", BASE_HEADER) + good)
+
+    rc = hdr.main([log1, log2])
+    out = capsys.readouterr().out
+
+    assert rc == 0, "the compared fields agreed; recovery is not a disagreement"
+    assert "PARSER NOTE" in out
+    assert "TYC.pdf" in out
+    assert "fire1.log" in out, "the note must name WHICH fire's log was damaged"
+    hdr.PARSE_RECOVERED.clear()
+
+
+def test_a_clean_log_parses_byte_identically_to_json_loads(tmp_path):
+    """The fix must not change what a healthy log yields. Strict JSON parsing
+    stays the path for a block that closes, and no PARSER NOTE is raised."""
+    hdr.PARSE_RECOVERED.clear()
+    other = dict(BASE_HEADER, doc_id="DOC-2", doc_level_ltb_date="2025-06-30")
+    log = _write_log(
+        tmp_path, "clean.log",
+        _notice_block("A.pdf", BASE_HEADER) + _notice_block("B.pdf", other),
+    )
+
+    got = hdr.headers_from_log(log)
+
+    assert got == {"A.pdf": BASE_HEADER, "B.pdf": other}
+    assert not hdr.PARSE_RECOVERED, "a clean log must raise no recovery note"

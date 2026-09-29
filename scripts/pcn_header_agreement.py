@@ -62,7 +62,27 @@ import re
 import sys
 
 MARKER = "---Parsed Response (class NoticeHeader)---"
+
+# {log basename: {notice: why}} for blocks that needed tolerant recovery. Reported
+# by main() so a recovered parse is never silent -- a gate must not be told
+# "agreed" without being told the log was damaged.
+PARSE_RECOVERED = {}
 NOTICE_RE = re.compile(r"^--- (\S+\.pdf)\b")
+
+# BAML logs asynchronously, so another function's output can be spliced into the
+# MIDDLE of a line of a parsed block. Observed on a real fire (2026-09-28, TYC at
+# pin 7104b595), where the block's last line ran
+#     "summary": "... parts due2026-09-29T03:13:52.328 [BAML INFO] Function TranscribePage:
+# leaving the JSON string unterminated. Cutting the host line at the splice is what
+# makes the fields before it readable.
+INTERLEAVE_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\s*\[BAML\b")
+
+# "field": <json scalar>. Scalars only, deliberately: every field this instrument
+# compares is a scalar, and half of an array is not a value worth recovering.
+SCALAR_RE = re.compile(
+    r'"(?P<k>[A-Za-z_][A-Za-z0-9_]*)"\s*:\s*'
+    r'(?P<v>"(?:[^"\\]|\\.)*"|null|true|false|-?\d+(?:\.\d+)?)'
+)
 
 # Default-mode comparison: the raw NoticeHeader fields as the model emitted them.
 RAW_FIELDS = (
@@ -77,47 +97,115 @@ RAW_FIELDS = (
 WRITTEN_FIELDS = ("doc_type", "mfr", "pub_date", "doc_level_ltb_date")
 
 
+def _block_region(lines, start):
+    """The lines belonging to the block that begins at `start`, stopping at the next
+    notice line, the next marker, or end of file.
+
+    THIS BOUND IS THE FIX. The previous version brace-matched with no stop condition
+    and then resumed at wherever it had got to, so a block whose braces never balanced
+    consumed the REST OF THE FILE: every later notice went unseen and was then reported
+    as ABSENT, which reads as "that fire never measured it" rather than "one block did
+    not parse". On a real 9-notice fire that turned one corrupt block into 8 bogus
+    ABSENTs and a failing gate.
+    """
+    out = []
+    j = start + 1
+    while j < len(lines):
+        s = lines[j]
+        if NOTICE_RE.match(s) or s.strip() == MARKER:
+            break
+        out.append(s)
+        j += 1
+    return out, j
+
+
+def _parse_strict(region):
+    """The original brace-match, confined to one block's region. dict, or None if the
+    braces never balance or the text is not JSON."""
+    buf, depth, started = [], 0, False
+    for s in region:
+        if not started:
+            if "{" not in s:
+                if s.strip() and not s.startswith(" "):
+                    return None
+                continue
+            started = True
+        buf.append(s)
+        depth += s.count("{") - s.count("}")
+        if depth <= 0:
+            break
+    if not started or depth > 0:
+        return None
+    try:
+        return json.loads("\n".join(buf))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _parse_tolerant(region):
+    """Scalar fields recovered from a block that never closes: cut each line at an
+    interleaved BAML stamp, then take the first occurrence of each field.
+
+    Sound for this instrument because every compared field (RAW_FIELDS) is emitted
+    BEFORE `summary`, which is where a long free-text value makes a splice likely. A
+    field after the corruption is simply absent, and an absent field is compared as
+    absent rather than invented.
+    """
+    text = "\n".join(
+        (s[:m.start()] if (m := INTERLEAVE_RE.search(s)) else s) for s in region
+    )
+    out = {}
+    for m in SCALAR_RE.finditer(text):
+        k = m.group("k")
+        if k in out:
+            continue
+        try:
+            out[k] = json.loads(m.group("v"))
+        except Exception:  # noqa: BLE001
+            continue
+    return out
+
+
 def headers_from_log(path):
     """{notice_filename: {field: value}} — the LAST parsed NoticeHeader block per
     notice in this log.
 
-    Parsing logic (marker + brace-matching) is copied from the proven scratchpad
-    reference `header_agreement.py`, with one deliberate change: that reference
-    used `setdefault` and so kept the FIRST block per notice; a notice can be
-    reprocessed within a single fire (e.g. a retry), and the block that actually
-    determines what gets written is the LAST one, so this keeps the last.
+    A notice can be reprocessed within a single fire (e.g. a retry), and the block
+    that determines what gets written is the LAST one, so the last block wins.
+
+    Blocks are read one bounded region at a time (see `_block_region`). A region that
+    parses as JSON is used as-is; one that does not falls back to scalar recovery, and
+    the notice is recorded in `PARSE_RECOVERED` so the caller can say so out loud. A
+    region that yields nothing at all keeps the old `_parse_error` marker.
     """
-    out, notice, i = {}, None, 0
     lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+    out, notice, i = {}, None, 0
     while i < len(lines):
-        m = NOTICE_RE.match(lines[i])
-        if m:
-            notice = m.group(1)
-        elif lines[i].strip() == MARKER and notice:
-            # the block is an indented JSON object; take from the first '{' to its match
-            buf, depth, started = [], 0, False
-            j = i + 1
-            while j < len(lines):
-                s = lines[j]
-                if not started:
-                    if "{" not in s:
-                        if s.strip() and not s.startswith(" "):
-                            break
-                        j += 1
-                        continue
-                    started = True
-                buf.append(s)
-                depth += s.count("{") - s.count("}")
-                if started and depth <= 0:
-                    break
-                j += 1
-            try:
-                out[notice] = json.loads("\n".join(buf))  # LAST block wins
-            except Exception as e:  # noqa: BLE001
-                out[notice] = {"_parse_error": str(e)}
-            i = j
+        if NOTICE_RE.match(lines[i]):
+            notice = NOTICE_RE.match(lines[i]).group(1)
+            i += 1
+            continue
+        if lines[i].strip() == MARKER and notice:
+            region, end = _block_region(lines, i)
+            parsed = _parse_strict(region)
+            if parsed is None:
+                parsed = _parse_tolerant(region)
+                if parsed:
+                    PARSE_RECOVERED.setdefault(os.path.basename(path), {})[notice] = (
+                        "block did not close (interleaved log); %d scalar field(s) "
+                        "recovered from before the splice" % len(parsed)
+                    )
+                else:
+                    parsed = {"_parse_error": "block unreadable"}
+                    PARSE_RECOVERED.setdefault(os.path.basename(path), {})[notice] = (
+                        "block unreadable, nothing recovered"
+                    )
+            out[notice] = parsed  # LAST block wins
+            i = end
+            continue
         i += 1
     return out
+
 
 
 def written_from_raw(fires, index_by_file):
@@ -228,6 +316,17 @@ def main(argv):
 
     fires = [(os.path.basename(p), headers_from_log(p)) for p in logs]
     print(f"{len(fires)} fires: " + ", ".join(n for n, _ in fires))
+    if PARSE_RECOVERED:
+        # Say it before the verdict, not after. A gate that reports agreement off a
+        # damaged log has to disclose the damage, or the next reader takes "HELD" to
+        # mean the log was clean.
+        n = sum(len(v) for v in PARSE_RECOVERED.values())
+        print(f"PARSER NOTE: {n} block(s) did not parse as JSON and were read by "
+              f"scalar recovery. Compared fields are whatever survived; a field "
+              f"after the damage is treated as ABSENT, never invented.")
+        for log, per in sorted(PARSE_RECOVERED.items()):
+            for notice, why in sorted(per.items()):
+                print(f"   {log:24s} {notice:34s} {why}")
     print()
 
     refusals = []
