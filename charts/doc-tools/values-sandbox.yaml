@@ -89,13 +89,14 @@ image:
   # checked.
   #
   # THIS IS THE INDEX (manifest-list) DIGEST, not a per-platform child.
-  # Verified against ghcr before committing, with
-  # `docker manifest inspect ghcr.io/edgy-solutions/doc-tools:507013f...`:
-  #     linux/amd64  sha256:ccf07667d0c535022740e16a380c8de337ffa3cd76c41e9bf6bf395233cc8e56
-  #     linux/arm64  sha256:145c185e9a881dad5e7692907532c6cb6c0cc26d4375b7cc87a65423d5ceb6f0
-  # The arm64 child was inspected in turn, not merely listed: it resolves to an
-  # OCI image manifest with 20 layers. A child can appear in the index and still
-  # not be fetchable, which is the failure this check exists to catch.
+  # Verified against ghcr before committing, by fetching the index itself from
+  # ghcr.io/v2/edgy-solutions/doc-tools/manifests/sha256:72e725ca...:
+  #     linux/amd64  sha256:d9d4e17b987d6d44c674d0e0f0e5344d5cecdade3abe342215e4b214446f0fe9
+  #     linux/arm64  sha256:656d87dc065b571834d2f27dfe9136e8c0810693607c5f012233f3d57f47839c
+  # Each child was then fetched by its own digest, not merely read out of the
+  # index: both return 200 as OCI image manifests. A child can appear in the
+  # index and still not be fetchable, which is the failure this check exists to
+  # catch.
   #
   # THE arm64 CHILD IS THE ONE THAT MATTERS HERE and it must be checked on every
   # re-pin. Sandbox schedules onto arm workers, so an index whose arm64 child is
@@ -107,19 +108,33 @@ image:
   # (The index also carries two unknown/unknown entries. Those are buildx
   # attestation manifests -- provenance and SBOM -- not platforms. Expected.)
   #
-  # 507013f is the #17 merge (grid forwarding), which sits on d5f0174, the #16
-  # merge (the ghcr resolve check that now runs as `verify-image-pin` on every
-  # PR -- this pin is the first one that gate has seen). Build run 36332937254:
-  # https://github.com/edgy-solutions/doc-tools/actions/runs/36332937254
+  # dbeb546 is the #24 merge. This is the pin the re-ingest gate was waiting on:
+  # it is the first image carrying ALL FIVE of #19, #20, #22, #23 and #24, and
+  # every fire measured before it was measured against an image missing at least
+  # one of them. Build run 36427057131:
+  # https://github.com/edgy-solutions/doc-tools/actions/runs/36427057131
   #
-  # What this bump carries into sandbox, and the one number to watch: grid
-  # forwarding re-routes a tier-1 DECLINED table to a labels-only vision call and
-  # reads the part strings out of the pdfplumber grid. On the 9-notice corpus it
-  # engages on exactly three notices -- PCN23-002 (18), onsemi IPCN25300X (19),
-  # onsemi PD26044X1 (25) -- because the router short-circuits wherever tier 1
-  # emitted any parts. So 62 of 898 parts change route with this pin, and the
-  # pre-pin baseline on sha256:13c570e was 898/898 exact, stored_cut 0.
-  digest: "sha256:0136991e9a2b2eb54ca6e76ebeec637a7cc6a6bb6710e46eb1eb3b144714f1a3"
+  # What this bump carries into sandbox, and the numbers to watch:
+  #   - #19 a DECLINED grid with no parts column now emits nothing rather than a
+  #     guess. This is the one with a predicted number: `spur` was 1 on every
+  #     fire of the previous pin (onsemi IPCN emitting `20kAlSiCu, 40kAlSi`, a
+  #     string that is not a part), so `spur` should read 0 here. A score alone
+  #     could never show this -- 898/898 was already true WITH the fabrication,
+  #     because the score counts real parts found, not false ones emitted.
+  #   - #20 the parts client decodes greedily (VisionBounded, temperature 0).
+  #   - #22 crop geometry is row-bounded on all FOUR edges, not just the bottom,
+  #     plus a text-layer repair for crops already stored. Watch stored_cut: the
+  #     four-edge measurement on the previous pin read 15 tables / 37 words, of
+  #     which left 11t/23w, top 4t/8w, right 3t/6w, bottom 0. The repair is
+  #     INGEST-TIME, so those numbers move when the re-ingest runs, not here.
+  #   - #23 the Jena writer scopes every update, so no plugin can write to the
+  #     default graph where the mesh cannot see it.
+  #   - #24 the header client is pinned at temperature 0 (HeaderBounded) AND a
+  #     header value the document does not print is refused rather than flagged.
+  #     Header agreement across fires is part of this gate, not just the parts
+  #     count: the previous pin scored 898/898 three times while `mfr` flipped
+  #     and one fire invented `TT Electronics` on a SEMELAB notice.
+  digest: "sha256:72e725caa13aa44c262e9d02b0fde47d2a83ce2d126dfa2e48434fa5f2b6f59a"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because

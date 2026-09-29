@@ -38,6 +38,7 @@ from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
 from doc_tools.utils import sustainment_header_trust as header_trust
 from doc_tools.utils import table_text_layer as text_layer
+from doc_tools.utils import text_layer_health
 from doc_tools.utils.sustainment_merge import (
     header_to_dict, part_to_dict, dequote_parts, dedup_parts, reconcile_ltb, clean_replacements,
     build_review_items, validate_count, empty_header,
@@ -443,6 +444,7 @@ class SustainmentPlugin(AugmentationPlugin):
         "prompts/sustainment_header_instructions.md",
         "prompts/sustainment_parts_instructions.md",
         "prompts/sustainment_grid_columns_instructions.md",
+        "prompts/sustainment_transcribe_page.md",
     ]
 
     @traced(name="extract header (gpt-oss)")
@@ -848,6 +850,74 @@ class SustainmentPlugin(AugmentationPlugin):
                            "text_layer_repairs": len(tl_repairs),
                            "text_layer_repair_detail": tl_repairs}
 
+    def _transcribe_pages_witness(self, manifest: Optional[dict], s3_client) -> List[dict]:
+        """THE SECOND WITNESS: one positioned-index record per page, read from the page's
+        own PIXELS via TranscribePage, for `sustainment_header_trust.refuse_unsourced_header_values`
+        to consult when the text layer fails to corroborate a header value (see
+        `doc_tools.utils.text_layer_health` and that module's docstring).
+
+        Built ONLY on demand by the caller — this method does no gating of its own beyond
+        the cheap short-circuits below (no manifest, no page renders, no vision endpoint).
+        The document-level "is this worth paying for" decision (is the text layer actually
+        degraded) lives in `_extract_fulltext`, once, not here: this method has no opinion
+        on when it should run, only on how to run it.
+
+        Never raises. Each page is fetched and transcribed independently and wrapped in its
+        own try/except, so one bad page (a failed fetch, a vision timeout, a truncated
+        response) costs that page's corroboration and nothing else — the whole point of a
+        witness is to be there for the OTHER pages when one page goes missing.
+
+        Returns records shaped like `provenance.build_positioned_index`'s output, but built
+        directly rather than routed through it: that function derives `region` from an
+        `unstructured` element `type` ("Table" -> "table", else "narrative"), and neither
+        reading applies to a whole-page transcription, which is exactly why `region` here is
+        the third value, "page_image" — so a resolver can tell a page-pixel witness apart
+        from either half of the ordinary text layer.
+        """
+        if not manifest:
+            return []
+        pages = manifest.get("pages") or []
+        if not pages:
+            return []
+        if not os.getenv("VISION_LLM_BASE_URL"):
+            return []
+
+        from doc_tools.baml_client.sync_client import b
+        from baml_py import Image
+        prompt = self._get_dynamic_prompt(
+            prompt_name="sustainment_transcribe_page",
+            fallback_file="prompts/sustainment_transcribe_page.md",
+        )
+
+        witness: List[dict] = []
+        for entry in pages:
+            page_no = entry.get("page")
+            try:
+                url = entry.get("s3_url")
+                media, b64 = _fetch_image_b64(s3_client, url)
+                if not b64:
+                    continue
+                img = Image.from_base64(media, b64)
+                opts, _collector = _vision_call_opts()
+                text = b.TranscribePage(page_image=img, system_instructions=prompt,
+                                        baml_options=opts)
+            except Exception as e:  # noqa: BLE001 — one bad page must not lose the others
+                print(f"[SustainmentPlugin] TranscribePage failed on page {page_no}: {e} — "
+                      f"this page will not corroborate any header value")
+                continue
+            witness.append({
+                "element_id": f"page_ocr_{page_no}",
+                "type": "PageTranscription",
+                "region": "page_image",
+                "page_number": page_no,
+                "bbox": None,
+                "page_width": entry.get("width"),
+                "page_height": entry.get("height"),
+                "text": text or "",
+                "text_as_html": "",
+            })
+        return witness
+
     def _apply_vision_stats(self, ps: dict, n_tables: int, reasons: List[str],
                             doc_flags: List[str]) -> bool:
         """Turn one vision pass's per-crop counters into reviewer-facing reasons (and,
@@ -950,12 +1020,20 @@ class SustainmentPlugin(AugmentationPlugin):
                           elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
                           s3_client: Any = None, bucket: str = None) -> List[DocumentNode]:
         index = provenance.build_positioned_index(elements)
+        # MEASURED against this SAME index, not the raw elements: a damaged text layer
+        # (TYC-PCN-24-210412's dropped `ti` ligature) is a property of the text this
+        # document's extraction actually produced, and the positioned index is what every
+        # downstream verbatim check (including the witness gate below) reads against.
+        text_layer_assessment = text_layer_health.assess_elements(elements)
         ocr_norm = provenance._norm(full_text)
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
                  "crops_truncated": 0, "crops_near_cap": 0, "crops_row_short": 0,
                  "vision_used": False, "grid_forwarded": 0, "grid_label_failed": 0,
                  "grid_rows_emitted": 0, "grid_no_parts_col": 0,
                  "text_layer_repairs": 0, "text_layer_repair_detail": []}
+        stats["text_layer_degraded"] = text_layer_assessment["text_layer_degraded"]
+        stats["text_layer_retention"] = text_layer_assessment["text_layer_retention"]
+        stats["text_layer_detail"] = text_layer_assessment["text_layer_detail"]
         reasons: List[str] = []
         needs_review = False
         # The doc-level reasons that FORCE review — i.e. the extraction telling us its own
@@ -1044,7 +1122,19 @@ class SustainmentPlugin(AugmentationPlugin):
         #
         # It is also before `build_review_items`, so a refused field produces NO review
         # item rather than a review item for a value already dropped.
-        reasons += header_trust.refuse_unsourced_header_values(header_d, index)
+        #
+        # THE SECOND WITNESS is built HERE, gated on the SAME `text_layer_assessment`
+        # computed at the top of this method against this document's `index` — never
+        # unconditionally: an ungated witness would be a standing second chance for every
+        # fabrication to be ratified by a noisy transcription (see
+        # sustainment_header_trust's module docstring). A healthy document never pays for
+        # a page-image vision call at all.
+        witness_index = None
+        if text_layer_assessment["text_layer_degraded"]:
+            witness_index = self._transcribe_pages_witness(manifest, s3_client)
+        stats["witness_pages"] = len(witness_index) if witness_index else 0
+        reasons += header_trust.refuse_unsourced_header_values(
+            header_d, index, witness_index=witness_index)
 
         # ---- Router + Pass 2: parts (multimodal, Gemma) ----
         tables = provenance.table_elements(elements)
@@ -1137,6 +1227,34 @@ class SustainmentPlugin(AugmentationPlugin):
         # doc-level fallback)
         parts_d = clean_replacements(
             reconcile_ltb(dedup_parts(parts_d), header_d.get("doc_level_ltb_date")))
+
+        # THE SECOND WITNESS, PARTS SIDE. The header check above can afford to drop an
+        # unsupported value; this one deliberately cannot. Tier 1 reads MPNs straight out
+        # of the text layer, so a dropped ligature does not produce a missing part — it
+        # produces a DIFFERENT, well-formed, plausible MPN carrying entirely correct
+        # per-cell provenance, and nothing downstream has any way to notice. 898 becomes
+        # 897 with every check green. Only the pixels disagree, so the pixels get asked.
+        #
+        # It RAISES THE ROW rather than editing it: the corpus is scored on parts, and
+        # rewriting an MPN on the strength of a vision transcription would put that score
+        # at the mercy of the noisiest reader in the pipeline (see the function's
+        # docstring). No witness means no findings — an absent witness is not evidence.
+        uncorroborated = text_layer_health.uncorroborated_parts(parts_d, witness_index)
+        stats["parts_uncorroborated"] = len(uncorroborated)
+        stats["parts_uncorroborated_detail"] = uncorroborated
+        if uncorroborated:
+            listed = ", ".join(
+                f"{u['field']}={u['mpn']!r} (p{u['page_number']})" for u in uncorroborated[:5])
+            more = f" and {len(uncorroborated) - 5} more" if len(uncorroborated) > 5 else ""
+            reasons.append(
+                f"{len(uncorroborated)} part value(s) read from this document's DEGRADED text "
+                f"layer are not corroborated by the page image: {listed}{more}")
+            doc_flags.append(
+                f"PART NUMBERS MAY BE MISREAD: this document's text layer is damaged "
+                f"(retention {text_layer_assessment['text_layer_retention']}), and "
+                f"{len(uncorroborated)} extracted part value(s) do not appear in the page "
+                f"image — verify them against the PDF before use")
+            needs_review = True
 
         # ---- Validation + review payload ----
         items, item_reasons = build_review_items(header_d, parts_d, index, ocr_norm)

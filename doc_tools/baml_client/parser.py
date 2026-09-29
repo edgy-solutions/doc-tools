@@ -77,6 +77,12 @@ class LlmResponseParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="LabelGridColumns", llm_response=llm_response, mode="request")
         return typing.cast(types.GridColumnRoles, __result__)
 
+    def TranscribePage(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> str:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="TranscribePage", llm_response=llm_response, mode="request")
+        return typing.cast(str, __result__)
+
     
 
 class LlmStreamParser:
@@ -138,5 +144,11 @@ class LlmStreamParser:
     ) -> stream_types.GridColumnRoles:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="LabelGridColumns", llm_response=llm_response, mode="stream")
         return typing.cast(stream_types.GridColumnRoles, __result__)
+
+    def TranscribePage(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> str:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="TranscribePage", llm_response=llm_response, mode="stream")
+        return typing.cast(str, __result__)
 
     

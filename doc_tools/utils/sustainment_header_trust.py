@@ -24,7 +24,7 @@ imports only `re`, `unicodedata`, `typing`, `doc_tools.utils.provenance`, and
 """
 import re
 import unicodedata
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
@@ -209,6 +209,150 @@ def locate_header_source(value, source, index: List[dict],
 
 
 # --------------------------------------------------------------------------- #
+# 2b-bis. Recovery — the document names the manufacturer, the model only nominates
+# --------------------------------------------------------------------------- #
+_NAME_KEY_RE = re.compile(r"[^a-z0-9]+")
+
+# A token inside a URL or an email address is NOT evidence of a manufacturer's name,
+# and this exclusion is the entire safety of the rule below. MEASURED, not stylistic:
+# `EOL-36_BYV34-400,-BYV34-500` is a SEMELAB notice whose footer really does print
+# `https://www.ttelectronics.com/brands/semelab/`, and two real fires put
+# `mfr = "TT Electronics"` on it — a name the document never states in prose. Tokenize
+# that URL and recovery hands back `ttelectronics`, so the refusal would end up WRITING
+# the exact fabrication it exists to stop, one layer further down. A vendor's web domain
+# says where its documents are hosted, not who made the part.
+_URLISH_RE = re.compile(r"@|://|\bwww\.|\.(?:com|net|org|io|co|cn|de|jp|tw|uk)\b",
+                        re.IGNORECASE)
+
+# Below this many alphanumerics a "contraction" is an initialism that collides with
+# everything: `TE` opens TECONNECTIVITY but equally TEXASINSTRUMENTS, and `TT` opens
+# TTELECTRONICS. Four is the shortest length at which no token in the 9-notice corpus
+# produces a cross-vendor collision — a floor read off the corpus, not a taste.
+_NAME_MIN_KEY = 4
+
+# Punctuation a printed name carries at a token edge (`ONSEM.` is the TYC-style wordmark
+# rendering, `(onsemi)` an aside). Stripped at the EDGES only — never from the middle,
+# where it is part of the name.
+_NAME_EDGE_PUNCT = ".,;:!?()[]{}<>\"'“”‘’…"
+
+
+def _name_key(s) -> str:
+    """Casefolded alphanumerics only, so `ON Semiconductor`, `onsemi` and `ONSEM.`
+    compare on the same footing."""
+    return _NAME_KEY_RE.sub("", str(s or "").lower())
+
+
+def recover_mfr_from_document(nominated, index: List[dict]) -> Tuple[Optional[str],
+                                                                    Optional[str]]:
+    """The manufacturer the DOCUMENT prints, when the model named one it does not.
+
+    Returns `(value, source)` — both the verbatim printed form — or `(None, None)`.
+
+    THE MODEL NOMINATES, THE DOCUMENT IS THE SOURCE. This is the same standard the
+    parts side already holds MPNs to, applied to the one header field that has a
+    document-supported answer available when the model's answer fails. Measured on
+    `onsemi_Generic_IPCN25300X`: one fire in three emitted `ON Semiconductor`, which the
+    notice never prints, while the notice prints `onsemi` six times in its own prose.
+    Before this function the refusal wrote `''` there — it could see the nominated value
+    was unsupported but had no way to reach the supported one sitting beside it.
+
+    The nominated string is used ONLY as a search key; the bytes written are the
+    document's. A token qualifies when its `_name_key` is a PREFIX of the nomination's —
+    i.e. the document prints a CONTRACTION of the name the model gave (`onsemi` opens
+    `onsemiconductor`). It is deliberately not the other direction and not a fuzzy
+    distance: a contraction is a claim the document actually makes, whereas an expansion
+    is a claim only the model makes, and that is exactly the fabrication shape.
+
+    UNIQUENESS COMES FREE, WHICH IS NOT THE SAME AS IT BEING UNGUARDED. Every surviving
+    candidate is a prefix of the same nomination, and prefixes of one string are totally
+    ordered, so the survivors are always one name at different truncations (`onsem`
+    inside `onsemi` — this corpus prints both, the wordmark losing its last glyph) and
+    the longest is the most complete printed form. Two genuinely different names cannot
+    both survive. The work of NOT recovering is therefore done by the three filters
+    above the collapse — the URL/email exclusion, the `_NAME_MIN_KEY` floor and the
+    past-the-head rule — and by there being no candidate at all, which is the common
+    case: recovery never invents, it only reaches for what is printed.
+
+    WHAT THIS DELIBERATELY DOES NOT RESCUE. `TYC-PCN-24-210412` nominates
+    `TE Connectivity` against a text layer that prints `TE Connecvity` — the `ti` is
+    dropped by the font, document-wide (see `text_layer_health`). `teconnecvity` is not a
+    prefix of `teconnectivity`, so no candidate survives and the field stays empty, which
+    is correct: preferring the printed form there would write a MISSPELLED manufacturer
+    into the graph. A damaged text layer is not a naming disagreement and is not fixed
+    here — it is detected, and answered with a second witness.
+
+    Single tokens only. A multi-word name printed in full would have matched verbatim
+    upstream and never reached recovery, since `resolve_value` already compares
+    case- and whitespace-insensitively.
+    """
+    target = _name_key(nominated)
+    if len(target) < _NAME_MIN_KEY:
+        return None, None
+
+    # A contraction has to reach PAST the nomination's first word, or it is just that
+    # first word and identifies nobody. `onsemi` spans `ON` + `Semi…`, which is why it
+    # reads as the vendor's trade name; `Micro` out of `Micro Devices Micronics` spans
+    # only the head and would be written as a manufacturer on the strength of one shared
+    # word. This also declines every single-word nomination, deliberately: a truncation
+    # of one word is not a distinct trade name, it is a shorter word.
+    head = _name_key(_WS_RE.split(str(nominated).strip())[0])
+
+    counts: Dict[str, int] = {}
+    first_seen: Dict[str, int] = {}
+    position = 0
+    for el in index:
+        # Narrative only: a manufacturer reads off the notice's own prose and title
+        # block, not out of a parts table, which is the same region preference
+        # `locate_header_source` already applies.
+        if el.get("region") != "narrative":
+            continue
+        for raw in _WS_RE.split(el.get("text") or ""):
+            position += 1
+            if not raw or _URLISH_RE.search(raw):
+                continue
+            form = raw.strip(_NAME_EDGE_PUNCT)
+            key = _name_key(form)
+            if (len(key) < _NAME_MIN_KEY or len(key) <= len(head)
+                    or not target.startswith(key)):
+                continue
+            counts[form] = counts.get(form, 0) + 1
+            first_seen.setdefault(form, position)
+
+    if not counts:
+        return None, None
+
+    # UNIQUENESS IS STRUCTURAL HERE, and saying so is worth more than a check that
+    # cannot fire. Every surviving key is a prefix of the same `target`, and prefixes of
+    # one string are totally ordered by the prefix relation — so the survivors are always
+    # one name at different truncations (`onsem` inside `onsemi`), never two names, and
+    # the longest is always the most complete form the document prints. An earlier draft
+    # carried a "candidates diverge -> refuse" branch; no fixture could reach it, because
+    # no such pair can exist. What actually does the discriminating is upstream: the URL
+    # exclusion, the `_NAME_MIN_KEY` floor, and the past-the-head rule.
+    longest = max({_name_key(f) for f in counts}, key=len)
+
+    # Among printed forms of the SAME key (`onsemi` vs `Onsemi`), the one the document
+    # uses most often, and on a tie the one it uses first.
+    best = sorted((f for f in counts if _name_key(f) == longest),
+                  key=lambda f: (-counts[f], first_seen[f]))[0]
+
+    # Belt and braces: the value written must itself pass the check that refused the
+    # model's. It does by construction — it was read out of the index — so a failure
+    # here means the tokenizer drifted from `resolve_value`, and silence would be worse
+    # than an empty field.
+    if not provenance.resolve_value(best, index, prefer_region="narrative")["found"]:
+        return None, None
+    return best, best
+
+
+# Only `mfr` has a document-supported answer to reach for. A date does not: a notice
+# prints many dates and nothing in the text says which one is the publication date, so
+# "the document supports exactly one candidate" is never true for `pub_date` and a
+# recovery there would be a guess wearing a citation.
+_RECOVERABLE = {"mfr": recover_mfr_from_document}
+
+
+# --------------------------------------------------------------------------- #
 # 2c. The refusal
 # --------------------------------------------------------------------------- #
 
@@ -249,10 +393,37 @@ HEADER_SOURCED_FIELDS = (
 )
 
 
-def refuse_unsourced_header_values(header_d: dict, index: List[dict]) -> List[str]:
+def refuse_unsourced_header_values(header_d: dict, index: List[dict],
+                                   witness_index: Optional[List[dict]] = None) -> List[str]:
     """Drop any header value in `HEADER_SOURCED_FIELDS` that is not verbatim in the
     document. MUTATES `header_d` IN PLACE. Returns the doc-level reason strings (one per
     refused field, never raises).
+
+    THE SECOND WITNESS. `witness_index` is an optional second positioned index built from
+    the page's own PIXELS — the vision tier's transcription of the page image — and it is
+    consulted ONLY when the text layer fails to corroborate a value. Verbatim in either
+    witness passes; verbatim in neither refuses.
+
+    It exists because "the document does not print this" and "this document's text layer
+    cannot print this" are different facts that the refusal could not tell apart.
+    `TYC-PCN-24-210412` prints its vendor's name as `TE Connecvity`: the embedded font has
+    no mapping for the `ti` ligature, so every `ti` in the document is dropped on
+    extraction. A human reading that PDF sees `TE Connectivity`. The model reads the page
+    and says `TE Connectivity`. The text layer cannot agree, so the refusal drops a
+    CORRECT value — and the same mechanism will silently corrupt an MPN containing `ti`
+    on the next such notice, which is the more expensive half.
+
+    The caller decides whether to build a witness at all, gated on
+    `doc_tools.utils.text_layer_health.assess_elements` firing. A healthy document never
+    pays for one, and — this is the part that matters — an UNGATED witness would be a
+    standing second chance for every fabrication to be ratified by a noisy transcription.
+    The witness is admitted on a MEASURED condition of the document, not on the model
+    having been contradicted.
+
+    It is passed as a separate index rather than concatenated onto `index` on purpose: the
+    same string would then be found twice, and `provenance.resolve_value` would downgrade
+    every previously-unique match to `region_preferred` at confidence 0.7. Corroboration
+    must not degrade the provenance of documents that never needed it.
 
     This is a REFUSAL, not a review flag — the same rule the parts side already applies
     via identity scoring: a value the document does not contain is not written at all,
@@ -278,9 +449,39 @@ def refuse_unsourced_header_values(header_d: dict, index: List[dict]) -> List[st
             continue
         source = header_d.get(source_field)
         ok, method, effective_source = locate_header_source(value, source, index, mode=mode)
+        if not ok and witness_index:
+            # Asked in the SAME way, against pixels instead of the text layer. The value
+            # is still the anchor; the witness grants no standing to a citation that the
+            # text layer would not have accepted.
+            w_ok, w_method, w_source = locate_header_source(value, source, witness_index,
+                                                            mode=mode)
+            if w_ok:
+                ok, effective_source = True, w_source
+                reasons.append(
+                    f"header.{field} corroborated by the page image: '{_clip(value)}' is "
+                    f"absent from this document's degraded text layer but is printed on "
+                    f"the page ({w_method})"
+                )
         if ok:
             header_d[source_field] = effective_source
             continue
+        # The model's value failed. Before blanking the field, ask the document
+        # whether it names one itself — see `recover_mfr_from_document`. The
+        # substitution is recorded in `reasons` like everything else here: a written
+        # value that did not come from the model is exactly the kind of thing a human
+        # reading the narrative must be able to see.
+        recover = _RECOVERABLE.get(field)
+        if recover:
+            recovered, recovered_source = recover(value, index)
+            if recovered:
+                header_d[field] = recovered
+                header_d[source_field] = recovered_source
+                reasons.append(
+                    f"header.{field} recovered: model value '{_clip(value)}' is not "
+                    f"printed in the document; written from the document's own "
+                    f"'{_clip(recovered)}' instead"
+                )
+                continue
         header_d[field] = blank_value
         header_d[source_field] = None
         clause = _REFUSAL_CLAUSE.get(method, f"was refused ({method})")
