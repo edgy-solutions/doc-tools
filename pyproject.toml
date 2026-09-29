@@ -107,6 +107,13 @@ dependencies = [
     #     is verified by importing the installed package without a web framework present, not
     #     by reading the source — see tests/test_mesh_sdk_pin.py, which asserts both that
     #     `ProvenanceBlock` imports and that `user-drop` is a member of `OBTAINED_VIA`.
+    #
+    # Rebase of lane/7f-jena-ontology-writer (PR #28) onto this pin, 2026-10-01: that branch had
+    # pinned `@8e4a881` (a bare commit, not a release) because at the time it was cut, 8e4a881 had
+    # not yet been tagged into any SDK release. `git tag --contains 8e4a881` now includes v0.9.5,
+    # and `JenaOntologyWriter` exists at that tag, so the bare-commit pin is superseded by the
+    # released tag already pinned here — a genuine improvement (a tagged release instead of an
+    # untagged commit), not merely a merge-conflict tiebreak.
     "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.9.5",
 ]
 
