@@ -67,6 +67,28 @@ MARKER = "---Parsed Response (class NoticeHeader)---"
 # by main() so a recovered parse is never silent -- a gate must not be told
 # "agreed" without being told the log was damaged.
 PARSE_RECOVERED = {}
+
+
+class _NotMeasured:
+    """A field the log never yielded, as distinct from a field the model emitted as
+    null. Tolerant recovery stops at the damage, and the fields after it are simply
+    not in evidence -- `doc_level_ltb_date` really was lost this way on a real fire.
+    Comparing that as None asserts the model emitted null, which is a claim the log
+    does not support, and it lands in the table as a value disagreement. It must
+    still fail the gate (a gate needs a measurement), but under its own name."""
+
+    __slots__ = ()
+
+    def __repr__(self):
+        return "<NOT MEASURED>"
+
+
+NOT_MEASURED = _NotMeasured()
+
+# Written fields derived from the block itself; `doc_type` is excluded because it comes
+# from the notice's Title elements, not from the model's output, so log damage cannot
+# make it unmeasured.
+WRITTEN_FROM_BLOCK = ("mfr", "pub_date", "doc_level_ltb_date")
 NOTICE_RE = re.compile(r"^--- (\S+\.pdf)\b")
 
 # BAML logs asynchronously, so another function's output can be spliced into the
@@ -146,10 +168,12 @@ def _parse_tolerant(region):
     """Scalar fields recovered from a block that never closes: cut each line at an
     interleaved BAML stamp, then take the first occurrence of each field.
 
-    Sound for this instrument because every compared field (RAW_FIELDS) is emitted
-    BEFORE `summary`, which is where a long free-text value makes a splice likely. A
-    field after the corruption is simply absent, and an absent field is compared as
-    absent rather than invented.
+    This recovers the fields BEFORE the damage and nothing after it. How much that
+    is depends on where the splice landed, and it is NOT always everything the gate
+    compares: on the real fire-1 TYC block recovery reached `revision`, losing
+    `doc_level_ltb_date` and `doc_level_ltb_date_source`. A field after the damage is
+    left ABSENT, and `compare` renders absence as NOT_MEASURED rather than None --
+    recovery narrows the loss, it does not erase it.
     """
     text = "\n".join(
         (s[:m.start()] if (m := INTERLEAVE_RE.search(s)) else s) for s in region
@@ -230,7 +254,13 @@ def written_from_raw(fires, index_by_file):
             reasons = sht.refuse_unsourced_header_values(d, index)
             doc_type, _doc_type_source = sht.doc_type_from_titles(titles)
             d["doc_type"] = doc_type
-            w[fn] = {k: d.get(k) for k in WRITTEN_FIELDS}
+            # A written value computed from a raw field the log never yielded is
+            # not a measurement of anything, however well the trust logic ran on it.
+            w[fn] = {
+                k: (NOT_MEASURED if k in WRITTEN_FROM_BLOCK and k not in hdr
+                    else d.get(k))
+                for k in WRITTEN_FIELDS
+            }
             for r in reasons:
                 refusals.append((name, fn, r))
         written_fires.append((name, w))
@@ -269,15 +299,20 @@ def build_index_by_file():
 
 def compare(fires, fields):
     """Print the per-notice agreement table for `fires` (list of `(name, {notice:
-    {field: value}})`) over `fields`. Returns the list of `(notice, field)`
-    disagreements."""
+    {field: value}})`) over `fields`.
+
+    Returns `(notices, disagreements, unmeasured)`, both lists of `(notice, field)`.
+    They are kept apart deliberately: a DISAGREE is evidence the fires produced
+    different values, a NOT MEASURED is evidence of nothing at all. Both fail the
+    gate, and conflating them would let a damaged log be reported as instability in
+    the extractor."""
     notices = []
     for _, h in fires:
         for n in h:
             if n not in notices:
                 notices.append(n)
 
-    disagreements = []
+    disagreements, unmeasured = [], []
     for n in notices:
         vals = [h.get(n) or {} for _, h in fires]
         missing = [name for (name, _), v in zip(fires, vals) if not v]
@@ -292,16 +327,30 @@ def compare(fires, fields):
             print(f"      not measured by: {missing}")
             disagreements.append((n, "<absent>"))
             continue
-        row_bad = []
+        row_bad, row_unmeasured = [], []
         for f in fields:
-            seen = [v.get(f) for v in vals]
-            if len({json.dumps(s, sort_keys=True, default=str) for s in seen}) > 1:
+            seen = [v.get(f, NOT_MEASURED) for v in vals]
+            if any(s is NOT_MEASURED for s in seen):
+                row_unmeasured.append((f, seen))
+            elif len({json.dumps(s, sort_keys=True, default=str) for s in seen}) > 1:
                 row_bad.append((f, seen))
-        print(f"{n:44s} {'DISAGREE' if row_bad else 'agree'}")
+        if row_bad:
+            verdict = "DISAGREE"
+        elif row_unmeasured:
+            verdict = "NOT MEASURED"
+        else:
+            verdict = "agree"
+        print(f"{n:44s} {verdict}")
         for f, seen in row_bad:
             print(f"      {f:22s} " + " | ".join(repr(s) for s in seen))
             disagreements.append((n, f))
-    return notices, disagreements
+        for f, seen in row_unmeasured:
+            # Named separately so nobody reads a damaged log as evidence that the
+            # values differ. The gate still fails; the reason is different.
+            print(f"      {f:22s} " + " | ".join(repr(s) for s in seen)
+                  + "   <- not in evidence, not a value difference")
+            unmeasured.append((n, f))
+    return notices, disagreements, unmeasured
 
 
 def main(argv):
@@ -337,7 +386,7 @@ def main(argv):
     else:
         fires_cmp, fields = fires, RAW_FIELDS
 
-    notices, disagreements = compare(fires_cmp, fields)
+    notices, disagreements, unmeasured = compare(fires_cmp, fields)
 
     if written:
         print()
@@ -346,8 +395,15 @@ def main(argv):
             print(f"   {name:20s} {fn[:30]:30s} {reason}")
 
     print()
-    if disagreements:
-        print(f"HEADER AGREEMENT FAILED on {len(disagreements)} field(s)")
+    if disagreements or unmeasured:
+        if disagreements:
+            print(f"HEADER AGREEMENT FAILED on {len(disagreements)} field(s)")
+        if unmeasured:
+            # Say what is true: the gate is not met, but these fields carry no verdict
+            # on whether the fires agree. Re-run the fire to measure them.
+            print(f"HEADER AGREEMENT NOT ESTABLISHED on {len(unmeasured)} further "
+                  f"field(s): a fire's log was damaged where that field is emitted, "
+                  f"so no comparison was possible. This is not a disagreement.")
         return 1
     # "agreed", never "identical" — see WHY "AGREE", NOT "IDENTICAL BYTES" above. The
     # distinction is the whole point of the gate and must not leak out of the summary line.

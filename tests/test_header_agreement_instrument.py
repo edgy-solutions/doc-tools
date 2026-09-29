@@ -199,8 +199,10 @@ def test_a_corrupt_block_does_not_swallow_the_notices_after_it(tmp_path):
 
 def test_scalar_fields_before_the_damage_are_recovered(tmp_path):
     """Recovery is only worth having if it returns the fields the gate compares.
-    All of RAW_FIELDS precede `summary` in the emitted object, so all of them
-    survive; the truncated field itself must NOT be invented."""
+    In THIS block every RAW_FIELD precedes the damage, so every one survives and the
+    truncated field itself must not be invented. That is a property of where the
+    splice landed, not a general one -- the real fire-1 TYC block lost two fields
+    this way, which the NOT-MEASURED tests below pin."""
     log = _write_log(tmp_path, "fire1.log", _corrupt_block("TYC.pdf", BASE_HEADER))
 
     got = hdr.headers_from_log(log)["TYC.pdf"]
@@ -248,3 +250,116 @@ def test_a_clean_log_parses_byte_identically_to_json_loads(tmp_path):
 
     assert got == {"A.pdf": BASE_HEADER, "B.pdf": other}
     assert not hdr.PARSE_RECOVERED, "a clean log must raise no recovery note"
+
+
+# --- absence is not a value: the NOT_MEASURED sentinel ------------------------
+#
+# Found by running the bounded parser against the real fire-1 log rather than by
+# reasoning about it. Recovery reached `revision` on the TYC block and so lost
+# `doc_level_ltb_date` and `doc_level_ltb_date_source`, which are emitted after it.
+# `compare` did `v.get(f)` -> None and printed
+#
+#     doc_level_ltb_date     None | '2024-06-06'
+#
+# i.e. it asserted fire 1's model emitted null. The log does not support that claim,
+# and the row read as instability in the extractor. Damage masquerading as a
+# measurement is the same defect class as the one above, one layer in.
+
+
+def _corrupt_block_losing_tail_fields(name, header, keep_through):
+    """A block cut immediately after `keep_through`, so every field declared after it
+    in `header` is genuinely absent -- the real fire-1 shape."""
+    items = list(header.items())
+    cut = [k for k, _ in items].index(keep_through) + 1
+    body = _indented_json(dict(items[:cut])).rstrip()
+    body = body[: body.rindex("}")].rstrip().rstrip(",")
+    return (
+        f"--- {name}  (1 manifest(s), using some/key)\n"
+        f"{MARKER}\n"
+        f"{body},\n"
+        f'  "revision": "A{INTERLEAVED}\n'
+    )
+
+
+def test_a_field_lost_to_the_damage_is_not_reported_as_null(tmp_path, capsys):
+    """The regression this section exists for: the lost field must compare as
+    NOT MEASURED, and must NOT be rendered as a None that differs from the other
+    fire's real date."""
+    hdr.PARSE_RECOVERED.clear()
+    with_date = dict(BASE_HEADER, doc_level_ltb_date="2024-06-06",
+                     doc_level_ltb_date_source="06-JUN-2024")
+    log1 = _write_log(tmp_path, "fire1.log",
+                      _corrupt_block_losing_tail_fields("T.pdf", with_date,
+                                                        "pub_date_source"))
+    log2 = _write_log(tmp_path, "fire2.log", _notice_block("T.pdf", with_date))
+
+    rc = hdr.main([log1, log2])
+    out = capsys.readouterr().out
+
+    assert rc == 1, "a field with no measurement cannot pass a gate"
+    assert "NOT MEASURED" in out
+    assert "not in evidence, not a value difference" in out
+    assert "NOT ESTABLISHED" in out
+    assert "None | '2024-06-06'" not in out, (
+        "absence must never be rendered as a null the model did not emit"
+    )
+    hdr.PARSE_RECOVERED.clear()
+
+
+def test_unmeasured_is_counted_apart_from_disagreement(tmp_path):
+    """`compare` returns the two apart so a caller can never total them together.
+    Same notice, one genuinely differing field and one unmeasured field."""
+    a = dict(BASE_HEADER, doc_level_ltb_date="2024-06-06",
+             doc_level_ltb_date_source="06-JUN-2024")
+    b = dict(a, mfr="Other Corp")
+    fires = [
+        ("fire1", {"T.pdf": {k: v for k, v in a.items()
+                             if k != "doc_level_ltb_date"}}),
+        ("fire2", {"T.pdf": b}),
+    ]
+
+    _notices, disagreements, unmeasured = hdr.compare(fires, hdr.RAW_FIELDS)
+
+    assert disagreements == [("T.pdf", "mfr")]
+    assert unmeasured == [("T.pdf", "doc_level_ltb_date")]
+
+
+def test_written_mode_marks_a_written_field_whose_raw_input_was_lost(tmp_path):
+    """The sentinel has to survive the trust replay. `refuse_unsourced_header_values`
+    runs happily on a dict with the key missing and yields a clean '' -- which would
+    look like a measured refusal. Only `doc_type` is exempt, because it is derived
+    from the notice's titles rather than from the model's block."""
+    class _ShtStub:
+        @staticmethod
+        def refuse_unsourced_header_values(d, index):
+            return []
+
+        @staticmethod
+        def doc_type_from_titles(titles):
+            return "PCN", "title"
+
+    import sys as _sys
+    import types as _types
+    pkg = _types.ModuleType("doc_tools")
+    utils = _types.ModuleType("doc_tools.utils")
+    utils.sustainment_header_trust = _ShtStub
+    pkg.utils = utils
+    saved = {k: _sys.modules.get(k) for k in ("doc_tools", "doc_tools.utils")}
+    _sys.modules["doc_tools"] = pkg
+    _sys.modules["doc_tools.utils"] = utils
+    try:
+        raw_missing = {k: v for k, v in BASE_HEADER.items() if k != "mfr"}
+        fires = [("fire1", {"T.pdf": raw_missing}),
+                 ("fire2", {"T.pdf": dict(BASE_HEADER)})]
+        written, _refusals = hdr.written_from_raw(fires, {"T.pdf": (object(), [])})
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                _sys.modules.pop(k, None)
+            else:
+                _sys.modules[k] = v
+
+    assert written[0][1]["T.pdf"]["mfr"] is hdr.NOT_MEASURED
+    assert written[0][1]["T.pdf"]["doc_type"] == "PCN", (
+        "doc_type comes from the titles, so log damage cannot unmeasure it"
+    )
