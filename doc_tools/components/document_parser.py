@@ -2,6 +2,7 @@ import os
 import json
 import io
 import tempfile
+from datetime import datetime, timezone
 from typing import Dict, Any
 from pydantic import Field
 from dagster import Definitions, asset, define_asset_job, AssetExecutionContext, AutomationCondition, Config
@@ -64,8 +65,19 @@ class DocumentParserComponent(Component, Resolvable, Model):
             # which is the worst time to also collapse every document onto one identity.
             domain = parts[0] if len(parts) >= 2 else "unknown"
             doc_id = filename.rsplit('.', 1)[0] or filename
-            
-            context.log.info(f"Processing artifact: {source_object_key} (Bucket: {bucket}, Domain: {domain}, Doc ID: {doc_id}, Base Dir: {base_dir})")
+
+            # Reprocess-safe artifact layout: every generated artifact for this
+            # document lands under a `{version}` path segment so a reprocess at a
+            # new pipeline version cannot overwrite the prior run's outputs. Used
+            # VERBATIM as one path segment — NOT normalised/slugified, the `@`
+            # stays — because this MUST be byte-identical to the
+            # `pipeline_version` value stamped into review.json by
+            # doc_tools/plugins/sustainment.py (same env var, same default
+            # string). Two spellings of the same version is exactly the seam
+            # this repo keeps getting bitten by; see that module's comment.
+            version = os.getenv("DOC_TOOLS_VERSION", "doc-tools@unstamped")
+
+            context.log.info(f"Processing artifact: {source_object_key} (Bucket: {bucket}, Domain: {domain}, Doc ID: {doc_id}, Base Dir: {base_dir}, Version: {version})")
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 file_path = os.path.join(temp_dir, filename)
@@ -143,7 +155,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             for img_filename in os.listdir(temp_extract_dir):
                                 img_local_path = os.path.join(temp_extract_dir, img_filename)
                                 if os.path.isfile(img_local_path):
-                                    object_name = f"{base_dir}/generated/{base_name}/images/{img_filename}"
+                                    object_name = f"{base_dir}/generated/{base_name}/{version}/images/{img_filename}"
                                     ext = os.path.splitext(img_filename)[1].lower()
                                     ctype = "image/jpeg" if ext in [".jpg", ".jpeg"] else "image/png"
                                     try:
@@ -174,7 +186,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                                 dpi=int(os.getenv("DOC_PARSER_PAGE_RENDER_DPI", "150")),
                             )
                             for p in rendered:
-                                object_name = f"{base_dir}/generated/{base_name}/images/{p['basename']}"
+                                object_name = f"{base_dir}/generated/{base_name}/{version}/images/{p['basename']}"
                                 try:
                                     s3_client.upload_file(
                                         Filename=p["path"], Bucket=bucket, Key=object_name,
@@ -202,7 +214,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     
                     # Store text.json via Boto3
                     base_name = filename.replace('.', '_')
-                    text_object_name = f"{base_dir}/generated/{base_name}/text.json"
+                    text_object_name = f"{base_dir}/generated/{base_name}/{version}/text.json"
                     text_json = json.dumps(elements, indent=2)
                     s3_client.put_object(
                         Bucket=bucket, 
@@ -250,19 +262,41 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     "extraction_metadata": extraction_metadata,
                     "embedded_images": embedded_images_map,
                     "pages": pages_list,  # full-page renders: {page, s3_url, basename, width, height, dpi}
-                    "text_location": f"{base_dir}/generated/{base_name}/text.json"
+                    "text_location": f"{base_dir}/generated/{base_name}/{version}/text.json"
                 }
-                
-                # Store manifest.json via Boto3
-                manifest_object_name = f"{base_dir}/generated/{base_name}/manifest.json"
+
+                # Store manifest.json via Boto3, under the versioned prefix. This
+                # file is NEVER overwritten by a later reprocess — a different
+                # DOC_TOOLS_VERSION lands at a different key entirely.
+                manifest_object_name = f"{base_dir}/generated/{base_name}/{version}/manifest.json"
                 manifest_json = json.dumps(manifest, indent=2)
                 s3_client.put_object(
-                    Bucket=bucket, 
-                    Key=manifest_object_name, 
-                    Body=manifest_json.encode('utf-8'), 
+                    Bucket=bucket,
+                    Key=manifest_object_name,
+                    Body=manifest_json.encode('utf-8'),
                     ContentType="application/json"
                 )
-                
+
+                # Pointer file — the ONLY mutable path in generated/{base_name}/.
+                # Written LAST, strictly after the versioned manifest.json put
+                # above has succeeded: if the run crashes before this point, the
+                # pointer keeps naming whatever version it last named (or is
+                # simply absent), and never points at a half-written version.
+                # Readers fall back to the legacy unversioned manifest.json when
+                # this file doesn't exist at all (pre-versioning corpus).
+                current_object_name = f"{base_dir}/generated/{base_name}/current.json"
+                current_pointer = {
+                    "pipeline_version": version,
+                    "manifest_key": manifest_object_name,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+                s3_client.put_object(
+                    Bucket=bucket,
+                    Key=current_object_name,
+                    Body=json.dumps(current_pointer, indent=2).encode('utf-8'),
+                    ContentType="application/json",
+                )
+
             return manifest
 
         # Define the pipeline job with dynamic K8s resource tags
