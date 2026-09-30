@@ -6,6 +6,8 @@ doc_tools/utils/notice_identity.py for the judgment calls these tests pin
 (corporate-suffix stripping, None-vs-'-' revision, no hash()-derived key,
 and revision ordering only where genuinely decidable).
 """
+import pytest
+
 from doc_tools.utils import notice_identity as ni
 
 
@@ -314,3 +316,63 @@ def test_diodes_pair_is_identical_even_when_the_header_pass_flips_the_revision()
         # The reason must surface the key disagreement rather than hiding it —
         # it is a reportable fact about the extractor, not a detail to swallow.
         assert "keys differ" in result["reason"]
+
+
+# ---------------------------------------------------------------------------
+# A DOTTED REVISION IS ORDERED WRONG. Found 2026-09-30 while writing the 7f
+# contract (docs/notice-identity-contract.md); latent, not observed in the
+# corpus, and NOT fixed here.
+#
+# `normalize_component` strips typesetting punctuation, so the dot in a printed
+# revision is gone before `_compare_revisions` ever sees it:
+#
+#     "2.0"  -> "20"       "1.15" -> "115"
+#     "3.0"  -> "30"       "2.99" -> "299"
+#     "1.0"  -> "10"       "1.00" -> "100"
+#
+# Both sides then match `_NUMERIC_RE` and are compared as concatenated integers,
+# so the pair is DECIDED — in the wrong direction, and silently:
+#
+#     2.0 vs 1.15  ->  superseded_by   (2.0 is the NEWER revision)
+#     3.0 vs 2.99  ->  superseded_by   (3.0 is the NEWER revision)
+#     1.0 vs 1.00  ->  superseded_by   (they are the SAME revision)
+#
+# That is exactly the outcome judgment call #4 exists to prevent: "guessing
+# would risk hiding the newer notice behind the older one". A sensor acting on
+# `superseded_by` would decline to let revision 2.0 displace 1.15 — the newer
+# notice dropped.
+#
+# WHY NOT FIXED IN THIS COMMIT. The information is destroyed at key-construction
+# time, so the fix is a change to either the key's normalization (which changes
+# every key value) or to `classify_pair`, which decides order from the key
+# components today and would have to decide it from the RAW revision strings the
+# records already carry. Both are semantic changes to this module, which is
+# under review as PR #36 and is not this branch's to redefine. Flagged for that
+# decision.
+#
+# No corpus notice exhibits it: at pin dd043b6 the observed revisions are "R5",
+# "1" and None. It is reachable, not firing.
+#
+# strict=True on purpose — when the fix lands this XPASSes and FAILS the suite,
+# which is what forces this marker and this comment to be removed rather than
+# left behind as folklore.
+@pytest.mark.xfail(strict=True, reason=(
+    "known defect: normalize_component strips the dot, so a dotted revision is "
+    "compared as a concatenated integer and ordered backwards. See the comment "
+    "above and docs/notice-identity-contract.md section 6.5."))
+def test_a_dotted_revision_is_not_ordered_backwards():
+    """2.0 supersedes 1.15. Anything other than `supersedes` here is wrong; a
+    `revision_order_unknown` would be an acceptable fix too, so the assertion is
+    only that the NEWER revision is not reported as the older one."""
+    a = _record("Acme Inc", "PCN 1", "2.0", "sha-a")
+    b = _record("Acme Inc", "PCN 1", "1.15", "sha-b")
+    assert ni.classify_pair(a, b)["relation"] != "superseded_by"
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "known defect: '1.0' and '1.00' normalize to '10' and '100' and are ordered "
+    "as different revisions. Same root cause as the test above."))
+def test_equivalent_dotted_revisions_are_not_ordered_against_each_other():
+    a = _record("Acme Inc", "PCN 1", "1.0", "sha-a")
+    b = _record("Acme Inc", "PCN 1", "1.00", "sha-b")
+    assert ni.classify_pair(a, b)["relation"] in ("duplicate_copy", "revision_order_unknown")
