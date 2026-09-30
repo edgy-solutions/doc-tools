@@ -37,6 +37,7 @@ from doc_tools.utils.jena_client import escape_sparql_string
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
 from doc_tools.utils import sustainment_header_trust as header_trust
+from doc_tools.utils.ltb_candidates import ltb_candidates, render_candidate_block
 from doc_tools.utils import table_text_layer as text_layer
 from doc_tools.utils import text_layer_health
 from doc_tools.utils.sustainment_merge import (
@@ -457,6 +458,7 @@ class SustainmentPlugin(AugmentationPlugin):
             prompt_name="sustainment_header_instructions",
             fallback_file="prompts/sustainment_header_instructions.md",
         )
+        prompt += render_candidate_block(ltb_candidates(full_text))
         return b.ExtractHeader(doc=full_text, system_instructions=prompt,
                                baml_options=_header_call_opts())
 
