@@ -1,0 +1,88 @@
+{{/*
+This CronJob runs the PCN/PDN corpus release gate (scripts/pcn_corpus_gate.py
+--run) and writes its report INSIDE THE POD, under
+.Values.corpusGate.workDir / .Values.corpusGate.reportDir. Getting that
+report committed to git — so tests/test_corpus_gate_guard.py can see it as
+docs/corpus-gate/latest.json — is a SEPARATE, manual step and is NOT
+automated by this chart. Nothing here pushes to a repository. Do not read
+this file as doing that.
+*/}}
+{{- if .Values.corpusGate.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "doc-tools.fullname" . }}-corpus-gate
+  labels:
+    {{- include "doc-tools.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.corpusGate.schedule | quote }}
+  # Two overlapping gate runs would both hit a vision endpoint that serves one
+  # model at a time and would contend and mis-time each other (the same reason
+  # pcn_corpus_gate.py itself runs its three fires strictly sequentially).
+  # Forbid, not Allow or Replace.
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.corpusGate.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.corpusGate.failedJobsHistoryLimit }}
+  startingDeadlineSeconds: {{ .Values.corpusGate.startingDeadlineSeconds }}
+  jobTemplate:
+    spec:
+      # A retry re-runs ~70 minutes of sequential GPU/vision work and would
+      # double-count fires against the gate's own fire{N} output paths. No
+      # retry: a failed run is reported red, not silently re-attempted.
+      backoffLimit: 0
+      activeDeadlineSeconds: {{ .Values.corpusGate.activeDeadlineSeconds }}
+      template:
+        spec:
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          serviceAccountName: {{ include "doc-tools.serviceAccountName" . }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          restartPolicy: Never
+          containers:
+            - name: corpus-gate
+              # Built by doc-tools.image (_helpers.tpl), which REFUSES a pin that
+              # cannot be shown to exist — see deployment.yaml for why a digest
+              # is the only pin that carries its own proof of build. Do not
+              # inline a tag or add a default here either.
+              image: {{ include "doc-tools.image" . | quote }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["/opt/venv/bin/python", "/app/scripts/pcn_corpus_gate.py"]
+              args: ["--run"]
+              workingDir: /app
+              envFrom:
+                - secretRef:
+                    name: {{ include "doc-tools.fullname" . }}-secrets
+                {{- if .Values.extraEnvFrom }}
+                {{- toYaml .Values.extraEnvFrom | nindent 16 }}
+                {{- end }}
+              env:
+                {{- range $key, $val := .Values.env }}
+                - name: {{ $key }}
+                  value: {{ $val | quote }}
+                {{- end }}
+                # Names the exact digest this run measures, so the report states
+                # what it saw instead of a guess pieced together after the fact.
+                - name: DOC_TOOLS_IMAGE
+                  value: {{ include "doc-tools.image" . | quote }}
+                - name: PCN_GATE_DIR
+                  value: {{ .Values.corpusGate.workDir | quote }}
+                - name: PCN_GATE_REPORT_DIR
+                  value: {{ .Values.corpusGate.reportDir | quote }}
+              resources:
+                {{- toYaml .Values.corpusGate.resources | nindent 16 }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}
