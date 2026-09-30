@@ -1,0 +1,51 @@
+6/10/24, 11:28 AM te.com/commerce/pcnws/PCNSecurityController?pcndate=07-JUN-24&pcnnbr=PCN-24-210412&custkeyid=204193&PAGENAM...
+
+Product Change Notification
+Current Date: 10-Jun-2024
+
+TE Connectivity
+
+Product Change Notification: PCN-24-210412 PCN Date: 07-JUN-24
+Customer: TTI Inc ( 1305175 ) Location: Maisach-gernlinden Agreement: EU-TTI-MASTK
+
+TE would like to inform you of the following change(s) to the listed TE Connectivity Product. In case of any further questions about this change(s), please contact your TE Connectivity Sales Engineer. Affected part, drawing and/or specification numbers are listed on the attached sheet(s).
+
+Product Description: (Text limited to 120 characters)
+Product Discontinuance Nonworded ROI: RF Assemblies
+
+General Description of Changes
+Obsolescence of Parts Affected by Manufacturing Plant Closure. The list of part numbers in this Product Change Notification (PCN) are being discontinued and are no longer available for purchase. Please consult your local customer sales representative for additional information. PLEASE NOTE Opportunity for last time purchase will not be available for the parts listed within this PCN. Please contact your sales representative for assistance.
+
+Reason for Changes:
+Part status change
+
+PCN Attributes:
+Product Category: Connectors Kind of Change: Status Change
+Change Feature: Discontinuance Potential Customer Impact:
+Remarks:
+
+Estimated Dates:
+Last Order Date (Obsolete Parts Only): 08-JUN-2024 First Ship Date of Changed Items (Changed Parts Only):
+Last Ship Date of Changed Items (Obsolete Parts Only): 02-JUN-2024 Last Date for Mixed Shipments: (Changed Parts Only): No Mixed Shipments
+Effectivity Date: Date of First Samples:
+
+Part Number(s) being Modified:
+Part Number Part Discontinued per PCN Customer Drawing Customer Part Number Alias Part Number(s) Substitute Part Number Substitute Alias Part Number(s) Description Of Difference
+502926-1 YES "2052-8002-92"
+1052982-1 YES TYC1052982-1
+1053451-1 YES "2068-8001-92"
+1055670-1 YES TYC1056344-1, 95018155P-1
+1056344-1 YES 16030P301, 16039P301 "2980-5004-62"
+1056701-1 YES "2980-5004-62"
+1057289-1 YES TYC1057289-1 "3052-1201-02"
+1057485-1 YES 8503812FP-3 "3084-4001-00"
+1057725-1 YES TYC1057775-1 "3152-0000-10"
+1059386-1 YES "4503-5023-00"
+1059484-1 YES "4506-5023-00"
+1059707-1 YES TYC1059707-1 "4580-2240-02"
+1059908-1 YES TYC1059928-1 "4757-5023-00"
+1059928-1 YES "4780-2240-02"
+1062831-1 YES "2058-8128-30"
+1063861-1 YES "9024-5007-94"
+
+https://www.te.com/commerce/pcnws/PCNSecurityController?pcndate=07-JUN-24&pcnnbr=PCN-24-210412&custkeyid=204193&PAGENAME=CUST... 1/1

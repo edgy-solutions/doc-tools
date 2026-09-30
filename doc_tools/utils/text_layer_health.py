@@ -197,33 +197,97 @@ def _mpn_key(s: Optional[str]) -> str:
     return _MPN_KEY_RE.sub("", unicodedata.normalize("NFKC", str(s or "")).upper())
 
 
+# A witness token has to be LONGER than the MPN key it is offered as evidence for, and
+# not implausibly longer -- see `uncorroborated_parts` for why.
+_MAX_WITNESS_SLACK = 3
+_MIN_KEY_LEN_FOR_EVIDENCE = 4
+
+
+def _is_subsequence(key: str, token: str) -> bool:
+    """True if every character of `key` appears in `token`, in order (not necessarily
+    contiguous). This is the shape a DROPPED character leaves behind: delete letters from
+    a string and what remains is a subsequence of the original."""
+    it = iter(token)
+    return all(ch in it for ch in key)
+
+
+def _witness_tokens(rec: dict) -> List[tuple]:
+    """`(mpn_key, raw_token)` for each whitespace-separated token in one witness record's
+    raw text. Used only for the positive-evidence test below -- the containment test
+    keeps using the concatenated per-record key, unchanged."""
+    raw = str(rec.get("text") or "")
+    out = []
+    for tok in raw.split():
+        key = _mpn_key(tok)
+        if key:
+            out.append((key, tok))
+    return out
+
+
 def uncorroborated_parts(parts: Optional[List[dict]],
                          witness_index: Optional[List[dict]]) -> List[dict]:
-    """Which text-layer MPNs the page's own pixels do not corroborate.
+    """Which text-layer MPNs the page's own pixels give POSITIVE evidence against.
 
-    Returns `[{field, mpn, page_number}]`, one entry per uncorroborated value. Empty when
-    there is no witness -- an absent witness is not evidence against anything.
+    Returns `[{field, mpn, page_number, witness_value}]`, one entry per uncorroborated
+    value. Empty when there is no witness -- an absent witness is not evidence against
+    anything (verified 2026-09-29: fire 1 had `witness_pages=0` and this function already
+    returned zero findings on that path; nothing below changes it).
+
+    NON-CONTAINMENT ALONE IS NOT EVIDENCE. An earlier version of this check flagged every
+    MPN whose key did not appear verbatim in the witness text. Measured against the real
+    TYC-PCN-24-210412 fire-2 witness (`tests/fixtures/sustainment/tyc_witness_page1.txt`,
+    the exact string this function received), that raised 9 flags on a notice that is
+    100% correct: 898/898 exact under set-identity scoring, 0 spurious / 0 missing / 0
+    malformed. The witness page corroborated 17 of the notice's 26 MPNs (~65%) and simply
+    failed to read the other 9 -- not because the text layer misprinted them, but because
+    the VISION WITNESS substitutes characters. Every one of the 9 misses is a same-length
+    near-miss or a shorter misread: text layer `1056703-1` / witness `1056701-1`,
+    `1057465-1` / `1057485-1`, `1052926-1` / `502926-1`, `9501815SP-1` / `95018155P-1`,
+    `160303P1` / `16030P301`. Absence from a character-fallible transcription is not
+    evidence against a text-layer value; it is evidence the transcription is imperfect,
+    which was never in question.
+
+    THE DIRECTIONAL FIX. The failure this check exists to catch is the text layer
+    DROPPING characters (the `ti`-ligature drop). A dropped character makes the
+    text-layer string SHORTER than the truth -- the text-layer key is a strict
+    SUBSEQUENCE of what the witness read. A vision substitution is the same length (or
+    shorter) and is NOT a subsequence of a longer witness token. That asymmetry is the
+    discriminator: a finding now requires BOTH (a) the MPN key absent from the witness
+    haystack (the original test, unchanged) AND (b) some individual witness TOKEN
+    strictly containing the MPN key as a subsequence -- longer by 1-3 characters. Absent
+    such a token, the witness cannot read that value at all, which is "no evidence", not
+    "uncorroborated", and must not be flagged. A key shorter than 4 characters never gets
+    the benefit of (b) -- too little text to make a subsequence match mean anything.
 
     WHY THIS FLAGS RATHER THAN CORRECTS. A header field that fails its check is dropped,
     because an empty manufacturer is obviously missing and a wrong one is not. A PART is
     the opposite: the corpus is scored on parts, tier 1 currently reads 898 of 898, and
     dropping or rewriting an MPN on the strength of a vision transcription would put that
     number at the mercy of the noisiest reader in the pipeline. So this raises the row for
-    a human and records the stat; it does not edit the data.
+    a human and records the stat; it does not edit the data. `witness_value` names the
+    witness token that supplied the positive evidence, so the row a reviewer opens says
+    what the pixels actually showed instead of just accusing the text layer.
 
     The failure it exists to catch is specifically a SILENT one. A text layer that drops
     `ti` turns an MPN into a different, well-formed, plausible part number carrying
     correct per-cell provenance -- there is nothing downstream that would notice. Only the
-    pixels disagree, so the pixels have to be asked.
+    pixels disagree, so the pixels have to be asked -- but only when they actually say
+    something.
     """
     if not parts or not witness_index:
         return []
     by_page: Dict[Optional[int], str] = {}
     everywhere = []
+    page_tokens: Dict[Optional[int], List[tuple]] = {}
+    all_tokens: List[tuple] = []
     for rec in witness_index:
+        page = rec.get("page_number")
         key = _mpn_key(rec.get("text"))
-        by_page[rec.get("page_number")] = by_page.get(rec.get("page_number"), "") + key
+        by_page[page] = by_page.get(page, "") + key
         everywhere.append(key)
+        toks = _witness_tokens(rec)
+        page_tokens.setdefault(page, []).extend(toks)
+        all_tokens.extend(toks)
     all_pages = "".join(everywhere)
 
     out: List[dict] = []
@@ -248,5 +312,22 @@ def uncorroborated_parts(parts: Optional[List[dict]],
                 continue
             if key in haystack or key in all_pages:
                 continue
-            out.append({"field": field, "mpn": mpn, "page_number": page})
+            if len(key) < _MIN_KEY_LEN_FOR_EVIDENCE:
+                continue
+            # Positive evidence only: some witness token, on this MPN's own page or
+            # anywhere else on the witness, has to strictly contain the key as a
+            # subsequence and be no more than _MAX_WITNESS_SLACK characters longer.
+            candidates = page_tokens.get(page, []) + all_tokens
+            witness_value = None
+            for tok_key, raw_tok in candidates:
+                slack = len(tok_key) - len(key)
+                if slack <= 0 or slack > _MAX_WITNESS_SLACK:
+                    continue
+                if _is_subsequence(key, tok_key):
+                    witness_value = raw_tok
+                    break
+            if witness_value is None:
+                continue
+            out.append({"field": field, "mpn": mpn, "page_number": page,
+                        "witness_value": witness_value})
     return out
