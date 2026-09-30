@@ -69,6 +69,9 @@ class SustainmentNotice(BaseModel):
     revision: Optional[str] = None
     pub_date: str
     mfr: str
+    # Optional with a None default: an absent parent is the common case, and the notice
+    # that forced this field (EOL-36) is itself one where the parent is real but unnamed.
+    mfr_parent: Optional[str] = None
     categories: List[str]
     summary: str
     doc_level_ltb_date: Optional[str] = None
@@ -1133,8 +1136,16 @@ class SustainmentPlugin(AugmentationPlugin):
         if text_layer_assessment["text_layer_degraded"]:
             witness_index = self._transcribe_pages_witness(manifest, s3_client)
         stats["witness_pages"] = len(witness_index) if witness_index else 0
+        # `text_layer_degraded` is passed SEPARATELY from `witness_index` and is not
+        # inferrable from it: the three no-witness paths above (no VISION_LLM_BASE_URL, no
+        # page manifest, a transcription that failed) all hand the refusal a None witness
+        # on a document that IS degraded, which would otherwise be indistinguishable from a
+        # healthy one. The refusal uses it to switch OFF reading a manufacturer's name out
+        # of the document's own headings — a damaged text layer cannot be trusted to spell
+        # one (`TE Connecvity`).
         reasons += header_trust.refuse_unsourced_header_values(
-            header_d, index, witness_index=witness_index)
+            header_d, index, witness_index=witness_index,
+            text_layer_degraded=text_layer_assessment["text_layer_degraded"])
 
         # ---- Router + Pass 2: parts (multimodal, Gemma) ----
         tables = provenance.table_elements(elements)
@@ -1379,6 +1390,7 @@ class SustainmentPlugin(AugmentationPlugin):
             revision=header_d.get("revision"),
             pub_date=header_d.get("pub_date") or "",
             mfr=header_d.get("mfr") or "",
+            mfr_parent=header_d.get("mfr_parent"),
             categories=header_d.get("categories") or [],
             summary=header_d.get("summary") or "",
             doc_level_ltb_date=header_d.get("doc_level_ltb_date"),
@@ -1418,7 +1430,8 @@ class SustainmentPlugin(AugmentationPlugin):
             edge_cypher = f"""
             MERGE (p:{config.graph_node_label}:{self.domain_label} {{id: $section_id}})
             MERGE (n:SustainmentNotice:{self.domain_label} {{id: $notice_id}})
-            SET n.pub_date = $pub_date, n.mfr = $mfr, n.type = $doc_type,
+            SET n.pub_date = $pub_date, n.mfr = $mfr, n.mfr_parent = $mfr_parent,
+                n.type = $doc_type,
                 n.revision = $revision, n.doc_level_ltb_date = $doc_level_ltb_date,
                 n.needs_review = $needs_review
             MERGE (p)-[:GOVERNED_BY]->(n)
@@ -1444,6 +1457,10 @@ class SustainmentPlugin(AugmentationPlugin):
                 "params": {
                     "section_id": section_id, "notice_id": notice.doc_id,
                     "pub_date": notice.pub_date, "mfr": notice.mfr,
+                    # "" not None: the graph stores the brand-vs-owner pair as two
+                    # properties, and a Cypher null would DROP the property entirely,
+                    # making "no parent printed" and "never extracted" the same absence.
+                    "mfr_parent": notice.mfr_parent or "",
                     "doc_type": notice.doc_type, "revision": notice.revision or "",
                     "doc_level_ltb_date": notice.doc_level_ltb_date or "",
                     "needs_review": aug.needs_review, "impacted_parts": parts_params,

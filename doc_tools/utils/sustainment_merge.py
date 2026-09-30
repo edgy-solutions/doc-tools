@@ -30,6 +30,8 @@ def header_to_dict(h: Any) -> dict:
         "pub_date_source": _g(h, "pub_date_source"),
         "mfr": _g(h, "mfr"),
         "mfr_source": _g(h, "mfr_source"),
+        "mfr_parent": _g(h, "mfr_parent"),
+        "mfr_parent_source": _g(h, "mfr_parent_source"),
         "categories": cats,
         "summary": _g(h, "summary"),
         "doc_level_ltb_date": _g(h, "doc_level_ltb_date"),
@@ -50,7 +52,11 @@ def part_to_dict(p: Any) -> dict:
 
 def empty_header(doc_id: str) -> dict:
     return {"doc_id": doc_id, "doc_type": "PCN", "revision": None, "pub_date": "",
-            "pub_date_source": None, "mfr": "", "mfr_source": None, "categories": [],
+            "pub_date_source": None, "mfr": "", "mfr_source": None,
+            # None, not "": an absent parent company is the COMMON case, and "" would read
+            # as a parent the extractor lost. Matches the blank sentinel
+            # `HEADER_SOURCED_FIELDS` declares for the field.
+            "mfr_parent": None, "mfr_parent_source": None, "categories": [],
             "summary": "", "doc_level_ltb_date": None, "doc_level_ltb_date_source": None}
 
 
@@ -136,6 +142,7 @@ def build_review_items(header: dict, parts: List[dict], index: List[dict],
     for fp, val, src in (
         ("header.pub_date", header.get("pub_date"), header.get("pub_date_source")),
         ("header.mfr", header.get("mfr"), header.get("mfr_source")),
+        ("header.mfr_parent", header.get("mfr_parent"), header.get("mfr_parent_source")),
         ("header.doc_level_ltb_date", header.get("doc_level_ltb_date"),
          header.get("doc_level_ltb_date_source")),
     ):
