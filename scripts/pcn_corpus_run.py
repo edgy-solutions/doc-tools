@@ -206,8 +206,26 @@ def s3_client():
 
 
 def find_manifests(c):
-    """Every manifest.json under the inbound prefix, keyed by the filename it declares."""
-    by_file = {}
+    """Every manifest.json under the inbound prefix, keyed by the filename it declares.
+
+    Resolves each document directory (generated/<base_name>/) through its
+    current.json pointer when present (versioned layout,
+    doc_tools/components/document_parser.py), else falls back to a legacy
+    manifest.json sitting directly in that directory (the 9 pre-versioning
+    notices already in MinIO, which have no current.json and never will —
+    there is no migration). Each document directory yields AT MOST ONE
+    manifest candidate: this is what actually fixes the bug versioning
+    introduced — naively globbing every key ending "/manifest.json" would
+    also match every {version}/manifest.json nested under a versioned
+    directory, so one notice would surface N manifests (one per historical
+    version) and silently keep whichever the dict-building loop saw last.
+    Different INBOUND COPIES of a notice (e.g. diodes_2683 vs diodes_bbox,
+    see PREFER above) are still different document directories and still
+    both appear as separate candidates for the same filename — only the
+    version fan-out within a single document directory is collapsed.
+    """
+    current_keys = {}   # doc_dir -> current.json key
+    legacy_keys = {}    # doc_dir -> manifest.json key (unversioned layout only)
     token = None
     while True:
         kw = {"Bucket": BUCKET, "Prefix": PREFIX}
@@ -215,28 +233,75 @@ def find_manifests(c):
             kw["ContinuationToken"] = token
         r = c.list_objects_v2(**kw)
         for o in r.get("Contents", []):
-            if not o["Key"].endswith("/manifest.json"):
-                continue
-            try:
-                m = json.loads(c.get_object(Bucket=BUCKET, Key=o["Key"])["Body"].read())
-            except Exception:
-                continue
-            fn = m.get("filename")
-            if fn:
-                by_file.setdefault(fn, []).append((o["Key"], m))
+            key = o["Key"]
+            if key.endswith("/current.json"):
+                current_keys[key[: -len("/current.json")]] = key
+            elif key.endswith("/manifest.json"):
+                # Legacy-shaped iff this manifest.json sits directly under
+                # generated/<base_name>/ (parent-of-parent == "generated").
+                # A versioned manifest.json sits one level deeper, under
+                # generated/<base_name>/<version>/, and is only ever reached
+                # via that directory's current.json pointer, never listed
+                # here directly.
+                parts = key.split("/")
+                if len(parts) >= 3 and parts[-3] == "generated":
+                    legacy_keys[key[: -len("/manifest.json")]] = key
         if not r.get("IsTruncated"):
             break
         token = r.get("NextContinuationToken")
+
+    by_file = {}
+    for doc_dir in set(current_keys) | set(legacy_keys):
+        manifest_key = None
+        if doc_dir in current_keys:
+            try:
+                pointer = json.loads(
+                    c.get_object(Bucket=BUCKET, Key=current_keys[doc_dir])["Body"].read()
+                )
+                manifest_key = pointer.get("manifest_key")
+            except Exception:
+                manifest_key = None
+            if not manifest_key:
+                # current.json present but unreadable/malformed — fall back
+                # to a legacy manifest.json in the same directory if one
+                # happens to exist; otherwise this document dir is skipped.
+                manifest_key = legacy_keys.get(doc_dir)
+        else:
+            manifest_key = legacy_keys[doc_dir]
+
+        if not manifest_key:
+            continue
+        try:
+            m = json.loads(c.get_object(Bucket=BUCKET, Key=manifest_key)["Body"].read())
+        except Exception:
+            continue
+        fn = m.get("filename")
+        if fn:
+            by_file.setdefault(fn, []).append((manifest_key, m))
     return by_file
 
 
 def pick(fn, candidates):
     """Prefer the manifest this corpus has ruled on; otherwise the lexically first key,
-    so an unpinned notice still resolves deterministically across runs."""
+    so an unpinned notice still resolves deterministically across runs.
+
+    PREFER pins a DOCUMENT DIRECTORY (an inbound copy) — matched by prefix, not only by
+    exact key. find_manifests() now resolves each document directory through its
+    current.json pointer when present (versioned layout), so a pinned notice's surviving
+    candidate key may be either the legacy `.../manifest.json` PREFER was written
+    against, or `.../{version}/manifest.json` once that directory has been reprocessed.
+    Exact-match alone would silently stop pinning the day the pinned copy is first
+    reprocessed — falling through to the lexical-first fallback with no code change to
+    explain it. find_manifests() already collapses each directory's own version history
+    to a single current candidate, so this fallback only ever discriminates between
+    genuinely different inbound copies (diodes_2683 vs diodes_bbox, etc.), never between
+    stale versions of the same copy.
+    """
     want = PREFER.get(fn)
     if want:
+        want_dir = want[: -len("/manifest.json")] if want.endswith("/manifest.json") else want
         for key, m in candidates:
-            if key == want:
+            if key == want or key.startswith(want_dir + "/"):
                 return key, m
     return sorted(candidates, key=lambda kv: kv[0])[0]
 
