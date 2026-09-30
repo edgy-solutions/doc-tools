@@ -2,9 +2,15 @@
 """Download the JSON artifacts the document pipeline writes to MinIO/S3 and
 flatten every one under a prefix into a single CSV.
 
-The document pipeline (manufacturing and the other domains) writes, per file:
-    {base_dir}/generated/{file_stem}/text.json      # list of unstructured elements
-    {base_dir}/generated/{file_stem}/manifest.json  # one manifest dict
+The document pipeline (manufacturing and the other domains) writes, per file,
+under a pipeline-version segment (DOC_TOOLS_VERSION, e.g. "doc-tools@abc123")
+so a reprocess never overwrites a prior run's artifacts:
+    {base_dir}/generated/{file_stem}/current.json              # pointer: {pipeline_version, manifest_key, updated_at} — the only mutable file
+    {base_dir}/generated/{file_stem}/{version}/text.json        # list of unstructured elements
+    {base_dir}/generated/{file_stem}/{version}/manifest.json    # one manifest dict
+A handful of pre-versioning notices still have the old unversioned layout
+(no current.json, manifest.json directly under {file_stem}/) — see
+doc_tools/components/document_parser.py.
 
 This script lists every ``*.json`` under ``--prefix``, parses each, and flattens
 it into rows:
