@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "verdict": "fail",
+  "strict_verdict": "fail",
+  "generated_at": "2026-09-30T19:04:12Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:025be04a8be0c759c2eeba295ae2377c263108432a2b1e98959c2830a7575035",
+  "measured_pin_note": "dd043b6 (helm rev 24, sandbox) - carries PR #31 and #32; PREDATES PR #35 so no rates block",
+  "fires": [
+    {
+      "n": 1,
+      "exit": 0,
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_s": 1364.7,
+      "log": "f32_fire1.log",
+      "totals": {
+        "gt": 898,
+        "exact": 898,
+        "spurious": 0,
+        "missing": 0,
+        "malformed": 0,
+        "emitted": 898
+      },
+      "seal_checked": true
+    },
+    {
+      "n": 2,
+      "exit": 0,
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_s": 1337.5,
+      "log": "f32_fire2.log",
+      "totals": {
+        "gt": 898,
+        "exact": 898,
+        "spurious": 0,
+        "missing": 0,
+        "malformed": 0,
+        "emitted": 898
+      },
+      "seal_checked": true
+    },
+    {
+      "n": 3,
+      "exit": 0,
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_s": 1309.7,
+      "log": "f32_fire3.log",
+      "totals": {
+        "gt": 898,
+        "exact": 898,
+        "spurious": 0,
+        "missing": 0,
+        "malformed": 0,
+        "emitted": 898
+      },
+      "seal_checked": true
+    }
+  ],
+  "rates_available": false,
+  "rates": null,
+  "header_agreement": {
+    "exit": 1,
+    "notices": {
+      "TYC-PCN-24-210412.pdf": {
+        "verdict": "DISAGREE",
+        "fields": {
+          "mfr": "'TE Connecvity' | 'TE' | 'TE'",
+          "mfr_source": "'TE Connecvity' | 'TE' | 'TE'",
+          "doc_level_ltb_date_source": "'06-JUN-2024' | '-2024\\n[Unca' | '-2024'"
+        }
+      },
+      "Diodes_PCN_2683_Rev1_EOL.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "Diodes_PCN_2683_FULLGREEN.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "EOL-36_BYV34-400,-BYV34-500.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "ADI_PDN_23_0120.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "PCN23-002.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "PCN24-029.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "onsemi_Generic_IPCN25300X.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "onsemi_Generic_PD26044X1.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      }
+    },
+    "absent": [],
+    "not_measured": []
+  },
+  "identity": {
+    "filenames": 9,
+    "distinct_notices": 9,
+    "collapses": [],
+    "incomplete_identity": [],
+    "identity_half_unstable": [
+      "TYC-PCN-24-210412.pdf"
+    ],
+    "revision_half_unstable": [
+      "Diodes_PCN_2683_FULLGREEN.pdf",
+      "Diodes_PCN_2683_Rev1_EOL.pdf"
+    ]
+  },
+  "blocking": [
+    "TYC-PCN-24-210412.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log",
+    "TYC-PCN-24-210412.pdf: identity half (mfr/doc_id) is unstable across fires and needs_review is not True in all three fires"
+  ],
+  "exempted": []
+}
