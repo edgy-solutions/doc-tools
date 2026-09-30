@@ -169,7 +169,42 @@ image:
   #     THE TRAP: document-wins is gated OFF on a damaged text layer by an
   #     explicit `text_layer_degraded` argument. Ungated, it would read the
   #     misspelled `TE Connecvity` off TYC and write it in as a manufacturer.
-  digest: "sha256:20983fad5325877cbff4ba583dc434050de8001bbecce6870e37f3d6f3648b3a"
+  #   - #31 an uncorroborated-MPN flag now needs POSITIVE evidence: the key
+  #     absent from the witness haystack AND a witness token strictly containing
+  #     it as a subsequence 1-3 chars longer. Keys under 4 chars never qualify,
+  #     and every finding carries `witness_value` so a flag can be checked
+  #     against the page rather than believed. The rule underneath it is that
+  #     ABSENCE FROM THE WITNESS IS NEVER EVIDENCE ON ITS OWN -- vision
+  #     substitutes digits, so non-containment cannot be a finding. The number:
+  #     the old test raised 9 false positives on TYC, a notice already 898/898
+  #     exact with 0 spurious / 0 missing / 0 malformed. Expect those 9 gone.
+  #   - #32 the LTB RECALL fix, and it is a different defect class from
+  #     everything above it. `refuse_unsourced_header_values` is a FILTER, so it
+  #     can only ever fix PRECISION -- a `None` is not refusable. Diodes Rev1's
+  #     `doc_level_ltb_date` read None | None | '2024-12-22' at the previous pin,
+  #     and fire 3's value survived the refusal with `refusals: 0`, so the date
+  #     is REAL and the two Nones are MISSES that no amount of trust logic could
+  #     supply. `doc_tools/utils/ltb_candidates.py` now scrapes candidate dates
+  #     off the text layer near a last-time-buy phrase and the model only CHOOSES
+  #     from that list, or returns null.
+  #     WHAT TO WATCH, and it is not the score: the model picking the last-SHIP
+  #     date `2025-06-11` over the last-order date `2024-12-22`. Every LTB
+  #     sentence in this corpus states BOTH in the same window, and both are
+  #     offered as candidates deliberately -- filtering the ship date by regex
+  #     would be guessing. The `governing` field (the text immediately before
+  #     each date, where `last order date of` vs `last ship date of` lives) is
+  #     the mitigation, but it is GUIDANCE, NOT ENFORCEMENT. If a fire picks the
+  #     ship date, fix the candidate block's WORDING, not the regex.
+  #     Read the value out by VALUE, never from an "agree" verdict: three fires
+  #     can agree on None, which is exactly the bug. EOL-36 must stay null -- it
+  #     prints "last time buy" with no date near it, the zero-candidate case.
+  #     ALSO, AND IT IS WHY THE RUNBOOK GREW A CHECK 0: this is the change that
+  #     makes the re-ingest stop being idempotent. `reconcile_ltb` falls back to
+  #     the doc-level date, so every Diodes Rev1 part row lacking its own LTB
+  #     date will be REWRITTEN with 2024-12-22. Intended, and it does NOT move
+  #     the parts score (that score is MPN-only), but the stored artifacts will
+  #     differ from what is in S3 today and there is no rollback for them.
+  digest: "sha256:025be04a8be0c759c2eeba295ae2377c263108432a2b1e98959c2830a7575035"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
