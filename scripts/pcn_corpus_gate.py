@@ -40,6 +40,7 @@ sys.path.insert(0, "scripts")
 import pcn_header_agreement as hdr_agreement  # noqa: E402
 
 from doc_tools.utils import notice_identity  # noqa: E402
+from doc_tools.utils.ingest_rates import render_rates  # noqa: E402
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIRE_COUNT = 3
@@ -282,6 +283,73 @@ def parse_header_agreement(stdout_text):
 # --------------------------------------------------------------------------
 # (c) Identity — collapse (within one fire) and stability (across all three).
 
+def headers_from_corpus(corpus):
+    """{filename: written_header} out of one fire's corpus JSON, or {} if this image
+    did not record one.
+
+    PREFERRED OVER `hdr_agreement.headers_from_log`, which is a log parser: it locates
+    a NoticeHeader block in stdout, bounds it, splices out interleaved BAML timestamps
+    and tolerates blocks whose JSON never closes. On the real fire-1 TYC block that
+    recovery reaches `revision` and loses `doc_level_ltb_date` entirely. None of that
+    is a defect in the parser — it is the cost of reading values out of print output.
+    `pcn_corpus_run.py` now records the written header per notice, so when it is there
+    this reads a structured value and none of those failure modes can apply.
+
+    Two further things the log path could not give, both of which this does:
+      * `revision` is in neither of pcn_header_agreement's compared tuples, so the log
+        path only ever supplied it incidentally, when recovery happened to reach it.
+      * the values are what was WRITTEN (post-derivation, post-source-refusal), not the
+        model's raw emission.
+
+    A notice whose entry failed (`ok` false) is skipped rather than recorded empty: an
+    errored fire has no header to compare, and a {} would read as "measured, all absent".
+    """
+    out = {}
+    for fn, entry in (corpus or {}).items():
+        if not isinstance(entry, dict) or not entry.get("ok"):
+            continue
+        wh = entry.get("written_header")
+        if isinstance(wh, dict):
+            out[fn] = wh
+    return out
+
+
+def content_hashes_by_fire(corpus_by_fire):
+    """{filename: {fire_n: content_hash}} for notices where at least one fire recorded
+    one. Absent (older images) leaves this empty and the check below vacuous."""
+    out = {}
+    for n, corpus in corpus_by_fire.items():
+        for fn, entry in (corpus or {}).items():
+            if isinstance(entry, dict) and entry.get("content_hash"):
+                out.setdefault(fn, {})[n] = entry["content_hash"]
+    return out
+
+
+def check_same_bytes(corpus_by_fire):
+    """Every fire must have read the SAME source bytes for a given filename, or a
+    cross-fire header comparison is not a comparison at all.
+
+    This closes a hole the gate could not see before. The whole instrument assumes the
+    three fires differ only in sampling — "identical input, three answers" is the finding
+    it exists to report. If the underlying PDF were replaced mid-set, two fires
+    disagreeing would be CORRECT behaviour on different documents, and the gate would
+    report it as instability. Now recorded, so the assumption is checked rather than
+    assumed. Returns a list of blocking messages (empty when every filename is constant,
+    and empty when no fire recorded a hash at all — an unrecordable check is not a pass,
+    which is why `bytes_checked` is reported separately).
+    """
+    msgs = []
+    for fn, by_n in sorted(content_hashes_by_fire(corpus_by_fire).items()):
+        distinct = sorted(set(by_n.values()))
+        if len(distinct) > 1:
+            where = ", ".join(f"fire {n}={by_n[n][:19]}" for n in sorted(by_n))
+            msgs.append(
+                f"{fn}: the fires did not read the same source bytes ({where}) — a "
+                f"cross-fire header comparison over different documents is void"
+            )
+    return msgs
+
+
 def build_identity_records(headers_by_fire):
     """{n: {filename: build_identity(...) result}} for n in 1..3."""
     records = {}
@@ -495,14 +563,33 @@ def score_fires(base_dir, fires):
         )
 
     # (c) Identity: collapse (fire 1) + stability (all three).
+    #
+    # SOURCE OF THE HEADERS. Preferred: the `written_header` each fire recorded in its
+    # own corpus JSON. Fallback: recovering them from the fire's stdout. The fallback is
+    # kept because a report may be scored over logs from an image that predates the
+    # recording, and losing the identity check entirely at those pins would be worse
+    # than parsing print output. Which source was used is reported, because the two are
+    # NOT equivalent in fidelity — see `headers_from_corpus`. All-or-nothing per fire
+    # set, deliberately: mixing a recorded header for one fire with a log-recovered one
+    # for another would compare two different derivations and call the difference
+    # instability.
     fires_by_n = {f["n"]: f for f in fires}
-    headers_by_fire = {n: hdr_agreement.headers_from_log(f["log_path"])
-                        for n, f in fires_by_n.items()}
+    from_corpus = {n: headers_from_corpus(corpus_by_fire.get(n)) for n in fires_by_n}
+    if all(from_corpus.values()):
+        headers_by_fire = from_corpus
+        identity_source = "corpus_json"
+    else:
+        headers_by_fire = {n: hdr_agreement.headers_from_log(f["log_path"])
+                            for n, f in fires_by_n.items()}
+        identity_source = "fire_log"
+    hashes = content_hashes_by_fire(corpus_by_fire)
+    bytes_checked = bool(hashes)
+    blocking.extend(check_same_bytes(corpus_by_fire))
     for n, headers in headers_by_fire.items():
         if not headers:
             blocking.append(
-                f"fire {n} log ({fires_by_n[n]['log']}) yielded no NoticeHeader blocks "
-                f"at all — treated as an error, not an empty pass"
+                f"fire {n} ({fires_by_n[n]['log']}, headers via {identity_source}) "
+                f"yielded no header at all — treated as an error, not an empty pass"
             )
     identity_records = build_identity_records(headers_by_fire)
     collapse = compute_collapse(identity_records)
@@ -537,6 +624,11 @@ def score_fires(base_dir, fires):
             "not_measured": not_measured_notices,
         },
         "identity": {
+            # Which derivation the identity numbers below came from, and whether the
+            # fires were proved to have read the same bytes. A consumer that treats
+            # "fire_log" as equivalent to "corpus_json" is overstating the evidence.
+            "source": identity_source,
+            "bytes_checked": bytes_checked,
             "filenames": collapse["filenames"],
             "distinct_notices": collapse["distinct_notices"],
             "collapses": collapse["collapses"],
@@ -554,15 +646,37 @@ def score_fires(base_dir, fires):
 # Markdown report.
 
 def _render_rates_block(rates_available, rates):
+    """The rates block, rendered by `doc_tools.utils.ingest_rates.render_rates` — the
+    SAME function the run log uses.
+
+    Not a second renderer, deliberately. `summarize_rates` returns a nested shape
+    (`{documents, errors, not_applicable, rates: {flag: {count, denominator}},
+    chunk_tally}`), and a hand-rolled walk over it here would be a second place that has
+    to know that shape. The earlier version of this function did exactly that, by
+    iterating the top-level keys and printing each value's repr: it produced lines like
+    "- `rates`: {'needs_review': {'count': 3, ...}}" and, worse, would have printed
+    `chunk_tally: None` rather than the "not observed" that `render_rates` is careful to
+    emit — turning a deliberate NOT-OBSERVED into something a reader would read as a
+    zero. One renderer, one definition of what the numbers mean.
+
+    The shape check is not defensive padding: this report may be produced over score
+    JSONs written by an OLDER image, and `rates` being present does not prove it is the
+    shape this version of `render_rates` expects. An unexpected shape is reported as
+    such, with the payload, rather than crashing the gate or being silently reformatted
+    into something that looks authoritative.
+    """
     if not rates_available or rates is None:
         return (
             "not available — this pin predates PR #35, the commit that starts "
             "emitting `rates` in `score_f{N}.json`. Not printed as a zero."
         )
-    lines = []
-    for k in sorted(rates):
-        lines.append(f"- `{k}`: {rates[k]}")
-    return "\n".join(lines) if lines else "(empty rates dict)"
+    if not isinstance(rates, dict) or "rates" not in rates:
+        return (
+            "present but not in the shape `summarize_rates` produces (no `rates` key) "
+            "— reported verbatim rather than reformatted:\n\n```\n"
+            f"{json.dumps(rates, indent=2, default=str)}\n```"
+        )
+    return "```\n" + render_rates(rates) + "\n```"
 
 
 def render_markdown(report, gate_dir, command_str, log_paths):
@@ -631,6 +745,13 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     ident = report["identity"]
     lines.append(f"filenames: {ident['filenames']}, distinct_notices: {ident['distinct_notices']}")
+    lines.append("")
+    lines.append(f"header source: `{ident.get('source', 'fire_log')}`"
+                 + ("" if ident.get("source") == "corpus_json" else
+                    " (recovered from stdout — this image records no `written_header`)"))
+    lines.append(f"same source bytes across fires: "
+                 + ("verified" if ident.get("bytes_checked")
+                    else "NOT VERIFIABLE (no `content_hash` recorded at this pin)"))
     lines.append("")
     lines.append("### Collapses (same notice, multiple files; fire 1)")
     lines.append("")
