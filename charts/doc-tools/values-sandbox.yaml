@@ -108,13 +108,22 @@ image:
   # (The index also carries two unknown/unknown entries. Those are buildx
   # attestation manifests -- provenance and SBOM -- not platforms. Expected.)
   #
-  # dbeb546 is the #24 merge. This is the pin the re-ingest gate was waiting on:
-  # it is the first image carrying ALL FIVE of #19, #20, #22, #23 and #24, and
-  # every fire measured before it was measured against an image missing at least
-  # one of them. Build run 36427057131:
-  # https://github.com/edgy-solutions/doc-tools/actions/runs/36427057131
+  # d630c28 is the #30 merge. Build run 36668129535:
+  # https://github.com/edgy-solutions/doc-tools/actions/runs/36668129535
+  # arm64 child verified on this index before rolling -- sha256:a11bb30a… beside
+  # amd64 sha256:30fc1e44…, per the rule stated above.
   #
-  # What this bump carries into sandbox, and the numbers to watch:
+  # THE PIN THIS LINE REPLACED WAS NOT WHAT SANDBOX WAS RUNNING. The file said
+  # 72e725ca (dbeb546, #24) while the release carried 7104b595 (the #26 merge)
+  # from a `--set` override, so a plain `helm upgrade -f` against this file would
+  # have rolled sandbox BACKWARD two merges. Bumping the file is also what
+  # repairs that drift: image.digest was the ONLY key where the release and this
+  # file diverged (all 18 env keys and every non-env key, imagePullSecrets
+  # included, are declared here). If you ever pin by `--set` again, write it here
+  # in the same breath or the next person's upgrade is a silent rollback.
+  #
+  # What the pin carries, CUMULATIVELY -- #19/#20/#22/#23/#24 arrived at dbeb546
+  # and are still in; #26/#29/#30 are new at this pin. The numbers to watch:
   #   - #19 a DECLINED grid with no parts column now emits nothing rather than a
   #     guess. This is the one with a predicted number: `spur` was 1 on every
   #     fire of the previous pin (onsemi IPCN emitting `20kAlSiCu, 40kAlSi`, a
@@ -134,7 +143,33 @@ image:
   #     Header agreement across fires is part of this gate, not just the parts
   #     count: the previous pin scored 898/898 three times while `mfr` flipped
   #     and one fire invented `TT Electronics` on a SEMELAB notice.
-  digest: "sha256:72e725caa13aa44c262e9d02b0fde47d2a83ce2d126dfa2e48434fa5f2b6f59a"
+  #   - #26 text-layer damage is MEASURED per document and a damaged one is routed
+  #     to a second (vision) witness. Exactly 1 of 9 notices is damaged
+  #     (TYC-PCN-24-210412, whose font drops every `ti`). Watch `witness_pages` in
+  #     stats: it is set from the witness index, and a 0 there means the witness
+  #     was not built -- worth reading, but it does NOT by itself explain a bad
+  #     parts number, which is what an earlier report wrongly inferred from it.
+  #   - #29 the header-agreement instrument, committed rather than living in a
+  #     scratchpad: parsed blocks bounded to their own region (one corrupt block
+  #     used to hide eight notices), a field the log never yielded reported as
+  #     NOT_MEASURED rather than None, and `--written` DECLINING on a degraded
+  #     notice instead of replaying pre-witness trust logic and calling it
+  #     product behaviour. Consequence to expect, not to be surprised by: TYC
+  #     comes back NOT_MEASURED, which is a hole in the measurement and not a
+  #     pass. A green `--written` covers 8 of 9 notices.
+  #   - #30 `mfr` document-wins. The model nominates, the document decides: when
+  #     the model's value is not printed on the page, the manufacturer is read off
+  #     the document's own standalone heading. This is the one field that should
+  #     stop flipping -- EOL-36 read 'SEMELAB' | '' | '' on the previous pin, and
+  #     all five measured model answers for that notice now end at SEMELAB. It
+  #     holds where the temperature pin could not BECAUSE it is document-anchored:
+  #     temp 0 with a seed still yields three distinct outputs at the raw HTTP
+  #     layer, so any field still taken from model free text (the `*_source`
+  #     fields, TYC's `pub_date_source`) can and will still flip.
+  #     THE TRAP: document-wins is gated OFF on a damaged text layer by an
+  #     explicit `text_layer_degraded` argument. Ungated, it would read the
+  #     misspelled `TE Connecvity` off TYC and write it in as a manufacturer.
+  digest: "sha256:20983fad5325877cbff4ba583dc434050de8001bbecce6870e37f3d6f3648b3a"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
