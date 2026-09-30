@@ -94,6 +94,35 @@ idempotent, so a fresh prefix buys nothing and doubles the S3 artifacts — and 
 would also fork the corpus every prior baseline was measured on, which is worse
 than the storage.
 
+### CHECK 0 — copy the prefix to a backup FIRST (added 2026-09-30)
+
+**"Idempotent" stopped being true, and that is what makes a backup necessary.** The
+argument above for re-ingesting in place rests on the write reproducing the same bytes,
+so that nothing is lost when it lands on top of itself. From PR #32 that no longer holds:
+`doc_level_ltb_date` is now recovered on notices where it was previously `None`, and
+`reconcile_ltb` falls back to the doc-level date, so **every Diodes Rev1 part row without
+its own LTB date will be rewritten with `2024-12-22`**. The new values are the intended
+ones — but an in-place re-ingest now DESTROYS the previous values rather than rewriting
+them identically, and there is no rollback for the S3 artifacts.
+
+So before any re-ingest that carries an extractor change, copy the derived artifacts to a
+dated backup prefix:
+
+```
+mc cp --recursive \
+   <alias>/processing-artifacts/sustainment/inbound/<...>/generated/ \
+   <alias>/processing-artifacts/backup/<YYYY-MM-DD>-pre-<pin sha>/generated/
+```
+
+Back up the `generated/` tree only. Do NOT copy to a fresh SOURCE prefix and re-ingest
+there — that is the corpus fork this section already warns against. The backup is a
+read-only escape hatch, not a second corpus.
+
+Skip this only when you have positively established that the pending change cannot alter
+stored values — which is a claim about the extractor diff, not an assumption. Restating
+the general rule: the re-ingest is irreversible, so the cost of the copy is always lower
+than the cost of being wrong about idempotence.
+
 ### Do NOT try to trigger it by re-uploading the PDF
 
 The intuitive move — put the PDF back and let `sustainment_sensor` fire — is a
