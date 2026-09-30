@@ -1202,6 +1202,16 @@ class SustainmentPlugin(AugmentationPlugin):
         # missing) must still ingest, so this never raises, and represents the key as
         # absent (key=None, `note` says why) rather than building a key out of empty
         # strings that would collide every failed document with every other.
+        #
+        # CONSEQUENCE, stated so it is not discovered as a surprise: because this runs
+        # AFTER refuse_unsourced_header_values, a notice whose `mfr` was REFUSED (no
+        # citation for the printed value) ends up with no dedupe key and is therefore
+        # never matched against anything. That is the deliberate direction — declining to
+        # key costs a missed duplicate, which the next arrival can still be compared
+        # against once its own header is sourced; keying on a refused value costs a FALSE
+        # match, which silently merges two different manufacturers' notices. Coverage is
+        # currently total anyway: at pin 025be04a all nine corpus notices carry both an
+        # mfr and a doc_id, with refusals 0.
         stats["notice_identity"] = notice_identity.build_identity(
             header_d.get("mfr"), header_d.get("doc_id"), header_d.get("revision"))
 

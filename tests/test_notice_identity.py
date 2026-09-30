@@ -240,10 +240,12 @@ def test_classify_pair_distinct_different_mfr():
 # 911b977da2063fffbecb5788074c per docs/pcn-corpus-validation-2026-09-21.md)
 # and both scored at gt=402 — one document counted twice in the 898-part
 # corpus denominator. Both files extract the SAME header (mfr='Diodes
-# Incorporated', the same doc_id for PCN 2683, pub_date='2024-06-25'); the
-# exact printed doc_id string is not preserved in the validation report this
-# test is grounded in, so a representative value is used — what matters is
-# that BOTH files extract the identical string, not its exact spelling.
+# Incorporated', doc_id='PCN-2683', pub_date='2024-06-25'). The doc_id used
+# below is the REAL extracted value, read out of the three corpus fires at
+# pin 025be04a (grep '"doc_id"' on the fire log -> "PCN-2683"), not a
+# stand-in. Note the HYPHEN: it survives normalization, because `-` is a real
+# printed revision value and is deliberately excluded from the punctuation
+# stripping that drops `.`, `,` and `'`.
 # Revision: the filenames disagree ('FULLGREEN' vs 'Rev1_EOL') but the
 # extracted header comes from byte-identical PDF bytes, so it is identical
 # too — the whole point is that the FILENAME must not decide notice
@@ -254,10 +256,12 @@ _DIODES_2683_SHA256 = "af5bfad3f9344eb1dc942230a33cb61b58fb911b977da2063fffbecb5
 
 
 def test_diodes_pcn_2683_fullgreen_and_rev1_eol_are_identical():
-    fullgreen = _record("Diodes Incorporated", "PCN 2683", None, _DIODES_2683_SHA256)
-    rev1_eol = _record("Diodes Incorporated", "PCN 2683", None, _DIODES_2683_SHA256)
+    fullgreen = _record("Diodes Incorporated", "PCN-2683", None, _DIODES_2683_SHA256)
+    rev1_eol = _record("Diodes Incorporated", "PCN-2683", None, _DIODES_2683_SHA256)
 
     assert fullgreen["key"] == rev1_eol["key"]
+    # The hyphen is preserved, so the key is the real printed identity.
+    assert ni.parse_notice_key(fullgreen["key"])[1] == "pcn-2683"
 
     result = ni.classify_pair(fullgreen, rev1_eol)
     assert result["relation"] == "identical"
