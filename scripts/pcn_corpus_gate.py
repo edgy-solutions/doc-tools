@@ -350,6 +350,38 @@ def check_same_bytes(corpus_by_fire):
     return msgs
 
 
+def bytes_coverage(corpus_by_fire):
+    """WHICH notices had their bytes proved constant across every fire, not whether any
+    notice did.
+
+    A set-wide boolean overstates the evidence, and on real data it would overstate it
+    today. Measured 2026-09-30: only 11 of the 22 manifests in sandbox MinIO carry
+    `source_key`, so before `source_content_hash` grew its sibling fallback some notices
+    recorded no hash while others did. `bool(hashes)` was then True and the report read
+    "same source bytes across fires: verified" — a claim covering documents that were
+    never hashed at all. Coverage is therefore per notice, and a notice hashed by only
+    SOME fires counts as unverified: two fires agreeing tells you nothing about the third
+    fire's input.
+
+    `unverified` is what to read. `complete` is true only when every scored notice was
+    hashed by every fire.
+    """
+    fires = sorted(corpus_by_fire)
+    hashes = content_hashes_by_fire(corpus_by_fire)
+    scored = sorted({fn for corpus in corpus_by_fire.values()
+                     for fn, e in (corpus or {}).items()
+                     if isinstance(e, dict) and e.get("ok")})
+    verified = [fn for fn in scored if fires and set(hashes.get(fn, {})) >= set(fires)]
+    unverified = [fn for fn in scored if fn not in set(verified)]
+    return {
+        "fires": fires,
+        "notices_scored": len(scored),
+        "verified": verified,
+        "unverified": unverified,
+        "complete": bool(scored) and not unverified,
+    }
+
+
 def build_identity_records(headers_by_fire):
     """{n: {filename: build_identity(...) result}} for n in 1..3."""
     records = {}
@@ -582,8 +614,7 @@ def score_fires(base_dir, fires):
         headers_by_fire = {n: hdr_agreement.headers_from_log(f["log_path"])
                             for n, f in fires_by_n.items()}
         identity_source = "fire_log"
-    hashes = content_hashes_by_fire(corpus_by_fire)
-    bytes_checked = bool(hashes)
+    coverage = bytes_coverage(corpus_by_fire)
     blocking.extend(check_same_bytes(corpus_by_fire))
     for n, headers in headers_by_fire.items():
         if not headers:
@@ -628,7 +659,10 @@ def score_fires(base_dir, fires):
             # fires were proved to have read the same bytes. A consumer that treats
             # "fire_log" as equivalent to "corpus_json" is overstating the evidence.
             "source": identity_source,
-            "bytes_checked": bytes_checked,
+            # True only when EVERY scored notice was hashed by EVERY fire; the detail
+            # below names the gaps, because a partial check is not a verified one.
+            "bytes_checked": coverage["complete"],
+            "bytes_coverage": coverage,
             "filenames": collapse["filenames"],
             "distinct_notices": collapse["distinct_notices"],
             "collapses": collapse["collapses"],
@@ -749,9 +783,19 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append(f"header source: `{ident.get('source', 'fire_log')}`"
                  + ("" if ident.get("source") == "corpus_json" else
                     " (recovered from stdout — this image records no `written_header`)"))
-    lines.append(f"same source bytes across fires: "
-                 + ("verified" if ident.get("bytes_checked")
-                    else "NOT VERIFIABLE (no `content_hash` recorded at this pin)"))
+    cov = ident.get("bytes_coverage") or {}
+    if cov.get("complete"):
+        lines.append(f"same source bytes across fires: verified for all "
+                     f"{cov['notices_scored']} notices across {len(cov['fires'])} fires")
+    elif cov.get("verified"):
+        lines.append(f"same source bytes across fires: verified for "
+                     f"{len(cov['verified'])} of {cov['notices_scored']} notices — "
+                     f"NOT verified for "
+                     + ", ".join(f"`{f}`" for f in cov["unverified"])
+                     + " (no `content_hash` from every fire)")
+    else:
+        lines.append("same source bytes across fires: NOT VERIFIABLE "
+                     "(no `content_hash` recorded at this pin)")
     lines.append("")
     lines.append("### Collapses (same notice, multiple files; fire 1)")
     lines.append("")

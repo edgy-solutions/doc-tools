@@ -104,11 +104,12 @@ def test_a_fire_that_read_different_bytes_blocks():
 
 
 def test_an_unrecordable_bytes_check_is_not_a_pass():
-    """No hash recorded => no blocking message, but `bytes_checked` must be False so
-    the report says NOT VERIFIABLE rather than implying it was verified."""
+    """No hash recorded => no blocking message, but coverage must not read verified so
+    the report says NOT VERIFIABLE rather than implying it was."""
     corpus = {n: {"A.pdf": {"ok": True}} for n in (1, 2, 3)}
     assert gate.check_same_bytes(corpus) == []
     assert gate.content_hashes_by_fire(corpus) == {}
+    assert gate.bytes_coverage(corpus)["complete"] is False
 
 
 def test_a_hash_recorded_by_only_one_fire_is_not_a_disagreement():
@@ -116,6 +117,52 @@ def test_a_hash_recorded_by_only_one_fire_is_not_a_disagreement():
               2: {"A.pdf": {"ok": True}},
               3: {"A.pdf": {"ok": True}}}
     assert gate.check_same_bytes(corpus) == []
+
+
+# ---------------------------------------------------------------------------
+# bytes_coverage — the check must not claim more than it measured
+# ---------------------------------------------------------------------------
+
+def test_full_coverage_is_reported_complete():
+    corpus = {n: {"A.pdf": _notice("sha256:aaa"), "B.pdf": _notice("sha256:bbb")}
+              for n in (1, 2, 3)}
+    cov = gate.bytes_coverage(corpus)
+    assert cov["complete"] is True
+    assert cov["unverified"] == []
+    assert cov["notices_scored"] == 2
+
+
+def test_partial_coverage_is_not_complete_and_names_the_gap():
+    """The defect this function exists for. Measured 2026-09-30: 11 of 22 real manifests
+    carry `source_key`, so some notices recorded a hash and some did not. A set-wide
+    `bool(hashes)` read True and the report claimed "verified" over documents that were
+    never hashed."""
+    corpus = {n: {"A.pdf": _notice("sha256:aaa"), "B.pdf": {"ok": True}}
+              for n in (1, 2, 3)}
+    cov = gate.bytes_coverage(corpus)
+    assert cov["complete"] is False
+    assert cov["verified"] == ["A.pdf"]
+    assert cov["unverified"] == ["B.pdf"]
+
+
+def test_a_notice_hashed_by_only_some_fires_counts_as_unverified():
+    """Two fires agreeing says nothing about the third fire's input."""
+    corpus = {1: {"A.pdf": _notice("sha256:aaa")},
+              2: {"A.pdf": _notice("sha256:aaa")},
+              3: {"A.pdf": {"ok": True}}}
+    cov = gate.bytes_coverage(corpus)
+    assert cov["complete"] is False
+    assert cov["unverified"] == ["A.pdf"]
+
+
+def test_a_failed_notice_is_not_counted_against_coverage():
+    """An errored notice was not scored, so it is not a coverage gap — counting it would
+    make every run with one failure read as incompletely verified."""
+    corpus = {n: {"A.pdf": _notice("sha256:aaa"),
+                  "B.pdf": {"ok": False, "error": "boom"}} for n in (1, 2, 3)}
+    cov = gate.bytes_coverage(corpus)
+    assert cov["notices_scored"] == 1
+    assert cov["complete"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -234,14 +281,19 @@ def test_the_two_header_sources_produce_the_same_identity_records():
 # ---------------------------------------------------------------------------
 
 class _FakeS3:
-    def __init__(self, body=None, raises=False):
+    def __init__(self, body=None, raises=False, listing=None):
         self.body, self.raises, self.asked = body, raises, []
+        self.listing, self.listed = listing or [], []
 
     def get_object(self, Bucket, Key):  # noqa: N803 (boto3's own signature)
         self.asked.append(Key)
         if self.raises:
             raise RuntimeError("no such key")
         return {"Body": io.BytesIO(self.body)}
+
+    def list_objects_v2(self, Bucket, Prefix):  # noqa: N803
+        self.listed.append(Prefix)
+        return {"Contents": [{"Key": k} for k in self.listing if k.startswith(Prefix)]}
 
 
 def test_the_hash_is_taken_over_the_declared_source_key():
@@ -261,10 +313,53 @@ def test_the_same_bytes_hash_the_same_and_different_bytes_do_not():
     assert a == b != c
 
 
-def test_a_missing_source_key_yields_none_rather_than_raising():
-    """A missing hash must not fail a scoring run: the consequence is recorded where
-    it is consumed (`bytes_checked: false`), not raised here."""
+def test_a_declared_source_key_wins_over_the_sibling_search():
+    """The fallback must not fire when the producer named a key — listing would be work
+    done to reach the same answer, and could reach a different one."""
+    c = _FakeS3(b"x", listing=["sustainment/inbound/adi/OTHER.pdf"])
+    run.source_content_hash(c, {"source_key": "declared/x.pdf"},
+                            "sustainment/inbound/adi/generated/x/manifest.json", "x.pdf")
+    assert c.asked == ["declared/x.pdf"]
+    assert c.listed == []
+
+
+def test_a_manifest_without_source_key_falls_back_to_the_sibling_pdf():
+    """Only 11 of the 22 real manifests carry `source_key` (measured 2026-09-30) — all
+    three ADI manifests and six of seven onsemi IPCN ones predate the field. Without this
+    the bytes check would be permanently inert on exactly those notices."""
+    c = _FakeS3(b"%PDF-1.4", listing=[
+        "sustainment/inbound/adi_run3/ADI_PDN_23_0120.pdf",
+        "sustainment/inbound/adi_run3/generated/ADI_PDN_23_0120_pdf/text.json",
+    ])
+    h = run.source_content_hash(
+        c, {}, "sustainment/inbound/adi_run3/generated/ADI_PDN_23_0120_pdf/manifest.json",
+        "ADI_PDN_23_0120.pdf")
+    assert c.listed == ["sustainment/inbound/adi_run3/"]
+    assert c.asked == ["sustainment/inbound/adi_run3/ADI_PDN_23_0120.pdf"]
+    assert h.startswith("sha256:")
+
+
+def test_the_fallback_resolves_within_the_manifests_own_inbound_copy():
+    """Three copies of the Diodes notice sit in sibling directories. The search is
+    scoped to everything before `/generated/`, so it cannot return another copy's PDF —
+    which would silently hash a different object than the one scored."""
+    c = _FakeS3(b"%PDF", listing=[
+        "sustainment/inbound/diodes_2683/Diodes_PCN_2683_Rev1_EOL.pdf",
+        "sustainment/inbound/diodes_bbox/Diodes_PCN_2683_Rev1_EOL.pdf",
+    ])
+    run.source_content_hash(
+        c, {},
+        "sustainment/inbound/diodes_bbox/generated/D_pdf/manifest.json",
+        "Diodes_PCN_2683_Rev1_EOL.pdf")
+    assert c.asked == ["sustainment/inbound/diodes_bbox/Diodes_PCN_2683_Rev1_EOL.pdf"]
+
+
+def test_a_missing_source_key_with_nothing_to_fall_back_on_yields_none():
+    """A missing hash must not fail a scoring run: the consequence is recorded where it
+    is consumed (`bytes_coverage.unverified`), not raised here."""
     assert run.source_content_hash(_FakeS3(b"x"), {}) is None
+    assert run.source_content_hash(_FakeS3(b"x", listing=[]), {},
+                                   "a/generated/b/manifest.json", "x.pdf") is None
 
 
 def test_an_unreadable_source_object_yields_none_rather_than_raising():

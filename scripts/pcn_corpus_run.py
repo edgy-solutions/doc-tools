@@ -326,7 +326,7 @@ def build_full_text(elements):
     return "\n".join(parts)
 
 
-def source_content_hash(c, manifest):
+def source_content_hash(c, manifest, manifest_key=None, fn=None):
     """sha256 of the SOURCE PDF's bytes, as `notice_identity.classify_pair` expects.
 
     Why the source PDF and not the extracted text: `content_hash` exists in
@@ -337,12 +337,33 @@ def source_content_hash(c, manifest):
     above has to pin a manifest), so a text hash would report the same document as two.
 
     `manifest["source_key"]` is declared by the producer
-    (doc_tools/components/document_parser.py) rather than derived from
-    `text_location`, so this reads the key the producer named. Returns None if the
-    object cannot be read, because a missing hash must not fail a scoring run — the
-    consequence of None is recorded where it is consumed, not raised here.
+    (doc_tools/components/document_parser.py) and is preferred, because it is the key
+    the producer named rather than one derived by string surgery.
+
+    THE FALLBACK IS NOT OPTIONAL, measured 2026-09-30: only 11 of the 22 manifests in
+    sandbox MinIO carry `source_key` at all. All three `ADI_PDN_23_0120.pdf` manifests
+    and six of the seven `onsemi_Generic_IPCN25300X.pdf` ones predate the field. Without
+    a fallback those notices would hash to None forever, the gate would record their
+    bytes as unverifiable, and `check_same_bytes` would be permanently inert on exactly
+    the documents it exists to guard — green because it never ran. So when the field is
+    absent the source PDF is located as a sibling of the manifest's own prefix
+    (everything before `/generated/`), which is the same resolution
+    `pcn_crop_seal.source_key` already uses against these same manifests.
+
+    Returns None only when both routes fail, because a missing hash must not fail a
+    scoring run — the consequence of None is recorded where it is consumed
+    (`bytes_coverage` in the gate), not raised here.
     """
     key = manifest.get("source_key")
+    if not key and manifest_key and fn:
+        pref = manifest_key.split("/generated/")[0] + "/"
+        try:
+            for o in c.list_objects_v2(Bucket=BUCKET, Prefix=pref).get("Contents", []):
+                if o["Key"].endswith("/" + fn):
+                    key = o["Key"]
+                    break
+        except Exception:  # noqa: BLE001
+            key = None
     if not key:
         return None
     try:
@@ -420,7 +441,7 @@ def run_one(plugin, c, fn, manifest_key, manifest):
         # already inside `stats` below; it is not copied up here, because two copies of
         # one fact in one document is how they drift.
         "written_header": written_header(aug.notice),
-        "content_hash": source_content_hash(c, manifest),
+        "content_hash": source_content_hash(c, manifest, manifest_key, fn),
         "stats": stats,
     }
 
