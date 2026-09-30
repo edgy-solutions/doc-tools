@@ -867,6 +867,15 @@ def main(argv):
                               "Supply it whenever the seal files exist: without it the "
                               "reconstructed fire exit code cannot evaluate the crop-seal "
                               "term and every fire is reported seal_checked: false.")
+    parser.add_argument("--out-dir", default=None,
+                         help="Where to write latest.json and the dated markdown. "
+                              "USE THIS FOR ANY DIAGNOSTIC RUN. The default is "
+                              "docs/corpus-gate, which is the report the CI guard reads "
+                              "as the authority for the pinned image — a --from-logs run "
+                              "over fixture logs will otherwise silently replace a real "
+                              "measurement with a synthetic one (measured_image: null), "
+                              "and the overwrite is invisible until someone reads git "
+                              "status. Overrides PCN_GATE_REPORT_DIR.")
     args = parser.parse_args(argv)
 
     if args.from_logs:
@@ -890,7 +899,16 @@ def main(argv):
     # the ENTIRE paths-ignore list on the build workflow, so a committed report
     # there does NOT trigger the ~29-minute multi-arch image build. That is the
     # reason for this location, not a filing convenience.
-    report_dir = os.environ.get("PCN_GATE_REPORT_DIR", "docs/corpus-gate")
+    #
+    # --out-dir wins over the env var, which wins over the default. The flag
+    # exists because the default is the AUTHORITY the CI guard reads: a
+    # diagnostic --from-logs run over fixture logs writes a synthetic report
+    # (measured_image: null, seal_checked: false) straight over a real pinned
+    # measurement, and nothing in the output says so. That happened while this
+    # instrument was being built and was caught only by reading git status.
+    report_dir = (args.out_dir
+                  or os.environ.get("PCN_GATE_REPORT_DIR")
+                  or "docs/corpus-gate")
     if not os.path.isabs(report_dir):
         report_dir = os.path.join(REPO_ROOT, report_dir)
     os.makedirs(report_dir, exist_ok=True)
