@@ -439,11 +439,24 @@ def test_a_part_the_page_image_does_not_corroborate_is_raised_but_not_rewritten(
     green while the corpus count quietly drops by one.
 
     The assertion that matters most here is the LAST one: the row is raised for a human
-    and is NOT edited. Flagging cannot lower a corpus score; replacing can."""
+    and is NOT edited. Flagging cannot lower a corpus score; replacing can.
+
+    `uncorroborated_parts` requires POSITIVE evidence (see
+    `doc_tools/utils/text_layer_health.py`): mere absence from the witness text is not
+    enough, because a vision transcription substitutes characters as often as a damaged
+    text layer drops them, and non-containment alone cannot tell those apart (measured on
+    the real TYC-PCN-24-210412 fire, where that weaker rule raised 9 false positives on a
+    correct notice). So the witness page here prints `V23026-A10001-B201` -- one digit
+    longer than the tier-1 read, with the tier-1 MPN a strict subsequence of it -- which is
+    exactly the shape a dropped ligature leaves behind and is what the check now requires
+    before it will flag anything.
+    """
     monkeypatch.setenv("VISION_LLM_BASE_URL", "http://fake-vision:1234/v1")
     _patch_tier1(monkeypatch, plugin, _TIER1_ROWS)
-    # The page transcription is of the control prose -- it does not print this MPN.
-    fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS))
+    fake_b = _FakeB(
+        header=_header(),
+        transcribe_behaviors=["Affected part: V23026-A10001-B201"] + list(_CONTROL_PARAGRAPHS[1:]),
+    )
     _patch_b(monkeypatch, fake_b)
 
     nodes = plugin._extract_fulltext(

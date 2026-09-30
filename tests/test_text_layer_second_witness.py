@@ -23,6 +23,8 @@ fixtures were written to differ in a convenient way. The healthy version doubles
 second witness, which is what the page image transcription is: the same words, read from
 pixels instead of from a broken font map.
 """
+import os
+
 import pytest
 
 from doc_tools.utils import provenance
@@ -319,3 +321,81 @@ def test_a_witness_that_failed_to_transcribe_changes_nothing(degraded_index):
         refuse_unsourced_header_values(header_d, degraded_index, witness_index=witness,
                                        text_layer_degraded=True)
         assert header_d["mfr"] == ""
+
+
+# --------------------------------------------------------------------------- #
+# positive evidence only -- the fix for the TYC false positives
+# --------------------------------------------------------------------------- #
+# Real fire-2 witness transcription of TYC-PCN-24-210412 page 1, exactly as the check
+# received it. `uncorroborated_parts` used to flag 9 MPNs on this notice even though the
+# notice is 100% correct: tier 1 read 898 of 898 exact, 0 spurious / 0 missing / 0
+# malformed under set-identity scoring. The witness corroborated 17 of the notice's 26
+# MPNs (~65%) and simply misread the other 9 -- same-length substitutions or short reads,
+# never a dropped-character subsequence -- which is why non-containment alone was never
+# evidence and the fix below requires a positive, directional signal instead.
+_TYC_WITNESS_PATH = os.path.join(os.path.dirname(__file__), "fixtures", "sustainment",
+                                  "tyc_witness_page1.txt")
+
+
+def _tyc_witness():
+    with open(_TYC_WITNESS_PATH, "r", encoding="utf-8") as f:
+        text = f.read()
+    return _page_witness(text)
+
+
+# The 9 real MPNs that the old (containment-only) check flagged on this notice, every one
+# of them independently confirmed correct against the notice.
+_TYC_FALSE_POSITIVE_MPNS = [
+    "1052926-1", "9501815SP-1", "1056703-1", "160303P1", "160303P001",
+    "1057465-1", "1059424-1", "1061372-1", "1063681-1",
+]
+
+# MPNs the fire-2 witness DOES read correctly on this same page (verbatim or as a listed
+# alias), used as a regression check that the fix has not started swallowing real
+# corroboration.
+_TYC_CORROBORATED_MPNS = ["1052982-1", "TYC1057289-1", "8503812FP-3"]
+
+
+def test_seal_the_nine_real_false_positives_no_longer_flag():
+    """THE SEAL. Fire 2 raised 9 findings against a text layer that is provably correct
+    (898/898 exact, 0 spurious / 0 missing / 0 malformed). Every one of the 9 is a
+    same-length or shorter vision misread -- e.g. text layer `1056703-1` vs witness
+    `1056701-1`, `1052926-1` vs `502926-1`, `9501815SP-1` vs `95018155P-1` -- never a
+    witness token that strictly contains the MPN as a subsequence. With positive evidence
+    required, none of the 9 clear the bar and the function must return nothing."""
+    parts = [{"affected_mpn": mpn, "replacement_mpn": None, "page_number": 1}
+              for mpn in _TYC_FALSE_POSITIVE_MPNS]
+    assert H.uncorroborated_parts(parts, _tyc_witness()) == []
+
+
+def test_mpns_the_witness_actually_reads_still_corroborate():
+    """Regression: the fix must not have bought the false-positive fix by also silencing
+    real corroboration. These MPNs are on the same fixture page, verbatim or as a listed
+    alias, so the original containment test alone already clears them."""
+    parts = [{"affected_mpn": mpn, "replacement_mpn": None, "page_number": 1}
+              for mpn in _TYC_CORROBORATED_MPNS]
+    assert H.uncorroborated_parts(parts, _tyc_witness()) == []
+
+
+def test_a_genuine_dropped_character_still_flags_with_the_witness_value():
+    """The positive case the directional rule exists to keep catching. `CONNECVITY-12` is
+    what a `ti`-dropping text layer would print for `CONNECTIVITY-12` -- shorter than the
+    truth by exactly the dropped ligature, and its every character is a subsequence of
+    the witness token that read it whole. One finding, and it names the witness token so
+    a reviewer sees what the pixels actually showed."""
+    parts = [{"affected_mpn": "CONNECVITY-12", "replacement_mpn": None, "page_number": 1}]
+    witness = _page_witness("TE CONNECTIVITY-12 is the manufacturer of record.")
+
+    flagged = H.uncorroborated_parts(parts, witness)
+    assert len(flagged) == 1
+    assert flagged[0]["mpn"] == "CONNECVITY-12"
+    assert flagged[0]["field"] == "affected_mpn"
+    assert flagged[0]["witness_value"] == "CONNECTIVITY-12"
+
+
+def test_no_witness_still_means_no_accusation_after_the_fix():
+    """Both no-witness shapes must still short-circuit before the positive-evidence logic
+    ever runs -- an absent witness remains not-evidence, exactly as before this fix."""
+    parts = [{"affected_mpn": "CTI-4200", "replacement_mpn": None, "page_number": 1}]
+    for witness in (None, []):
+        assert H.uncorroborated_parts(parts, witness) == []
