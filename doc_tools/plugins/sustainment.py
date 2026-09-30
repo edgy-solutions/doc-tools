@@ -990,6 +990,41 @@ class SustainmentPlugin(AugmentationPlugin):
             needs_review = True
         return needs_review
 
+    def _apply_text_layer_stats(self, text_layer_assessment: dict, reasons: List[str],
+                                doc_flags: List[str]) -> bool:
+        """Turn ONE `text_layer_health.assess_elements` result into a reviewer-facing
+        reason. Deliberately given the SAME treatment as `crops_near_cap` above, and for
+        the same reason: nothing here is KNOWN to be missing, so this never earns the
+        doc_flags banner. What a degraded text layer (TYC-PCN-24-210412: worst judged
+        ligature retention 0.128, the font drops the `ti` pair) actually does is
+        different from — and more dangerous than — the crops_failed case doc_flags
+        exists for: a failed crop is visibly absent, but a dropped ligature produces a
+        DIFFERENT, well-formed, plausible string with entirely correct provenance in its
+        place. Nothing downstream can tell a misread value from a correct one by looking
+        at it; only the second witness (the page-image transcription gated on this same
+        assessment, and the parts-side corroboration check that follows it) can catch the
+        ones it happens to corroborate, and an uncorroborated miss is not proof the rest
+        of the document is clean. So this sets needs_review and says what is actually
+        known — a MISREAD risk on every verbatim value from this document — rather than
+        folding into the narrower, witness-gated doc_flags banner, which would both
+        overclaim (it only checks parts that were actually witnessed) and train reviewers
+        to stop trusting doc_flags on documents where nothing was ever proven missing.
+
+        Returns whether this forces needs_review, same calling convention as
+        `_apply_vision_stats`.
+        """
+        if not text_layer_assessment["text_layer_degraded"]:
+            return False
+        reasons.append(
+            f"text layer degraded (worst judged ligature retention "
+            f"{text_layer_assessment['text_layer_retention']}, threshold "
+            f"{text_layer_health.DEGRADED_THRESHOLD}): verbatim values read from this "
+            f"document's text layer — part numbers, dates, manufacturer names — may be "
+            f"MISREAD, not missing. The extraction can silently substitute a different, "
+            f"well-formed string for what is actually printed; treat every value from "
+            f"this document as unverified until checked against the PDF")
+        return True
+
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
                          s3_client: Any = None, bucket: str = None) -> List[DocumentNode]:
@@ -1050,6 +1085,12 @@ class SustainmentPlugin(AugmentationPlugin):
         # "2/5 table crops failed, extracted parts are likely INCOMPLETE" was recorded and
         # then reached nobody, because nothing downstream carried review_reasons at all.
         doc_flags: List[str] = []
+
+        # DEGRADED TEXT LAYER: recorded HERE, right where the assessment lands, so it
+        # covers every verbatim read this method goes on to do — see
+        # `_apply_text_layer_stats` for why this gets needs_review but never doc_flags.
+        if self._apply_text_layer_stats(text_layer_assessment, reasons, doc_flags):
+            needs_review = True
 
         # ---- Pass 1: header (text-only, gpt-oss) ----
         header = None

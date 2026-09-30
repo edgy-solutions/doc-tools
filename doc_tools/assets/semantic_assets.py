@@ -14,6 +14,7 @@ from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
 from doc_tools.plugins.sustainment import SustainmentPlugin
+from doc_tools.utils.ingest_rates import render_rates, summarize_rates
 import weaviate.classes as wvc
 from weaviate.util import generate_uuid5
 
@@ -457,6 +458,38 @@ def build_knowledge_graph(
             chunk_index_tally.get("errors", 0),
         )
     )
+
+    # Aggregated RATES for this document — see doc_tools/utils/ingest_rates.py. This is
+    # the ONE call site where written_without_vector is actually OBSERVED: chunk_index_tally
+    # above comes straight from real _index_chunk writes, unlike the corpus harness
+    # (scripts/pcn_corpus_run.py), which drives the plugin directly and never writes a
+    # chunk, so it always passes chunk_tally=None there. This asset runs one document per
+    # partition, so the record list is a single record — the block reads "1 of 1", not a
+    # run-level aggregate; a nightly job wanting a fleet-wide rate reduces over many of
+    # these review.json/log lines itself. `stats` comes from the augmentation's own
+    # `stats` field, which is SUSTAINMENT-ONLY today — so a manufacturing, maintenance,
+    # training or compliance document arrives here with stats=None having extracted
+    # perfectly. It is reported as `not applicable`, NOT as an error: this block exists so
+    # a rising rate is the production signal, and a permanent "1 error" on every
+    # non-sustainment ingest is precisely the reading that teaches people to stop watching
+    # the number. That is why `ok=True` is passed explicitly — summarize_rates treats
+    # failure as something the caller DECLARES, never as an inference from a missing field.
+    doc_stats = None
+    doc_needs_review = False
+    for n in document_nodes:
+        aug = n.domain_augmentation
+        s = getattr(aug, "stats", None)
+        if s:
+            doc_stats = dict(s)
+        if getattr(aug, "needs_review", False):
+            doc_needs_review = True
+    rate_record = {"ok": True, "needs_review": doc_needs_review, "stats": doc_stats}
+    chunk_tally = {
+        "written": chunk_index_tally.get("written", 0),
+        "written_without_vector": chunk_index_tally.get("written_without_vector", 0),
+    }
+    rates_summary = summarize_rates([rate_record], chunk_tally=chunk_tally)
+    context.log.info(f"Ingest rates for doc {doc_id}:\n{render_rates(rates_summary)}")
 
     # Derive image_prefix from text_location
     # e.g. text_location: "manufacturing/IID/generated/test_pdf/text.json"

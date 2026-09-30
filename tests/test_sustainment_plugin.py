@@ -212,6 +212,44 @@ def test_has_part_shaped_text_requires_both_a_label_and_an_mpn_shaped_token(full
     assert _has_part_shaped_text(full_text) is expected
 
 
+# --------------------------------------------------------------------------- #
+# DEGRADED TEXT LAYER forces needs_review but NEVER the doc_flags banner. A
+# live bug on TYC-PCN-24-210412 (text-layer retention 0.128, the font drops the `ti`
+# ligature): `text_layer_degraded` was computed and stored on `stats` every run, and
+# read by nothing — every fire printed needs_review=False for that notice. Mirrors the
+# crops_near_cap precedent in `_apply_vision_stats` above: nothing is KNOWN to be
+# missing here (a degraded text layer is a MISREAD risk, not a loss), so it earns
+# needs_review + a reasons entry and deliberately does NOT earn a "PARTS MAY BE
+# MISSING" doc_flags banner — that banner is reserved for crops_failed, where the
+# extraction knows something is actually gone.
+# --------------------------------------------------------------------------- #
+def _assessment(degraded, retention=0.128):
+    return {"text_layer_degraded": degraded, "text_layer_retention": retention,
+            "text_layer_detail": {}}
+
+
+def test_degraded_text_layer_forces_review_with_a_misread_reason_but_no_doc_flags_banner(plugin):
+    reasons, doc_flags = [], []
+    forced = plugin._apply_text_layer_stats(_assessment(True), reasons, doc_flags)
+
+    assert forced is True
+    assert doc_flags == [], "a degraded text layer is a misread risk, not a known loss"
+    assert len(reasons) == 1
+    assert "0.128" in reasons[0]
+    assert "MISREAD" in reasons[0]
+    assert "PARTS MAY BE MISSING" not in reasons[0]
+    assert not any("PARTS MAY BE MISSING" in f for f in doc_flags)
+
+
+def test_healthy_text_layer_forces_nothing(plugin):
+    reasons, doc_flags = [], []
+    forced = plugin._apply_text_layer_stats(_assessment(False, retention=0.97), reasons, doc_flags)
+
+    assert forced is False
+    assert reasons == []
+    assert doc_flags == []
+
+
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-q"]))
