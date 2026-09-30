@@ -33,7 +33,34 @@
       ],
       "malformed": [],
       "source": "16 from the 'Part Number' column + 10 from 'Customer Part Number'; both ruled genuine affected-part columns in docs/pcn-corpus-validation-2026-09-21.md s1. The Customer column has 8 CELLS, two of which hold two part numbers each (comma+newline), so it contributes 10 PARTS. CORRECTED 2026-09-24 from count=24: the two composite cells were previously carried glued, which made this file assert that a two-part cell is one part. See _construction.",
-      "manifest": "sustainment/inbound/generated/TYC-PCN-24-210412_pdf/manifest.json"
+      "manifest": "sustainment/inbound/generated/TYC-PCN-24-210412_pdf/manifest.json",
+      "headers": {
+        "_note": "HEADER ground truth, added 2026-09-30. Established from the page, not from a run: every value below is read off the source PDF's page 1, and the competing value each run produced is named so a future reader can tell a defect from a disagreement. TYC is the degraded-text-layer notice -- its layer drops the 'ti' ligature everywhere -- so for this notice the text layer is a KNOWN-DAMAGED source and may not settle a field by itself.",
+        "mfr": {
+          "value": "TE Connectivity",
+          "source": "Page 1, centred heading directly under the TE logo: 'TE Connectivity'.",
+          "not": {
+            "TE Connecvity": "The text layer's reading. This is the dropped 'ti' ligature, the same damage that classifies this notice as degraded. It is a corruption of the correct value, not a variant, and must never be written.",
+            "TE": "The second witness's reading -- vision transcribing the logo image, which renders the wordmark as 'TE' over 'connectivity'. The witness was right to reach for this field; it simply read the logo rather than the heading."
+          }
+        },
+        "pub_date": {
+          "value": "2024-06-07",
+          "source": "Page 1, right-hand field: 'PCN Date: 07-JUN-24'.",
+          "not": {
+            "2024-06-10": "The portal's print stamp -- 'Current Date: 10-Jun-2024' in the top-right rule, and '6/10/24, 11:28 AM' in the browser print header. It is the date the PDF was rendered, NOT the date the notice was published. Unpinned fires flipped between the two, which is what this entry exists to adjudicate."
+          }
+        },
+        "doc_level_ltb_date": {
+          "value": null,
+          "status": "PENDING -- not established, and not to be scored until it is",
+          "source": "The last-order/last-ship section of the page has not been read directly. Do not promote either candidate below on the strength of repetition: the text layer and the witness are the only two sources seen so far, and they disagree.",
+          "candidates": {
+            "2024-06-06": "The text layer's reading ('06-JUN'). Two of three fires picked it, but those two share ONE damaged source, so their agreement is not independent evidence.",
+            "2024-06-08": "The second witness's reading ('08-JUN-2024') from the page image."
+          }
+        }
+      }
     },
     "Diodes_PCN_2683_Rev1_EOL.pdf": {
       "count": 402,
