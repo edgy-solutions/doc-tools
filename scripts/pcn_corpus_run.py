@@ -73,6 +73,7 @@ import boto3
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pcn_score  # noqa: E402  (sibling module, not an installed package)
 import pcn_crop_seal  # noqa: E402  (sibling module, not an installed package)
+from doc_tools.utils.ingest_rates import render_rates, summarize_rates  # noqa: E402
 
 # Belt-and-braces cwd check. The load-bearing fix lives in
 # doc_tools/plugins/base.py::AugmentationPlugin._ensure_prompts_available (raises
@@ -420,7 +421,9 @@ def main():
             print(f"    parts={r['parts']}/{t['gt']}  elapsed={r['elapsed_s']}s  "
                   f"needs_review={r['needs_review']}  "
                   f"failed={st.get('crops_failed')} trunc={st.get('crops_truncated')} "
-                  f"near_cap={st.get('crops_near_cap')} row_short={st.get('crops_row_short')}",
+                  f"near_cap={st.get('crops_near_cap')} row_short={st.get('crops_row_short')} "
+                  f"text_layer_degraded={st.get('text_layer_degraded')} "
+                  f"(retention={st.get('text_layer_retention')})",
                   flush=True)
 
     with open(OUT, "w") as f:
@@ -440,12 +443,24 @@ def main():
             continue
         st = r["stats"]
         flags = ",".join(k for k in
-                         ("crops_failed", "crops_truncated", "crops_near_cap", "crops_row_short")
+                         ("crops_failed", "crops_truncated", "crops_near_cap",
+                          "crops_row_short", "text_layer_degraded")
                          if st.get(k)) or "-"
         print(f"{t['file']:38} {r['parts']:>8}  {str(r['needs_review']):>6}  {flags}")
 
+    # Aggregated RATES over this run — see doc_tools/utils/ingest_rates.py. A rate
+    # rising run over run is what a production failure actually looks like; nobody
+    # reads the per-notice lines above in steady state. `chunk_tally` is omitted: this
+    # harness drives the plugin directly and never writes a chunk, so
+    # written_without_vector was never observed here (see that module's NOT-OBSERVED
+    # note — it must render as "not observed", never as a 0).
+    rates_summary = summarize_rates(results.values())
+    print()
+    print(render_rates(rates_summary))
+
     print()
     scored = pcn_score.score_run(results, pcn_score.load_ground_truth())
+    scored["rates"] = rates_summary
     print(render_import_provenance(prov))
     print(pcn_score.render(scored))
     with open(SCORE_OUT, "w") as f:
