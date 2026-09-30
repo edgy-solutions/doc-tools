@@ -57,17 +57,27 @@ JUDGMENT CALLS made in this module (read before changing behaviour):
    key string.
 
 4. REVISION ORDERING is decided ONLY where genuinely unambiguous:
-     - one side absent (`None`), the other printed  -> printed is newer.
-       (A vendor typically leaves the first release unmarked and stamps
-       only later reprints with an explicit revision.)
      - both sides purely numeric (`"1"` vs `"2"`)    -> integer compare.
      - both sides a single alphabetic character (`"A"` vs `"B"`) -> compare.
    Everything else — mixed alpha/numeric (`"A"` vs `"1"`), multi-token
-   strings (`"Rev1"`), a printed dash against anything, two absent values
-   colliding into the same key before this even runs — returns
-   `revision_order_unknown`. Getting a direction backwards would hide the
-   NEWER notice behind the OLDER one, which is strictly worse than
-   declining to answer, so this module never invents a total order.
+   strings (`"Rev1"`), a printed dash against anything, ONE SIDE ABSENT,
+   two absent values colliding into the same key before this even runs —
+   returns `revision_order_unknown`. Getting a direction backwards would
+   hide the NEWER notice behind the OLDER one, which is strictly worse
+   than declining to answer, so this module never invents a total order.
+
+   One-side-absent WAS in the decidable list, on the reasoning that a
+   vendor leaves the first release unmarked and stamps only later
+   reprints. Real fires retired it: see `_compare_revisions`. The header
+   pass reported 'R5', None, 'R5' over three fires of the same bytes, so
+   an absent revision carries no information about the document until the
+   extractor reports it reproducibly. This is the one rule in this module
+   that measurement reversed, and it is recorded rather than quietly
+   dropped because the original reasoning still sounds right.
+
+5. BYTES OUTRANK THE KEY. An equal `content_hash` is checked before the
+   keys are compared at all, so identical bytes can never be placed in a
+   revision relation to themselves. See `classify_pair`.
 """
 from __future__ import annotations
 
@@ -263,9 +273,17 @@ def _compare_revisions(rev_a: str, rev_b: str) -> Optional[int]:
     if absent_a and absent_b:
         return 0
     if absent_a != absent_b:
-        # One side never printed a revision at all; treat the printed side
-        # as the later one (judgment call #4).
-        return -1 if absent_a else 1
+        # NOT DECIDABLE -- and this was shipped decided the other way, wrongly.
+        # An absent revision is not evidence that the notice printed none; it is
+        # equally the header pass failing to report one. Three fires over the
+        # byte-identical Diodes PCN-2683 pair at pin dd043b6 read revision
+        # 'R5', None, 'R5' for THE SAME BYTES, with the two copies swapping
+        # which one carried it. So "one side absent" arises from extraction
+        # nondeterminism as readily as from a real revision difference, and
+        # ordering on it asserted that a document supersedes its own identical
+        # copy. Declining costs a missed supersedes, which the next arrival can
+        # still establish; deciding cost a false one.
+        return None
     if _NUMERIC_RE.match(rev_a) and _NUMERIC_RE.match(rev_b):
         na, nb = int(rev_a), int(rev_b)
         return (na > nb) - (na < nb)
@@ -286,7 +304,11 @@ def classify_pair(a: dict, b: dict) -> dict:
     reason text on decidable orderings.)
 
     Returns `{"relation": str, "reason": str}`. `relation` is one of:
-      "identical"              -- same key, same content_hash: the same bytes.
+      "identical"              -- same content_hash: the same bytes. Checked
+                                   BEFORE the keys, and independently of them,
+                                   because identical bytes cannot supersede
+                                   themselves however the header pass keyed
+                                   them.
       "duplicate_copy"         -- same key, different content_hash: same
                                    notice identity, different bytes (a
                                    re-render, a re-scan, a corrected typo).
@@ -315,13 +337,31 @@ def classify_pair(a: dict, b: dict) -> dict:
             ),
         }
 
+    # BYTES FIRST, BEFORE THE KEYS ARE COMPARED. Identical bytes cannot stand in
+    # any revision relation to themselves, so an equal content_hash settles the
+    # pair whatever the keys say. The order of these two checks is load-bearing,
+    # not tidiness: this test used to sit INSIDE the `key_a == key_b` branch
+    # below, so a pair whose keys differed only because the header pass reported
+    # the revision inconsistently never reached it and came back "supersedes" --
+    # measured on the Diodes PCN-2683 pair, same sha256, one copy declared to
+    # supersede the other. A key difference over equal bytes is a fact about the
+    # extractor, not about the documents; the corpus gate reports it as identity
+    # instability rather than letting the dedupe act on it.
+    hash_a, hash_b = a.get("content_hash"), b.get("content_hash")
+    if hash_a is not None and hash_b is not None and hash_a == hash_b:
+        return {
+            "relation": "identical",
+            "reason": (
+                "same content_hash — the same bytes"
+                if key_a == key_b else
+                f"same content_hash — the same bytes, though the notice_identity "
+                f"keys differ ({key_a!r} vs {key_b!r}): the header pass did not "
+                f"report the same revision twice for identical bytes, and a "
+                f"document cannot supersede its own copy"
+            ),
+        }
+
     if key_a == key_b:
-        hash_a, hash_b = a.get("content_hash"), b.get("content_hash")
-        if hash_a is not None and hash_b is not None and hash_a == hash_b:
-            return {
-                "relation": "identical",
-                "reason": "same notice_identity key and same content_hash — the same bytes",
-            }
         return {
             "relation": "duplicate_copy",
             "reason": (
@@ -341,10 +381,11 @@ def classify_pair(a: dict, b: dict) -> dict:
             "relation": "revision_order_unknown",
             "reason": (
                 f"same (mfr, doc_id); revisions {a.get('revision')!r} vs "
-                f"{b.get('revision')!r} differ but their order is not decidable (not "
-                f"both numeric, not both single-alphabetic, and neither side is simply "
-                f"absent) — guessing would risk hiding the newer notice behind the "
-                f"older one"
+                f"{b.get('revision')!r} differ but their order is not decidable "
+                f"(not both numeric, not both single-alphabetic, or one side is "
+                f"absent and an absent revision may be a header miss rather than "
+                f"a document that prints none) — guessing would risk hiding the "
+                f"newer notice behind the older one"
             ),
         }
     if order > 0:

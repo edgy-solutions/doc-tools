@@ -190,11 +190,24 @@ def test_classify_pair_supersedes_single_alpha_revisions():
     assert ni.classify_pair(older, newer)["relation"] == "superseded_by"
 
 
-def test_classify_pair_supersedes_absent_vs_present_revision():
+def test_classify_pair_absent_vs_present_revision_is_not_an_ordering():
+    """An absent revision does not make the printed side newer.
+
+    This assertion is INVERTED from the one originally shipped, which called
+    the printed side newer on the reasoning that vendors leave a first release
+    unmarked. Three corpus fires at pin dd043b6 retired that: over the
+    byte-identical Diodes PCN-2683 pair the header pass read revision 'R5',
+    None, 'R5' for the SAME bytes. So an absent revision is as likely to be a
+    header miss as a document that prints none, and it cannot order anything.
+    """
     unrevisioned = _record("Acme Inc", "PCN 1", None, "sha-old")
     revisioned = _record("Acme Inc", "PCN 1", "A", "sha-new")
-    assert ni.classify_pair(revisioned, unrevisioned)["relation"] == "supersedes"
-    assert ni.classify_pair(unrevisioned, revisioned)["relation"] == "superseded_by"
+    both = (ni.classify_pair(revisioned, unrevisioned),
+            ni.classify_pair(unrevisioned, revisioned))
+    assert [r["relation"] for r in both] == ["revision_order_unknown"] * 2
+    # The reason must say WHY it declined, so a reviewer reading a dedupe log
+    # is not left guessing whether the extractor or the document is at fault.
+    assert "header miss" in both[0]["reason"]
 
 
 def test_classify_pair_revision_order_unknown_alpha_vs_numeric():
@@ -246,10 +259,17 @@ def test_classify_pair_distinct_different_mfr():
 # stand-in. Note the HYPHEN: it survives normalization, because `-` is a real
 # printed revision value and is deliberately excluded from the punctuation
 # stripping that drops `.`, `,` and `'`.
-# Revision: the filenames disagree ('FULLGREEN' vs 'Rev1_EOL') but the
-# extracted header comes from byte-identical PDF bytes, so it is identical
-# too — the whole point is that the FILENAME must not decide notice
-# identity, only the header content does.
+# Revision: the filenames disagree ('FULLGREEN' vs 'Rev1_EOL') and — this was
+# ASSUMED otherwise here, wrongly — so does the extracted revision, even though
+# the bytes are the same. Three fires at pin dd043b6 read, for FULLGREEN,
+# revision 'R5' / None / 'R5', with the two copies swapping which one carried
+# it fire to fire. `revision` is in neither RAW_FIELDS nor WRITTEN_FIELDS of
+# scripts/pcn_header_agreement.py, so that instrument reported both files as
+# "agree" throughout. The pair below therefore pins BOTH cases: the stable one,
+# and the measured unstable one that used to come back "supersedes".
+# The whole point is that the FILENAME must not decide notice identity — but
+# nor may a nondeterministic revision, which is why the content hash is
+# consulted before the keys are compared at all.
 # ---------------------------------------------------------------------------
 
 _DIODES_2683_SHA256 = "af5bfad3f9344eb1dc942230a33cb61b58fb911b977da2063fffbecb5788074c"
@@ -265,3 +285,32 @@ def test_diodes_pcn_2683_fullgreen_and_rev1_eol_are_identical():
 
     result = ni.classify_pair(fullgreen, rev1_eol)
     assert result["relation"] == "identical"
+
+
+def test_diodes_pair_is_identical_even_when_the_header_pass_flips_the_revision():
+    """The same bytes must never be reported as superseding themselves.
+
+    This is the exact pair and the exact values measured over three fires at
+    pin dd043b6: identical sha256, and a revision the header pass reported as
+    'R5' on fires 1 and 3 and as None on fire 2. Before the content hash was
+    moved ahead of the key comparison, this returned:
+
+        {'relation': 'supersedes',
+         'reason': "same (mfr, doc_id); revision 'R5' is newer than None"}
+
+    i.e. one copy of a document declared to supersede its byte-identical twin,
+    which is the false-positive the dedupe exists to avoid. Both orderings are
+    asserted because a direction-dependent answer here would be just as wrong.
+    """
+    as_fire_1 = _record("Diodes Incorporated", "PCN-2683", "R5", _DIODES_2683_SHA256)
+    as_fire_2 = _record("Diodes Incorporated", "PCN-2683", None, _DIODES_2683_SHA256)
+
+    # The nondeterminism is real: the keys genuinely differ.
+    assert as_fire_1["key"] != as_fire_2["key"]
+
+    for a, b in ((as_fire_1, as_fire_2), (as_fire_2, as_fire_1)):
+        result = ni.classify_pair(a, b)
+        assert result["relation"] == "identical", result
+        # The reason must surface the key disagreement rather than hiding it —
+        # it is a reportable fact about the extractor, not a detail to swallow.
+        assert "keys differ" in result["reason"]
