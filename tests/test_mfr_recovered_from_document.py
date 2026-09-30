@@ -153,9 +153,24 @@ def test_a_damaged_text_layer_is_not_a_naming_disagreement_and_is_not_recovered(
     value, _ = recover_mfr_from_document("TE Connectivity", _tyc_index())
     assert value is None
 
+    # `text_layer_degraded=True` is what the plugin passes for this notice, from the
+    # measurement in `text_layer_health.assess_elements` (TYC is the 1 of 9 that trips
+    # it). It is stated rather than inferred because `witness_index=None` cannot carry
+    # it — see the companion test below for what it buys.
+    header_d = {"mfr": "TE Connectivity", "mfr_source": None}
+    refuse_unsourced_header_values(header_d, _tyc_index(), text_layer_degraded=True)
+    assert header_d["mfr"] == ""
+
+
+def test_document_wins_is_off_ONLY_because_the_caller_measured_the_damage():
+    """The companion to the test above, and the reason the plugin call site is part of
+    this change rather than a follow-up. Document-wins has no way to see that
+    `TE Connecvity` is a misspelling — it is a standalone Title of perfect name shape, so
+    on the DEFAULT (undamaged) path it is read and written. The flag is the whole
+    protection; a caller that forgets it puts the misspelling in the graph."""
     header_d = {"mfr": "TE Connectivity", "mfr_source": None}
     refuse_unsourced_header_values(header_d, _tyc_index())
-    assert header_d["mfr"] == ""
+    assert header_d["mfr"] == "TE Connecvity"
 
 
 # --------------------------------------------------------------------------- #

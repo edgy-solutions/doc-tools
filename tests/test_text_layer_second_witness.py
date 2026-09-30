@@ -159,9 +159,15 @@ def test_without_a_witness_the_degraded_layer_refuses_a_correct_manufacturer(
         degraded_index):
     """The state of things before this change, and the reason for it: the vendor really
     is called TE Connectivity, the model really did read it off the page, and the field
-    is emptied because the text layer cannot print it."""
+    is emptied because the text layer cannot print it.
+
+    `text_layer_degraded=True` is what the plugin passes for this document, from the same
+    `assess_text_layer` measurement the tests above pin. It switches off reading a name out
+    of the document's own headings: on THIS document those headings say `TE Connecvity`, so
+    without the flag the refusal would helpfully write the misspelling."""
     header_d = {"mfr": "TE Connectivity", "mfr_source": "TE Connectivity"}
-    reasons = refuse_unsourced_header_values(header_d, degraded_index)
+    reasons = refuse_unsourced_header_values(header_d, degraded_index,
+                                             text_layer_degraded=True)
     assert header_d["mfr"] == ""
     assert any("refused" in r for r in reasons), reasons
 
@@ -185,7 +191,8 @@ def test_a_value_on_neither_witness_is_still_refused(degraded_index, healthy_ind
     appears in neither the text layer nor the page."""
     header_d = {"mfr": "TT Electronics", "mfr_source": None}
     reasons = refuse_unsourced_header_values(header_d, degraded_index,
-                                             witness_index=healthy_index)
+                                             witness_index=healthy_index,
+                                             text_layer_degraded=True)
     assert header_d["mfr"] == ""
     assert any("refused" in r for r in reasons), reasons
     assert not any("corroborated" in r for r in reasons), reasons
@@ -302,8 +309,13 @@ def test_no_witness_means_no_accusation():
 
 def test_a_witness_that_failed_to_transcribe_changes_nothing(degraded_index):
     """Vision can time out, and an empty or absent witness must degrade to exactly the
-    behaviour before this change rather than to an exception."""
+    behaviour before this change rather than to an exception.
+
+    This is the case that forced `text_layer_degraded` to be a separate argument rather
+    than inferred from `witness_index`: the document IS degraded on all three of these
+    paths, and a None witness is exactly what a timeout hands over."""
     for witness in (None, [], provenance.build_positioned_index([])):
         header_d = {"mfr": "TE Connectivity", "mfr_source": None}
-        refuse_unsourced_header_values(header_d, degraded_index, witness_index=witness)
+        refuse_unsourced_header_values(header_d, degraded_index, witness_index=witness,
+                                       text_layer_degraded=True)
         assert header_d["mfr"] == ""

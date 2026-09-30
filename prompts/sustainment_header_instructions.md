@@ -9,12 +9,19 @@ Extract these header fields:
   Choose the PRIMARY class. If a change notice also kills a variant, keep doc_type as the primary class (usually PCN) and record the discontinuation nuance in categories.
 - revision: the document revision exactly as printed (e.g. "A", "-"). Null if the notice shows none.
 - pub_date: the notification / publication date, normalized to ISO 8601 (YYYY-MM-DD).
-- mfr: the issuing manufacturer (e.g. "Analog Devices, Inc.").
+- mfr: the manufacturer or brand name **AS PRINTED IN THE DOCUMENT TEXT** — copied character-for-character from the page. This is a COPYING task, not an identification task:
+    * Do NOT expand an abbreviation or wordmark into the fuller name you know it stands for.
+    * Do NOT substitute a parent or owning company for the brand that is printed (that is what mfr_parent is for).
+    * Do NOT assemble a name out of a web address or an e-mail domain. A domain says where the document is hosted, not who made the part.
+  If the document prints no manufacturer or brand name anywhere in the text, return **null** for BOTH mfr and mfr_source. Null is a CORRECT answer here and is always preferred over a name you had to infer — an unprinted name is worse than no name.
+- mfr_parent: the PARENT or owning company, and ONLY when that company's name is printed as a NAME somewhere in the text. A web address or an e-mail domain (e.g. "acme.com") is a domain, not a name, and does NOT qualify. Null otherwise — which is the common case. Never repeat the mfr value here.
 - categories: all applicable change categories from {Material, Process, Location, Discontinuation, Packaging, Testing}. May be more than one. This is a judgment call.
 - summary: a concise 1-2 sentence impact summary. This is derived/paraphrased.
 - doc_level_ltb_date: a SINGLE document-level last-time-buy / last-order date that applies to ALL affected parts, IF the notice states one once (in the header or prose), normalized to ISO 8601. Null if there is no single doc-level LTB (e.g. the dates are only per-row in the table, or there is no LTB at all).
 
-PROVENANCE (*_source fields): for pub_date, mfr, and doc_level_ltb_date, ALSO return the EXACT substring as it appears in the document — unnormalized, character-for-character — in the matching *_source field (pub_date_source, mfr_source, doc_level_ltb_date_source). If you cannot find the value verbatim in the text, set the *_source to null. summary and categories are derived and have NO source snippet.
+PROVENANCE (*_source fields): for pub_date, mfr, mfr_parent and doc_level_ltb_date, ALSO return the EXACT substring as it appears in the document — unnormalized, character-for-character — in the matching *_source field (pub_date_source, mfr_source, mfr_parent_source, doc_level_ltb_date_source). If you cannot find the value verbatim in the text, set the *_source to null. summary and categories are derived and have NO source snippet.
+
+mfr_source AND mfr_parent_source ARE MANDATORY whenever their value is non-null. These two fields are names, not derived values: a name you cannot quote out of the text is a name the document does not print. If you cannot copy it character-for-character, return null for the value itself rather than a value with a null source.
 
 DATE NORMALIZATION: convert any printed date format (e.g. "05-Dec-2023", "December 5, 2023", "2023/12/05") to YYYY-MM-DD for the value field, but keep the *_source field verbatim as printed.
 

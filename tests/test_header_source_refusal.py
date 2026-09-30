@@ -107,7 +107,11 @@ def test_typographic_fold_saves_a_source_that_differs_only_by_dash_and_nbsp():
                 "doc_level_ltb_date": None, "doc_level_ltb_date_source": None}
     reasons = refuse_unsourced_header_values(header_d, index)
 
-    assert reasons == [], "a typographically-folded match must not be refused"
+    # `mfr` is nulled as filler here, and a null mfr now draws its own line (the
+    # document names nobody either), so this asserts what it means: the field under
+    # test was not refused.
+    assert not [r for r in reasons if "pub_date" in r], \
+        "a typographically-folded match must not be refused"
     assert header_d["pub_date"] == "2023-12-05"
     assert header_d["pub_date_source"] == source
 
@@ -158,7 +162,8 @@ def test_doc_level_ltb_date_refused_to_none_not_empty_string():
                 "doc_level_ltb_date": "2099-01-01", "doc_level_ltb_date_source": None}
     reasons = refuse_unsourced_header_values(header_d, _index())
 
-    assert len(reasons) == 1 and "header.doc_level_ltb_date" in reasons[0]
+    ltb = [r for r in reasons if "header.doc_level_ltb_date" in r]
+    assert len(ltb) == 1 and "refused" in ltb[0], reasons
     assert header_d["doc_level_ltb_date"] is None, \
         "the refused date must become None, matching its declared blank sentinel"
     assert header_d["doc_level_ltb_date_source"] is None

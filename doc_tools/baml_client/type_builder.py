@@ -1034,7 +1034,7 @@ class NoticeHeaderAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("NoticeHeader")
-        self._properties: typing.Set[str] = set([  "doc_id",  "doc_type",  "revision",  "pub_date",  "pub_date_source",  "mfr",  "mfr_source",  "categories",  "summary",  "doc_level_ltb_date",  "doc_level_ltb_date_source",  ])
+        self._properties: typing.Set[str] = set([  "doc_id",  "doc_type",  "revision",  "pub_date",  "pub_date_source",  "mfr",  "mfr_source",  "mfr_parent",  "mfr_parent_source",  "categories",  "summary",  "doc_level_ltb_date",  "doc_level_ltb_date_source",  ])
         self._props = NoticeHeaderProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -1089,6 +1089,14 @@ class NoticeHeaderProperties:
     @property
     def mfr_source(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("mfr_source"))
+    
+    @property
+    def mfr_parent(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("mfr_parent"))
+    
+    @property
+    def mfr_parent_source(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("mfr_parent_source"))
     
     @property
     def categories(self) -> type_builder.ClassPropertyViewer:
@@ -1407,7 +1415,7 @@ class SustainmentNoticeAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("SustainmentNotice")
-        self._properties: typing.Set[str] = set([  "doc_id",  "doc_type",  "revision",  "pub_date",  "mfr",  "categories",  "summary",  "doc_level_ltb_date",  "impacted_parts",  ])
+        self._properties: typing.Set[str] = set([  "doc_id",  "doc_type",  "revision",  "pub_date",  "mfr",  "mfr_parent",  "categories",  "summary",  "doc_level_ltb_date",  "impacted_parts",  ])
         self._props = SustainmentNoticeProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -1454,6 +1462,10 @@ class SustainmentNoticeProperties:
     @property
     def mfr(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("mfr"))
+    
+    @property
+    def mfr_parent(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("mfr_parent"))
     
     @property
     def categories(self) -> type_builder.ClassPropertyViewer:

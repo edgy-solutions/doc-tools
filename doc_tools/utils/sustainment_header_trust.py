@@ -146,6 +146,9 @@ def locate_header_source(value, source, index: List[dict],
        parts table) -> `(True, <that call's match_method>, str(value))`.
     2. `value` matches only after `fold_typography` on both sides ->
        `(True, "typographic_fold", str(value))`.
+    `mode="name"` is `"verbatim"` with one addition: a value that is itself
+    domain-shaped is refused before the document is consulted at all. See the check.
+
     3. Otherwise refused, with the METHOD naming the shape of the failure:
        `"value_absent_source_resolves"` (see below), `"value_absent_source_unresolvable"`,
        `"value_absent_no_source"`, or `"no_value"`.
@@ -188,6 +191,17 @@ def locate_header_source(value, source, index: List[dict],
         return False, "no_value", None
 
     val_str = str(value)
+    if mode == "name" and _URLISH_RE.search(val_str):
+        # `mode="name"` IS THE VERBATIM RULE PLUS THIS. A domain passes a verbatim check
+        # on the very documents where it is wrong: `EOL-36_BYV34-400,-BYV34-500` prints
+        # `https://www.ttelectronics.com/brands/semelab/` in its footer, so
+        # `mfr_parent = "ttelectronics.com"` WOULD resolve, character-for-character, and
+        # be written as the owning company's name. It is the same fabrication shape the
+        # value-anchored rule was built to stop, wearing the one citation that happens to
+        # contain it. A web or e-mail domain says where a document is hosted; the name of
+        # the company that owns the brand is a different claim, and this field only
+        # accepts it when the document makes it in words.
+        return False, "value_is_a_domain_not_a_name", None
     rec = provenance.resolve_value(val_str, index, prefer_region="narrative")
     if rec["found"]:
         return True, rec["match_method"], val_str
@@ -353,6 +367,181 @@ _RECOVERABLE = {"mfr": recover_mfr_from_document}
 
 
 # --------------------------------------------------------------------------- #
+# 2b-ter. Document wins — the manufacturer the page prints, whatever the model said
+# --------------------------------------------------------------------------- #
+
+# THE MEASUREMENT THIS EXISTS FOR. Six fires of `ExtractHeader` over
+# `EOL-36_BYV34-400,-BYV34-500` on BYTE-IDENTICAL input (rendered-prompt sha256
+# `e1adfbbd…`, 1713 input tokens) produced FOUR different `mfr` outcomes:
+# `"SEMELAB"` with a verbatim source; `"TT Electronics"` with an honest null source;
+# `"TT Electronics"` cited to a ttelectronics.com URL the footer really does print; and
+# `null`, which under a non-nullable schema failed the whole header pass and cost the
+# document its doc_id, pub_date, categories and summary as well.
+#
+# All four are DEFENSIBLE READINGS of what the page offers, which is the point:
+# the masthead is a logo that `unstructured` renders as `[Image] @ Electronics`, the
+# parts table is headed `TT Series`, the prose says "discuss with TT sales", five
+# `ttelectronics.com` URLs appear, and `SEMELAB` is printed as a standalone heading
+# three times. The defect was never the sampler — a greedy decode would simply pick one
+# of the four forever, and on the next acquired-brand notice it might pick a different
+# one. The defect was asking the model to ADJUDICATE "the issuing manufacturer" on a
+# page that supports several answers. So the discretion is removed: the model nominates,
+# and the document decides.
+#
+# `recover_mfr_from_document` above cannot reach this case. It searches for a
+# CONTRACTION of the nominated name (`onsemi` inside `ONSEMICONDUCTOR`), and `semelab`
+# is no contraction of `ttelectronics` — the document's answer and the model's share not
+# one letter. That rule needs the model to have been approximately right. This one does
+# not consult the nomination at all.
+
+# A standalone heading in a change notice is usually document FURNITURE — a section
+# title, a field label, a page number — and not a name. These are the words it is built
+# from. READ OFF THE REAL ELEMENT LIST of the notice above, whose standalone headings
+# are exactly: "Products", "Products Affected", "Change Detail",
+# "Power Solutions Product Change Notification", "Page 2 of 2",
+# "SENSORS AND SPECIALIST COMPONENTS", four copies of a ttelectronics.com URL, and
+# `SEMELAB`. Every one but the last falls to this list, the token ceiling or the
+# connective rule, which is what leaves a single candidate standing.
+#
+# DELIBERATELY NO INDUSTRY NOUNS. "electronics", "semiconductor", "components",
+# "sensors", "technology", "solutions" are what manufacturers are CALLED; listing them
+# to kill a tagline would kill `TT Electronics` and `ON Semiconductor` with it. Only
+# document-structure vocabulary belongs here.
+#
+# AN INCOMPLETE LIST FAILS SAFE, and that is the whole reason this design is
+# acceptable. An unlisted furniture word does not become a manufacturer: it becomes a
+# SECOND surviving candidate, and two candidates refuse (see the uniqueness rule
+# below). The cost of a gap is an empty field — exactly today's behaviour — never a
+# fabricated one.
+_FURNITURE_WORDS = frozenset("""
+    affected approval approvals attachment authorized available buy change changes
+    contact contacts customer customers date dates description detail details device
+    devices discontinuance discontinued distribution distributor document documents
+    effective end eol figure form identification impact implementation information
+    issue issued item items last legend life notice notification note notes number
+    obsolete order page part parts plan process product products purchase
+    qualification quality reason recommendation recommendations reference references
+    replacement requalify revision sample samples schedule scope series signature
+    specification specifications spec status subject summary table time title type
+    types
+""".split())
+
+# A connective is grammar, not a name. It is also what separates a manufacturer from a
+# tagline at the same token count: `SENSORS AND SPECIALIST COMPONENTS` is printed as a
+# standalone Title on BOTH pages of the SEMELAB notice — as brand-like a position as
+# the brand itself — and "AND" is what says it is a description of a business rather
+# than the name of one. Rejecting a rare real name that contains one ("Rohm and Haas")
+# costs an empty field, which is the safe direction.
+_CONNECTIVE_WORDS = frozenset("a an and at by for from in of on or the to with & +".split())
+
+# A name is short. Three tokens covers `Analog Devices, Inc.`, `Texas Instruments
+# Incorporated`, `ON Semiconductor` and `TT Electronics`; four is where the taglines
+# start.
+_MAX_NAME_TOKENS = 3
+
+# The two element types a letterhead or footer brand mark arrives as. `unstructured`
+# gives a bare masthead word either a heading role or none at all — on this notice
+# `SEMELAB` comes back as `Title` twice and `UncategorizedText` once. Never
+# `NarrativeText`, which is prose, where the CONTRACTION recovery already looks; never
+# `Table`, which is the parts grid. Restricting to these two is what "standalone" means
+# here: THE WHOLE ELEMENT IS THE CANDIDATE, so a name can never be carved out of the
+# middle of a sentence — which is the reading that produced `TT Electronics` from
+# "discuss with TT sales" in the first place.
+_STANDALONE_NAME_TYPES = frozenset({"Title", "UncategorizedText"})
+
+_DIGIT_RE = re.compile(r"\d")
+
+
+def _is_name_shaped(form: str) -> bool:
+    """Could this printed string be a manufacturer's name, on its shape alone?
+
+    Every test here is a REJECTION, and each one is answerable off the string itself —
+    no vendor list, no fuzzy distance, nothing the document did not supply. A name has
+    no digits (that is a page number or a part number), is not a URL or an e-mail
+    address, is at most `_MAX_NAME_TOKENS` long, and contains neither a grammatical
+    connective nor the vocabulary a notice builds its section headings from.
+    """
+    if not form or _URLISH_RE.search(form) or _DIGIT_RE.search(form):
+        return False
+    # The same floor the contraction rule uses: below four alphanumerics a "name" is an
+    # initialism that identifies nobody (`TT` opens TTELECTRONICS, and TEXAS INSTRUMENTS,
+    # and TAIYO YUDEN).
+    if len(_name_key(form)) < _NAME_MIN_KEY:
+        return False
+    tokens = [t for t in (t.strip(_NAME_EDGE_PUNCT) for t in _WS_RE.split(form)) if t]
+    if not tokens or len(tokens) > _MAX_NAME_TOKENS:
+        return False
+    for t in tokens:
+        low = t.lower()
+        if low in _CONNECTIVE_WORDS or low in _FURNITURE_WORDS:
+            return False
+    return True
+
+
+def mfr_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
+    """The manufacturer THE DOCUMENT prints as one of its own headings, read without
+    reference to anything the model said.
+
+    Returns `(value, source)` — both the verbatim printed form — or `(None, None)` when
+    the document does not name exactly one.
+
+    UNIQUENESS IS THE SAFETY, not the shape tests. The shape tests decide who gets to
+    be a candidate; this decides whether the document has actually made a statement.
+    Survivors are grouped by `_name_key`, and the call succeeds ONLY when every
+    surviving key is a prefix of the longest one — i.e. they are one name at different
+    truncations (`SEMELAB` beside `SEMELAB PLC`), for which the longest is the fullest
+    form the document prints. Two unrelated names means the document names two
+    manufacturers and this function has no business choosing between them, so it
+    refuses and the field is left empty. That is why a gap in `_FURNITURE_WORDS` is a
+    refusal rather than a wrong answer.
+
+    Not a fallback for a value that VERIFIED: the caller only reaches this when the
+    model's `mfr` failed the document check or was never produced. A model value the
+    document prints verbatim is already the document's answer and stands untouched.
+    """
+    counts: Dict[str, int] = {}
+    first_seen: Dict[str, int] = {}
+    for position, el in enumerate(index):
+        if el.get("type") not in _STANDALONE_NAME_TYPES:
+            continue
+        form = (el.get("text") or "").strip().strip(_NAME_EDGE_PUNCT).strip()
+        if not _is_name_shaped(form):
+            continue
+        counts[form] = counts.get(form, 0) + 1
+        first_seen.setdefault(form, position)
+
+    if not counts:
+        return None, None
+
+    keys = {_name_key(f) for f in counts}
+    longest = max(keys, key=len)
+    if any(not longest.startswith(k) for k in keys):
+        return None, None
+
+    # Among printed forms of the SAME key (`SEMELAB` vs `Semelab`), the one the document
+    # uses most often, and on a tie the one it uses first — the same tie-break the
+    # contraction recovery applies.
+    best = sorted((f for f in counts if _name_key(f) == longest),
+                  key=lambda f: (-counts[f], first_seen[f]))[0]
+
+    # Belt and braces, and it is load-bearing: this value is WRITTEN BY THE REFUSAL, so
+    # if it could not itself pass the refusal the next re-check would blank it and the
+    # substitution would be silently undone.
+    if not provenance.resolve_value(best, index, prefer_region="narrative")["found"]:
+        return None, None
+    return best, best
+
+
+# Fields whose value the DOCUMENT can supply on its own, with no nomination to work
+# from. Consulted both when the model's value fails the document check and when the
+# model produced no value at all — a null `mfr` is now a legal model answer (the schema
+# was made nullable so one unfound field can no longer fail the whole header pass), and
+# a page that names its own manufacturer should not be left empty because the model
+# declined to.
+_DOCUMENT_WINS = {"mfr": mfr_from_document}
+
+
+# --------------------------------------------------------------------------- #
 # 2c. The refusal
 # --------------------------------------------------------------------------- #
 
@@ -377,6 +566,9 @@ _REFUSAL_CLAUSE = {
     "source_is_a_different_date":
         "is not supported by the document; its cited source names a different date — cited",
     "no_value": "is not a usable value",
+    "value_is_a_domain_not_a_name":
+        "is a web or e-mail domain, not a name — a document's own address says where it "
+        "is hosted, not who owns the brand",
 }
 
 
@@ -388,13 +580,21 @@ def _clip(s, limit: int = 80) -> str:
 
 HEADER_SOURCED_FIELDS = (
     ("mfr", "mfr_source", "", "verbatim"),
+    # The brand-vs-owner distinction, kept WITHOUT inventing either half. `mfr` is the
+    # name printed on the page; `mfr_parent` is the company that owns it, and it is
+    # written only when the document prints that company's name IN WORDS. Mode "name",
+    # not "verbatim", because the verbatim rule alone would accept `ttelectronics.com`
+    # off the SEMELAB notice's own footer. Blank value None, not "": an absent parent is
+    # the COMMON case and must not read as a parent the extractor lost.
+    ("mfr_parent", "mfr_parent_source", None, "name"),
     ("pub_date", "pub_date_source", "", "date"),
     ("doc_level_ltb_date", "doc_level_ltb_date_source", None, "date"),
 )
 
 
 def refuse_unsourced_header_values(header_d: dict, index: List[dict],
-                                   witness_index: Optional[List[dict]] = None) -> List[str]:
+                                   witness_index: Optional[List[dict]] = None,
+                                   text_layer_degraded: bool = False) -> List[str]:
     """Drop any header value in `HEADER_SOURCED_FIELDS` that is not verbatim in the
     document. MUTATES `header_d` IN PLACE. Returns the doc-level reason strings (one per
     refused field, never raises).
@@ -435,6 +635,23 @@ def refuse_unsourced_header_values(header_d: dict, index: List[dict],
     field is, by construction, no longer present for a reviewer to look at — there is
     nothing left to flag.
 
+    DOCUMENT WINS (`text_layer_degraded`). When the model's `mfr` fails the document
+    check — or was never produced, which a nullable schema now permits — the document is
+    asked what IT prints (`mfr_from_document`). That read is switched OFF on a document
+    whose text layer is MEASURED DAMAGED, because a damaged layer cannot be trusted to
+    SPELL a name: `TYC-PCN-24-210412` prints its vendor as `TE Connecvity` (the embedded
+    font drops every `ti`), and a rule that reads names off headings would write that
+    misspelling into the graph as a manufacturer. A damaged text layer is not a naming
+    disagreement — it is detected, and answered with the second witness above, which is
+    the mechanism that recovers the CORRECT spelling from the page's pixels.
+
+    It is a SEPARATE ARGUMENT from `witness_index` and must not be inferred from it. A
+    degraded document whose vision witness could not be built (no `VISION_LLM_BASE_URL`,
+    no page manifest, a transcription timeout) arrives here with `witness_index` None —
+    indistinguishable from a healthy document — while still being exactly the document
+    whose headings must not be read. The caller measures the degradation
+    (`text_layer_health.assess_elements`) and states it.
+
     A field that clears `locate_header_source` gets its `*_source` REWRITTEN to the
     `effective_source` returned — which is now always the VERIFIED VALUE STRING, never
     the model's own snippet. So a value produced with no snippet at all still carries a
@@ -445,50 +662,91 @@ def refuse_unsourced_header_values(header_d: dict, index: List[dict],
     reasons: List[str] = []
     for field, source_field, blank_value, mode in HEADER_SOURCED_FIELDS:
         value = header_d.get(field)
-        if not value:
-            continue
         source = header_d.get(source_field)
-        ok, method, effective_source = locate_header_source(value, source, index, mode=mode)
-        if not ok and witness_index:
-            # Asked in the SAME way, against pixels instead of the text layer. The value
-            # is still the anchor; the witness grants no standing to a citation that the
-            # text layer would not have accepted.
-            w_ok, w_method, w_source = locate_header_source(value, source, witness_index,
-                                                            mode=mode)
-            if w_ok:
-                ok, effective_source = True, w_source
-                reasons.append(
-                    f"header.{field} corroborated by the page image: '{_clip(value)}' is "
-                    f"absent from this document's degraded text layer but is printed on "
-                    f"the page ({w_method})"
-                )
+        # See `text_layer_degraded` in the docstring: on a damaged text layer the
+        # document's own headings are not trustworthy SPELLINGS, so the document is not
+        # asked. The witness path above is the answer for those documents.
+        document_wins = None if text_layer_degraded else _DOCUMENT_WINS.get(field)
+
+        # A field the model left empty is still asked of the document when the document
+        # can answer it on its own (`mfr`). For every other field an empty value is left
+        # exactly as it is, with NO reason recorded — `doc_level_ltb_date` is legitimately
+        # absent on most notices, and announcing a refusal of a value that was never
+        # produced would put a spurious line in every document's narrative.
+        if not value and not document_wins:
+            continue
+
+        ok, method, effective_source = False, "no_value", None
+        if value:
+            ok, method, effective_source = locate_header_source(value, source, index,
+                                                               mode=mode)
+            if not ok and witness_index:
+                # Asked in the SAME way, against pixels instead of the text layer. The
+                # value is still the anchor; the witness grants no standing to a citation
+                # that the text layer would not have accepted.
+                w_ok, w_method, w_source = locate_header_source(value, source,
+                                                               witness_index, mode=mode)
+                if w_ok:
+                    ok, effective_source = True, w_source
+                    reasons.append(
+                        f"header.{field} corroborated by the page image: "
+                        f"'{_clip(value)}' is absent from this document's degraded text "
+                        f"layer but is printed on the page ({w_method})"
+                    )
         if ok:
             header_d[source_field] = effective_source
             continue
-        # The model's value failed. Before blanking the field, ask the document
-        # whether it names one itself — see `recover_mfr_from_document`. The
-        # substitution is recorded in `reasons` like everything else here: a written
-        # value that did not come from the model is exactly the kind of thing a human
-        # reading the narrative must be able to see.
-        recover = _RECOVERABLE.get(field)
-        if recover:
-            recovered, recovered_source = recover(value, index)
-            if recovered:
-                header_d[field] = recovered
-                header_d[source_field] = recovered_source
+
+        # THE CASCADE, narrowest claim first. Before blanking the field, ask the document
+        # whether it names one itself. Every substitution is recorded in `reasons` like
+        # everything else here: a written value that did not come from the model is
+        # exactly the kind of thing a human reading the narrative must be able to see.
+        #
+        #   1. CONTRACTION (`recover_mfr_from_document`) — needs the nomination, and is
+        #      the narrower claim because the document's answer must share the
+        #      nomination's opening letters. Measured on `onsemi_Generic_IPCN25300X`,
+        #      where it writes the prose form `onsemi` over the wordmark `ONSEM.`; going
+        #      to the headings first would write the wordmark instead.
+        #   2. DOCUMENT WINS (`mfr_from_document`) — ignores the nomination entirely, and
+        #      is the only step that can reach a document whose answer shares nothing with
+        #      the model's (`SEMELAB` against `TT Electronics`). Also the step that runs
+        #      when there is no nomination at all.
+        for recover, args in ((_RECOVERABLE.get(field) if value else None, (value, index)),
+                              (document_wins, (index,))):
+            if not recover:
+                continue
+            recovered, recovered_source = recover(*args)
+            if not recovered:
+                continue
+            header_d[field] = recovered
+            header_d[source_field] = recovered_source
+            if value:
                 reasons.append(
                     f"header.{field} recovered: model value '{_clip(value)}' is not "
                     f"printed in the document; written from the document's own "
                     f"'{_clip(recovered)}' instead"
                 )
-                continue
-        header_d[field] = blank_value
-        header_d[source_field] = None
-        clause = _REFUSAL_CLAUSE.get(method, f"was refused ({method})")
-        reasons.append(
-            f"header.{field} refused: '{value}' {clause}"
-            + (f": '{_clip(source)}'" if source and clause.endswith("cited") else "")
-        )
+            else:
+                reasons.append(
+                    f"header.{field} recovered: the header pass returned none; written "
+                    f"from the document's own '{_clip(recovered)}'"
+                )
+            break
+        else:
+            header_d[field] = blank_value
+            header_d[source_field] = None
+            if not value:
+                reasons.append(
+                    f"header.{field} not written: the header pass returned none and the "
+                    f"document does not name one itself"
+                )
+            else:
+                clause = _REFUSAL_CLAUSE.get(method, f"was refused ({method})")
+                reasons.append(
+                    f"header.{field} refused: '{value}' {clause}"
+                    + (f": '{_clip(source)}'" if source and clause.endswith("cited")
+                       else "")
+                )
     return reasons
 
 

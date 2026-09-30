@@ -1,0 +1,77 @@
+{
+  "notice": "EOL-36_BYV34-400,-BYV34-500",
+  "what_this_is": "The element list and the measured model answers for the one notice that forced the mfr redesign. Transcribed VERBATIM from the raw BAML I/O captured out of the sandbox pod and recorded in sessions/2026-09-29-eol36-raw-baml-io.md. 'elements' is the document text exactly as the rendered prompt carried it: one entry per unstructured element, its type and its text. 'model_answers' is what ExtractHeader returned for mfr over six fires on byte-identical input (rendered-prompt sha256 e1adfbbd..., 1713 input tokens).",
+  "caveats": [
+    "Three ttelectronics.com e-mail addresses inside the page-2 Sales Contacts table are replaced by '[e-mail redacted]'. They are real people's addresses. The substitution cannot affect any measurement here: Table elements are never candidates for a document-read name.",
+    "No coordinates. The rendered prompt carries type and text only. Bboxes are synthesised by the test helper because nothing in the mfr path reads them; a test that needs real geometry must not use this fixture."
+  ],
+  "elements": [
+    {"page_number": 1, "type": "Image", "text": "@ Electronics"},
+    {"page_number": 1, "type": "Title", "text": "SENSORS AND SPECIALIST COMPONENTS"},
+    {"page_number": 1, "type": "Title", "text": "Power Solutions Product Change Notification"},
+    {"page_number": 1, "type": "Table", "text": "PCN Number BED.PCN-36 PCN Title EOL – Dual Fast Recovery Rectifiers (BYV34-400/500 series) PCN Date 19/04/2024 ☒ End of Life Notification ☐ Material Change Type of Change ☐ Manufacturing Facility Change or Addition ☐ Datasheet Specification Change ☐ Process Change ☐ Design Change ☐ Other: Manufacturing Location(s) Affected N/A Date of Change Implementation 10/05/2024"},
+    {"page_number": 1, "type": "UncategorizedText", "text": "Products"},
+    {"page_number": 1, "type": "Title", "text": "Products Affected"},
+    {"page_number": 1, "type": "Table", "text": "TT Series Spec / Datasheet Datasheet Link BYV34-400M DOC 7916 ISS 1 (Not listed on web site) BYV34-500RM DOC 7916 ISS 1 (Not listed on web site) BYV34-400AM-B.08 (Customer Spec) (Not listed on web site) BYV34-500RM.01 (Customer Spec) (Not listed on web site)"},
+    {"page_number": 1, "type": "Table", "text": "Change Detail Description of Change Products Obsolete. The products have become obsolete due to the source semiconductor die material changing design / Reason for Change geometry. There is no justification to redesign & requalify the affected products due to low sales volumes over the past 3 to 5 years. Implementation Plan Materials obsolete with immediate effect due to no available inventory of original die design and low product demand. Customer Impact Considered to be low due to sales volumes / infrequent demand. Recommendations Customers should consider their future demand and discuss with TT sales. Any decision regarding last time buy or re-design would be based on future demand. Availability of Previously Manufactured Product Not Applicable Availability of Approval Samples Not Applicable"},
+    {"page_number": 1, "type": "Title", "text": "https://www.ttelectronics.com/brands/semelab/"},
+    {"page_number": 1, "type": "UncategorizedText", "text": "https://www.ttelectronics.com/brands/semelab/"},
+    {"page_number": 1, "type": "Title", "text": "SEMELAB"},
+    {"page_number": 1, "type": "NarrativeText", "text": "Page 1 of 2"},
+    {"page_number": 2, "type": "Image", "text": "@ Electronics"},
+    {"page_number": 2, "type": "Title", "text": "SENSORS AND SPECIALIST COMPONENTS"},
+    {"page_number": 2, "type": "Table", "text": "Change Detail Americas: Kevin Marzano [e-mail redacted] Sales Contacts Europe: Claudia Patzak-Kruger [e-mail redacted] Asia: Janson Chuen [e-mail redacted]"},
+    {"page_number": 2, "type": "Title", "text": "Change Detail"},
+    {"page_number": 2, "type": "Table", "text": "Approvals Name Title Date Issued by Dave Watt Product Development Engineer 19/04/2024 Approved by Paul Wallace Discrete Components Engineering Manager 19/04/2024 Approved by Mark Grainger Quality 22/04/2024 Approved by Klaus Zwerschina VP Sales 22/04/2024"},
+    {"page_number": 2, "type": "UncategorizedText", "text": "https://www.ttelectronics.com/brands/semelab/"},
+    {"page_number": 2, "type": "NarrativeText", "text": "https://www.ttelectronics.com/brands/semelab/"},
+    {"page_number": 2, "type": "UncategorizedText", "text": "SEMELAB"},
+    {"page_number": 2, "type": "Title", "text": "SEMELAB"},
+    {"page_number": 2, "type": "UncategorizedText", "text": "Page 2 of 2"}
+  ],
+  "model_answers": [
+    {
+      "fire": "run B fire 1",
+      "mfr": "SEMELAB",
+      "mfr_source": "SEMELAB",
+      "note": "The one fire that answered with the printed brand and could quote it."
+    },
+    {
+      "fire": "run B fire 2",
+      "mfr": "TT Electronics",
+      "mfr_source": null,
+      "note": "The parent company, inferred from 'TT Series' / 'TT sales' / five ttelectronics.com URLs. Honest null source: the string is not printed."
+    },
+    {
+      "fire": "run B fire 3",
+      "mfr": "TT Electronics",
+      "mfr_source": null,
+      "note": "Same answer, same honest null source."
+    },
+    {
+      "fire": "run A fires 1-2",
+      "mfr": "TT Electronics",
+      "mfr_source": "https://www.ttelectronics.com/brands/semelab/",
+      "note": "THE FABRICATION SHAPE: a citation that resolves (the footer really does print that URL) wrapped around a value the page never states."
+    },
+    {
+      "fire": "run A fire 3",
+      "mfr": null,
+      "mfr_source": null,
+      "note": "THE CRASH. Under the old non-nullable schema this raised BamlValidationError 'mfr: Expected string, got null', which failed the WHOLE header pass - doc_id, pub_date, categories and summary lost with it - over one unfound field. The full payload is section 5 of the evidence file."
+    }
+  ],
+  "run_a_fire_3_raw_response": {
+    "doc_id": "BED.PCN-36",
+    "doc_type": "PCN",
+    "revision": null,
+    "pub_date": "2024-04-19",
+    "pub_date_source": "19/04/2024",
+    "mfr": null,
+    "mfr_source": null,
+    "categories": ["Discontinuation", "Material"],
+    "summary": "The dual fast recovery rectifier series (BYV34‑400/500) is being discontinued because the semiconductor die material has changed, making the existing parts obsolete. No inventory is available, and customers are advised to assess future demand and consider last‑time‑buy options.",
+    "doc_level_ltb_date": null,
+    "doc_level_ltb_date_source": null
+  }
+}
