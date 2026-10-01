@@ -41,6 +41,7 @@ from doc_tools.utils import notice_identity
 from doc_tools.utils.ltb_candidates import ltb_candidates, render_candidate_block
 from doc_tools.utils import table_text_layer as text_layer
 from doc_tools.utils import text_layer_health
+from doc_tools.utils import witness_regions
 from doc_tools.utils.sustainment_merge import (
     header_to_dict, part_to_dict, dequote_parts, dedup_parts, reconcile_ltb, clean_replacements,
     build_review_items, validate_count, empty_header,
@@ -107,6 +108,51 @@ def _fetch_image_b64(s3_client, s3_url: str):
     ext = os.path.splitext(key)[1].lower()
     media = "image/jpeg" if ext in (".jpg", ".jpeg") else "image/png"
     return media, base64.b64encode(data).decode("ascii")
+
+
+def _crop_region_b64(s3_client, s3_url: str, region: dict):
+    """('image/jpeg', base64str) for ONE region cut out of a stored page render.
+
+    The crop happens HERE, at witness time, rather than at ingest: the regions are
+    located from the text layer's element geometry, which the plugin has in process, so
+    cropping on demand needs no new ingest artifact and no re-ingest to change which
+    regions get asked about. The stored page raster is the only input.
+
+    Re-encoded at quality 95 rather than the page's own 85 because this is the detail
+    read; the page is already a JPEG, and compounding a second lossy pass at 85 over the
+    small text this crop exists to make legible is exactly the wrong place to save bytes.
+
+    Returns (None, None) on anything unexpected -- a missing render, a page whose
+    dimensions disagree with the text layer's, a degenerate box -- so the caller loses
+    this one region and keeps the others.
+    """
+    if not s3_url or not str(s3_url).startswith("s3://"):
+        return None, None
+    _, _, rest = str(s3_url).partition("s3://")
+    bkt, _, key = rest.partition("/")
+    try:
+        data = s3_client.get_object(Bucket=bkt, Key=key)["Body"].read()
+    except Exception as e:  # noqa: BLE001
+        print(f"[SustainmentPlugin] failed to fetch page render {s3_url}: {e}")
+        return None, None
+    import base64
+    try:
+        from PIL import Image as PILImage
+        with PILImage.open(io.BytesIO(data)) as img:
+            box = witness_regions.region_pixel_box(region, img.width, img.height)
+            if not box:
+                print(f"[SustainmentPlugin] region {region.get('name')}: no usable crop "
+                      f"box in a {img.width}x{img.height} render (the page raster and the "
+                      f"text layer disagree about the page shape)")
+                return None, None
+            crop = img.convert("RGB").crop(box)
+            buf = io.BytesIO()
+            crop.save(buf, format="JPEG", quality=95)
+    except Exception as e:  # noqa: BLE001
+        print(f"[SustainmentPlugin] failed to crop region {region.get('name')} "
+              f"from {s3_url}: {e}")
+        return None, None
+    return "image/jpeg", base64.b64encode(buf.getvalue()).decode("ascii")
 
 
 # Output BOUND for the vision pass. MEASURED at both ends (Diodes PCN 2683, 2026-07-29/30):
@@ -450,6 +496,7 @@ class SustainmentPlugin(AugmentationPlugin):
         "prompts/sustainment_parts_instructions.md",
         "prompts/sustainment_grid_columns_instructions.md",
         "prompts/sustainment_transcribe_page.md",
+        "prompts/sustainment_read_region.md",
     ]
 
     @traced(name="extract header (gpt-oss)")
@@ -924,6 +971,104 @@ class SustainmentPlugin(AugmentationPlugin):
             })
         return witness
 
+    def _read_regions_witness(self, index: List[dict], manifest: Optional[dict],
+                              s3_client) -> List[dict]:
+        """THE SECOND WITNESS FOR HEADER FIELDS: one record per located REGION, read from
+        a CROP of the page rather than from the whole page.
+
+        This replaces `_transcribe_pages_witness` as the witness that header corroboration
+        consults. That method remains, and is still built alongside this one, because it
+        serves the OTHER half of a degraded document -- `text_layer_health
+        .uncorroborated_parts`, which needs the whole page's text, not a header block.
+
+        WHY THE SPLIT. Measured against the live host on TYC-PCN-24-210412 (2026-10-01):
+        asked about the whole page, the model answers `10-Jan-2024` for a date the page
+        prints as `10-Jun-2024` -- twice -- and asked about a CROP of that page's header
+        block it answers `10-Jun-2024`. Same model, same host, same token. Raising the page
+        render from 150 to 200 DPI fixed two other dates on that page and never fixed this
+        one, so what was wrong was the amount of page in the frame. A header value is a
+        row-level read and now gets a row-level image.
+
+        Never raises, and for the same reason as the page witness: each region is cropped
+        and asked independently inside its own try/except, so one region's failure costs
+        only the fields that region would have answered. `witness_regions.locate_regions`
+        omits a region it cannot find, so an unfamiliar layout degrades to fewer regions
+        rather than to a wrong crop.
+
+        Returns `provenance.build_positioned_index`-shaped records so
+        `refuse_unsourced_header_values` consults them through exactly the same containment
+        path it uses for the text layer. Two differences from the page witness's records,
+        both deliberate: `region` is `"region_image"`, a fourth value beside "table",
+        "narrative" and "page_image", so a resolver can tell which kind of witness answered;
+        and `bbox` is the region's REAL box in layout pixels rather than None, so a value
+        corroborated here resolves to a location a reviewer can be shown, which a
+        whole-page transcription could never give.
+        """
+        if not manifest:
+            return []
+        pages = {p.get("page"): p for p in (manifest.get("pages") or []) if p.get("page")}
+        if not pages:
+            return []
+        if not os.getenv("VISION_LLM_BASE_URL"):
+            return []
+        regions = witness_regions.locate_regions(index)
+        if not regions:
+            print("[SustainmentPlugin] region witness: no header region could be located "
+                  "from the text layer's geometry — no header value will be corroborated")
+            return []
+
+        from doc_tools.baml_client.sync_client import b
+        from baml_py import Image
+        markdown = self._get_dynamic_prompt(
+            prompt_name="sustainment_read_region",
+            fallback_file="prompts/sustainment_read_region.md",
+        )
+        try:
+            witness_regions.validate_region_prompt(markdown)
+        except ValueError as e:
+            # A region asked with no instructions still ANSWERS, and the document then
+            # looks like a near-pass while the witness reads nothing it was asked to.
+            # Refusing to run is the honest outcome; `tests/test_witness_regions.py`
+            # pins the committed prompt so this cannot first be discovered here.
+            print(f"[SustainmentPlugin] region witness DISABLED for this document: {e}")
+            return []
+
+        witness: List[dict] = []
+        for region in regions:
+            name = region["name"]
+            try:
+                entry = pages.get(region["page_number"])
+                if not entry:
+                    print(f"[SustainmentPlugin] region {name}: page "
+                          f"{region['page_number']} has no render in the manifest")
+                    continue
+                media, b64 = _crop_region_b64(s3_client, entry.get("s3_url"), region)
+                if not b64:
+                    continue
+                text = b.ReadRegion(
+                    region_image=Image.from_base64(media, b64),
+                    system_instructions=witness_regions.region_prompt(
+                        markdown, region["prompt_section"]),
+                    baml_options=_vision_call_opts()[0])
+            except Exception as e:  # noqa: BLE001 — one region must not lose the others
+                print(f"[SustainmentPlugin] ReadRegion failed on {name} "
+                      f"(page {region.get('page_number')}): {e} — the fields this region "
+                      f"answers ({', '.join(region.get('fields') or [])}) will not be "
+                      f"corroborated")
+                continue
+            witness.append({
+                "element_id": f"page_region_{region['page_number']}_{name}",
+                "type": "RegionTranscription",
+                "region": "region_image",
+                "page_number": region["page_number"],
+                "bbox": region["bbox"],
+                "page_width": region.get("page_width"),
+                "page_height": region.get("page_height"),
+                "text": text or "",
+                "text_as_html": "",
+            })
+        return witness
+
     def _apply_vision_stats(self, ps: dict, n_tables: int, reasons: List[str],
                             doc_flags: List[str]) -> bool:
         """Turn one vision pass's per-crop counters into reviewer-facing reasons (and,
@@ -1176,10 +1321,31 @@ class SustainmentPlugin(AugmentationPlugin):
         # fabrication to be ratified by a noisy transcription (see
         # sustainment_header_trust's module docstring). A healthy document never pays for
         # a page-image vision call at all.
+        #
+        # TWO WITNESSES, SPLIT BY WHAT THEY ARE ASKED. Both are built from the same gate
+        # and the same pixels, and they are NOT interchangeable:
+        #   * `header_witness` — targeted questions on CROPS of the located header
+        #     regions. This is what header corroboration consults. Whole-page
+        #     transcription is NOT passed to the refusal any more: measured on
+        #     TYC-PCN-24-210412, the model reads a date wrong from the whole page
+        #     (`10-Jan-2024` for a printed `10-Jun-2024`, twice) and right from a crop of
+        #     the block that prints it, so a page transcription is a second chance that
+        #     can ratify the wrong value as readily as the right one.
+        #   * `witness_index` — the whole-page transcription, still built, because
+        #     `uncorroborated_parts` below needs the page's full text: part rows are
+        #     spread across tables all over the document and a header crop contains none
+        #     of them.
+        header_witness = None
         witness_index = None
         if text_layer_assessment["text_layer_degraded"]:
+            header_witness = self._read_regions_witness(index, manifest, s3_client)
             witness_index = self._transcribe_pages_witness(manifest, s3_client)
         stats["witness_pages"] = len(witness_index) if witness_index else 0
+        # Reported separately from `witness_pages` so a document that paid for a witness
+        # and got NO region located (an unfamiliar masthead) is distinguishable from one
+        # that was never degraded enough to pay — a zero here on a degraded document is
+        # the signal that header corroboration had nothing to consult.
+        stats["witness_regions"] = len(header_witness) if header_witness else 0
         # `text_layer_degraded` is passed SEPARATELY from `witness_index` and is not
         # inferrable from it: the three no-witness paths above (no VISION_LLM_BASE_URL, no
         # page manifest, a transcription that failed) all hand the refusal a None witness
@@ -1188,7 +1354,7 @@ class SustainmentPlugin(AugmentationPlugin):
         # of the document's own headings — a damaged text layer cannot be trusted to spell
         # one (`TE Connecvity`).
         reasons += header_trust.refuse_unsourced_header_values(
-            header_d, index, witness_index=witness_index,
+            header_d, index, witness_index=header_witness,
             text_layer_degraded=text_layer_assessment["text_layer_degraded"])
 
         # Level-2 dedupe identity (doc_tools/utils/notice_identity.py): a deterministic

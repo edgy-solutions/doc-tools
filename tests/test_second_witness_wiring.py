@@ -109,21 +109,40 @@ def _header(mfr="TE Connectivity", mfr_source="TE Connectivity"):
     )
 
 
-class _FakeS3:
-    """Hands back a fixed 1x1 PNG for any `s3://...` key `_fetch_image_b64` asks for, and
-    records every key it was asked for -- enough to prove a fetch actually happened per
-    page, without a real MinIO."""
-    _PNG = base64.b64decode(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
-        "z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-    )
+def _page_png(width=1224, height=1584):
+    """A blank render the size of a real page raster, at 2x the fixtures' layout space.
 
-    def __init__(self):
+    It used to be a hardcoded 1x1 PNG, which was enough while the only consumer was
+    `_fetch_image_b64` -- the whole-page witness fetches the bytes and hands them
+    straight to the model, and a monkeypatched `TranscribePage` never looks at them.
+    The REGION witness does look: `witness_regions.region_pixel_box` scales the text
+    layer's box by `img_h / layout_height` and REFUSES when the two rasters disagree
+    about the page's shape, so a 1x1 stand-in is not a neutral placeholder here -- it
+    is a page whose aspect ratio contradicts the layout, and it correctly produces no
+    crop at all. Any multiple of the layout's 612x792 works; 2x is small enough to
+    build per test and large enough that the crop clears the degenerate-box floor."""
+    from io import BytesIO
+    from PIL import Image as PILImage
+    buf = BytesIO()
+    PILImage.new("RGB", (width, height), (255, 255, 255)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+class _FakeS3:
+    """Hands back a blank page-sized PNG for any `s3://...` key the witnesses ask for,
+    and records every key it was asked for -- enough to prove a fetch actually happened
+    per page, without a real MinIO.
+
+    `size=(1, 1)` is available deliberately, to drive the shape-disagreement refusal
+    that `region_pixel_box` exists for."""
+
+    def __init__(self, size=(1224, 1584)):
         self.get_object_calls = []
+        self._png = _page_png(*size)
 
     def get_object(self, Bucket, Key):
         self.get_object_calls.append(Key)
-        return {"Body": SimpleNamespace(read=lambda: self._PNG)}
+        return {"Body": SimpleNamespace(read=lambda: self._png)}
 
 
 class _FakeB:
@@ -137,10 +156,13 @@ class _FakeB:
     """
     RAISE = "__raise__"
 
-    def __init__(self, header=None, transcribe_behaviors=None):
+    def __init__(self, header=None, transcribe_behaviors=None, region_behaviors=None):
         self.header = header
         self.transcribe_calls = 0
+        self.region_calls = 0
+        self.region_instructions = []
         self._behaviors = list(transcribe_behaviors or [])
+        self._region_behaviors = list(region_behaviors or [])
 
     def ExtractHeader(self, doc, system_instructions, baml_options=None):
         return self.header
@@ -148,6 +170,21 @@ class _FakeB:
     def TranscribePage(self, page_image, system_instructions, baml_options=None):
         self.transcribe_calls += 1
         behavior = self._behaviors.pop(0) if self._behaviors else ""
+        if behavior == self.RAISE:
+            raise RuntimeError("simulated vision failure")
+        return behavior
+
+    def ReadRegion(self, region_image, system_instructions, baml_options=None):
+        """The region witness's call, counted SEPARATELY from TranscribePage.
+
+        Both witnesses are built for a degraded document now, so one counter cannot
+        stand for both: a regression that silently stopped cropping would still leave
+        `transcribe_calls` at one per page and look healthy. The instructions are
+        recorded too, because which region was asked is the whole content of the call
+        -- the fake has no image to inspect."""
+        self.region_calls += 1
+        self.region_instructions.append(system_instructions)
+        behavior = (self._region_behaviors.pop(0) if self._region_behaviors else "")
         if behavior == self.RAISE:
             raise RuntimeError("simulated vision failure")
         return behavior
@@ -286,11 +323,24 @@ def test_a_degraded_document_builds_a_witness_and_lets_the_correct_manufacturer_
     """The seal, driven through the REAL wiring rather than a hand-built `witness_index`.
     `test_the_page_image_witness_lets_the_correct_manufacturer_through` in
     test_text_layer_second_witness.py proves the CONSULTATION logic works once handed a
-    witness; this proves `_extract_fulltext` actually BUILDS one, by calling the real
-    (monkeypatched) TranscribePage once per page, when the text layer it measured is
-    degraded -- the missing half that a passing consultation test alone cannot show."""
+    witness; this proves `_extract_fulltext` actually BUILDS one, on demand, when the text
+    layer it measured is degraded -- the missing half that a passing consultation test
+    alone cannot show.
+
+    WHAT CHANGED WITH THE REGION SPLIT. `mfr` is a HEADER field, and header fields are
+    now corroborated from a CROP of the header block, not from the whole-page
+    transcription (measured on TYC 2026-10-01: whole page answers `10-Jan-2024` for a date
+    the page prints as `10-Jun-2024`; the crop answers it correctly). So the witness that
+    lets this value through is `ReadRegion`'s, and the page transcription -- still built,
+    still one call per page -- now serves only `uncorroborated_parts`. Both counters are
+    asserted, because the test would otherwise keep passing if the crop stopped happening:
+    the page witness alone would still contain this manufacturer."""
     monkeypatch.setenv("VISION_LLM_BASE_URL", "http://fake-vision:1234/v1")
-    fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS))
+    fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS),
+                    region_behaviors=["Manufacturer: TE Connectivity\n"
+                                      "Document Number: PCN-TEST-001\n"
+                                      "Notice Date: not printed\n"
+                                      "Current Date: not printed"])
     _patch_b(monkeypatch, fake_b)
     fake_s3 = _FakeS3()
 
@@ -301,11 +351,64 @@ def test_a_degraded_document_builds_a_witness_and_lets_the_correct_manufacturer_
 
     aug = nodes[0].domain_augmentation
     assert fake_b.transcribe_calls == len(_CONTROL_PARAGRAPHS)
+    assert fake_b.region_calls == 1, fake_b.region_instructions
     assert aug.stats["text_layer_degraded"] is True
     assert aug.stats["witness_pages"] == len(_CONTROL_PARAGRAPHS)
+    assert aug.stats["witness_regions"] == 1
     assert aug.notice.mfr == "TE Connectivity"
     assert any("corroborated by the page image" in r for r in aug.review_reasons)
     assert not any("refused" in r for r in aug.review_reasons)
+
+
+def test_the_header_witness_is_the_crop_not_the_page_transcription(monkeypatch, plugin):
+    """The split, asserted as a SEPARATION rather than as two call counts.
+
+    This is the one test that would have caught the defect the split exists for. The page
+    transcription here is handed the document's own undamaged prose -- a witness that
+    contains "TE Connectivity" -- and the CROP is handed a refusal. If header
+    corroboration were still reading the page witness, the manufacturer would sail
+    through; because it reads only the region witness, the value is emptied. A regression
+    that re-pointed `refuse_unsourced_header_values` back at `witness_index` passes every
+    other test in this file and fails this one."""
+    monkeypatch.setenv("VISION_LLM_BASE_URL", "http://fake-vision:1234/v1")
+    fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS),
+                    region_behaviors=["Manufacturer: not printed"])
+    _patch_b(monkeypatch, fake_b)
+
+    nodes = plugin._extract_fulltext(
+        _full_text(healthy=False), "doc-1", elements=_degraded_elements(),
+        manifest=_manifest(len(_CONTROL_PARAGRAPHS)), s3_client=_FakeS3(), bucket="notices",
+    )
+
+    aug = nodes[0].domain_augmentation
+    assert fake_b.region_calls == 1
+    assert aug.notice.mfr == ""
+    assert any("refused" in r for r in aug.review_reasons), aug.review_reasons
+
+
+def test_a_render_whose_shape_contradicts_the_text_layer_yields_no_region_call(
+        monkeypatch, plugin):
+    """`region_pixel_box` refuses rather than guesses when the page raster and the text
+    layer disagree about the page's shape, and that refusal has to reach the CALL: a crop
+    box computed from a mismatched ratio would be placed confidently somewhere wrong, and
+    the model would answer about it with no indication anything was off. Spending nothing
+    and corroborating nothing is the correct outcome -- the header then refuses, exactly
+    as it does when no vision endpoint is configured at all."""
+    monkeypatch.setenv("VISION_LLM_BASE_URL", "http://fake-vision:1234/v1")
+    fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS),
+                    region_behaviors=["should never be used"])
+    _patch_b(monkeypatch, fake_b)
+
+    nodes = plugin._extract_fulltext(
+        _full_text(healthy=False), "doc-1", elements=_degraded_elements(),
+        manifest=_manifest(len(_CONTROL_PARAGRAPHS)),
+        s3_client=_FakeS3(size=(1, 1)), bucket="notices",
+    )
+
+    aug = nodes[0].domain_augmentation
+    assert fake_b.region_calls == 0
+    assert aug.stats["witness_regions"] == 0
+    assert aug.notice.mfr == ""
 
 
 def test_no_vision_endpoint_degrades_to_exactly_the_no_witness_behavior(monkeypatch, plugin):

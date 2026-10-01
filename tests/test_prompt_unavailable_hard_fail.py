@@ -111,17 +111,25 @@ def test_ensure_prompts_available_reports_every_missing_file_at_once(monkeypatch
     assert "two_instructions.md" in msg
 
 
-def test_sustainment_plugin_declares_its_three_prompt_files():
-    """Only SustainmentPlugin is wired to this validation; its declared set is
-    exactly the four files it uses (header, parts, the grid-forwarding
-    column-labeling prompt added for tier-1 grid forwarding, and the page-image
-    transcription prompt the second-witness path uses when the text layer is
-    degraded)."""
+def test_sustainment_plugin_declares_every_prompt_file_it_uses():
+    """Only SustainmentPlugin is wired to this validation; its declared set is exactly
+    the five files it uses: header, parts, the column-labeling prompt added for tier-1
+    grid forwarding, and the TWO prompts the degraded-text-layer path needs -- the
+    whole-page transcription (which now serves only parts corroboration) and the
+    per-region read (which serves header corroboration).
+
+    The count lives in the list and not in the test name on purpose: the name used to say
+    "three" while the list already held four, because renaming a test is the step most
+    easily skipped. A missing entry here is not cosmetic -- `_ensure_prompts_available` is
+    what turns an absent prompt file into a hard failure at startup instead of a vision
+    call sent with no instructions, which answers anyway and leaves the run looking like
+    a near-pass."""
     assert SustainmentPlugin.REQUIRED_PROMPT_FILES == [
         "prompts/sustainment_header_instructions.md",
         "prompts/sustainment_parts_instructions.md",
         "prompts/sustainment_grid_columns_instructions.md",
         "prompts/sustainment_transcribe_page.md",
+        "prompts/sustainment_read_region.md",
     ]
 
 

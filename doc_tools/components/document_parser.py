@@ -183,7 +183,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             os.makedirs(pages_dir, exist_ok=True)
                             rendered = rasterize_pdf_pages(
                                 file_path, pages_dir,
-                                dpi=int(os.getenv("DOC_PARSER_PAGE_RENDER_DPI", "200")),
+                                dpi=int(os.getenv("DOC_PARSER_PAGE_RENDER_DPI", "300")),
                             )
                             for p in rendered:
                                 object_name = f"{base_dir}/generated/{base_name}/{version}/images/{p['basename']}"

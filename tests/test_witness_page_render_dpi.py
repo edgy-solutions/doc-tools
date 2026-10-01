@@ -12,8 +12,14 @@ at 150 DPI the model collapsed a wrapped two-column Estimated Dates grid onto
 its label line AND substituted digits (06-JUN -> 08-JUN, 07-JUN -> 02-JUN); at
 200 DPI, with the prompt, model and host held fixed, it read both correctly.
 Holding the IMAGE fixed and swapping the prompt instead reproduced the error, so
-the render is the cause. 200 also beat 300 on accuracy, bytes, tokens and
-latency.
+the render is the cause.
+
+It is now 300, for a second reason that outranks the first: ``witness_regions``
+cuts the header-block and dates-block CROPS the header witness reads out of this
+same raster, and a crop cannot be sharper than the image it came from. The
+whole-page transcription is in fact slightly WORSE at 300 than at 200, but it no
+longer answers header questions -- it corroborates part numbers -- so the page
+call pays latency and every crop gains detail.
 
 A regression here is SILENT: the dates simply come back wrong, the witness still
 answers, and header corroboration is quietly degraded rather than failing. And
@@ -38,10 +44,11 @@ def _default_dpi(func):
     return inspect.signature(func).parameters["dpi"].default
 
 
-def test_page_render_default_is_200():
-    assert _default_dpi(rasterize_pdf_pages) == 200, (
-        "rasterize_pdf_pages' dpi default feeds the second witness's "
-        "transcription; at 150 it misread two dates on TYC page 1"
+def test_page_render_default_is_300():
+    assert _default_dpi(rasterize_pdf_pages) == 300, (
+        "rasterize_pdf_pages' dpi default is the source image for the header "
+        "witness's region crops; at 150 it misread two dates on TYC page 1, and "
+        "a crop cannot be sharper than the raster it is cut from"
     )
 
 
@@ -70,12 +77,12 @@ def test_chart_sets_the_page_render_dpi_explicitly():
     reviewable in the diff rather than implied.
     """
     values = (CHART / "values.yaml").read_text(encoding="utf-8")
-    assert 'DOC_PARSER_PAGE_RENDER_DPI: "200"' in values
+    assert 'DOC_PARSER_PAGE_RENDER_DPI: "300"' in values
 
 
 def test_env_override_still_wins():
     """The pin is a default, not a hardcode -- an operator can still raise it."""
     src = PARSER.read_text(encoding="utf-8")
-    assert 'int(os.getenv("DOC_PARSER_PAGE_RENDER_DPI", "200"))' in src, (
+    assert 'int(os.getenv("DOC_PARSER_PAGE_RENDER_DPI", "300"))' in src, (
         "the DPI must stay an env read, not an inlined constant"
     )
