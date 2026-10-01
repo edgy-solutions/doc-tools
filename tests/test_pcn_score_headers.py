@@ -295,19 +295,81 @@ def test_shipped_header_ground_truth_is_internally_consistent():
                     f"{where}: date ground truth is not ISO")
 
 
+# The values the three real f32 fires wrote for TYC, recovered from their logs
+# by pcn_header_agreement and transcribed from docs/corpus-gate/report-2026-10-01
+# -rereduced.md. Order is fire 1 | 2 | 3.
+_REAL_FIRES = (
+    {"mfr": "TE Connecvity", "pub_date": "2024-06-10",
+     "doc_level_ltb_date": None},
+    {"mfr": "TE", "pub_date": "2024-06-10",
+     "doc_level_ltb_date": "2024-06-06"},
+    {"mfr": "TE Connecvity", "pub_date": "2024-06-10",
+     "doc_level_ltb_date": "2024-06-06"},
+)
+
+
 def test_real_three_fire_pub_date_is_the_declared_distractor():
-    """The values the three real f32 fires wrote for TYC, recovered from their
-    logs by pcn_header_agreement. All three agree on `2024-06-10`, so the
-    agreement check reports pub_date as AGREE; ground truth reports it as the
-    print stamp. This is the case the header scorer exists for."""
+    """All three fires agree on `2024-06-10`, so the cross-fire agreement check
+    reports pub_date as AGREE; ground truth reports it as the portal print
+    stamp. This is the case the header scorer exists for — a stable wrong value
+    is invisible to a check that only compares fires to each other."""
     gt = pcn_score.load_ground_truth()
     spec = gt[TYC]["headers"]
-    for fire_mfr in ("TE Connecvity", "TE", "TE"):
-        h = pcn_score.score_headers(
-            {"mfr": fire_mfr, "pub_date": "2024-06-10",
-             "doc_level_ltb_date": "2024-06-06"}, spec)
+    for fire in _REAL_FIRES:
+        h = pcn_score.score_headers(fire, spec)
         assert h["clean"] is False
         assert h["fields"]["pub_date"]["status"] == "distractor"
         assert h["fields"]["mfr"]["status"] == "distractor"
-        # The contested field stays out of it in every fire.
-        assert h["fields"]["doc_level_ltb_date"]["status"] == "pending"
+
+
+def test_real_fires_got_the_ltb_date_right_where_they_wrote_it_at_all():
+    """`doc_level_ltb_date` was PENDING until 2026-09-30, when the page was
+    rendered and read: the Estimated Dates table says `Last Order Date (Obsolete
+    Parts Only): 06-JUN-2024`. So the two fires that wrote a value wrote the
+    right one, and the scorer must now say so rather than abstain.
+
+    Fire 1 wrote nothing, which is `absent` — a different finding from `wrong`,
+    and the reason the field is a recall gap in exactly one of three runs rather
+    than a precision defect in all of them."""
+    gt = pcn_score.load_ground_truth()
+    spec = gt[TYC]["headers"]
+    got = [pcn_score.score_headers(f, spec)["fields"]["doc_level_ltb_date"]
+           for f in _REAL_FIRES]
+    assert [f["status"] for f in got] == ["absent", "exact", "exact"]
+    assert all(f["expected"] == "2024-06-06" for f in got)
+
+
+def test_the_adjacent_row_and_the_witness_reading_are_both_declared():
+    """The two ways to get this field wrong are not the same kind of wrong, and
+    the scorer has to keep them apart.
+
+    `2024-06-07` is the NEXT ROW of the same table (Last Ship Date of Changed
+    Items) and is also the correct pub_date — a run returning it has read the
+    page and taken the wrong line. `2024-06-08` is the second witness's reading
+    and appears nowhere on the page at all: a digit substitution, the standing
+    failure mode of that witness. Both must score `distractor` with ground
+    truth's reason attached, not as anonymous near-misses."""
+    gt = pcn_score.load_ground_truth()
+    spec = gt[TYC]["headers"]
+    for bad in ("2024-06-07", "2024-06-08"):
+        f = pcn_score.score_headers({"doc_level_ltb_date": bad},
+                                    spec)["fields"]["doc_level_ltb_date"]
+        assert f["status"] == "distractor", bad
+        assert f["matched"] == bad
+        assert f["why"]
+
+
+def test_tyc_is_scored_on_all_three_header_fields():
+    """The shipped TYC block must leave nothing pending. A pending field is
+    scored in neither direction, so a block that still carries one is reporting
+    on two fields while looking like it reports on three."""
+    spec = pcn_score.load_ground_truth()[TYC]["headers"]
+    named = {k for k in spec if not k.startswith("_")}
+    assert named == {"mfr", "pub_date", "doc_level_ltb_date"}
+    assert all(spec[k].get("value") for k in named), (
+        "a TYC header field is still pending")
+    h = pcn_score.score_headers(
+        {"mfr": "TE Connectivity", "pub_date": "2024-06-07",
+         "doc_level_ltb_date": "2024-06-06"}, spec)
+    assert h["scored"] == ["doc_level_ltb_date", "mfr", "pub_date"]
+    assert h["clean"] is True

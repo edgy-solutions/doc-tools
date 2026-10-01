@@ -55,7 +55,7 @@
       "source": "16 from the 'Part Number' column + 10 from 'Customer Part Number'; both ruled genuine affected-part columns in docs/pcn-corpus-validation-2026-09-21.md s1. The Customer column has 8 CELLS, two of which hold two part numbers each (comma+newline), so it contributes 10 PARTS. CORRECTED 2026-09-24 from count=24: the two composite cells were previously carried glued, which made this file assert that a two-part cell is one part. See _construction.",
       "manifest": "sustainment/inbound/generated/TYC-PCN-24-210412_pdf/manifest.json",
       "headers": {
-        "_note": "HEADER ground truth, added 2026-09-30. Established from the page, not from a run: every value below is read off the source PDF's page 1, and the competing value each run produced is named so a future reader can tell a defect from a disagreement. TYC is the degraded-text-layer notice -- its layer drops the 'ti' ligature everywhere -- so for this notice the text layer is a KNOWN-DAMAGED source and may not settle a field by itself.",
+        "_note": "HEADER ground truth, added 2026-09-30. Established from the page, not from a run: every value below is read off the source PDF's page 1, and the competing value each run produced is named so a future reader can tell a defect from a disagreement. TYC is the degraded-text-layer notice -- its layer drops the 'ti' ligature everywhere -- so for this notice the text layer is a KNOWN-DAMAGED source and may not settle a field by itself. Every field in this block is now established; there are no pending fields left here. (The `pending` status itself is NOT retired -- it is the mechanism that keeps an unestablished field out of both the pass and the fail column, and the next notice to get a headers block will need it.)",
         "mfr": {
           "value": "TE Connectivity",
           "source": "Page 1, centred heading directly under the TE logo: 'TE Connectivity'.",
@@ -72,12 +72,11 @@
           }
         },
         "doc_level_ltb_date": {
-          "value": null,
-          "status": "PENDING -- not established, and not to be scored until it is",
-          "source": "The last-order/last-ship section of the page has not been read directly. Do not promote either candidate below on the strength of repetition: the text layer and the witness are the only two sources seen so far, and they disagree.",
-          "candidates": {
-            "2024-06-06": "The text layer's reading ('06-JUN'). Two of three fires picked it, but those two share ONE damaged source, so their agreement is not independent evidence.",
-            "2024-06-08": "The second witness's reading ('08-JUN-2024') from the page image."
+          "value": "2024-06-06",
+          "source": "Page 1, 'Estimated Dates' table, row 'Last Order Date (Obsolete Parts Only):' -> '06-JUN-2024'. ESTABLISHED 2026-09-30 by rendering page 1 of the source PDF at 500 DPI (pypdfium2) and reading the table region directly -- not from a run, and not from the text layer, which for this notice is a known-damaged source. The whole date surface of that table was read at the same time, so the 'not' block below is CLOSED rather than a sample: 'Last Ship Date of Changed Items (Obsolete Parts Only): 07-JUN-2024'; 'First Ship Date of Changed Items' blank; 'Last Date for Mixed Shipments: No Mixed Shipments'; 'Effectivity Date' and 'Date of First Samples' both blank. The only other dates anywhere on the page are 'PCN Date: 07-JUN-24' and the portal print stamp, both already adjudicated under pub_date.",
+          "not": {
+            "2024-06-07": "The ADJACENT ROW -- 'Last Ship Date of Changed Items (Obsolete Parts Only)'. A real date on the real page, one row below the right one, and it is also the correct pub_date, so a run returning it has either taken the wrong row of this table or copied the PCN date. The row label is what distinguishes them; the value cannot.",
+            "2024-06-08": "The second witness's reading of the page image. This date appears NOWHERE on the page -- not in this table, not in any other field. It is a digit substitution by the vision model, the standing failure mode for that witness, so agreeing with it would be agreeing with a fabrication. Recorded here because it was carried as a live candidate until the page was read."
           }
         }
       }
