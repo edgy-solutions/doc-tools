@@ -104,7 +104,7 @@ def extract_text_and_metadata(file_path: str, extract_images: bool = False, imag
         raise
 
 
-def rasterize_pdf_pages(file_path: str, out_dir: str, dpi: int = 150) -> List[Dict[str, Any]]:
+def rasterize_pdf_pages(file_path: str, out_dir: str, dpi: int = 200) -> List[Dict[str, Any]]:
     """Render each PDF page to a full-page JPEG in ``out_dir``.
 
     This is the CONTEXT half of the evidence card — which table on the page, where
@@ -117,8 +117,18 @@ def rasterize_pdf_pages(file_path: str, out_dir: str, dpi: int = 150) -> List[Di
     The render DPI is deliberately INDEPENDENT of the crop DPI: the viewer
     normalizes each bbox against the element's ``page_dims`` and positions the
     highlight as a FRACTION of the rendered page, so the overlay lands correctly at
-    any render size (the sealed bbox-scale rule). We render lighter than the crops
-    because the page is context, not the row-level read.
+    any render size (the sealed bbox-scale rule).
+
+    The default was 150 until 2026-10-01, on the rationale that the page is
+    context rather than a row-level read. That is no longer true: the SUSTAINMENT
+    second witness (``_transcribe_pages_witness``) transcribes THIS raster to
+    corroborate header dates, so it is a row-level read. Measured at 150 it
+    collapsed a wrapped two-column date grid and substituted digits (06->08,
+    07->02); at 200, with nothing else changed, it read both dates correctly.
+    200 also beat 300 on accuracy, bytes, tokens and latency, and matches
+    ``DOC_PARSER_PDF_IMAGE_DPI``. Lowering it again will silently degrade the
+    witness. The raster is written at INGEST, so a change here is inert until
+    documents are re-ingested.
 
     Returns a list of ``{page (1-based), path, basename, width, height, dpi}`` — one
     per page. Returns ``[]`` for non-PDF inputs (PPTX etc. have no page raster).

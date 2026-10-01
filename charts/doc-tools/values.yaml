@@ -210,6 +210,14 @@ env:
   # raise if table text is small. Default 200.
   DOC_PARSER_PDF_IMAGE_DPI: "200"
 
+  # --- Whole-page render DPI (pypdfium2) for the SUSTAINMENT second witness ---
+  # The page raster _transcribe_pages_witness transcribes to corroborate header
+  # dates. Was 150; at 150 the witness collapsed a wrapped two-column date grid
+  # and substituted digits. Measured 2026-10-01: 200 reads the dates correctly
+  # and beats 300 on accuracy, bytes, tokens and latency. Written at INGEST, so
+  # a change here only takes effect for documents ingested afterwards.
+  DOC_PARSER_PAGE_RENDER_DPI: "200"
+
   # --- Embedding model for Weaviate vector writes/reads ---
   # doc-tools' semantic_assets.py and any other Weaviate writer
   # (doc_tools/utils/embed.py::embed_text) pull a vector from
