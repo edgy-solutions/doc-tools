@@ -133,7 +133,7 @@ module_name = "doc_tools.definitions"
 
 [tool.pytest.ini_options]
 markers = [
-    "corpus_gate: reads docs/corpus-gate/latest.json, a report produced by an opt-in CronJob (charts/doc-tools/templates/corpus-gate-cronjob.yaml) and committed by hand, not generated on a bare checkout. Run with `pytest -m corpus_gate`.",
+    "corpus_gate: reads docs/corpus-gate/latest.json, a report produced by an opt-in CronJob (charts/doc-tools/templates/corpus-gate-cronjob.yaml) and committed from that run by scripts/pcn_gate_publish.py (or by hand where publishing is unconfigured), not generated on a bare checkout. Run with `pytest -m corpus_gate`.",
 ]
 # A default `pytest` run must not fail on a machine with no committed report.
 # The report IS required reading for `corpus_gate` itself (see

@@ -106,7 +106,16 @@ secrets:
   JENA_USERNAME: "admin"
   JENA_PASSWORD: "password"
   DATAHUB_TOKEN: ""
+  # CLONE credential, for the DataHub schema-ingestion assets. Read-only by
+  # intent — do not widen it to cover the corpus gate's push, which has its
+  # own key below for exactly that reason.
   GIT_TOKEN: ""
+  # PUSH credential for the corpus gate's nightly report
+  # (scripts/pcn_gate_publish.py, enabled by corpusGate.publish.repo). Empty
+  # means the gate still runs and its report simply never leaves the pod.
+  # Scope it to contents+pull-requests write on that ONE repo: it is the only
+  # secret in this chart that can change the repository.
+  PCN_GATE_PUBLISH_TOKEN: ""
   # svc:doc-tools' client-credentials secret. THE CLIENT IS CREATED BY A DIFFERENT CHART —
   # invincible-agent's realm import owns the realm (`serviceClients: iagent-doc-tools`), and this
   # value must MATCH `docToolsClientSecret` there. Two charts, one credential: nothing fails
@@ -263,12 +272,29 @@ corpusGate:
   enabled: false
   schedule: "0 7 * * *"
   # Defaults live under /tmp in-cluster, NOT docs/corpus-gate: the image's
-  # /app is not a git checkout anyone pushes from, so there is nowhere in the
-  # pod for a "committed" path to mean anything. Getting the report from
-  # workDir/reportDir into docs/corpus-gate on a branch is a separate, manual
-  # step (see the CronJob template's header comment).
+  # /app is not a git checkout, so a report written to a repo-shaped path in
+  # the pod would still be a file in a container. The report leaves the pod
+  # through the GitHub API instead — see publish below.
   workDir: /tmp/pcn-gate
   reportDir: /tmp/pcn-gate/report
+  # scripts/pcn_gate_publish.py commits the report to `branch` and keeps one
+  # pull request open against `base`. It is deliberately inert out of the box:
+  # `repo` empty means the step prints why it did nothing and the run still
+  # succeeds. Turning it on needs TWO things, and one of them is not a chart
+  # value — PCN_GATE_PUBLISH_TOKEN must be added to `secrets` as a token that
+  # may PUSH to `repo`. That is strictly more privilege than the GIT_TOKEN
+  # already in `secrets`, which only clones, so it is a separate key rather
+  # than a reuse: whoever provisions it should see that they are granting
+  # write access.
+  #
+  # NOT `main`. The report lands on a branch and a human merges it. This repo
+  # has no required checks on main, so a machine pushing there would be an
+  # unreviewed write with nothing in front of it.
+  publish:
+    repo: ""
+    branch: corpus-gate/nightly
+    base: main
+    path: docs/corpus-gate
   activeDeadlineSeconds: 21600
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3

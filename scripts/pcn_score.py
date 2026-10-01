@@ -25,6 +25,52 @@ Every notice reports four numbers:
 `exact` is the score. `spurious` and `missing` move independently and a run
 where both rise by one is precisely the failure this file was written for.
 
+HEADERS ARE SCORED HERE TOO, AND THEY FAIL DIFFERENTLY. Ground truth grew a
+per-notice `headers` block (2026-09-30), read off the page rather than off a
+run, and this file consumes it. The reason it has to exist alongside the
+three-fire agreement check in `pcn_corpus_gate.py` is that AGREEMENT IS NOT
+CORRECTNESS: three fires can write `2024-06-10` for TYC's `pub_date` and agree
+perfectly. That value is the portal's print stamp — the day the PDF was
+rendered — and the notice was published on the 7th. Agreement would report
+that as settled; only ground truth can report it as wrong.
+
+So a header field lands in one of seven states, and the ones that are not
+`exact` are kept apart because they are different defects with different fixes:
+
+    exact        the written value is the page's value
+    distractor   the written value is one ground truth DECLARES as wrong, and
+                 says why: `2024-06-10` for TYC's pub_date is the print stamp,
+                 `TE Connecvity` is the degraded text layer's dropped `ti`
+                 ligature, `TE` is the witness reading the logo wordmark. The
+                 value is ON the page; the wrong one was picked. That is a
+                 field-attribution failure, addressable in the prompt.
+    wrong        a value ground truth does not account for at all. Not the same
+                 defect as above and must not be totalled with it: a declared
+                 distractor is a known trap, an undeclared value may be
+                 invention.
+    misformatted the right content in a shape nothing downstream can use
+                 (`07-JUN-24` for `2024-06-07`). The parts scorer's `malformed`
+                 class, applied to headers: the value is on the page, the
+                 extraction has not finished the job. NOT credited as exact.
+    unreadable   a date this scorer will not guess at. `6/10/24` is ambiguous
+                 between June 10 and 6 October, so it is neither credited nor
+                 attributed to a distractor — see `normalize_date`.
+    absent       ground truth says the page carries this value and nothing was
+                 written. A miss.
+    pending      ground truth records `value: null` — the field has NOT been
+                 established (TYC's `doc_level_ltb_date`, where the text layer
+                 and the witness disagree and the page has not been read
+                 directly). NOT SCORED, in either direction. Scoring a field
+                 against a guess would manufacture a result; reporting it
+                 silently as a pass would hide the gap. It is printed as
+                 pending and excluded from every total.
+
+A run that never recorded headers (any image before the `written_header`
+field) reports `observed: false`. That is NOT ZERO and NOT A PASS: the header
+section prints NOT SCORED and names the reason, because a header score of
+"0 failures" over a run that measured no headers is the exact shape of a
+guard that is green because it never ran.
+
 USAGE
 
     # score a run that has just finished, or one saved earlier
@@ -32,13 +78,23 @@ USAGE
     python scripts/pcn_score.py /tmp/pcn_corpus.json --json /tmp/score.json
 
 Exit status is 0 only when every notice scores exact == count with nothing
-spurious, missing or malformed.
+spurious, missing or malformed, AND no established header field is anything
+but exact.
+
+NOTE ON THE OTHER EXIT CODE. `pcn_corpus_run.py:main()` keeps its own exit
+criterion — parts and crop-seal only — deliberately unchanged. The gate reads
+that code as "parts/crop-seal failure inside the fire" and reproduces its
+terms in `_reconstruct_exit` for `--from-logs`, so folding headers into it
+would silently change what a fire's exit code means in two places at once.
+Header correctness reaches the gate as its own reported condition, off the
+`header_totals` block this file writes into the score JSON.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import sys
 from typing import Any, Dict, List
 
@@ -61,6 +117,20 @@ def is_malformed(mpn: str) -> bool:
 def load_ground_truth(path: str = GT_PATH) -> Dict[str, Any]:
     with open(path, encoding="utf-8") as f:
         return json.load(f)["notices"]
+
+
+def load_corpus(path: str = GT_PATH) -> Dict[str, Any]:
+    """The `_corpus` block: what the corpus IS, as an enumeration.
+
+    Carried in the ground-truth file rather than in a document because this is
+    the denominator every score is divided by, and the gate reads this file.
+    `check_ground_truth` in pcn_corpus_run.py asserts TARGETS against it and
+    aborts the run on a disagreement; pcn_corpus_gate.py copies it into the
+    committed report so a report states the corpus it measured. Returns {} if
+    absent, so an older ground-truth file still loads.
+    """
+    with open(path, encoding="utf-8") as f:
+        return json.load(f).get("_corpus") or {}
 
 
 def score_notice(emitted: List[str], gt_entry: Dict[str, Any]) -> Dict[str, Any]:
@@ -92,6 +162,192 @@ def score_notice(emitted: List[str], gt_entry: Dict[str, Any]) -> Dict[str, Any]
     }
 
 
+# --------------------------------------------------------------------------
+# HEADER scoring against notices[*].headers. See the module docstring for why
+# the failure classes are kept apart instead of totalled as "wrong".
+
+_MONTHS = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+           "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+
+_ISO_DATE = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})$")
+_DMY_DATE = re.compile(r"^(\d{1,2})[-/ ]([A-Za-z]{3,9})\.?[-/, ]+(\d{2,4})$")
+
+# Header field names whose values are dates. `pub_date` and `doc_level_ltb_date`
+# today; the suffix rule covers a field added later without a second edit here.
+_DATE_FIELD_SUFFIX = "_date"
+
+# Statuses that mean the field was scored and did not pass. `pending` and the
+# unobserved case are absent BY DESIGN — neither is a failure, and neither is a
+# pass (module docstring).
+HEADER_FAILURES = ("distractor", "wrong", "misformatted", "unreadable", "absent")
+
+
+def normalize_date(v: Any) -> str | None:
+    """`YYYY-MM-DD` for the date spellings these notices actually print, else None.
+
+    Accepted: ISO, and the day-month-year forms that appear on the PCN pages and
+    in the vision witness's transcriptions — `07-JUN-24`, `10-Jun-2024`,
+    `8 June 2024`. A two-digit year below 70 is read as 20xx.
+
+    `6/10/24` IS DELIBERATELY NOT ACCEPTED, and that is the whole point of this
+    function being narrow. An all-numeric slash date is irreducibly ambiguous
+    between US order (June 10) and day-first order (6 October) — two different
+    days, not two spellings of one. TYC's portal print header carries exactly
+    that form, so the temptation to parse it is real, and giving in would let
+    this scorer decide by assumption which calendar date the extractor meant,
+    then grade its own assumption. A date it cannot read without guessing is
+    reported `unreadable` instead: not credited, and not attributed to a
+    declared distractor either.
+    """
+    if not isinstance(v, str):
+        return None
+    s = v.strip()
+    m = _ISO_DATE.match(s)
+    if m:
+        y, mo, d = (int(x) for x in m.groups())
+    else:
+        m = _DMY_DATE.match(s)
+        if not m:
+            return None
+        d = int(m.group(1))
+        mo = _MONTHS.get(m.group(2)[:3].lower(), 0)
+        y = int(m.group(3))
+        if y < 100:
+            y += 2000 if y < 70 else 1900
+    if not (1 <= mo <= 12 and 1 <= d <= 31):
+        return None
+    return f"{y:04d}-{mo:02d}-{d:02d}"
+
+
+def _fold_text(v: Any) -> str | None:
+    """Case- and whitespace-insensitive form, for deciding whether two header
+    strings carry the same CONTENT. Used only after an exact comparison has
+    already failed, so it can never turn a match into a near-match."""
+    if not isinstance(v, str):
+        return None
+    return " ".join(v.split()).casefold() or None
+
+
+def is_date_field(name: str) -> bool:
+    return name.endswith(_DATE_FIELD_SUFFIX)
+
+
+def score_header_field(name: str, written: Any,
+                       spec: Dict[str, Any]) -> Dict[str, Any]:
+    """One header field: what was written, what the page says, and — when they
+    differ — WHICH KIND of wrong it is."""
+    expected = spec.get("value")
+    declared = spec.get("not") or {}
+    out: Dict[str, Any] = {"field": name, "expected": expected, "got": written}
+
+    if expected is None:
+        out["status"] = "pending"
+        out["why"] = (spec.get("status")
+                      or "ground truth records no established value for this field")
+        out["candidates"] = sorted(spec.get("candidates") or {})
+        return out
+
+    if written in (None, ""):
+        out["status"] = "absent"
+        return out
+    if written == expected:
+        out["status"] = "exact"
+        return out
+
+    dated = is_date_field(name)
+    norm_w = normalize_date(written) if dated else _fold_text(written)
+
+    # A DECLARED distractor outranks every other diagnosis. Ground truth named
+    # this value and said why it is wrong; that reason is more informative than
+    # anything inferred below, and reporting it as merely "wrong" would throw
+    # away the one piece of evidence that distinguishes a known trap.
+    for bad, why in declared.items():
+        norm_b = normalize_date(bad) if dated else _fold_text(bad)
+        if written == bad or (norm_w is not None and norm_w == norm_b):
+            out["status"] = "distractor"
+            out["matched"] = bad
+            out["why"] = why
+            return out
+
+    norm_e = normalize_date(expected) if dated else _fold_text(expected)
+    if norm_w is not None and norm_e is not None and norm_w == norm_e:
+        out["status"] = "misformatted"
+        return out
+    if dated and norm_w is None:
+        out["status"] = "unreadable"
+        return out
+    out["status"] = "wrong"
+    return out
+
+
+def score_headers(written: Any, headers: Dict[str, Any] | None) -> Dict[str, Any] | None:
+    """Score one notice's written header against its ground-truth block.
+
+    Returns None when ground truth declares no headers for the notice — there is
+    nothing to score and nothing to report, which is different from a notice
+    whose headers were declared and not measured.
+
+    `observed: false` is that second case: ground truth has values, the run
+    recorded no `written_header` (every image before that field existed). The
+    fields are listed with no status so the report can say NOT SCORED rather
+    than printing zero failures over an unmeasured notice.
+    """
+    spec = {k: v for k, v in (headers or {}).items() if not k.startswith("_")}
+    if not spec:
+        return None
+    if not isinstance(written, dict):
+        return {"observed": False, "fields": {},
+                "declared": sorted(spec),
+                "reason": "the run recorded no written_header for this notice"}
+
+    fields = {name: score_header_field(name, written.get(name), s)
+              for name, s in sorted(spec.items())}
+    by_status: Dict[str, List[str]] = {}
+    for name, f in fields.items():
+        by_status.setdefault(f["status"], []).append(name)
+    scored = [n for n, f in fields.items() if f["status"] != "pending"]
+    return {
+        "observed": True,
+        "fields": fields,
+        "scored": sorted(scored),
+        "by_status": {k: sorted(v) for k, v in by_status.items()},
+        "exact": len(by_status.get("exact", [])),
+        "clean": not any(by_status.get(s) for s in HEADER_FAILURES),
+    }
+
+
+def header_totals(per: Dict[str, Any]) -> Dict[str, Any]:
+    """Corpus-wide header numbers, with every failure located as `notice:field`.
+
+    `clean` and `observed` are SEPARATE booleans on purpose. A run that measured
+    nothing has no failures, so `clean` alone would read as success; `observed`
+    is what says whether `clean` is a measurement or a vacuum.
+    """
+    t: Dict[str, Any] = {"notices_with_gt": 0, "notices_observed": 0,
+                         "unobserved": [], "fields_scored": 0, "exact": 0,
+                         "pending": []}
+    for s in HEADER_FAILURES:
+        t[s] = []
+    for fn, p in sorted(per.items()):
+        h = p.get("headers")
+        if not h:
+            continue
+        t["notices_with_gt"] += 1
+        if not h.get("observed"):
+            t["unobserved"].append(fn)
+            continue
+        t["notices_observed"] += 1
+        t["fields_scored"] += len(h["scored"])
+        t["exact"] += h["exact"]
+        for name in h["by_status"].get("pending", []):
+            t["pending"].append(f"{fn}:{name}")
+        for s in HEADER_FAILURES:
+            t[s] += [f"{fn}:{name}" for name in h["by_status"].get(s, [])]
+    t["observed"] = bool(t["notices_with_gt"]) and not t["unobserved"]
+    t["clean"] = not any(t[s] for s in HEADER_FAILURES)
+    return t
+
+
 def score_run(results: Dict[str, Any], gt: Dict[str, Any]) -> Dict[str, Any]:
     per: Dict[str, Any] = {}
     for fn, entry in gt.items():
@@ -109,6 +365,16 @@ def score_run(results: Dict[str, Any], gt: Dict[str, Any]) -> Dict[str, Any]:
             continue
         per[fn] = score_notice([m for m in (res.get("mpns") or []) if m], entry)
 
+    # Headers, attached to every notice INCLUDING the absent/failed ones above:
+    # a notice that never ran has unobserved headers, which must read as
+    # unobserved rather than vanish from the header totals' denominator.
+    for fn, entry in gt.items():
+        res = results.get(fn)
+        written = res.get("written_header") if isinstance(res, dict) else None
+        scored_headers = score_headers(written, entry.get("headers"))
+        if scored_headers is not None:
+            per[fn]["headers"] = scored_headers
+
     totals = {
         "gt": sum(e["count"] for e in gt.values()),
         "exact": sum(p["exact"] for p in per.values()),
@@ -117,7 +383,8 @@ def score_run(results: Dict[str, Any], gt: Dict[str, Any]) -> Dict[str, Any]:
         "malformed": sum(len(p["malformed"]) for p in per.values()),
         "emitted": sum(p["emitted"] for p in per.values()),
     }
-    return {"per_notice": per, "totals": totals}
+    return {"per_notice": per, "totals": totals,
+            "header_totals": header_totals(per)}
 
 
 def render(scored: Dict[str, Any]) -> str:
@@ -148,6 +415,72 @@ def render(scored: Dict[str, Any]) -> str:
         if p["malformed"]:
             out.append(f"\n{fn} malformed (real content, unusable shape):")
             out += [f"    {m!r}" for m in p["malformed"]]
+    out.append("")
+    out.append(render_headers(scored))
+    return "\n".join(out)
+
+
+def render_headers(scored: Dict[str, Any]) -> str:
+    """The header section. Prints nothing but a line of explanation when ground
+    truth declares no headers, so the absence is stated rather than looking like
+    a clean sweep."""
+    t = scored.get("header_totals") or {}
+    if not t.get("notices_with_gt"):
+        return ("HEADERS  no notice in ground truth carries a `headers` block — "
+                "nothing scored (this is not a pass)")
+
+    out = ["HEADERS  scored against notices[*].headers in pcn_ground_truth.json",
+           f"{'notice':38} {'field':20} {'status':12} value", "-" * 100]
+    for fn, p in sorted(scored["per_notice"].items()):
+        h = p.get("headers")
+        if not h:
+            continue
+        if not h.get("observed"):
+            out.append(f"{fn:38} {'(all declared)':20} {'NOT SCORED':12} "
+                       f"{h.get('reason', '')}")
+            continue
+        for name, f in h["fields"].items():
+            got = f["got"] if f["got"] not in (None, "") else "-"
+            out.append(f"{fn:38} {name:20} {f['status']:12} {got!r}")
+
+    out += ["-" * 100]
+    if t["notices_observed"]:
+        out.append(f"HEADER SCORE {t['exact']} / {t['fields_scored']} established "
+                   f"fields exact, over {t['notices_observed']} of "
+                   f"{t['notices_with_gt']} notices with ground truth")
+    if t["unobserved"]:
+        out.append("      HEADERS NOT SCORED for " + ", ".join(t["unobserved"])
+                   + " — the run recorded no written_header. NOT a pass: nothing "
+                     "was measured.")
+    if t["pending"]:
+        out.append("      pending (ground truth not established, excluded from the "
+                   "score): " + ", ".join(t["pending"]))
+
+    for fn, p in sorted(scored["per_notice"].items()):
+        h = p.get("headers")
+        if not h or not h.get("observed"):
+            continue
+        for name, f in h["fields"].items():
+            if f["status"] == "distractor":
+                out.append(f"\n{fn} {name}: DECLARED DISTRACTOR {f['got']!r} "
+                           f"(ground truth: {f['expected']!r})\n    {f['why']}")
+            elif f["status"] == "wrong":
+                out.append(f"\n{fn} {name}: wrong — wrote {f['got']!r}, page says "
+                           f"{f['expected']!r}, and ground truth does not account "
+                           f"for what was written")
+            elif f["status"] == "misformatted":
+                out.append(f"\n{fn} {name}: misformatted — {f['got']!r} is the same "
+                           f"value as {f['expected']!r} in an unusable shape")
+            elif f["status"] == "unreadable":
+                out.append(f"\n{fn} {name}: unreadable — {f['got']!r} is not a date "
+                           f"this scorer will guess at (see normalize_date)")
+            elif f["status"] == "absent":
+                out.append(f"\n{fn} {name}: absent — nothing written, page says "
+                           f"{f['expected']!r}")
+            elif f["status"] == "pending":
+                out.append(f"\n{fn} {name}: PENDING, not scored — {f['why']}"
+                           + (f"\n    candidates: {', '.join(f['candidates'])}"
+                              if f.get("candidates") else ""))
     return "\n".join(out)
 
 
@@ -168,8 +501,14 @@ def main() -> int:
         print(f"\nWROTE {a.json_out}")
 
     t = scored["totals"]
-    return 0 if (t["exact"] == t["gt"] and not t["spurious"]
-                 and not t["missing"] and not t["malformed"]) else 1
+    parts_ok = (t["exact"] == t["gt"] and not t["spurious"]
+                and not t["missing"] and not t["malformed"])
+    # An UNOBSERVED header block does not fail this: a pre-written_header run is
+    # a parts measurement and says nothing about headers either way. What would
+    # fail is an observed field that is not exact. The two are kept apart so a
+    # green exit never rests on a header pass that was never measured — the
+    # report says NOT SCORED out loud for that case.
+    return 0 if (parts_ok and (scored.get("header_totals") or {}).get("clean", True)) else 1
 
 
 if __name__ == "__main__":

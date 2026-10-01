@@ -364,3 +364,155 @@ def test_a_missing_source_key_with_nothing_to_fall_back_on_yields_none():
 
 def test_an_unreadable_source_object_yields_none_rather_than_raising():
     assert run.source_content_hash(_FakeS3(raises=True), {"source_key": "k"}) is None
+
+
+# --------------------------------------------------------------------------
+# (e) Header correctness — the condition cross-fire agreement cannot reach.
+
+def _totals(**kw):
+    t = {"notices_with_gt": 1, "notices_observed": 1, "unobserved": [],
+         "fields_scored": 2, "exact": 2, "pending": [], "distractor": [],
+         "wrong": [], "misformatted": [], "unreadable": [], "absent": [],
+         "observed": True, "clean": True}
+    t.update(kw)
+    return t
+
+
+def _corpus(needs_review):
+    entry = {"ok": True, "needs_review": needs_review}
+    return {n: {"TYC.pdf": dict(entry)} for n in (1, 2, 3)}
+
+
+def test_a_fire_set_with_no_header_totals_is_unscored_not_passed():
+    """Score JSONs from an image predating header scoring. The report must say so
+    and must NOT block: nothing was measured, which is neither a pass nor a fail.
+    `observed` is what a reader checks before believing a clean result."""
+    block, blocking, exempted = gate.check_header_correctness(
+        {1: None, 2: None, 3: None}, _corpus(False))
+    assert block["observed"] is False
+    assert "NOT a pass" in block["reason"]
+    assert (blocking, exempted) == ([], [])
+
+
+def test_a_declared_distractor_blocks_and_names_the_field():
+    block, blocking, exempted = gate.check_header_correctness(
+        {n: _totals(distractor=["TYC.pdf:pub_date"], exact=1, clean=False)
+         for n in (1, 2, 3)},
+        _corpus(False))
+    assert block["failing_notices"] == ["TYC.pdf"]
+    assert len(blocking) == 1
+    assert "pub_date (distractor)" in blocking[0]
+    assert "fire 1" in blocking[0] and "fire 3" in blocking[0]
+    assert exempted == []
+
+
+def test_three_fires_agreeing_on_a_wrong_value_still_blocks():
+    """THE WHOLE POINT. Identical header_totals in all three fires means perfect
+    agreement; agreement check (b) reports nothing. Ground truth reports the
+    value as the declared print stamp, so this condition blocks where (b)
+    structurally cannot."""
+    totals = _totals(distractor=["TYC.pdf:pub_date"], exact=1, clean=False)
+    _, blocking, _ = gate.check_header_correctness(
+        {1: totals, 2: dict(totals), 3: dict(totals)}, _corpus(False))
+    assert blocking, "a value all three fires agree on must still be checkable"
+
+
+def test_a_declared_notice_is_exempted_and_not_blocking():
+    """Same exemption as the declaration rule in (d): a notice flagged
+    needs_review in all three fires has not been written silently."""
+    _, blocking, exempted = gate.check_header_correctness(
+        {n: _totals(wrong=["TYC.pdf:pub_date"], exact=1, clean=False)
+         for n in (1, 2, 3)},
+        _corpus(True))
+    assert blocking == []
+    assert len(exempted) == 1
+    assert "needs_review=True in all three fires" in exempted[0]
+
+
+def test_an_exempted_failure_is_still_a_failing_notice_for_the_strict_view():
+    block, blocking, _ = gate.check_header_correctness(
+        {n: _totals(absent=["TYC.pdf:mfr"], exact=1, clean=False)
+         for n in (1, 2, 3)},
+        _corpus(True))
+    assert blocking == []
+    # strict_verdict reads this key, and grants no exemptions.
+    assert block["failing_notices"] == ["TYC.pdf"]
+
+
+def test_a_pending_field_alone_is_not_a_failure():
+    block, blocking, exempted = gate.check_header_correctness(
+        {n: _totals(pending=["TYC.pdf:doc_level_ltb_date"]) for n in (1, 2, 3)},
+        _corpus(False))
+    assert (blocking, exempted) == ([], [])
+    assert block.get("failing_notices") == []
+    assert block["fires"][1]["pending"] == ["TYC.pdf:doc_level_ltb_date"]
+
+
+def test_a_failure_in_one_fire_only_is_reported_as_that_one_fire():
+    _, blocking, _ = gate.check_header_correctness(
+        {1: _totals(), 2: _totals(misformatted=["TYC.pdf:pub_date"], clean=False),
+         3: _totals()},
+        _corpus(False))
+    assert len(blocking) == 1
+    assert "fire 2: pub_date (misformatted)" in blocking[0]
+    assert "fire 1" not in blocking[0]
+
+
+def test_the_renderer_states_not_scored_rather_than_zero_failures():
+    block, _, _ = gate.check_header_correctness({1: None}, _corpus(False))
+    assert "NOT SCORED" in gate._render_header_correctness_block(block)
+    assert "NOT PRESENT" in gate._render_header_correctness_block(None)
+
+
+# --------------------------------------------------------------------------
+# The corpus enumeration, where the gate reads it.
+
+def test_the_gate_copies_the_corpus_enumeration_into_its_report():
+    corpus = gate.pcn_score.load_corpus()
+    assert corpus["distinct_documents"] == 8
+    assert corpus["scored_entries"] == 9
+    assert corpus["gt_parts"] == 898
+    assert corpus["distinct_parts"] == 496
+    rendered = gate._render_corpus_block(corpus)
+    assert "distinct documents: **8**" in rendered
+    assert "until production traffic adds to it" in rendered
+
+
+def test_a_report_with_no_corpus_block_says_so_instead_of_printing_a_number():
+    assert "NOT STATED" in gate._render_corpus_block({})
+
+
+def test_targets_and_the_enumeration_must_agree_or_the_run_aborts():
+    """`check_corpus_enumeration` is the assertion that makes the enumeration an
+    INPUT rather than prose. It must pass on the shipped files, and it must fail
+    when the denominator is edited without the corpus being re-enumerated."""
+    gt = run.pcn_score.load_ground_truth()
+    run.check_corpus_enumeration(gt)  # shipped state: no raise
+
+    real = run.pcn_score.load_corpus
+    try:
+        for bad in ({"documents": [], "distinct_documents": 0,
+                     "scored_entries": 9, "gt_parts": 898, "distinct_parts": 496},
+                    dict(real(), gt_parts=899),
+                    dict(real(), distinct_parts=898),
+                    dict(real(), scored_entries=8),
+                    {}):
+            run.pcn_score.load_corpus = lambda *a, _b=bad, **k: _b
+            try:
+                run.check_corpus_enumeration(gt)
+            except SystemExit:
+                continue
+            raise AssertionError(f"check_corpus_enumeration accepted {bad!r}")
+    finally:
+        run.pcn_score.load_corpus = real
+
+
+def test_the_distinct_parts_arithmetic_is_recomputed_not_restated():
+    """496 is 898 minus the Diodes document's 402, because that one content is
+    scored under two filenames. The check must be that arithmetic over the
+    notices block, not a second copy of the number."""
+    gt = run.pcn_score.load_ground_truth()
+    corpus = run.pcn_score.load_corpus()
+    reps = [d["filenames"][0] for d in corpus["documents"]]
+    assert sum(gt[fn]["count"] for fn in reps) == corpus["distinct_parts"]
+    assert corpus["gt_parts"] - corpus["distinct_parts"] == 402

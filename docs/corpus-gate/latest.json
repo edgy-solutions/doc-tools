@@ -2,16 +2,16 @@
   "schema": 1,
   "verdict": "pass",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-01T02:12:06Z",
+  "generated_at": "2026-10-01T03:05:34Z",
   "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:904fb4587ddadce1b88aaa346a92676c31bb0c5952db7c7b34c7ae14a40abf7d",
   "measured_pin_note": "49ed4a1 (helm rev 25, sandbox) - carries PR #34, #35, #36, #37; #35 is the degraded-notice needs_review fix this run re-measures",
   "fires": [
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-10-01T01:04:16Z",
-      "ended_at": "2026-10-01T01:27:34Z",
-      "elapsed_s": 1397.5,
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_s": 1374.4,
       "log": "fire1.log",
       "totals": {
         "gt": 898,
@@ -26,9 +26,9 @@
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-10-01T01:27:34Z",
-      "ended_at": "2026-10-01T01:50:04Z",
-      "elapsed_s": 1350.7,
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_s": 1327.2,
       "log": "fire2.log",
       "totals": {
         "gt": 898,
@@ -43,9 +43,9 @@
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-10-01T01:50:04Z",
-      "ended_at": "2026-10-01T02:12:06Z",
-      "elapsed_s": 1321.4,
+      "started_at": null,
+      "ended_at": null,
+      "elapsed_s": 1297.8,
       "log": "fire3.log",
       "totals": {
         "gt": 898,
@@ -82,6 +82,88 @@
       }
     },
     "chunk_tally": null
+  },
+  "corpus": {
+    "statement": "EIGHT DOCUMENTS IS THE CORPUS, and it stays eight until production traffic adds to it. This is an enumeration, not an estimate: on 2026-09-30 all six sandbox MinIO buckets were listed in full (4061 objects), every PDF under every sustainment prefix was fetched and hashed, and the result was 8 distinct document contents -- every one of which is already a TARGETS row, and every TARGETS row of which has a PDF. There is no unseen notice sitting in the bucket. The corpus therefore does not widen by looking harder; it widens when new notices are ingested. Enumerated in docs/pcn-corpus-widening-2026-09-30.md, which also lists the extensions present and absent corpus-wide.",
+    "why_it_is_here": "This block exists so the denominator lives where the GATE READS IT rather than only in prose. pcn_corpus_run.check_ground_truth() asserts TARGETS against it at startup and aborts on a disagreement, and pcn_corpus_gate.py copies it into docs/corpus-gate/latest.json so a committed report states the corpus it was measured against. A denominator that only a human can check is a denominator that drifts.",
+    "scored_entries": 9,
+    "distinct_documents": 8,
+    "gt_parts": 898,
+    "distinct_parts": 496,
+    "nine_vs_eight": "Both numbers are correct and neither is a defect to fix. The harness scores 9 FILENAMES; two of them -- Diodes_PCN_2683_FULLGREEN.pdf and Diodes_PCN_2683_Rev1_EOL.pdf -- are ONE document content (md5 abe083fe...) ingested under two names, so that document is scored twice at 402 parts. Hence 898 harness parts over 496 distinct ones: 402 of the 898 is the same notice counted a second time. Keep the 9 rows -- the duplicate pair is how the two-ingest case is exercised -- and never quote 898 as a count of distinct parts.",
+    "documents": [
+      {
+        "md5": "c9674b3893e657e59fde3c78aad424ce",
+        "bytes": 417830,
+        "filenames": [
+          "onsemi_Generic_IPCN25300X.pdf"
+        ],
+        "inbound_copies": 7
+      },
+      {
+        "md5": "abe083fe8bab0e963874777280e8e293",
+        "bytes": 181899,
+        "filenames": [
+          "Diodes_PCN_2683_FULLGREEN.pdf",
+          "Diodes_PCN_2683_Rev1_EOL.pdf"
+        ],
+        "inbound_copies": 3
+      },
+      {
+        "md5": "fd9eff0fde5578c105975b729812dacc",
+        "bytes": 32264,
+        "filenames": [
+          "ADI_PDN_23_0120.pdf"
+        ],
+        "inbound_copies": 3
+      },
+      {
+        "md5": "0e754e2c30b2bb9713a75e720dc1215e",
+        "bytes": 163821,
+        "filenames": [
+          "EOL-36_BYV34-400,-BYV34-500.pdf"
+        ],
+        "inbound_copies": 1
+      },
+      {
+        "md5": "7593ca5333b7a6207d46e1118c7a58fa",
+        "bytes": 108301,
+        "filenames": [
+          "PCN23-002.pdf"
+        ],
+        "inbound_copies": 1
+      },
+      {
+        "md5": "cc3e45064219561ff48f87febeb0cd80",
+        "bytes": 48750,
+        "filenames": [
+          "PCN24-029.pdf"
+        ],
+        "inbound_copies": 1
+      },
+      {
+        "md5": "30954fcb867feb9355b762750860fed5",
+        "bytes": 145603,
+        "filenames": [
+          "TYC-PCN-24-210412.pdf"
+        ],
+        "inbound_copies": 1
+      },
+      {
+        "md5": "40d244f23763eb4887d80405e6ff0bbe",
+        "bytes": 206441,
+        "filenames": [
+          "onsemi_Generic_PD26044X1.pdf"
+        ],
+        "inbound_copies": 1
+      }
+    ],
+    "widens_when": "A new notice is ingested into processing-artifacts/sustainment/inbound/**. Then: add its TARGETS row, add its part numbers to notices{} under the same verbatim-presence rule as every other entry, and raise scored_entries / distinct_documents / gt_parts / distinct_parts here. Re-enumerating the bucket does NOT widen it -- that was done, and found nothing new."
+  },
+  "header_correctness": {
+    "observed": false,
+    "fires": {},
+    "reason": "no fire score JSON carries header_totals — scored by an image that predates header scoring. NOT a pass: the headers were not measured against ground truth at all."
   },
   "header_agreement": {
     "exit": 1,
@@ -177,7 +259,7 @@
   },
   "blocking": [],
   "exempted": [
-    "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires",
-    "TYC-PCN-24-210412.pdf: identity-half instability (mfr/doc_id differ across fires) exempted \u2014 needs_review=True in all three fires"
+    "TYC-PCN-24-210412.pdf: header disagreement exempted — needs_review=True in all three fires",
+    "TYC-PCN-24-210412.pdf: identity-half instability (mfr/doc_id differ across fires) exempted — needs_review=True in all three fires"
   ]
 }

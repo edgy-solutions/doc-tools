@@ -349,3 +349,30 @@ ingress:
 
 autoscaling:
   enabled: false
+
+# The PCN/PDN corpus release gate. OFF in the chart default and turned on here,
+# for sandbox only, because this is the cluster that has the vision endpoint the
+# three fires need. Budget the cost before copying this block elsewhere: each
+# run is three SEQUENTIAL fires against an endpoint that serves one model at a
+# time, which measured 1397s / 1351s / 1321s at this pin -- about 70 minutes of
+# GPU per night, every night, at 07:00 UTC.
+#
+# publish.repo is set, which is the SECOND of the two things the publish step
+# needs. The first is PCN_GATE_PUBLISH_TOKEN, and it is deliberately NOT here:
+# it is a push credential and lives in values-sandbox.secret.yaml under
+# `secrets:`, so it renders into the chart's Opaque Secret rather than inline as
+# a `value:` in the CronJob and Deployment manifests. With the token missing the
+# gate still RUNS and still reports its verdict -- it just prints why it
+# published nothing, and the Job stays green. A publish problem cannot paint a
+# red corpus green.
+#
+# base stays `main` and branch stays the chart default: the report lands on
+# corpus-gate/nightly and a human merges it. Note that the comment in
+# values.yaml justifying this with "no required checks on main" is now stale --
+# main IS protected and corpus-gate IS required as of 2026-09-30 -- but the
+# conclusion is unchanged, because a nightly machine commit should be reviewed
+# on its own merits and not merely be check-green.
+corpusGate:
+  enabled: true
+  publish:
+    repo: edgy-solutions/doc-tools

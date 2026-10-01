@@ -1,5 +1,25 @@
 {
   "_construction": "Build scripts/pcn_ground_truth.json from evidence, not from a run's say-so.\n\nCONSTRUCTION, stated so it can be audited:\n\n  An MPN enters ground truth only if it is VERBATIM PRESENT in the source PDF's\n  text layer. That is an independent check \u2014 the string is on the page or it is\n  not \u2014 and it is what separates a real extraction from a misread. 893 of the\n  896 MPNs the 2026-09-23 run emitted pass it.\n\n  The three that do not are handled explicitly, never silently:\n\n  - SYTYD-122HP-1+ (PCN23-002) is a MISREAD of a crop clipped 47% through its\n    glyphs. It is excluded, and the part it misreads, SYTX9-122HP-1+, is added\n    by hand: it IS verbatim in the source, it is the documented eighteenth part,\n    and no run has yet emitted it.\n  - TYC's two composite cells hold two customer part numbers each in one string\n    (\"TYC1056344-1,\\n9501815SP-1\"). Their CONTENT is real \u2014 both halves are on\n    the page \u2014 but their SHAPE is wrong.\n\n    THEY WERE CARRIED GLUED UNTIL 2026-09-24, flagged `malformed`, so that TYC's\n    total read as the documented 24. THAT WAS A DEFECT IN THIS FILE, not a\n    labelling choice: a tier-1 cell holding two part-shaped strings joined by\n    comma+newline IS TWO PARTS, and ground truth that says otherwise asserts a\n    wrong fact about the notice. Each is now SPLIT, so TYC's count is 26 and the\n    corpus denominator is 898. The `malformed` list for TYC is consequently\n    empty.\n\n    This was found by the harness itself: the 2026-09-24 run scored TYC\n    exact=24 AND malf=2, a combination that can only mean the malformed strings\n    were in ground truth. Until the extractor learns the same split rule, TYC\n    will score 24 exact + 2 spurious + 4 missing, i.e. the corpus reads 893/898.\n    That shortfall is REAL and must not be closed by re-gluing this file. Prior\n    reports citing a denominator of 896 stand as written; see\n    docs/pcn-roll-c460ac6-2026-09-24.md.\n\n  Every resulting per-notice count is then checked against the counts in\n  docs/pcn-corpus-validation-2026-09-21.md. A disagreement aborts.\n",
+  "_corpus": {
+    "statement": "EIGHT DOCUMENTS IS THE CORPUS, and it stays eight until production traffic adds to it. This is an enumeration, not an estimate: on 2026-09-30 all six sandbox MinIO buckets were listed in full (4061 objects), every PDF under every sustainment prefix was fetched and hashed, and the result was 8 distinct document contents -- every one of which is already a TARGETS row, and every TARGETS row of which has a PDF. There is no unseen notice sitting in the bucket. The corpus therefore does not widen by looking harder; it widens when new notices are ingested. Enumerated in docs/pcn-corpus-widening-2026-09-30.md, which also lists the extensions present and absent corpus-wide.",
+    "why_it_is_here": "This block exists so the denominator lives where the GATE READS IT rather than only in prose. pcn_corpus_run.check_ground_truth() asserts TARGETS against it at startup and aborts on a disagreement, and pcn_corpus_gate.py copies it into docs/corpus-gate/latest.json so a committed report states the corpus it was measured against. A denominator that only a human can check is a denominator that drifts.",
+    "scored_entries": 9,
+    "distinct_documents": 8,
+    "gt_parts": 898,
+    "distinct_parts": 496,
+    "nine_vs_eight": "Both numbers are correct and neither is a defect to fix. The harness scores 9 FILENAMES; two of them -- Diodes_PCN_2683_FULLGREEN.pdf and Diodes_PCN_2683_Rev1_EOL.pdf -- are ONE document content (md5 abe083fe...) ingested under two names, so that document is scored twice at 402 parts. Hence 898 harness parts over 496 distinct ones: 402 of the 898 is the same notice counted a second time. Keep the 9 rows -- the duplicate pair is how the two-ingest case is exercised -- and never quote 898 as a count of distinct parts.",
+    "documents": [
+      {"md5": "c9674b3893e657e59fde3c78aad424ce", "bytes": 417830, "filenames": ["onsemi_Generic_IPCN25300X.pdf"], "inbound_copies": 7},
+      {"md5": "abe083fe8bab0e963874777280e8e293", "bytes": 181899, "filenames": ["Diodes_PCN_2683_FULLGREEN.pdf", "Diodes_PCN_2683_Rev1_EOL.pdf"], "inbound_copies": 3},
+      {"md5": "fd9eff0fde5578c105975b729812dacc", "bytes": 32264, "filenames": ["ADI_PDN_23_0120.pdf"], "inbound_copies": 3},
+      {"md5": "0e754e2c30b2bb9713a75e720dc1215e", "bytes": 163821, "filenames": ["EOL-36_BYV34-400,-BYV34-500.pdf"], "inbound_copies": 1},
+      {"md5": "7593ca5333b7a6207d46e1118c7a58fa", "bytes": 108301, "filenames": ["PCN23-002.pdf"], "inbound_copies": 1},
+      {"md5": "cc3e45064219561ff48f87febeb0cd80", "bytes": 48750, "filenames": ["PCN24-029.pdf"], "inbound_copies": 1},
+      {"md5": "30954fcb867feb9355b762750860fed5", "bytes": 145603, "filenames": ["TYC-PCN-24-210412.pdf"], "inbound_copies": 1},
+      {"md5": "40d244f23763eb4887d80405e6ff0bbe", "bytes": 206441, "filenames": ["onsemi_Generic_PD26044X1.pdf"], "inbound_copies": 1}
+    ],
+    "widens_when": "A new notice is ingested into processing-artifacts/sustainment/inbound/**. Then: add its TARGETS row, add its part numbers to notices{} under the same verbatim-presence rule as every other entry, and raise scored_entries / distinct_documents / gt_parts / distinct_parts here. Re-enumerating the bucket does NOT widen it -- that was done, and found nothing new."
+  },
   "notices": {
     "TYC-PCN-24-210412.pdf": {
       "count": 26,
@@ -35,7 +55,7 @@
       "source": "16 from the 'Part Number' column + 10 from 'Customer Part Number'; both ruled genuine affected-part columns in docs/pcn-corpus-validation-2026-09-21.md s1. The Customer column has 8 CELLS, two of which hold two part numbers each (comma+newline), so it contributes 10 PARTS. CORRECTED 2026-09-24 from count=24: the two composite cells were previously carried glued, which made this file assert that a two-part cell is one part. See _construction.",
       "manifest": "sustainment/inbound/generated/TYC-PCN-24-210412_pdf/manifest.json",
       "headers": {
-        "_note": "HEADER ground truth, added 2026-09-30. Established from the page, not from a run: every value below is read off the source PDF's page 1, and the competing value each run produced is named so a future reader can tell a defect from a disagreement. TYC is the degraded-text-layer notice -- its layer drops the 'ti' ligature everywhere -- so for this notice the text layer is a KNOWN-DAMAGED source and may not settle a field by itself.",
+        "_note": "HEADER ground truth, added 2026-09-30. Established from the page, not from a run: every value below is read off the source PDF's page 1, and the competing value each run produced is named so a future reader can tell a defect from a disagreement. TYC is the degraded-text-layer notice -- its layer drops the 'ti' ligature everywhere -- so for this notice the text layer is a KNOWN-DAMAGED source and may not settle a field by itself. Every field in this block is now established; there are no pending fields left here. (The `pending` status itself is NOT retired -- it is the mechanism that keeps an unestablished field out of both the pass and the fail column, and the next notice to get a headers block will need it.)",
         "mfr": {
           "value": "TE Connectivity",
           "source": "Page 1, centred heading directly under the TE logo: 'TE Connectivity'.",
@@ -52,12 +72,11 @@
           }
         },
         "doc_level_ltb_date": {
-          "value": null,
-          "status": "PENDING -- not established, and not to be scored until it is",
-          "source": "The last-order/last-ship section of the page has not been read directly. Do not promote either candidate below on the strength of repetition: the text layer and the witness are the only two sources seen so far, and they disagree.",
-          "candidates": {
-            "2024-06-06": "The text layer's reading ('06-JUN'). Two of three fires picked it, but those two share ONE damaged source, so their agreement is not independent evidence.",
-            "2024-06-08": "The second witness's reading ('08-JUN-2024') from the page image."
+          "value": "2024-06-06",
+          "source": "Page 1, 'Estimated Dates' table, row 'Last Order Date (Obsolete Parts Only):' -> '06-JUN-2024'. ESTABLISHED 2026-09-30 by rendering page 1 of the source PDF at 500 DPI (pypdfium2) and reading the table region directly -- not from a run, and not from the text layer, which for this notice is a known-damaged source. The whole date surface of that table was read at the same time, so the 'not' block below is CLOSED rather than a sample: 'Last Ship Date of Changed Items (Obsolete Parts Only): 07-JUN-2024'; 'First Ship Date of Changed Items' blank; 'Last Date for Mixed Shipments: No Mixed Shipments'; 'Effectivity Date' and 'Date of First Samples' both blank. The only other dates anywhere on the page are 'PCN Date: 07-JUN-24' and the portal print stamp, both already adjudicated under pub_date.",
+          "not": {
+            "2024-06-07": "The ADJACENT ROW -- 'Last Ship Date of Changed Items (Obsolete Parts Only)'. A real date on the real page, one row below the right one, and it is also the correct pub_date, so a run returning it has either taken the wrong row of this table or copied the PCN date. The row label is what distinguishes them; the value cannot.",
+            "2024-06-08": "The second witness's reading of the page image. This date appears NOWHERE on the page -- not in this table, not in any other field. It is a digit substitution by the vision model, the standing failure mode for that witness, so agreeing with it would be agreeing with a fabrication. Recorded here because it was carried as a live candidate until the page was read."
           }
         }
       }
