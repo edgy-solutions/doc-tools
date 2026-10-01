@@ -204,7 +204,45 @@ image:
   #     date will be REWRITTEN with 2024-12-22. Intended, and it does NOT move
   #     the parts score (that score is MPN-only), but the stored artifacts will
   #     differ from what is in S3 today and there is no rollback for them.
-  digest: "sha256:904fb4587ddadce1b88aaa346a92676c31bb0c5952db7c7b34c7ae14a40abf7d"
+  # ------------------------------------------------------------------
+  # THIS PIN: db2d863 (the #40 squash merge), 2026-10-01.
+  # Index sha256:cec58b3a06592a90fa310fff17d57b6789a643a5f783ab09460092948932e609
+  #
+  # WHY IT MOVED, and this one is not an optimization. The previous pin
+  # (904fb458) DOES NOT CONTAIN scripts/pcn_gate_publish.py -- checked in the
+  # running pod, `ls /app/scripts/pcn_gate_publish.py` -> No such file. #40
+  # merged `corpusGate.enabled: true` (right above) WITHOUT moving this pin, so
+  # as committed, main scheduled a 70-minute nightly run that measures the
+  # corpus correctly, then dies at the publish step with the report still inside
+  # the container. Enabled-plus-stale-pin is the broken combination this fixes;
+  # the two must move together.
+  #
+  # IT IS A MERGE COMMIT, which the pin it replaces was not. An interim pin at
+  # 4c1f74cc (branch head fa19b85, cut via workflow_dispatch) was rolled into
+  # sandbox at 00:53 UTC to get a publisher in front of the 07:00 run before #40
+  # had landed; that commit never reached main. This supersedes it and restores
+  # the normal rule: PIN MERGE COMMITS ONLY.
+  #
+  # Beyond the publisher, db2d863 also carries what the branch image did not:
+  # #39 (dotted revisions order numerically) and #41 (iagent-mesh v0.9.5).
+  # #39 touches notice_identity, so a corpus score from this pin is not
+  # automatically comparable to one from 4c1f74cc -- the first nightly on this
+  # pin is a NEW baseline, not a repeat.
+  #
+  # A green `build-and-push` is NOT evidence an image exists: that step is
+  # gated `push: ${{ github.event_name != 'pull_request' }}`, so PR runs build
+  # both architectures as a compile check and publish nothing. This digest comes
+  # from the `push`-event run on main (36815972470), which does publish.
+  #
+  # INDEX VERIFIED BEFORE COMMITTING, children fetched BY THEIR OWN DIGEST
+  # rather than merely read out of the index:
+  #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
+  #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
+  # Both return 200 as OCI image manifests. The arm64 child is the one that
+  # matters -- sandbox schedules onto arm workers. (Two unknown/unknown entries
+  # are buildx provenance/SBOM attestations. Expected.)
+  # ------------------------------------------------------------------
+  digest: "sha256:cec58b3a06592a90fa310fff17d57b6789a643a5f783ab09460092948932e609"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
