@@ -991,6 +991,32 @@ def render_markdown(report, gate_dir, command_str, log_paths):
 
 # --------------------------------------------------------------------------
 
+def dated_report_name(generated_at):
+    """Archive filename for one run's markdown report.
+
+    PER RUN, NOT PER DAY -- this used to be `report-{generated_at[:10]}.md`,
+    and the date alone is not a run identity. The second run of a UTC day
+    silently OVERWROTE the first one's archived report, and git shows that as
+    an ordinary modification, so nothing anywhere says a measurement was
+    destroyed. `main` carries the proof: `report-2026-10-01.md` and
+    `report-2026-10-01-rereduced.md` are two different runs of the same day,
+    and the second survives only because a human noticed and renamed it by
+    hand. A third run that night overwrote the file again on the publish
+    branch, which is how this was found.
+
+    `latest.json` SHOULD keep overwriting -- it is the pointer the CI guard
+    reads and "latest" is its whole contract. The dated markdown is the
+    archive, and an archive that drops a run defeats its only purpose.
+
+    The colons of the ISO timestamp are stripped because they are illegal in
+    Windows filenames, and the rest of the ISO form is kept so the names still
+    sort chronologically as plain text. `scripts/pcn_gate_publish.py` picks the
+    file up through its `report-*.md` glob, so the longer name needs no change
+    there.
+    """
+    return "report-%s.md" % generated_at.replace(":", "")
+
+
 def main(argv):
     parser = argparse.ArgumentParser(
         description="Score the PCN/PDN corpus harness as a release gate: three "
@@ -1067,7 +1093,7 @@ def main(argv):
         json.dump(report, f, indent=2)
         f.write("\n")
 
-    dated_path = os.path.join(report_dir, f"report-{report['generated_at'][:10]}.md")
+    dated_path = os.path.join(report_dir, dated_report_name(report["generated_at"]))
     with open(dated_path, "w", encoding="utf-8") as f:
         f.write(markdown)
 
