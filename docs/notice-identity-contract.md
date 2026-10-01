@@ -71,7 +71,8 @@ ni.build_identity(mfr, doc_id, revision) -> dict   # the §2 payload; never rais
 ni.notice_key(mfr, doc_id, revision)     -> str    # the raw key; keys anything, even ""
 ni.parse_notice_key(key)  -> (mfr_c, doc_id_c, revision_c)
 ni.classify_pair(a, b)    -> {"relation": str, "reason": str}
-ni.normalize_component(v) -> str
+ni.normalize_component(v) -> str   # mfr, doc_id — dot is typesetting noise, stripped
+ni.normalize_revision(v)  -> str   # revision — dot is structural, kept (see §6.5)
 ni.SEPARATOR              == "\x1f"
 ```
 
@@ -169,35 +170,55 @@ any single ingest.
 every bucket, 2026-09-30). They are the case `identical` exists for, and the case that
 proves filename-based dedupe is not enough.
 
-### 6.5 A dotted revision is ordered BACKWARDS — do not act on it
+### 6.5 A dotted revision now orders correctly — segment-wise, zero-padded
 
-**Known defect, found 2026-09-30, not yet fixed.** `normalize_component` strips
-typesetting punctuation, so the dot in a printed revision is gone before the ordering
-code sees it, and both sides are then compared as concatenated integers:
+**Fixed 2026-09-30.** Revision normalization runs through `normalize_revision`, not
+`normalize_component`: it keeps the `.` that separates dotted revision segments (a
+leading/trailing dot is still stripped as typesetting — `"2."` is revision `2` plus a
+sentence period, not a structural dot). `_compare_revisions` then splits a dotted-numeric
+revision on `.`, maps each segment to `int`, zero-pads the shorter side to the longer
+side's segment count, and compares the resulting tuples segment-wise.
 
-| a | b | reported | actually |
+**What it used to do**, for the historical record — `normalize_component` stripped the
+dot, so both sides were compared as concatenated integers:
+
+| a | b | OLD reported (wrong) | actually |
 |---|---|---|---|
 | `2.0` | `1.15` | `superseded_by` | `2.0` is **newer** |
 | `3.0` | `2.99` | `superseded_by` | `3.0` is **newer** |
 | `1.0` | `1.00` | `superseded_by` | the **same** revision |
 
-So a dotted revision is not merely undecided — it is **decided wrongly and silently**,
-which is the one outcome §5's `revision_order_unknown` exists to avoid. A sensor acting
-on `superseded_by` would refuse to let revision `2.0` displace `1.15`, dropping the
-newer notice.
+That was decided wrongly and silently, which is the one outcome §5's
+`revision_order_unknown` exists to avoid.
 
-**What to do until it is fixed.** Before acting on `supersedes` or `superseded_by`,
-check the raw revision strings you already hold on the record. If either contains
-anything but digits (or is not a single letter), treat the pair as
-`revision_order_unknown` and route it to a human. Plain integer revisions (`1` vs `2`,
-`9` vs `10`) and single-letter revisions (`A` vs `B`) are ordered correctly and need no
-guard.
+**The new rule.** Dotted-numeric revisions (every segment all-digits — this subsumes
+plain integers, which are just the one-segment case) compare segment-wise with
+zero-padding:
 
-**Scope.** Latent, not observed: the nine corpus notices carry revisions `R5`, `1` and
-absent, none of them dotted. `R5`-style values already fall through to
-`revision_order_unknown`, correctly. Pinned as two `strict=True` xfail tests at the
-foot of [`tests/test_notice_identity.py`](../tests/test_notice_identity.py), so the fix
-cannot land without removing the marker.
+| a | b | now reported | why |
+|---|---|---|---|
+| `2.0` | `1.15` | `supersedes` | `(2, 0) > (1, 15)` |
+| `3.0` | `2.99` | `supersedes` | `(3, 0) > (2, 99)` |
+| `2.0.1` | `2.0` | `supersedes` | `(2, 0, 1) > (2, 0, 0)` zero-padded |
+| `1.0` | `1.00` | `duplicate_copy` | `(1, 0) == (1, 0)` — equivalent spelling |
+| `01` | `1` | `duplicate_copy` | `(1,) == (1,)` — leading zero doesn't count |
+
+An equal tuple comparison is a new, explicit `order == 0` branch in `classify_pair` — it
+reports `duplicate_copy` ("same notice identity, different bytes"), because two spellings
+of the same revision are the same identity, not an ordering. Anything not both
+dotted-numeric and not both single-alphabetic (a dotted value with a non-numeric segment,
+e.g. `1.A` vs `1.B`; a dotted value against a non-numeric scheme, e.g. `2.0` vs `R5`; a
+printed dash; one side absent) still comes back `revision_order_unknown`, exactly as
+before — this change only widens what counts as decidable, it never flips a decision.
+
+Consumers that previously had to guard `supersedes`/`superseded_by` against a dotted
+revision no longer need to: that guard is removed, and re-adding it would make a caller
+refuse valid orderings (`2.0` genuinely supersedes `1.15` now).
+
+**Scope.** The nine corpus notices carry revisions `R5`, `1` and absent — none dotted —
+so this change alters no corpus key or relation. See the now-passing (no longer
+`xfail`) tests at the foot of
+[`tests/test_notice_identity.py`](../tests/test_notice_identity.py).
 
 ## 7. What is frozen, and what is not
 
