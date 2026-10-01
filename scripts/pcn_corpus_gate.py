@@ -490,6 +490,52 @@ def needs_review_in_all_fires(corpus_by_fire, notice):
     )
 
 
+# Markers of a declaration ABOUT A HEADER FIELD, as the plugin phrases them. Matched
+# as substrings of `review_reasons` rather than by a flag, because there is no flag:
+# the product narrates, and narrowing this to a structured field would mean adding one
+# and keeping two representations of the same fact in step.
+_HEADER_DECLARATION_MARKERS = (
+    "refused",                 # refuse_unsourced_header_values blanked a field
+    "header pass failed",      # the header extraction itself raised
+    "region witness LOST",     # a located header region could not be read
+    "could not be located",    # no header region was locatable at all
+    "region witness DISABLED",
+)
+
+
+def header_declaration_in_all_fires(corpus_by_fire, notice):
+    """Did the product declare a problem WITH THE HEADER, in every fire?
+
+    Narrower than `needs_review_in_all_fires`, and the narrowing is the point. A
+    degraded text layer sets `needs_review` unconditionally
+    (`SustainmentPlugin._apply_text_layer_stats`), and degradation is a permanent
+    property of a PDF -- TYC-PCN-24-210412 can never stop declaring it. So the broad
+    predicate granted that notice a PERMANENT exemption from header correctness, which
+    is the one notice whose header was measured wrong. An exemption no measurement can
+    ever revoke is not an exemption, it is an exclusion.
+
+    What makes degradation the wrong declaration to accept here: the region witness
+    exists precisely to survive it. On a degraded notice the header fields are read
+    from CROPS of the page raster and cited verbatim, evidence the text layer had no
+    part in. A notice that supplied its header from pixels and still wrote the wrong
+    value has published a wrong value with no warning attached to it, which is exactly
+    what condition (e) is for.
+
+    So the exemption now has to be earned by a reason that names the HEADER: a refused
+    field, a failed header pass, a lost or unlocatable region. Any of those does mean a
+    human sees the field before it counts. `needs_review` is still required as well --
+    a narrated reason on a document nobody is told to review is not a declaration.
+    """
+    if not needs_review_in_all_fires(corpus_by_fire, notice):
+        return False
+    for n in (1, 2, 3):
+        reasons = (corpus_by_fire.get(n, {}).get(notice) or {}).get("review_reasons") or []
+        blob = " ".join(str(r) for r in reasons)
+        if not any(m in blob for m in _HEADER_DECLARATION_MARKERS):
+            return False
+    return True
+
+
 def check_header_correctness(header_totals_by_fire, corpus_by_fire):
     """(e) Was the written header CORRECT, not merely stable across fires?
 
@@ -507,12 +553,16 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
     does not block, exactly as `rates_available` does. It also is not reported
     as zero failures.
 
-    THE DECLARATION EXEMPTION APPLIES HERE TOO, and that is a choice worth
-    stating. A notice the product flagged `needs_review` in all three fires has
-    not silently published a wrong value — a human sees it before it counts —
-    which is the same reasoning that exempts a disagreeing notice in (d). The
-    failure is reported either way, and `strict_verdict` (which grants no
-    exemptions) counts it regardless.
+    THE DECLARATION EXEMPTION APPLIES HERE TOO, BUT NARROWED — see
+    `header_declaration_in_all_fires`. A notice the product flagged `needs_review`
+    in all three fires has not silently published a wrong value — a human sees it
+    before it counts — which is the same reasoning that exempts a disagreeing
+    notice in (d). But `needs_review` ALONE is too weak here: a degraded text
+    layer sets it unconditionally and permanently, so the broad predicate handed
+    the one notice with a measurably wrong header an exemption that no future
+    measurement could revoke. The reason must now NAME the header (a refused
+    field, a failed header pass, a lost region). The failure is reported either
+    way, and `strict_verdict` (which grants no exemptions) counts it regardless.
     """
     observed = {n: t for n, t in header_totals_by_fire.items() if t}
     block = {"observed": bool(observed), "fires": {}}
@@ -543,8 +593,9 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
                            for n, v in sorted(by_fire.items()))
         line = (f"{notice}: written header does not match ground truth — {detail} "
                 f"(pcn_ground_truth.json notices[{notice}].headers)")
-        if needs_review_in_all_fires(corpus_by_fire, notice):
-            exempted.append(line + " — exempted: needs_review=True in all three fires")
+        if header_declaration_in_all_fires(corpus_by_fire, notice):
+            exempted.append(line + " — exempted: needs_review=True in all three fires "
+                                   "AND a review reason names the header")
         else:
             blocking.append(line)
     return block, blocking, exempted
