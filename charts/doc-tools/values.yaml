@@ -287,9 +287,13 @@ corpusGate:
   # than a reuse: whoever provisions it should see that they are granting
   # write access.
   #
-  # NOT `main`. The report lands on a branch and a human merges it. This repo
-  # has no required checks on main, so a machine pushing there would be an
-  # unreviewed write with nothing in front of it.
+  # NOT `main`. The report lands on a branch and a human merges it. `main` does
+  # now require the `corpus-gate` check, but it requires NO APPROVING REVIEW, so
+  # a machine pushing there would still be a final write with no human in front
+  # of it -- and the gate's own report is the last thing that should land that
+  # way. Note also that the provisioned token reports `admin: true`, which is
+  # enough to bypass branch protection outright; opening a PR is the behaviour
+  # that does not depend on the token being well scoped.
   publish:
     repo: ""
     branch: corpus-gate/nightly
