@@ -378,8 +378,24 @@ def _totals(**kw):
     return t
 
 
-def _corpus(needs_review):
-    entry = {"ok": True, "needs_review": needs_review}
+# A reason that NAMES a header field, in the plugin's own words. The narrowed
+# exemption looks for wording like this; a text-layer reason is not enough.
+_HEADER_REASON = ("header.pub_date refused: '2024-06-10' is not cited by anything in "
+                  "this document's degraded text layer")
+# What a degraded notice says when nothing is wrong with the header specifically.
+_DEGRADED_REASON = ("text layer degraded (worst judged ligature retention 0.128) — "
+                    "every verbatim read below is against damaged text")
+
+
+def _corpus(needs_review, reasons=(_HEADER_REASON,)):
+    """One notice, three fires. `reasons` is what the product narrated in EVERY fire.
+
+    It defaults to a header-naming reason so the pre-existing exemption tests keep
+    testing the exemption; the narrowing is asserted by the tests that pass
+    `_DEGRADED_REASON` instead.
+    """
+    entry = {"ok": True, "needs_review": needs_review,
+             "review_reasons": list(reasons)}
     return {n: {"TYC.pdf": dict(entry)} for n in (1, 2, 3)}
 
 
@@ -419,7 +435,9 @@ def test_three_fires_agreeing_on_a_wrong_value_still_blocks():
 
 def test_a_declared_notice_is_exempted_and_not_blocking():
     """Same exemption as the declaration rule in (d): a notice flagged
-    needs_review in all three fires has not been written silently."""
+    needs_review in all three fires has not been written silently -- and, since
+    2026-10-01, whose narration also NAMES the header. See
+    `header_declaration_in_all_fires`."""
     _, blocking, exempted = gate.check_header_correctness(
         {n: _totals(wrong=["TYC.pdf:pub_date"], exact=1, clean=False)
          for n in (1, 2, 3)},
@@ -516,3 +534,65 @@ def test_the_distinct_parts_arithmetic_is_recomputed_not_restated():
     reps = [d["filenames"][0] for d in corpus["documents"]]
     assert sum(gt[fn]["count"] for fn in reps) == corpus["distinct_parts"]
     assert corpus["gt_parts"] - corpus["distinct_parts"] == 402
+
+
+# --------------------------------------------------------------------------- #
+# THE NARROWED HEADER EXEMPTION
+# --------------------------------------------------------------------------- #
+# `needs_review` alone used to exempt a wrong header. A degraded text layer sets
+# needs_review unconditionally, and degradation is a permanent property of the PDF, so
+# TYC-PCN-24-210412 -- the one notice measured with a wrong header -- held an exemption
+# no measurement could ever revoke. These four tests pin the narrowing: the declaration
+# must name the header, in every fire.
+
+
+def test_a_degraded_text_layer_alone_no_longer_exempts_a_wrong_header():
+    """THE REGRESSION THAT MATTERS. Same needs_review, same wrong field; the only
+    difference is that the narration is about the text layer rather than about a header
+    field. The region witness reads header fields from CROPS, which the damaged text
+    layer had no part in, so degradation is no longer a reason to let a wrong header
+    through unblocked."""
+    _, blocking, exempted = gate.check_header_correctness(
+        {n: _totals(wrong=["TYC.pdf:pub_date"], exact=1, clean=False)
+         for n in (1, 2, 3)},
+        _corpus(True, reasons=(_DEGRADED_REASON,)))
+    assert exempted == []
+    assert len(blocking) == 1
+    assert "pub_date (wrong)" in blocking[0]
+
+
+def test_a_lost_region_does_exempt_because_the_header_had_no_witness():
+    """The other side of the same rule. A region that could not be read means the
+    header field fell back to the damaged text layer WITH a reason saying so, which is
+    exactly the human-sees-it-first case the exemption is for."""
+    lost = ("region witness LOST the header_block region on page 1 (400 Bad Request); "
+            "header fields mfr, doc_id, pub_date were neither supplied nor corroborated")
+    _, blocking, exempted = gate.check_header_correctness(
+        {n: _totals(wrong=["TYC.pdf:mfr"], exact=1, clean=False) for n in (1, 2, 3)},
+        _corpus(True, reasons=(_DEGRADED_REASON, lost)))
+    assert blocking == []
+    assert len(exempted) == 1
+
+
+def test_a_header_reason_in_only_two_fires_does_not_exempt():
+    """`all three fires` means all three. A notice that declared the header once and
+    published it silently twice has published it silently."""
+    corpus = _corpus(True, reasons=(_HEADER_REASON,))
+    corpus[2]["TYC.pdf"]["review_reasons"] = [_DEGRADED_REASON]
+    _, blocking, exempted = gate.check_header_correctness(
+        {n: _totals(wrong=["TYC.pdf:pub_date"], exact=1, clean=False)
+         for n in (1, 2, 3)},
+        corpus)
+    assert exempted == []
+    assert len(blocking) == 1
+
+
+def test_a_header_reason_without_needs_review_does_not_exempt():
+    """A narrated reason on a document nobody is told to review is not a declaration --
+    nothing routes it to a human, so the value is published silently."""
+    _, blocking, exempted = gate.check_header_correctness(
+        {n: _totals(wrong=["TYC.pdf:pub_date"], exact=1, clean=False)
+         for n in (1, 2, 3)},
+        _corpus(False, reasons=(_HEADER_REASON,)))
+    assert exempted == []
+    assert len(blocking) == 1
