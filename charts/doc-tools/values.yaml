@@ -291,9 +291,21 @@ corpusGate:
   # now require the `corpus-gate` check, but it requires NO APPROVING REVIEW, so
   # a machine pushing there would still be a final write with no human in front
   # of it -- and the gate's own report is the last thing that should land that
-  # way. Note also that the provisioned token reports `admin: true`, which is
-  # enough to bypass branch protection outright; opening a PR is the behaviour
-  # that does not depend on the token being well scoped.
+  # way.
+  #
+  # The merge must stay human for a second reason, learned the hard way on
+  # 2026-10-01: tests/test_corpus_gate_guard.py asserts the committed report is
+  # a PASS. So merging a FAIL report turns the required `corpus-gate` check red
+  # on main and blocks every other PR. Branch protection makes that mechanical
+  # rather than a thing to remember -- the report PR cannot merge while red --
+  # but it is why `base` is a PR target and not a push destination.
+  #
+  # TOKEN SCOPE, measured rather than assumed. The first real run proved the
+  # provisioned PCN_GATE_PUBLISH_TOKEN can write CONTENTS but has no
+  # `pull_requests: write`: the commit landed and the PR creation returned
+  # HTTP 403 "Resource not accessible by personal access token". The publisher
+  # REUSES an existing open PR, so once one exists the missing scope is not
+  # fatal -- but grant it, or a future branch recreation needs a human again.
   publish:
     repo: ""
     branch: corpus-gate/nightly
