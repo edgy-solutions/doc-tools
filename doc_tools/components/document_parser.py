@@ -49,6 +49,20 @@ class DocumentParserComponent(Component, Resolvable, Model):
             "source_key or any S3 address — see the strip site below."
         ),
     )
+    downstream_graph_asset: str = Field(
+        default="build_knowledge_graph",
+        description=(
+            "Name of the build_knowledge_graph-family asset (see "
+            "doc_tools.assets.semantic_assets.make_build_knowledge_graph) "
+            "this instance's process_job selects alongside its own parser "
+            "asset. Defaults to the vetted 'build_knowledge_graph'. The "
+            "ADR-0041 user_document_parser instance sets this to "
+            "'build_user_knowledge_graph' so the user-drop job never "
+            "selects the vetted graph asset, which is pinned to a "
+            "DIFFERENT partitions_def (pdf_files, not user_pdf_files) and "
+            "would make the selection fail to resolve."
+        ),
+    )
 
     def build_defs(self, context: ComponentLoadContext) -> Definitions:
         # A SEPARATE partition set per self.partition_name, not the single
@@ -394,7 +408,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
         
         process_job = define_asset_job(
             name=f"{self.name}_job",
-            selection=[self.name, "build_knowledge_graph"],
+            selection=[self.name, self.downstream_graph_asset],
             tags=k8s_tags
         )
 

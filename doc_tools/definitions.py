@@ -47,6 +47,12 @@ user_document_parser = DocumentParserComponent(
     partition_name="user_pdf_files",
     obtained_via="user-drop",
     path_prefix_strip="ingress-user/",
+    # Selects build_user_knowledge_graph (not the default
+    # build_knowledge_graph) so this job never selects the vetted graph
+    # asset, which is pinned to pdf_files_partition — a different
+    # partitions_def than this instance's user_pdf_files. See
+    # doc_tools.assets.semantic_assets.make_build_knowledge_graph.
+    downstream_graph_asset="build_user_knowledge_graph",
     config={
         "graph_node_label": "WorkInstruction",
         "graph_child_label": "Page",

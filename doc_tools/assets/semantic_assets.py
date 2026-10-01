@@ -4,11 +4,11 @@ import httpx
 import urllib.parse
 import collections
 from typing import Any, Dict
-from dagster import asset, AssetExecutionContext, MaterializeResult, AutomationCondition
+from dagster import asset, AssetExecutionContext, AssetIn, MaterializeResult, AutomationCondition
 from neo4j import GraphDatabase
 from doc_tools.config import IngestionConfig
 from dagster_aws.s3 import S3Resource
-from doc_tools.partitions import pdf_files_partition, xml_files_partition
+from doc_tools.partitions import pdf_files_partition, user_pdf_files_partition, xml_files_partition
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
@@ -166,11 +166,7 @@ def _extraction_payload(document_nodes, doc_id: str, domain_type: str) -> dict:
     return {"doc_id": doc_id, "domain_type": domain_type, "augmentations": augmentations}
 
 
-@asset(
-    partitions_def=pdf_files_partition,
-    automation_condition=AutomationCondition.on_missing() | AutomationCondition.any_deps_updated()
-)
-def build_knowledge_graph(
+def _build_knowledge_graph_impl(
     context: AssetExecutionContext,
     config: IngestionConfig,
     process_document_artifact: Dict[str, Any],
@@ -183,6 +179,13 @@ def build_knowledge_graph(
     """
     Ingests documents into Neo4j using generic labels provided via Configuration.
     Vectorizes document chunks into a Weaviate collection provided via Configuration.
+
+    This is the asset BODY, factored out from the @asset-decorated wrapper so
+    one implementation serves both the vetted path (build_knowledge_graph,
+    fed by process_document_artifact / pdf_files_partition) and the ADR-0041
+    ingress-user path (build_user_knowledge_graph, fed by
+    process_user_document_artifact / user_pdf_files_partition) — see
+    make_build_knowledge_graph() below.
     """
     manifest = process_document_artifact
     doc_id = manifest["doc_id"]
@@ -648,6 +651,89 @@ def build_knowledge_graph(
         pass
 
     return {"doc_id": doc_id, "status": "processed", "node_label": node_label, "collection": collection_name}
+
+
+def make_build_knowledge_graph(
+    name: str = "build_knowledge_graph",
+    partitions_def=pdf_files_partition,
+    upstream_asset: str = "process_document_artifact",
+):
+    """Factory for the knowledge-graph-build asset so one BODY
+    (_build_knowledge_graph_impl) can serve two separate manifest-producing
+    upstreams that must stay on structurally different partition sets.
+
+    Why a factory and not a plain hardcoded @asset: build_knowledge_graph's
+    `partitions_def` used to be hardcoded to pdf_files_partition, and Dagster
+    resolves a manifest input strictly by the asset's PARAMETER NAME
+    (`process_document_artifact`). The ADR-0041 ingress-user path produces
+    its manifest from a different upstream asset
+    (`process_user_document_artifact`) on a different partition set
+    (user_pdf_files_partition — see doc_tools/partitions.py for why the two
+    sets must never collapse into one). Selecting both the vetted and
+    ingress-user jobs out of one Definitions object previously raised
+    `DagsterInvalidDefinitionError: Selected assets must have the same
+    partitions definitions` because the single build_knowledge_graph asset
+    was pinned to pdf_files_partition and wired, by parameter name only, to
+    process_document_artifact.
+
+    The fix: parameterize `partitions_def` (the former hardcode becomes the
+    default) and remap the upstream via
+    `ins={"process_document_artifact": AssetIn(key=upstream_asset)}` — this
+    is the load-bearing part, since it lets the python parameter name stay
+    `process_document_artifact` (so _build_knowledge_graph_impl's signature
+    never changes) while the actual upstream ASSET it reads from varies per
+    instantiation.
+
+    build_knowledge_graph = make_build_knowledge_graph() is the default
+    instantiation, referenced by name ("build_knowledge_graph") from
+    doc_tools/components/document_parser.py's process_job selection and
+    imported/called directly by tests/test_ingress_user_stamp.py.
+    build_user_knowledge_graph is the ADR-0041 ingress-user instantiation,
+    registered in doc_tools/definitions.py and selected by
+    user_document_parser's own process_job (see downstream_graph_asset on
+    DocumentParserComponent).
+    """
+
+    @asset(
+        name=name,
+        partitions_def=partitions_def,
+        ins={"process_document_artifact": AssetIn(key=upstream_asset)},
+        automation_condition=AutomationCondition.on_missing() | AutomationCondition.any_deps_updated()
+    )
+    def _build_knowledge_graph_asset(
+        context: AssetExecutionContext,
+        config: IngestionConfig,
+        process_document_artifact: Dict[str, Any],
+        s3: S3Resource,
+        neo4j: Neo4jResource,
+        weaviate: WeaviateResource,
+        llm: LLMExtractorResource,
+        jena: JenaResource
+    ):
+        return _build_knowledge_graph_impl(
+            context, config, process_document_artifact,
+            s3=s3, neo4j=neo4j, weaviate=weaviate, llm=llm, jena=jena,
+        )
+
+    return _build_knowledge_graph_asset
+
+
+# Default (vetted) instantiation — see make_build_knowledge_graph's docstring.
+# Kept as a module-level name: document_parser.py's process_job selects it
+# by this string, and tests/test_ingress_user_stamp.py imports and calls it
+# directly.
+build_knowledge_graph = make_build_knowledge_graph()
+
+# ADR-0041 ingress-user instantiation — same body, fed by
+# process_user_document_artifact on user_pdf_files_partition. Registered in
+# doc_tools/definitions.py's Definitions asset list and selected by
+# user_document_parser's own process_job via downstream_graph_asset.
+build_user_knowledge_graph = make_build_knowledge_graph(
+    name="build_user_knowledge_graph",
+    partitions_def=user_pdf_files_partition,
+    upstream_asset="process_user_document_artifact",
+)
+
 
 @asset(partitions_def=xml_files_partition)
 def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, jena: JenaResource) -> dict:
