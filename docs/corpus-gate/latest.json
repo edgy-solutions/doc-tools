@@ -1,17 +1,17 @@
 {
   "schema": 1,
-  "verdict": "fail",
+  "verdict": "pass",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-01T06:26:26Z",
+  "generated_at": "2026-10-01T08:03:01Z",
   "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:4c1f74cc1d016606f19f3fe064282ba4681609d104576a96a3f83dc3e62e6297",
   "measured_pin_note": null,
   "fires": [
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-10-01T05:18:16Z",
-      "ended_at": "2026-10-01T05:41:41Z",
-      "elapsed_s": 1405.4,
+      "started_at": "2026-10-01T07:00:19Z",
+      "ended_at": "2026-10-01T07:22:28Z",
+      "elapsed_s": 1329.7,
       "log": "fire1.log",
       "totals": {
         "gt": 898,
@@ -26,9 +26,9 @@
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-10-01T05:41:41Z",
-      "ended_at": "2026-10-01T06:04:12Z",
-      "elapsed_s": 1350.9,
+      "started_at": "2026-10-01T07:22:28Z",
+      "ended_at": "2026-10-01T07:44:54Z",
+      "elapsed_s": 1346.0,
       "log": "fire2.log",
       "totals": {
         "gt": 898,
@@ -42,18 +42,18 @@
     },
     {
       "n": 3,
-      "exit": 1,
-      "started_at": "2026-10-01T06:04:12Z",
-      "ended_at": "2026-10-01T06:26:25Z",
-      "elapsed_s": 1333.1,
+      "exit": 0,
+      "started_at": "2026-10-01T07:44:54Z",
+      "ended_at": "2026-10-01T08:03:01Z",
+      "elapsed_s": 1086.2,
       "log": "fire3.log",
       "totals": {
         "gt": 898,
-        "exact": 890,
+        "exact": 898,
         "spurious": 0,
-        "missing": 8,
+        "missing": 0,
         "malformed": 0,
-        "emitted": 890
+        "emitted": 898
       },
       "seal_checked": true
     }
@@ -172,7 +172,7 @@
         "pending": []
       },
       "2": {
-        "exact": 0,
+        "exact": 1,
         "fields_scored": 3,
         "clean": false,
         "observed": true,
@@ -198,8 +198,12 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "doc_level_ltb_date": "None | '2024-06-06' | '2024-06-06'",
-          "doc_level_ltb_date_source": "None | '-2024\\n[Unca' | '06-JUN-2024'"
+          "mfr": "'TE' | 'TE Connecvity' | 'TE'",
+          "mfr_source": "'TE' | 'TE Connecvity' | 'TE'",
+          "pub_date": "'2024-06-10' | '2024-06-07' | '2024-06-10'",
+          "pub_date_source": "'10-Jun-2024' | '07-JUN-24' | '10-Jun-2024'",
+          "doc_level_ltb_date": "None | None | '2024-06-06'",
+          "doc_level_ltb_date_source": "None | None | '06-JUN-2024'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
@@ -263,28 +267,21 @@
       "complete": true
     },
     "filenames": 9,
-    "distinct_notices": 8,
-    "collapses": [
-      {
-        "key": "diodes | pcn-2683 | r5",
-        "files": [
-          "Diodes_PCN_2683_FULLGREEN.pdf",
-          "Diodes_PCN_2683_Rev1_EOL.pdf"
-        ]
-      }
-    ],
+    "distinct_notices": 9,
+    "collapses": [],
     "incomplete_identity": [],
-    "identity_half_unstable": [],
+    "identity_half_unstable": [
+      "TYC-PCN-24-210412.pdf"
+    ],
     "revision_half_unstable": [
       "Diodes_PCN_2683_FULLGREEN.pdf",
       "Diodes_PCN_2683_Rev1_EOL.pdf"
     ]
   },
-  "blocking": [
-    "fire 3: pcn_corpus_run.py exited 1 \u2014 parts/crop-seal gate not met (see fire3.log)"
-  ],
+  "blocking": [],
   "exempted": [
     "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires",
-    "TYC-PCN-24-210412.pdf: written header does not match ground truth \u2014 fire 1: doc_level_ltb_date (absent), mfr (distractor), pub_date (distractor); fire 2: doc_level_ltb_date (absent), mfr (distractor), pub_date (distractor); fire 3: mfr (distractor), pub_date (distractor) (pcn_ground_truth.json notices[TYC-PCN-24-210412.pdf].headers) \u2014 exempted: needs_review=True in all three fires"
+    "TYC-PCN-24-210412.pdf: identity-half instability (mfr/doc_id differ across fires) exempted \u2014 needs_review=True in all three fires",
+    "TYC-PCN-24-210412.pdf: written header does not match ground truth \u2014 fire 1: doc_level_ltb_date (absent), mfr (distractor), pub_date (distractor); fire 2: doc_level_ltb_date (absent), mfr (distractor); fire 3: mfr (distractor), pub_date (distractor) (pcn_ground_truth.json notices[TYC-PCN-24-210412.pdf].headers) \u2014 exempted: needs_review=True in all three fires"
   ]
 }
