@@ -31,6 +31,36 @@ document_parser = DocumentParserComponent(
 )
 _document_parser_defs = document_parser.build_defs(None)
 
+# 1b. ADR-0041 ingress-user sensor's own parser instance — a SEPARATE
+# DocumentParserComponent, not a config toggle on `document_parser`, so it
+# gets its OWN partition set (user_pdf_files, not pdf_files — see
+# doc_tools/partitions.py) and its own job/asset name
+# (process_user_document_artifact). obtained_via="user-drop" makes this
+# instance stamp every manifest it produces with the ADR-0041 provenance
+# block (doc_tools/utils/ingest_provenance.py); path_prefix_strip strips the
+# "ingress-user/" transport prefix before domain/content_kind derivation so
+# that LOCATION never becomes a semantic domain label. Same `config={...}`
+# dict as `document_parser` — the vetted and user-drop paths target the same
+# graph/vector labels, only their provenance differs.
+user_document_parser = DocumentParserComponent(
+    name="process_user_document_artifact",
+    partition_name="user_pdf_files",
+    obtained_via="user-drop",
+    path_prefix_strip="ingress-user/",
+    config={
+        "graph_node_label": "WorkInstruction",
+        "graph_child_label": "Page",
+        "vector_collection_name": "DocumentChunk",
+        "procedure_id_format": r"^\d{4}$",
+        "step_id_format": r"^\d+(?:\.\d+)*$",
+        "valid_personnel_roles": "QC Inspector, Journeyman, Safety Officer",
+        "valid_hazard_classes": "1.1D, 1.3C, Hazmat 3, Biohazard",
+        "valid_process_categories": "Transformation, Inspection, Movement, Rework, Critical Safety Hold",
+        "bucket": "processing-artifacts"
+    }
+)
+_user_document_parser_defs = user_document_parser.build_defs(None)
+
 # 2. Instantiate Sensors (decoupled from assets)
 pdf_sensor = S3SensorComponent(
     bucket="processing-artifacts",
@@ -66,6 +96,28 @@ sustainment_sensor = S3SensorComponent(
     }
 )
 _sustainment_sensor_defs = sustainment_sensor.build_defs(None)
+
+# ADR-0041 — watches the ingress-user inbox, dynamically registers each new
+# object into the user_pdf_files partition set, and targets the SEPARATE
+# user_document_parser job (never document_parser's job) — same filter
+# patterns and s3_resource block as sustainment_sensor, matched exactly.
+ingress_user_sensor = S3SensorComponent(
+    name="ingress_user_sensor",
+    bucket="processing-artifacts",
+    prefix="ingress-user/",
+    partition_name="user_pdf_files",
+    target_job=f"{user_document_parser.name}_job",
+    target_op=user_document_parser.name,
+    filter_patterns=["archive/", "metadata.json", "generated/"],
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
+)
+_ingress_user_sensor_defs = ingress_user_sensor.build_defs(None)
 
 ontology_sensor = S3SensorComponent(
     name="ontology_sensor",
@@ -331,9 +383,9 @@ defs = Definitions(
     # is loaded via all_assets so the asset is still callable for
     # one-off manual syncs through the Dagster launchpad. The SENSOR
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
-    assets=list(_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
-    jobs=list(_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors),
+    assets=list(_document_parser_defs.assets) + list(_user_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
+    jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job],
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -363,6 +415,7 @@ defs = Definitions(
         ),
         **_pdf_sensor_defs.resources,
         **_sustainment_sensor_defs.resources,
+        **_ingress_user_sensor_defs.resources,
         **_ontology_sensor_defs.resources,
         **_design_sensor_defs.resources,
         **_iads_sensor_defs.resources,
@@ -371,8 +424,10 @@ defs = Definitions(
 )
 
 del _document_parser_defs
+del _user_document_parser_defs
 del _pdf_sensor_defs
 del _sustainment_sensor_defs
+del _ingress_user_sensor_defs
 del _ontology_sensor_defs
 del _design_sensor_defs
 del _design_parser_defs

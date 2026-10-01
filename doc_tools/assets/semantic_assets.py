@@ -19,6 +19,29 @@ import weaviate.classes as wvc
 from weaviate.util import generate_uuid5
 
 
+class ProvenanceNotPersistableError(RuntimeError):
+    """Raised when a manifest carries an ADR-0041 provenance block but the
+    resolved domain's plugin does not declare that it persists one.
+
+    A `provenance` block on the manifest means the content is NOT vetted —
+    see ADR-0041 (quarantine is a STATUS, never a PLACE). If the plugin that
+    would handle this domain doesn't write that block onto the graph, the
+    content reaches Neo4j/Jena indistinguishable from vetted content,
+    distinguished only by an S3 path nothing downstream ever looks at again.
+    So this is a hard halt, never a silent unstamped write.
+    """
+
+
+# Domains whose plugin's to_graph_queries() persists an ADR-0041 provenance
+# block onto the graph, declared explicitly as DATA — not inferred via
+# hasattr/try-except around a write. This is the "enforced on both ends, not
+# by convention" posture the vocabulary/instance graph split already uses
+# (see AGENTS.md's Domain Semantic Graph section). Add a domain here ONLY
+# once its plugin's to_graph_queries() actually writes the block (Neo4j
+# properties + the PROV-term RDF triples) — see doc_tools/plugins/sustainment.py.
+DOMAINS_THAT_PERSIST_PROVENANCE = frozenset({"SUSTAINMENT"})
+
+
 def _ensure_weaviate_collection(client, name: str) -> None:
     """Idempotently create the chunk collection using the Weaviate v4 API
     (mirrors ontology_assets). The deployed cluster supplies the default
@@ -189,6 +212,29 @@ def build_knowledge_graph(
             domain_type = metadata.get("project", "Training")
 
     domain_label = domain_type.upper().replace(" ", "_").replace("-", "_")
+
+    # ----------------------------------------------------------------------
+    # ADR-0041 enforcement — a manifest carrying "provenance" means this
+    # content is NOT vetted (e.g. it arrived via the ingress-user sensor).
+    # If the resolved domain's plugin doesn't persist that block, the
+    # content would reach the graph looking exactly like vetted content.
+    # Halt instead of writing unstamped. See DOMAINS_THAT_PERSIST_PROVENANCE
+    # above for the declared (not inferred) set of domains that do persist it.
+    # ----------------------------------------------------------------------
+    provenance = manifest.get("provenance")
+    if provenance and domain_label not in DOMAINS_THAT_PERSIST_PROVENANCE:
+        raise ProvenanceNotPersistableError(
+            f"Manifest for doc_id={doc_id!r} carries an ADR-0041 provenance "
+            f"block (obtained_via={provenance.get('obtained_via')!r}) but "
+            f"domain {domain_label!r} is not in DOMAINS_THAT_PERSIST_PROVENANCE "
+            f"— its plugin has no to_graph_queries() path that writes the "
+            f"block onto the graph. Refusing to write this content unstamped: "
+            f"it would become indistinguishable from vetted content once in "
+            f"Neo4j/Jena. Either add {domain_label!r} to "
+            f"DOMAINS_THAT_PERSIST_PROVENANCE once its plugin actually "
+            f"persists the block, or route this document to a domain that "
+            f"already does."
+        )
 
     # ----------------------------------------------------------------------
     # ADR-0021 content_kind resolution (Phase 2/3)
@@ -548,8 +594,21 @@ def build_knowledge_graph(
         context.log.error(f"Failed to write review.json: {e}")
 
     # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
+    #
+    # ADR-0041: the provenance block (when present) is threaded through only
+    # for sustainment, which is the one plugin whose to_graph_queries() knows
+    # how to persist it (see DOMAINS_THAT_PERSIST_PROVENANCE above and the
+    # enforcement halt that runs before this domain can even reach here).
+    # Other plugins' to_graph_queries() signatures don't accept this kwarg,
+    # so it's passed conditionally rather than unconditionally — same
+    # _extra-dict pattern already used for process_fulltext above.
+    _graph_extra = {}
+    if domain_type == "sustainment":
+        _graph_extra = {"provenance": provenance}
     context.log.info(f"Generating domain graph queries from {len(document_nodes)} augmented nodes...")
-    cypher_queries, sparql_queries = plugin.to_graph_queries(document_nodes, config, doc_id=doc_id, image_prefix=image_prefix)
+    cypher_queries, sparql_queries = plugin.to_graph_queries(
+        document_nodes, config, doc_id=doc_id, image_prefix=image_prefix, **_graph_extra
+    )
     
     for idx, c_query in enumerate(cypher_queries):
         try:

@@ -1,16 +1,16 @@
 import os
 import json
 import io
+import hashlib
 import tempfile
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pydantic import Field
-from dagster import Definitions, asset, define_asset_job, AssetExecutionContext, AutomationCondition, Config
+from dagster import Definitions, asset, define_asset_job, AssetExecutionContext, AutomationCondition, Config, DynamicPartitionsDefinition
 from dagster.components import Component, ComponentLoadContext
 from dagster.components.resolved.base import Resolvable
 from dagster.components.resolved.model import Model
 from dagster_aws.s3 import S3Resource
-from doc_tools.partitions import pdf_files_partition
 from doc_tools.utils.extraction import extract_text_and_metadata, rasterize_pdf_pages
 from dag_tools.components.s3_sensor.file_component import S3FileConfig
 from dag_tools.utils.k8s import resolve_k8s_resource_tags
@@ -21,10 +21,52 @@ class DocumentParserComponent(Component, Resolvable, Model):
     partition_name: str = Field(description="The dynamic partition name to use.")
     config: Dict[str, Any] = Field(default_factory=dict, description="Configuration for labels and extraction rules.")
     k8s_resource_prefix: str = Field(default="DOC_PARSER", description="Prefix for K8s resource environment variables.")
+    # ADR-0041 user-drop stamp — all four default to no-op so every existing
+    # DocumentParserComponent instance (vetted sensors) is byte-for-byte
+    # unaffected.
+    obtained_via: Optional[str] = Field(
+        default=None,
+        description=(
+            "ADR-0041 OBTAINED_VIA rung for documents this instance ingests "
+            "(e.g. 'user-drop'). None means this instance is a vetted path: "
+            "no provenance stamp is written at all."
+        ),
+    )
+    authoritative_source: str = Field(
+        default="user-upload",
+        description="ADR-0041 authoritative_source for the provenance stamp, when one is written.",
+    )
+    standing: str = Field(
+        default="unverified",
+        description="ADR-0041 standing (trust rung at write time) for the provenance stamp, when one is written.",
+    )
+    path_prefix_strip: str = Field(
+        default="",
+        description=(
+            "A transport-location prefix (e.g. 'ingress-user/') to strip from "
+            "the S3 key BEFORE deriving domain/content_kind, so the user-drop "
+            "LOCATION never becomes a semantic domain label. Never changes "
+            "source_key or any S3 address — see the strip site below."
+        ),
+    )
 
     def build_defs(self, context: ComponentLoadContext) -> Definitions:
-        parts_def = pdf_files_partition
-        
+        # A SEPARATE partition set per self.partition_name, not the single
+        # hardcoded `pdf_files_partition` singleton this line used to read.
+        # Two DocumentParserComponent instances (the vetted `document_parser`
+        # and the ADR-0041 `user_document_parser`) must land on structurally
+        # DIFFERENT dynamic partition sets — otherwise a partition the
+        # ingress-user sensor registers would be seen as "missing" by the
+        # OTHER parser's AutomationCondition.on_missing(), which would
+        # materialize it with no stamp and silently launder a user drop into
+        # vetted-looking content. DynamicPartitionsDefinition is identified
+        # by `name`, so constructing it here from self.partition_name (same
+        # pattern dag_tools.S3SensorComponent already uses) keeps every
+        # existing instance's behavior identical (they all pass
+        # partition_name="pdf_files") while making the new instance's
+        # "user_pdf_files" partition set actually take effect.
+        parts_def = DynamicPartitionsDefinition(name=self.partition_name)
+
         @asset(
             name=self.name,
             partitions_def=parts_def,
@@ -47,11 +89,28 @@ class DocumentParserComponent(Component, Resolvable, Model):
             # Parse domain and doc_id from S3 key (e.g. manufacturing/IID/test.pdf)
             parts = source_object_key.split('/')
             filename = parts[-1]
-            
+
             base_dir = os.path.dirname(source_object_key)
             if not base_dir:
                 base_dir = "unknown"
-            
+
+            # ADR-0041 path_prefix_strip — LOAD-BEARING, do not simplify away.
+            # `domain`/`content_kind` below are derived from `parts[0]`/`parts[1]`
+            # of the S3 key. A raw `ingress-user/` prefix would make parts[0]
+            # == "ingress-user", so domain_label becomes "INGRESS_USER" — a Neo4j
+            # label and RDF graph name <http://internal/INGRESS_USER_INSTANCES>
+            # derived from the TRANSPORT PATH, exactly the PLACE-based design
+            # ADR-0041 rejects (quarantine is a STATUS, never a PLACE). So: strip
+            # this instance's configured transport prefix from the key into a
+            # SEPARATE `domain_key`/`domain_parts` used ONLY for domain/content_kind
+            # derivation below. `source_object_key`, `base_dir`, `parts` and
+            # `filename` above are untouched — they still address the real S3
+            # object, including its full ingress-user/... key.
+            domain_key = source_object_key
+            if self.path_prefix_strip and domain_key.startswith(self.path_prefix_strip):
+                domain_key = domain_key[len(self.path_prefix_strip):]
+            domain_parts = domain_key.split('/')
+
             # doc_id fallback = THE FILE'S OWN NAME, always. The directory is a LOCATION,
             # not an identity: keying on the parent folder gave every PDF dropped flat into
             # a shared inbox the SAME id — `sustainment/inbound/Diodes_PCN_2683.pdf` ->
@@ -63,7 +122,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
             # printed number (NoticeHeader.doc_id) wins. It matters precisely when the
             # header extraction fails — i.e. exactly when things are already going wrong,
             # which is the worst time to also collapse every document onto one identity.
-            domain = parts[0] if len(parts) >= 2 else "unknown"
+            domain = domain_parts[0] if len(domain_parts) >= 2 else "unknown"
             doc_id = filename.rsplit('.', 1)[0] or filename
 
             # Reprocess-safe artifact layout: every generated artifact for this
@@ -240,8 +299,10 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 #
                 # Path shape: <domain_type>/<content_kind>/<doc_id>/<file>
                 # e.g. manufacturing/work-instructions/M67/grenade.pdf
-                # parts[0] = domain ("manufacturing"); parts[1] = content_kind.
-                content_kind_from_path = parts[1] if len(parts) >= 3 else None
+                # domain_parts[0] = domain ("manufacturing"); domain_parts[1] =
+                # content_kind. Derived from domain_parts (post path_prefix_strip),
+                # NOT parts (the raw, un-stripped key) — see the strip site above.
+                content_kind_from_path = domain_parts[1] if len(domain_parts) >= 3 else None
                 manifest_metadata = {
                     "domain_type": domain,
                     "content_kind": content_kind_from_path,
@@ -264,6 +325,35 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     "pages": pages_list,  # full-page renders: {page, s3_url, basename, width, height, dpi}
                     "text_location": f"{base_dir}/generated/{base_name}/{version}/text.json"
                 }
+
+                # ADR-0041 — when this instance is configured with obtained_via
+                # (e.g. the ingress-user sensor's user_document_parser), stamp a
+                # top-level "provenance" key onto the manifest — a SIBLING of
+                # doc_id/source_key, never buried under "metadata" — so the
+                # enforcement point in semantic_assets.py can see it without
+                # reaching into domain-specific metadata shape. When
+                # obtained_via is None (every existing/vetted sensor instance),
+                # this block does not run at all: the manifest is byte-for-byte
+                # what it was before this change.
+                if self.obtained_via:
+                    # Local import: keeps this component importable (and its
+                    # module-level import cost nil) for every caller that
+                    # doesn't configure obtained_via — most of them — and
+                    # confines the iagent_mesh.provenance dependency to the
+                    # one call site that actually needs it.
+                    from doc_tools.utils.ingest_provenance import build_ingest_provenance
+
+                    with open(file_path, "rb") as f:
+                        ingest_id = hashlib.sha256(f.read()).hexdigest()
+
+                    manifest["provenance"] = build_ingest_provenance(
+                        obtained_via=self.obtained_via,
+                        authoritative_source=self.authoritative_source,
+                        ingest_run=context.run_id,
+                        standing=self.standing,
+                        ingest_id=ingest_id,
+                        as_of=None,
+                    )
 
                 # Store manifest.json via Boto3, under the versioned prefix. This
                 # file is NEVER overwritten by a later reprocess — a different
