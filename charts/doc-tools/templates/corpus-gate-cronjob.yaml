@@ -82,6 +82,17 @@ spec:
                 {{- toYaml .Values.extraEnvFrom | nindent 16 }}
                 {{- end }}
               env:
+                # Python block-buffers stdout when stdout is not a TTY, so
+                # without this the whole ~70-minute run emits ZERO log bytes
+                # until it exits. A hang and healthy progress then look
+                # IDENTICAL from `kubectl logs`, and the only way to tell them
+                # apart is exec-ing into the pod to stat the per-fire logs --
+                # which is how the 2026-10-01 run had to be checked. Set BEFORE
+                # the .Values.env range on purpose: on duplicate env names the
+                # LATER entry is the effective one, so a values-level override
+                # still wins.
+                - name: PYTHONUNBUFFERED
+                  value: "1"
                 {{- range $key, $val := .Values.env }}
                 - name: {{ $key }}
                   value: {{ $val | quote }}
