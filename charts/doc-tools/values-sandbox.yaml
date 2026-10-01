@@ -204,7 +204,52 @@ image:
   #     date will be REWRITTEN with 2024-12-22. Intended, and it does NOT move
   #     the parts score (that score is MPN-only), but the stored artifacts will
   #     differ from what is in S3 today and there is no rollback for them.
-  digest: "sha256:904fb4587ddadce1b88aaa346a92676c31bb0c5952db7c7b34c7ae14a40abf7d"
+  # ------------------------------------------------------------------
+  # THIS PIN: fa19b85, 2026-10-01. Index sha256:4c1f74cc...
+  #
+  # IT IS A BRANCH IMAGE, NOT A MERGE COMMIT, and that is the one thing to
+  # read before copying this line anywhere. fa19b85 is the head of
+  # pcn/corpus-release-gate (PR #40), which is MERGEABLE/CLEAN but not merged.
+  # Every other pin in the history above names a main merge. This one was cut
+  # deliberately because the nightly corpus gate turns on at this pin and the
+  # image has to contain the publisher; re-pin to the #40 merge commit once it
+  # lands, and do not treat this as precedent for pinning branch heads.
+  #
+  # HOW THE IMAGE EXISTS AT ALL, because the obvious answer is wrong. The PR
+  # run for fa19b85 reports `build-and-push success` and PUSHED NOTHING: that
+  # step is gated `push: ${{ github.event_name != 'pull_request' }}`, so on a
+  # PR it builds both architectures as a compile check and publishes no image.
+  # A green build-and-push on a PR is NOT evidence an image exists -- the same
+  # believed-built shape as commit 3db8dbb, which this workflow already
+  # documents. The image here came from the workflow_dispatch path (run
+  # 36815966589), which that incident is also why we have.
+  #
+  # WHAT IS NEW AT THIS PIN, over 904fb458:
+  #   - scripts/pcn_gate_publish.py EXISTS. It does not in 904fb458 -- checked
+  #     in the running pod, `ls /app/scripts/pcn_gate_publish.py` -> No such
+  #     file. The corpus-gate CronJob was already deployed and already calls
+  #     it, so the 07:00 run at the OLD pin would have measured the corpus
+  #     correctly and then died at the publish step with the report still
+  #     inside the pod. That is the whole reason this pin moved tonight.
+  #   - TYC's doc_level_ltb_date is ESTABLISHED (2024-06-06) rather than
+  #     pending, so the gate now scores TYC on all three header fields instead
+  #     of two. A header score from this pin is not comparable to one from
+  #     904fb458: the denominator changed.
+  #   - The declared LTB distractor is 2024-06-07 -- the ADJACENT ROW of the
+  #     same table (Last Ship Date of Changed Items), which is also TYC's
+  #     correct pub_date. This is exactly the last-ship-over-last-order failure
+  #     the #32 block below says to watch, now scored on a real notice rather
+  #     than only warned about.
+  #
+  # INDEX VERIFIED BEFORE COMMITTING, per the rule stated above:
+  #     linux/amd64  sha256:6ddc961ed42c4bafb13a3367245bc59412238141d722540443cf061333b113e0
+  #     linux/arm64  sha256:f0696db5f4d870e99df919a5c3536ad36b67b961f0c4046d520e2790d9ba6f2e
+  # Both children fetched BY THEIR OWN DIGEST, not merely read out of the
+  # index: both return 200 as OCI image manifests. The arm64 child is the one
+  # that matters -- sandbox schedules onto arm workers. (Two unknown/unknown
+  # entries are buildx provenance/SBOM attestations. Expected.)
+  # ------------------------------------------------------------------
+  digest: "sha256:4c1f74cc1d016606f19f3fe064282ba4681609d104576a96a3f83dc3e62e6297"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
