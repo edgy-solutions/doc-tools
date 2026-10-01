@@ -78,7 +78,36 @@ dependencies = [
     #
     # Bumped as its own change, ahead of the writer that needs it, because a dependency move and
     # a feature in one commit means a revert cannot separate them.
-    "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.9.1",
+    #
+    # v0.9.1 -> v0.9.5 (2026-09-30), for ProvenanceBlock. The census above gains a SECOND
+    # consumed symbol, and the same measured reading applies over the new range:
+    #
+    #   production   utils/mesh_identity.py:59   from iagent_mesh.service_identity import mint_token
+    #   NEW          the ingress-user sensor     from iagent_mesh.provenance import ProvenanceBlock
+    #
+    #   `iagent_mesh/service_identity.py` DOES NOT APPEAR in the v0.9.1...v0.9.5 changed-file
+    #   list at all, so the mint seam is byte-identical across this bump as well — the
+    #   previously consumed surface did not move. `provenance.py` is ADDED in the range (a new
+    #   file, +305 lines); `ProvenanceBlock` lives there and types `obtained_via` as
+    #   `Literal[OBTAINED_VIA]`, whose fifth rung is `user-drop` (ADR-0041 section 2). That rung
+    #   is the value the ingress-user stamp has to write, so v0.9.5 is the FLOOR for that work
+    #   rather than a convenience: on v0.9.1 the symbol does not exist to import.
+    #
+    # WHAT ELSE MOVED, measured rather than inferred from the tag distance:
+    #
+    #   * The SDK DROPPED `fastapi` and `uvicorn` from its hard dependencies — they became a
+    #     `[server]` extra, which is the second half of the two-commit change whose first half
+    #     was the v0.9.1 import guard that motivated the pin above. This bump therefore REMOVES
+    #     packages from our install instead of adding any. Safe here because doc-tools imports
+    #     neither (zero references under doc_tools/, tests/ and scripts/), and `mcp` — still a
+    #     hard dependency — pulls starlette, not fastapi, so nothing drags it back in.
+    #   * `iagent_mesh/__init__.py` grew by 302 lines and STILL imports `.transport_auth` at
+    #     module level, unguarded. Importability therefore rests entirely on the try/except
+    #     guard inside that module, which is exactly the thing that was broken at v0.9.0. So it
+    #     is verified by importing the installed package without a web framework present, not
+    #     by reading the source — see tests/test_mesh_sdk_pin.py, which asserts both that
+    #     `ProvenanceBlock` imports and that `user-drop` is a member of `OBTAINED_VIA`.
+    "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.9.5",
 ]
 
 
