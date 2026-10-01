@@ -6,8 +6,6 @@ doc_tools/utils/notice_identity.py for the judgment calls these tests pin
 (corporate-suffix stripping, None-vs-'-' revision, no hash()-derived key,
 and revision ordering only where genuinely decidable).
 """
-import pytest
-
 from doc_tools.utils import notice_identity as ni
 
 
@@ -35,6 +33,46 @@ def test_normalize_component_keeps_dash_it_is_not_noise_punctuation():
     # meaningful inside a doc_id; it must survive normalization.
     assert ni.normalize_component("-") == "-"
     assert ni.normalize_component("BYVB32-200-E3") == "byvb32-200-e3"
+
+
+def test_normalize_component_still_strips_the_dot():
+    # Proves the mfr/doc_id path is unchanged by the normalize_revision split:
+    # if this regressed to keeping the dot, "Diodes, Incorporated." would stop
+    # equating with "Diodes Incorporated" and corporate-suffix stripping
+    # (judgment call #1) would silently stop firing on real notices.
+    assert ni.normalize_component("PCN 2.0") == "pcn 20"
+
+
+# ---------------------------------------------------------------------------
+# normalize_revision: like normalize_component, but the dot survives
+# ---------------------------------------------------------------------------
+
+def test_normalize_revision_keeps_the_structural_dot():
+    # If this regressed to stripping the dot (normalize_revision degenerating
+    # back to normalize_component), "2.0" and "1.15" would collide down to
+    # concatenated-integer strings and _compare_revisions would misorder them
+    # again -- the exact defect this module fixes.
+    assert ni.normalize_revision("2.0") == "2.0"
+    assert ni.normalize_revision("1.15") == "1.15"
+
+
+def test_normalize_revision_still_normalizes_everything_else():
+    # Case-fold, strip ',' and apostrophe, collapse whitespace -- everything
+    # normalize_component does except the dot.
+    assert ni.normalize_revision("  Rev 2.0  ") == "rev 2.0"
+    assert ni.normalize_revision("Rev,2.0") == "rev2.0"
+    assert ni.normalize_revision("O'Brien 2.0") == "obrien 2.0"
+    assert ni.normalize_revision(None) == ""
+
+
+def test_normalize_revision_strips_leading_and_trailing_dot_only():
+    # A trailing dot is typesetting (a sentence period after "2"), not a
+    # revision segment separator -- this is what keeps "2." and "1." from
+    # becoming "2.0"-shaped and gaining segments they were never printed
+    # with. Only dots BETWEEN characters are structural.
+    assert ni.normalize_revision("2.") == "2"
+    assert ni.normalize_revision(".2") == "2"
+    assert ni.normalize_revision("2.0.") == "2.0"
 
 
 # ---------------------------------------------------------------------------
@@ -319,60 +357,109 @@ def test_diodes_pair_is_identical_even_when_the_header_pass_flips_the_revision()
 
 
 # ---------------------------------------------------------------------------
-# A DOTTED REVISION IS ORDERED WRONG. Found 2026-09-30 while writing the 7f
+# DOTTED REVISIONS NOW ORDER CORRECTLY. Found 2026-09-30 while writing the 7f
 # contract (docs/notice-identity-contract.md); latent, not observed in the
-# corpus, and NOT fixed here.
+# corpus at the time. Fixed by introducing `normalize_revision` (keeps the
+# structural dot that `normalize_component` strips) and making
+# `_compare_revisions` split dotted-numeric revisions on `.`, map each
+# segment to `int`, zero-pad the shorter tuple, and compare segment-wise.
 #
-# `normalize_component` strips typesetting punctuation, so the dot in a printed
-# revision is gone before `_compare_revisions` ever sees it:
+# WHAT IT USED TO DO. `normalize_component` stripped '.', so the dot in a
+# printed revision was gone before `_compare_revisions` ever saw it:
 #
 #     "2.0"  -> "20"       "1.15" -> "115"
 #     "3.0"  -> "30"       "2.99" -> "299"
 #     "1.0"  -> "10"       "1.00" -> "100"
 #
-# Both sides then match `_NUMERIC_RE` and are compared as concatenated integers,
-# so the pair is DECIDED — in the wrong direction, and silently:
+# Both sides then matched the old `_NUMERIC_RE` and were compared as
+# concatenated integers, so the pair was DECIDED — in the wrong direction,
+# and silently:
 #
 #     2.0 vs 1.15  ->  superseded_by   (2.0 is the NEWER revision)
 #     3.0 vs 2.99  ->  superseded_by   (3.0 is the NEWER revision)
 #     1.0 vs 1.00  ->  superseded_by   (they are the SAME revision)
 #
-# That is exactly the outcome judgment call #4 exists to prevent: "guessing
-# would risk hiding the newer notice behind the older one". A sensor acting on
-# `superseded_by` would decline to let revision 2.0 displace 1.15 — the newer
-# notice dropped.
+# That was exactly the outcome judgment call #4 exists to prevent: "guessing
+# would risk hiding the newer notice behind the older one". A sensor acting
+# on `superseded_by` would have declined to let revision 2.0 displace
+# 1.15 — the newer notice dropped.
 #
-# WHY NOT FIXED IN THIS COMMIT. The information is destroyed at key-construction
-# time, so the fix is a change to either the key's normalization (which changes
-# every key value) or to `classify_pair`, which decides order from the key
-# components today and would have to decide it from the RAW revision strings the
-# records already carry. Both are semantic changes to this module, which is
-# under review as PR #36 and is not this branch's to redefine. Flagged for that
-# decision.
-#
-# No corpus notice exhibits it: at pin dd043b6 the observed revisions are "R5",
-# "1" and None. It is reachable, not firing.
-#
-# strict=True on purpose — when the fix lands this XPASSes and FAILS the suite,
-# which is what forces this marker and this comment to be removed rather than
-# left behind as folklore.
-@pytest.mark.xfail(strict=True, reason=(
-    "known defect: normalize_component strips the dot, so a dotted revision is "
-    "compared as a concatenated integer and ordered backwards. See the comment "
-    "above and docs/notice-identity-contract.md section 6.5."))
+# WHAT IT DOES NOW. Segment-wise, zero-padded tuple comparison: 2.0 vs 1.15
+# is (2, 0) vs (1, 15) -> 2.0 is newer, reported as `supersedes`. Equivalent
+# spellings of the same revision (1.0 vs 1.00, 01 vs 1) zero-pad to equal
+# tuples and come back `duplicate_copy`, not an ordering and not
+# `revision_order_unknown` -- `classify_pair` has an explicit `order == 0`
+# branch for this. See docs/notice-identity-contract.md section 6.5 and the
+# module docstring's judgment call #4 for the full writeup.
 def test_a_dotted_revision_is_not_ordered_backwards():
-    """2.0 supersedes 1.15. Anything other than `supersedes` here is wrong; a
-    `revision_order_unknown` would be an acceptable fix too, so the assertion is
-    only that the NEWER revision is not reported as the older one."""
+    """2.0 supersedes 1.15. Pinned to the exact relation, not just "not
+    backwards": if the fix regressed to only avoiding `superseded_by` (e.g.
+    falling back to `revision_order_unknown`) this would catch it."""
     a = _record("Acme Inc", "PCN 1", "2.0", "sha-a")
     b = _record("Acme Inc", "PCN 1", "1.15", "sha-b")
-    assert ni.classify_pair(a, b)["relation"] != "superseded_by"
+    result = ni.classify_pair(a, b)["relation"]
+    assert result != "superseded_by"
+    assert result == "supersedes"
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "known defect: '1.0' and '1.00' normalize to '10' and '100' and are ordered "
-    "as different revisions. Same root cause as the test above."))
 def test_equivalent_dotted_revisions_are_not_ordered_against_each_other():
+    """1.0 and 1.00 are the same revision spelled two ways. If
+    `_compare_revisions` stopped zero-padding, this would misclassify the
+    pair as `supersedes`/`superseded_by` instead of recognizing the
+    equivalence."""
     a = _record("Acme Inc", "PCN 1", "1.0", "sha-a")
     b = _record("Acme Inc", "PCN 1", "1.00", "sha-b")
-    assert ni.classify_pair(a, b)["relation"] in ("duplicate_copy", "revision_order_unknown")
+    result = ni.classify_pair(a, b)["relation"]
+    assert result in ("duplicate_copy", "revision_order_unknown")
+    assert result == "duplicate_copy"
+
+
+def test_three_part_dotted_revision_supersedes_three_vs_two_ninety_nine():
+    """3.0 vs 2.99 -- a case where naive string/concatenated-integer compare
+    gets it backwards (30 < 299) but segment-wise tuple compare gets it
+    right ((3, 0) > (2, 99)). If segment-wise comparison regressed to a
+    whole-string compare, this would silently flip back to superseded_by."""
+    a = _record("Acme Inc", "PCN 1", "3.0", "sha-a")
+    b = _record("Acme Inc", "PCN 1", "2.99", "sha-b")
+    assert ni.classify_pair(a, b)["relation"] == "supersedes"
+
+
+def test_longer_dotted_revision_with_extra_segment_supersedes_shorter():
+    """2.0.1 vs 2.0 -- three segments against two. If zero-padding were
+    missing or wrong, the shorter tuple could compare unequal-length tuples
+    directly (a Python TypeError) or the extra segment could be dropped,
+    silently losing the information that 2.0.1 is a point release after 2.0."""
+    a = _record("Acme Inc", "PCN 1", "2.0.1", "sha-a")
+    b = _record("Acme Inc", "PCN 1", "2.0", "sha-b")
+    assert ni.classify_pair(a, b)["relation"] == "supersedes"
+
+
+def test_leading_zero_revision_is_duplicate_copy_not_an_ordering():
+    """01 vs 1 -- the leading-zero route into the `order == 0` branch,
+    distinct from the explicit-decimal route covered above. If segments
+    were compared as strings instead of ints, "01" vs "1" would wrongly
+    compare unequal; if int-conversion were dropped, this would misfire as
+    an ordering instead of recognizing the same revision."""
+    a = _record("Acme Inc", "PCN 1", "01", "sha-a")
+    b = _record("Acme Inc", "PCN 1", "1", "sha-b")
+    assert ni.classify_pair(a, b)["relation"] == "duplicate_copy"
+
+
+def test_dotted_revision_against_non_numeric_is_order_unknown():
+    """2.0 vs R5 -- one side dotted-numeric, the other not. If the
+    dotted-numeric branch regressed to matching on a looser pattern (e.g.
+    "starts with a digit"), this could wrongly decide an order against a
+    revision scheme the module has never characterized."""
+    a = _record("Acme Inc", "PCN 1", "2.0", "sha-a")
+    b = _record("Acme Inc", "PCN 1", "R5", "sha-b")
+    assert ni.classify_pair(a, b)["relation"] == "revision_order_unknown"
+
+
+def test_dotted_revision_with_non_numeric_segment_is_order_unknown():
+    """1.A vs 1.B -- a dot present but a non-numeric segment. Proves the
+    dotted-numeric regex requires EVERY segment to be digits; if it only
+    checked for the presence of a dot, this would wrongly fall into the
+    segment-wise compare and decide an order from non-numeric segments."""
+    a = _record("Acme Inc", "PCN 1", "1.A", "sha-a")
+    b = _record("Acme Inc", "PCN 1", "1.B", "sha-b")
+    assert ni.classify_pair(a, b)["relation"] == "revision_order_unknown"
