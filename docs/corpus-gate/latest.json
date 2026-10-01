@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "verdict": "fail",
+  "verdict": "pass",
   "strict_verdict": "fail",
-  "generated_at": "2026-09-30T19:04:12Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:025be04a8be0c759c2eeba295ae2377c263108432a2b1e98959c2830a7575035",
-  "measured_pin_note": "dd043b6 (helm rev 24, sandbox) - carries PR #31 and #32; PREDATES PR #35 so no rates block",
+  "generated_at": "2026-10-01T02:12:06Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:904fb4587ddadce1b88aaa346a92676c31bb0c5952db7c7b34c7ae14a40abf7d",
+  "measured_pin_note": "49ed4a1 (helm rev 25, sandbox) - carries PR #34, #35, #36, #37; #35 is the degraded-notice needs_review fix this run re-measures",
   "fires": [
     {
       "n": 1,
       "exit": 0,
-      "started_at": null,
-      "ended_at": null,
-      "elapsed_s": 1364.7,
-      "log": "f32_fire1.log",
+      "started_at": "2026-10-01T01:04:16Z",
+      "ended_at": "2026-10-01T01:27:34Z",
+      "elapsed_s": 1397.5,
+      "log": "fire1.log",
       "totals": {
         "gt": 898,
         "exact": 898,
@@ -26,10 +26,10 @@
     {
       "n": 2,
       "exit": 0,
-      "started_at": null,
-      "ended_at": null,
-      "elapsed_s": 1337.5,
-      "log": "f32_fire2.log",
+      "started_at": "2026-10-01T01:27:34Z",
+      "ended_at": "2026-10-01T01:50:04Z",
+      "elapsed_s": 1350.7,
+      "log": "fire2.log",
       "totals": {
         "gt": 898,
         "exact": 898,
@@ -43,10 +43,10 @@
     {
       "n": 3,
       "exit": 0,
-      "started_at": null,
-      "ended_at": null,
-      "elapsed_s": 1309.7,
-      "log": "f32_fire3.log",
+      "started_at": "2026-10-01T01:50:04Z",
+      "ended_at": "2026-10-01T02:12:06Z",
+      "elapsed_s": 1321.4,
+      "log": "fire3.log",
       "totals": {
         "gt": 898,
         "exact": 898,
@@ -58,17 +58,41 @@
       "seal_checked": true
     }
   ],
-  "rates_available": false,
-  "rates": null,
+  "rates_available": true,
+  "rates": {
+    "documents": 9,
+    "errors": 0,
+    "not_applicable": 0,
+    "rates": {
+      "needs_review": {
+        "count": 1,
+        "denominator": 9
+      },
+      "crops_near_cap": {
+        "count": 0,
+        "denominator": 9
+      },
+      "crops_row_short": {
+        "count": 0,
+        "denominator": 9
+      },
+      "text_layer_degraded": {
+        "count": 1,
+        "denominator": 9
+      }
+    },
+    "chunk_tally": null
+  },
   "header_agreement": {
     "exit": 1,
     "notices": {
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "mfr": "'TE Connecvity' | 'TE' | 'TE'",
-          "mfr_source": "'TE Connecvity' | 'TE' | 'TE'",
-          "doc_level_ltb_date_source": "'06-JUN-2024' | '-2024\\n[Unca' | '-2024'"
+          "mfr": "'TE Connecvity' | 'TE' | 'TE Connecvity'",
+          "mfr_source": "'TE Connecvity' | 'TE' | 'TE Connecvity'",
+          "doc_level_ltb_date": "None | '2024-06-06' | '2024-06-06'",
+          "doc_level_ltb_date_source": "None | '-2024\\n[Unca' | '-2024'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
@@ -108,9 +132,40 @@
     "not_measured": []
   },
   "identity": {
+    "source": "corpus_json",
+    "bytes_checked": true,
+    "bytes_coverage": {
+      "fires": [
+        1,
+        2,
+        3
+      ],
+      "notices_scored": 9,
+      "verified": [
+        "ADI_PDN_23_0120.pdf",
+        "Diodes_PCN_2683_FULLGREEN.pdf",
+        "Diodes_PCN_2683_Rev1_EOL.pdf",
+        "EOL-36_BYV34-400,-BYV34-500.pdf",
+        "PCN23-002.pdf",
+        "PCN24-029.pdf",
+        "TYC-PCN-24-210412.pdf",
+        "onsemi_Generic_IPCN25300X.pdf",
+        "onsemi_Generic_PD26044X1.pdf"
+      ],
+      "unverified": [],
+      "complete": true
+    },
     "filenames": 9,
-    "distinct_notices": 9,
-    "collapses": [],
+    "distinct_notices": 8,
+    "collapses": [
+      {
+        "key": "diodes | pcn-2683 | r5",
+        "files": [
+          "Diodes_PCN_2683_FULLGREEN.pdf",
+          "Diodes_PCN_2683_Rev1_EOL.pdf"
+        ]
+      }
+    ],
     "incomplete_identity": [],
     "identity_half_unstable": [
       "TYC-PCN-24-210412.pdf"
@@ -120,9 +175,9 @@
       "Diodes_PCN_2683_Rev1_EOL.pdf"
     ]
   },
-  "blocking": [
-    "TYC-PCN-24-210412.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log",
-    "TYC-PCN-24-210412.pdf: identity half (mfr/doc_id) is unstable across fires and needs_review is not True in all three fires"
-  ],
-  "exempted": []
+  "blocking": [],
+  "exempted": [
+    "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires",
+    "TYC-PCN-24-210412.pdf: identity-half instability (mfr/doc_id differ across fires) exempted \u2014 needs_review=True in all three fires"
+  ]
 }
