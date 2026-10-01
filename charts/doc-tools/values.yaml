@@ -255,6 +255,26 @@ manufacturingOverlay:
 autoscaling:
   enabled: false
 
+# The PCN/PDN corpus release gate (scripts/pcn_corpus_gate.py, wrapped by
+# templates/corpus-gate-cronjob.yaml). Each run is three SEQUENTIAL fires
+# against a vision endpoint that serves one model at a time — roughly 70
+# minutes end to end — so it is opt-in per environment, not on by default.
+corpusGate:
+  enabled: false
+  schedule: "0 7 * * *"
+  # Defaults live under /tmp in-cluster, NOT docs/corpus-gate: the image's
+  # /app is not a git checkout anyone pushes from, so there is nowhere in the
+  # pod for a "committed" path to mean anything. Getting the report from
+  # workDir/reportDir into docs/corpus-gate on a branch is a separate, manual
+  # step (see the CronJob template's header comment).
+  workDir: /tmp/pcn-gate
+  reportDir: /tmp/pcn-gate/report
+  activeDeadlineSeconds: 21600
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  resources: {}
+
 nodeSelector: {}
 tolerations: []
 affinity: {}

@@ -80,6 +80,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.decide.outputs.code }}
+      # Read by `corpus-gate` below. Separate from `code` because the two ask
+      # opposite questions: `code` is "could this diff reach the image", this is
+      # "is this diff a deploy" — and only the second one is what the corpus
+      # release gate blocks.
+      charts: ${{ steps.decide.outputs.charts }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -100,6 +105,7 @@ jobs:
           set -uo pipefail
 
           CODE=true
+          CHARTS=true
 
           if [ "$EVENT_NAME" != "pull_request" ] && [ "$EVENT_NAME" != "push" ]; then
             echo "event is '$EVENT_NAME' (e.g. workflow_dispatch), no diff range applies -> code=true"
@@ -139,7 +145,29 @@ jobs:
             fi
           fi
 
+          # CHARTS: the same fail-open discipline as CODE above, and it lands
+          # the same way round for the same reason. charts=true means "run the
+          # corpus release gate on this diff", so every case that cannot
+          # POSITIVELY PROVE no chart file changed must arrive here as true: an
+          # unprovable diff gets the gate, never a pass. `CHANGED` is unset
+          # whenever the chain above never reached the git diff (non-push event,
+          # tag, unusable/missing sha) and empty when the diff failed or came
+          # back empty, and the -n test sends all of those to the true default.
+          #
+          # The cost of a false true is one cheap job running on a diff that did
+          # not need it, and — if the gate is red — an unrelated PR blocked until
+          # someone looks. The cost of a false false is a pin deploying with the
+          # release gate never consulted, which is the believed-built class this
+          # whole file is built around. Those are not close.
+          if [ -n "${CHANGED:-}" ] && ! echo "$CHANGED" | grep -qE '^charts/'; then
+            CHARTS=false
+            echo "no changed path matches ^charts/ -> charts=false (corpus gate not consulted)"
+          else
+            echo "a changed path matches ^charts/, or the diff could not be proven -> charts=true"
+          fi
+
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "charts=$CHARTS" >> "$GITHUB_OUTPUT"
 
   telemetry-contract:
     # Fast pre-build gate (ADR-0038): the telemetry mapping must name only fields
@@ -433,6 +461,66 @@ jobs:
             python scripts/verify_image_pin.py \
             --require-platform linux/amd64 \
             --require-platform linux/arm64
+
+  corpus-gate:
+    # THE RELEASE GATE FOR A PIN. The order this implements: "on every doc-tools
+    # pin, three fires by identity plus header agreement, against the pinned
+    # image in sandbox, nightly. Red blocks the next pin."
+    #
+    # THE FIRES DO NOT RUN HERE, AND CANNOT. Every runner in this file is
+    # `ubuntu-latest` on GitHub-hosted infrastructure. The corpus harness needs
+    # the header LLM at 192.168.1.126 and the vision model at
+    # 192.168.1.169:11434 (both RFC1918, one model at a time) and reads the
+    # notices from `iagent-minio:9000`, an in-cluster DNS name. None of the
+    # three is reachable from here, and a fire set is ~22 minutes x3. So the run
+    # lives in an opt-in CronJob
+    # (charts/doc-tools/templates/corpus-gate-cronjob.yaml) inside the cluster,
+    # its report is committed to docs/corpus-gate/latest.json, and THIS job
+    # checks the committed report. The split is forced by the network, not
+    # chosen for speed.
+    #
+    # WHY IT IS SCOPED TO charts/**, WHICH LOOKS LIKE THE MISTAKE THE `changes`
+    # JOB WARNS ABOUT AND IS THE OPPOSITE OF IT. `changes` must never skip the
+    # BUILD on a chart diff, because charts/ is how a commit reaches a pod. This
+    # job inverts that: a chart diff is exactly when it MUST run, and it is the
+    # only time it should. If a red gate blocked every PR, the fix for a red
+    # gate could not merge — the gate would wedge the repo shut against its own
+    # repair. A pin bump IS a chart change, so scoping red to charts/** blocks
+    # the next pin (the thing the order asks for) while leaving ordinary code
+    # PRs, including the one that fixes the pipeline, free to merge.
+    #
+    # NOT IN `build-and-push`'s `needs:`, following verify-image-pin above. This
+    # job decides whether the CHART may change, not whether an image may be
+    # produced — and a pin bump points at a digest that already exists, so
+    # gating image production would not block a pin anyway. Its own red status
+    # is the block.
+    #
+    # WHAT MAKES IT A GATE AND NOT A REPORT: the guard FAILS on a missing
+    # report rather than skipping (tests/test_corpus_gate_guard.py, and the
+    # d7434d6 incident its docstring cites), and it fails on a stale one, so a
+    # report that stopped being produced cannot read as a pass.
+    needs: changes
+    if: needs.changes.outputs.charts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Corpus gate report must be green and fresh
+        # `--no-project` + `--with pytest`, like telemetry-contract: the guard
+        # reads a committed JSON with stdlib only, so it needs no extraction
+        # stack and no `uv sync`. Runs in seconds.
+        #
+        # `-m corpus_gate` is REQUIRED, not decorative. pyproject.toml sets
+        # `addopts = -m "not corpus_gate"`, so these tests are deselected from
+        # the default suite — that is what keeps a red gate out of the `tests`
+        # job, where it would block every PR. This job is the one place the
+        # marker is selected, and `-rs` prints any skip reason rather than
+        # hiding it.
+        run: |
+          uv run --no-project --with pytest \
+            -- python -m pytest tests/test_corpus_gate_guard.py -m corpus_gate -q -rs
 
   build-and-push:
     # BOTH gates, not one. `needs` is what makes them gates rather than reports:

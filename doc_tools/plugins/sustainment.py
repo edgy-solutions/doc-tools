@@ -37,6 +37,7 @@ from doc_tools.utils.jena_client import escape_sparql_string
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
 from doc_tools.utils import sustainment_header_trust as header_trust
+from doc_tools.utils import notice_identity
 from doc_tools.utils.ltb_candidates import ltb_candidates, render_candidate_block
 from doc_tools.utils import table_text_layer as text_layer
 from doc_tools.utils import text_layer_health
@@ -1190,6 +1191,30 @@ class SustainmentPlugin(AugmentationPlugin):
             header_d, index, witness_index=witness_index,
             text_layer_degraded=text_layer_assessment["text_layer_degraded"])
 
+        # Level-2 dedupe identity (doc_tools/utils/notice_identity.py): a deterministic
+        # (mfr, doc_id, revision) key computed HERE, at the header pass, because that is
+        # the only place it CAN be computed — a sensor sees an S3 object, not a header,
+        # and the key needs the (possibly refused-and-nulled) header fields above. Put on
+        # `stats` (and, via `review` below, into review.json) so the ingress-user lane
+        # that owns dedupe can compare two arrivals without re-running extraction.
+        # `build_identity` — not `notice_key` directly — because it ALSO decides whether
+        # a key can be formed at all: a failed or partial header (mfr and/or doc_id
+        # missing) must still ingest, so this never raises, and represents the key as
+        # absent (key=None, `note` says why) rather than building a key out of empty
+        # strings that would collide every failed document with every other.
+        #
+        # CONSEQUENCE, stated so it is not discovered as a surprise: because this runs
+        # AFTER refuse_unsourced_header_values, a notice whose `mfr` was REFUSED (no
+        # citation for the printed value) ends up with no dedupe key and is therefore
+        # never matched against anything. That is the deliberate direction — declining to
+        # key costs a missed duplicate, which the next arrival can still be compared
+        # against once its own header is sourced; keying on a refused value costs a FALSE
+        # match, which silently merges two different manufacturers' notices. Coverage is
+        # currently total anyway: at pin 025be04a all nine corpus notices carry both an
+        # mfr and a doc_id, with refusals 0.
+        stats["notice_identity"] = notice_identity.build_identity(
+            header_d.get("mfr"), header_d.get("doc_id"), header_d.get("revision"))
+
         # ---- Router + Pass 2: parts (multimodal, Gemma) ----
         tables = provenance.table_elements(elements)
         stats["n_tables"] = len(tables)
@@ -1423,6 +1448,13 @@ class SustainmentPlugin(AugmentationPlugin):
                   # extraction, THIS is what tells the human so.
                   "doc_review_reasons": doc_flags,
                   "review_items": items,
+                  # Level-2 dedupe identity (see the `stats["notice_identity"]` comment
+                  # above, where this is computed) — same dict, duplicated onto the review
+                  # payload because review.json, not extraction.json, is the sensor's
+                  # documented contract for this lane (see the pipeline_version comment
+                  # above this block for the same pattern: producer-side data belongs on
+                  # the artifact a consumer actually reads).
+                  "notice_identity": stats["notice_identity"],
                   # page rasters for the viewer are Phase 5.8 (needs a renderer);
                   # the data contract carries the field now, populated later.
                   "pages": []}

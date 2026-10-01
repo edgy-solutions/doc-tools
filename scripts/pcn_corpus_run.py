@@ -53,6 +53,7 @@ else. No S3 writes, no Neo4j,
 no Jena, no Weaviate, no DataHub, no Dagster materialization. The extraction
 functions are called directly and results are kept in memory.
 """
+import hashlib
 import json
 import os
 import sys
@@ -325,6 +326,90 @@ def build_full_text(elements):
     return "\n".join(parts)
 
 
+def source_content_hash(c, manifest, manifest_key=None, fn=None):
+    """sha256 of the SOURCE PDF's bytes, as `notice_identity.classify_pair` expects.
+
+    Why the source PDF and not the extracted text: `content_hash` exists in
+    `classify_pair` to answer "are these the same bytes?" ahead of any revision
+    comparison, and the thing an ingress sensor holds is the uploaded object. Hashing
+    `text.json` instead would answer a different question — two partitioning runs over
+    one identical PDF produce different text extractions (that is exactly why `PREFER`
+    above has to pin a manifest), so a text hash would report the same document as two.
+
+    `manifest["source_key"]` is declared by the producer
+    (doc_tools/components/document_parser.py) and is preferred, because it is the key
+    the producer named rather than one derived by string surgery.
+
+    THE FALLBACK IS NOT OPTIONAL, measured 2026-09-30: only 11 of the 22 manifests in
+    sandbox MinIO carry `source_key` at all. All three `ADI_PDN_23_0120.pdf` manifests
+    and six of the seven `onsemi_Generic_IPCN25300X.pdf` ones predate the field. Without
+    a fallback those notices would hash to None forever, the gate would record their
+    bytes as unverifiable, and `check_same_bytes` would be permanently inert on exactly
+    the documents it exists to guard — green because it never ran. So when the field is
+    absent the source PDF is located as a sibling of the manifest's own prefix
+    (everything before `/generated/`), which is the same resolution
+    `pcn_crop_seal.source_key` already uses against these same manifests.
+
+    Returns None only when both routes fail, because a missing hash must not fail a
+    scoring run — the consequence of None is recorded where it is consumed
+    (`bytes_coverage` in the gate), not raised here.
+    """
+    key = manifest.get("source_key")
+    if not key and manifest_key and fn:
+        pref = manifest_key.split("/generated/")[0] + "/"
+        try:
+            for o in c.list_objects_v2(Bucket=BUCKET, Prefix=pref).get("Contents", []):
+                if o["Key"].endswith("/" + fn):
+                    key = o["Key"]
+                    break
+        except Exception:  # noqa: BLE001
+            key = None
+    if not key:
+        return None
+    try:
+        body = c.get_object(Bucket=BUCKET, Key=key)["Body"].read()
+    except Exception:  # noqa: BLE001
+        return None
+    return "sha256:" + hashlib.sha256(body).hexdigest()
+
+
+def written_header(notice):
+    """The header AS WRITTEN — the values that actually reach the graph, taken off the
+    constructed `SustainmentNotice` rather than off the model's raw output.
+
+    THIS IS THE POINT OF RECORDING IT. `pcn_header_agreement.py` had to recover these
+    from a fire's stdout: locate each NoticeHeader block, bound it, splice out
+    interleaved BAML log stamps, and tolerate blocks whose JSON never closes (on the
+    real TYC block that recovery reaches `revision` and loses the two
+    `doc_level_ltb_date*` fields outright). Every one of those hazards is an artifact of
+    reading a log. The plugin already holds the values; recording them here means the
+    gate compares what was written instead of what could be salvaged from print output.
+
+    NORMALIZATION, and why it is not cosmetic. `SustainmentNotice` stores `mfr` and
+    `pub_date` as non-Optional strings, so the plugin coerces a missing/refused value to
+    "" on the way in. The log-derived path renders the same absence as None. Comparing
+    "" against None across two sources would report a DISAGREEMENT where both sources
+    observed the same absence, so "" is mapped back to None here — absence has one
+    spelling. `doc_type` is left exactly as written, including its "PCN" default, because
+    that default is a real written value: it selects the disposition ruleset downstream.
+    """
+    def blank_to_none(v):
+        return v if v not in ("", None) else None
+
+    return {
+        # The identity triple first — `notice_identity.build_identity` takes exactly
+        # these three, and `revision` is in NEITHER of pcn_header_agreement's compared
+        # tuples, so the log path could not supply it at all.
+        "mfr": blank_to_none(notice.mfr),
+        "doc_id": blank_to_none(notice.doc_id),
+        "revision": blank_to_none(notice.revision),
+        # The rest of pcn_header_agreement.WRITTEN_FIELDS.
+        "doc_type": notice.doc_type,
+        "pub_date": blank_to_none(notice.pub_date),
+        "doc_level_ltb_date": blank_to_none(notice.doc_level_ltb_date),
+    }
+
+
 def run_one(plugin, c, fn, manifest_key, manifest):
     doc_id = manifest["doc_id"]
     elements = json.loads(
@@ -350,6 +435,13 @@ def run_one(plugin, c, fn, manifest_key, manifest):
         "needs_review": bool(aug.needs_review),
         "review_reasons": list(aug.review_reasons or []),
         "doc_review_reasons": list((aug.review or {}).get("doc_review_reasons") or []),
+        # The written header and the source bytes' hash, so a consumer (the release
+        # gate) can compare identity and header stability across fires from THIS file
+        # and never parse a log. `stats["notice_identity"]` — the composed key — is
+        # already inside `stats` below; it is not copied up here, because two copies of
+        # one fact in one document is how they drift.
+        "written_header": written_header(aug.notice),
+        "content_hash": source_content_hash(c, manifest, manifest_key, fn),
         "stats": stats,
     }
 
