@@ -296,9 +296,22 @@ corpusGate:
   # The merge must stay human for a second reason, learned the hard way on
   # 2026-10-01: tests/test_corpus_gate_guard.py asserts the committed report is
   # a PASS. So merging a FAIL report turns the required `corpus-gate` check red
-  # on main and blocks every other PR. Branch protection makes that mechanical
-  # rather than a thing to remember -- the report PR cannot merge while red --
-  # but it is why `base` is a PR target and not a push destination.
+  # on main and blocks every subsequent CHART PR -- including the next pin bump,
+  # which is the one thing this gate exists to govern.
+  #
+  # CORRECTION, same day. I first wrote here that branch protection makes that
+  # mechanical -- that a red report PR cannot merge because its own
+  # `corpus-gate` run would be red. **That is false, and measured false on
+  # PR #45:** `corpus-gate` reports `skipping`. The job is gated
+  # `if: needs.changes.outputs.charts == 'true'` and a report PR touches only
+  # docs/corpus-gate/**, so `charts=false` and the job never runs; a required
+  # check that completes as `skipped` does NOT block. The skip is DELIBERATE --
+  # scoping the gate to charts/** is what stops a red gate wedging the repo shut
+  # against its own repair (see the job's comment in build-container.yml) -- so
+  # it is working as designed, and the design simply does not include this
+  # guarantee. Nothing mechanically prevents merging a red report. It is a human
+  # rule: read `verdict` in the diff before merging. That is also precisely why
+  # `base` is a PR target and not a push destination -- the human IS the control.
   #
   # TOKEN SCOPE, measured rather than assumed. The first real run proved the
   # provisioned PCN_GATE_PUBLISH_TOKEN can write CONTENTS but has no
