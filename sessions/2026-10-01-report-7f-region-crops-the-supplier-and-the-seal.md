@@ -28,7 +28,9 @@ load-bearing:
    region that stays lost is reported rather than left as a counter nobody reads.
 4. **TYC's gate exemption does not self-close.** It was keyed on `needs_review`,
    which a degraded text layer sets permanently — so the exemption could never be
-   revoked by any measurement. Narrowed; see §6. **This can newly block `main`.**
+   revoked by any measurement. Narrowed; see §6, which traces exactly what the
+   narrowing can block: **the next pin bump**, via a red in-cluster report, and
+   not ordinary code PRs.
 
 Evidence section for the DPI question:
 `sessions/2026-10-01-report-7f-witness-diagnosis-it-is-the-image.md`.
@@ -203,10 +205,23 @@ qualifies, because the region witness reads header fields from crops the text
 layer had no part in. When the witness genuinely fails, the plugin now says so
 (§5) and that reason earns the exemption on its own merits.
 
-**Review this one.** It can newly block `main`. TYC is the only notice it can
-reach today, and only while the header is measured wrong. `strict_verdict`
-counted this failure all along, so nothing changes about what was *true* — only
-about what blocks.
+**Review this one, and here is exactly what it can block.** The path is three
+steps and it ends at a pin, not at every PR:
+
+1. The next **in-cluster** gate run (the `corpus-gate` CronJob — the fires cannot
+   run on a GitHub runner) may now score TYC's header and write a **red**
+   `docs/corpus-gate/latest.json`.
+2. CI's `corpus-gate` job checks that committed report, and is scoped to
+   `charts/**` by design — so a red report reds that check only on a **chart
+   diff**.
+3. A pin bump **is** a chart diff. So the thing this can newly block is **the
+   next pin**, which is precisely what the gate is for; ordinary code PRs,
+   including a PR that fixes the extractor, still merge.
+
+TYC is the only notice it can reach today, and only while its header is measured
+wrong — which, per §1, it currently is not. `strict_verdict` grants no exemptions
+and counted this failure all along, so nothing changes about what was *true* —
+only about what blocks.
 
 ---
 
