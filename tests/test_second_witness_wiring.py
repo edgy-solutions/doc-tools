@@ -145,6 +145,10 @@ class _FakeS3:
         return {"Body": SimpleNamespace(read=lambda: self._png)}
 
 
+class _BamlTimeoutError(Exception):
+    """Stands in for BAML's own timeout error, by NAME. See `_FakeB.RAISE_TIMEOUT`."""
+
+
 class _FakeB:
     """Stands in for `doc_tools.baml_client.sync_client.b`. `ExtractHeader` returns a fixed
     header; `TranscribePage` pops one behavior per call, in call order.
@@ -155,6 +159,11 @@ class _FakeB:
     order -- so `transcribe_behaviors[i]` is page `i + 1`'s response.
     """
     RAISE = "__raise__"
+    # A failure whose CLASS NAME says timeout. The retry in `_read_one_region`
+    # discriminates on the name rather than on an imported type, so the fake has to
+    # as well -- importing BAML's real error class here would couple these tests to a
+    # vendored exception hierarchy to assert one branch.
+    RAISE_TIMEOUT = "__raise_timeout__"
 
     def __init__(self, header=None, transcribe_behaviors=None, region_behaviors=None):
         self.header = header
@@ -187,6 +196,8 @@ class _FakeB:
         behavior = (self._region_behaviors.pop(0) if self._region_behaviors else "")
         if behavior == self.RAISE:
             raise RuntimeError("simulated vision failure")
+        if behavior == self.RAISE_TIMEOUT:
+            raise _BamlTimeoutError("simulated server-side timeout")
         return behavior
 
 
@@ -630,3 +641,90 @@ def test_a_healthy_document_never_raises_a_part_even_though_no_witness_exists(
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+# --------------------------------------------------------------------------- #
+# A LOST REGION
+# --------------------------------------------------------------------------- #
+# Three tests for one measured event. On 2026-10-01 one fire of three against the live
+# host lost the header-block crop to `400 Bad Request: Failed to load image or audio
+# file` and published `TE Connecvity` with the portal's print stamp as the notice date,
+# while the other two fires read both correctly. The crop was not at fault: built once
+# and sent eight times, byte-identical, it succeeded 8/8. So the region read needs a
+# retry, and a region that still fails has to be VISIBLE -- it is no longer a lost
+# cross-check but a header field falling back to a text layer already known to be
+# damaged.
+
+
+def test_a_region_read_that_fails_once_is_retried_with_the_same_bytes(monkeypatch, plugin):
+    """The first failure must not cost the field. Two calls, one region, value supplied."""
+    monkeypatch.setenv("VISION_LLM_BASE_URL", "http://fake-vision:1234/v1")
+    fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS),
+                    region_behaviors=[_FakeB.RAISE,
+                                      "Manufacturer: TE Connectivity\n"
+                                      "Document Number: PCN-TEST-001\n"
+                                      "Notice Date: not printed\n"
+                                      "Current Date: not printed"])
+    _patch_b(monkeypatch, fake_b)
+
+    nodes = plugin._extract_fulltext(
+        _full_text(healthy=False), "doc-1", elements=_degraded_elements(),
+        manifest=_manifest(len(_CONTROL_PARAGRAPHS)), s3_client=_FakeS3(), bucket="notices",
+    )
+
+    aug = nodes[0].domain_augmentation
+    assert fake_b.region_calls == 2, "the failed region read was not retried"
+    assert aug.stats["witness_regions"] == 1
+    assert aug.stats["witness_regions_lost"] == 0
+    assert aug.notice.mfr == "TE Connectivity"
+    assert not any("LOST" in r for r in aug.review_reasons), aug.review_reasons
+
+
+def test_a_region_that_fails_twice_is_recorded_as_a_lost_field(monkeypatch, plugin):
+    """The retry is bounded, and exhausting it is REPORTED.
+
+    `witness_regions == 0` alone is not enough: that is also what a document with no
+    locatable masthead looks like, and neither reaches a reviewer. This asserts the
+    reason, the counter and the doc_flags banner, because the banner is what makes a
+    degraded document stop looking clean -- a degraded text layer by itself deliberately
+    raises none."""
+    monkeypatch.setenv("VISION_LLM_BASE_URL", "http://fake-vision:1234/v1")
+    fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS),
+                    region_behaviors=[_FakeB.RAISE, _FakeB.RAISE])
+    _patch_b(monkeypatch, fake_b)
+
+    nodes = plugin._extract_fulltext(
+        _full_text(healthy=False), "doc-1", elements=_degraded_elements(),
+        manifest=_manifest(len(_CONTROL_PARAGRAPHS)), s3_client=_FakeS3(), bucket="notices",
+    )
+
+    aug = nodes[0].domain_augmentation
+    assert fake_b.region_calls == 2, "the retry is not bounded at one"
+    assert aug.stats["witness_regions"] == 0
+    assert aug.stats["witness_regions_lost"] == 1
+    assert aug.needs_review is True
+    lost = [r for r in aug.review_reasons if "LOST the header_block region" in r]
+    assert lost, aug.review_reasons
+    assert "mfr" in lost[0], lost[0]
+    banner = aug.review.get("doc_review_reasons") or []
+    assert any("degraded" in f and "header region" in f for f in banner), banner
+
+
+def test_a_region_read_that_times_out_is_not_retried(monkeypatch, plugin):
+    """A ~300s server-side ceiling is not ours and not configurable from this repo, so
+    retrying into it buys the same answer for twice the wall clock. One call, recorded
+    as lost."""
+    monkeypatch.setenv("VISION_LLM_BASE_URL", "http://fake-vision:1234/v1")
+    fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS),
+                    region_behaviors=[_FakeB.RAISE_TIMEOUT, "should never be used"])
+    _patch_b(monkeypatch, fake_b)
+
+    nodes = plugin._extract_fulltext(
+        _full_text(healthy=False), "doc-1", elements=_degraded_elements(),
+        manifest=_manifest(len(_CONTROL_PARAGRAPHS)), s3_client=_FakeS3(), bucket="notices",
+    )
+
+    aug = nodes[0].domain_augmentation
+    assert fake_b.region_calls == 1, "a timeout was retried"
+    assert aug.stats["witness_regions_lost"] == 1
+    assert any("LOST the header_block region" in r for r in aug.review_reasons)

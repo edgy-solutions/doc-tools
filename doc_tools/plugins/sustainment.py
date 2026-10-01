@@ -110,6 +110,39 @@ def _fetch_image_b64(s3_client, s3_url: str):
     return media, base64.b64encode(data).decode("ascii")
 
 
+def _read_one_region(b, Image, media: str, b64: str, instructions: str, name: str):
+    """ONE region read, with ONE retry, and the retry is measured rather than hopeful.
+
+    The vision host returns `400 Bad Request: Failed to load image or audio file` on
+    crops it accepts perfectly well seconds later. Measured 2026-10-01 against the
+    sandbox host: the header-block crop built ONCE and sent EIGHT times -- byte-identical
+    input, same sha256, a valid JPEG that decodes locally at 2392x729 -- succeeded on
+    every call in a tight loop, while the same crop built the same way lost one fire in
+    three to a 400. So the rejection is not a property of the image, and a second attempt
+    is the correct response rather than a guess.
+
+    This matters more than a corroborator's retry would: the region now SUPPLIES the
+    header value, so dropping it does not weaken a check, it publishes the damaged text
+    layer's reading (`TE Connecvity`, and a print stamp for a notice date).
+
+    A TIMEOUT is NOT retried. There is a hard ~300s server-side ceiling that is not ours
+    and not configurable from this repo, and retrying into it turns a 300s stall into a
+    600s one for the same answer. Only a fast rejection earns the second call.
+    """
+    try:
+        return b.ReadRegion(region_image=Image.from_base64(media, b64),
+                            system_instructions=instructions,
+                            baml_options=_vision_call_opts()[0])
+    except Exception as e:  # noqa: BLE001
+        if "timeout" in type(e).__name__.lower():
+            raise
+        print(f"[SustainmentPlugin] region {name}: first read failed ({e}) — retrying "
+              f"once with the SAME bytes, which is the measured shape of this failure")
+        return b.ReadRegion(region_image=Image.from_base64(media, b64),
+                            system_instructions=instructions,
+                            baml_options=_vision_call_opts()[0])
+
+
 def _crop_region_b64(s3_client, s3_url: str, region: dict):
     """('image/jpeg', base64str) for ONE region cut out of a stored page render.
 
@@ -972,7 +1005,8 @@ class SustainmentPlugin(AugmentationPlugin):
         return witness
 
     def _read_regions_witness(self, index: List[dict], manifest: Optional[dict],
-                              s3_client) -> List[dict]:
+                              s3_client,
+                              lost_regions: Optional[List[dict]] = None) -> List[dict]:
         """THE SECOND WITNESS FOR HEADER FIELDS: one record per located REGION, read from
         a CROP of the page rather than from the whole page.
 
@@ -1003,6 +1037,16 @@ class SustainmentPlugin(AugmentationPlugin):
         and `bbox` is the region's REAL box in layout pixels rather than None, so a value
         corroborated here resolves to a location a reviewer can be shown, which a
         whole-page transcription could never give.
+
+        `lost_regions`, when a list is passed, collects one record per region that was
+        LOCATED but could not be read. That out-param is not bookkeeping: since the
+        regions became the SUPPLIER of header values rather than only a cross-check, a
+        region that fails is a header field silently falling back to the damaged text
+        layer -- measured on TYC, where one fire in three lost the header block to a host
+        400 and published `TE Connecvity` and the print-stamp date while the other two
+        fires were correct, with nothing in the record to say why. Returning the list
+        rather than raising keeps the standing rule that one region must not lose the
+        others.
         """
         if not manifest:
             return []
@@ -1034,27 +1078,36 @@ class SustainmentPlugin(AugmentationPlugin):
             return []
 
         witness: List[dict] = []
+
+        def _lost(region, why):
+            """Record a located-but-unread region, and say which fields went with it."""
+            fields = list(region.get("fields") or [])
+            print(f"[SustainmentPlugin] region {region['name']} "
+                  f"(page {region.get('page_number')}) LOST: {why} — the fields this "
+                  f"region answers ({', '.join(fields) or 'none'}) keep whatever the "
+                  f"damaged text layer said, uncorroborated and unsupplied")
+            if lost_regions is not None:
+                lost_regions.append({"name": region["name"],
+                                     "page_number": region.get("page_number"),
+                                     "fields": fields,
+                                     "why": str(why)})
+
         for region in regions:
             name = region["name"]
             try:
                 entry = pages.get(region["page_number"])
                 if not entry:
-                    print(f"[SustainmentPlugin] region {name}: page "
-                          f"{region['page_number']} has no render in the manifest")
+                    _lost(region, f"page {region['page_number']} has no render in the "
+                                  f"manifest")
                     continue
                 media, b64 = _crop_region_b64(s3_client, entry.get("s3_url"), region)
                 if not b64:
+                    _lost(region, "the crop could not be cut from the stored page render")
                     continue
-                text = b.ReadRegion(
-                    region_image=Image.from_base64(media, b64),
-                    system_instructions=witness_regions.region_prompt(
-                        markdown, region["prompt_section"]),
-                    baml_options=_vision_call_opts()[0])
+                text = _read_one_region(b, Image, media, b64, witness_regions.region_prompt(
+                    markdown, region["prompt_section"]), name)
             except Exception as e:  # noqa: BLE001 — one region must not lose the others
-                print(f"[SustainmentPlugin] ReadRegion failed on {name} "
-                      f"(page {region.get('page_number')}): {e} — the fields this region "
-                      f"answers ({', '.join(region.get('fields') or [])}) will not be "
-                      f"corroborated")
+                _lost(region, e)
                 continue
             witness.append({
                 "element_id": f"page_region_{region['page_number']}_{name}",
@@ -1337,8 +1390,10 @@ class SustainmentPlugin(AugmentationPlugin):
         #     of them.
         header_witness = None
         witness_index = None
+        lost_regions: List[dict] = []
         if text_layer_assessment["text_layer_degraded"]:
-            header_witness = self._read_regions_witness(index, manifest, s3_client)
+            header_witness = self._read_regions_witness(
+                index, manifest, s3_client, lost_regions=lost_regions)
             witness_index = self._transcribe_pages_witness(manifest, s3_client)
         stats["witness_pages"] = len(witness_index) if witness_index else 0
         # Reported separately from `witness_pages` so a document that paid for a witness
@@ -1346,6 +1401,32 @@ class SustainmentPlugin(AugmentationPlugin):
         # that was never degraded enough to pay — a zero here on a degraded document is
         # the signal that header corroboration had nothing to consult.
         stats["witness_regions"] = len(header_witness) if header_witness else 0
+        # A LOCATED REGION THAT FAILED TO READ IS A REVIEWER-FACING FACT, not a log line.
+        # The region supplies the header value on a degraded notice, so losing one means
+        # the field keeps the damaged text layer's reading and the document publishes it.
+        # Measured on TYC: one fire in three lost the header block to a transient host
+        # 400 and wrote `TE Connecvity` plus the portal print stamp, while the other two
+        # fires were correct -- and the only trace was `witness_regions=1` instead of 2,
+        # which no reviewer reads. `needs_review` is already True here (the degraded text
+        # layer set it), so what this adds is the BANNER and the reason: see
+        # `_apply_text_layer_stats` for why degradation alone deliberately does not raise
+        # one.
+        stats["witness_regions_lost"] = len(lost_regions)
+        for lost in lost_regions:
+            fields = ", ".join(lost.get("fields") or []) or "none"
+            reasons.append(
+                f"region witness LOST the {lost['name']} region on page "
+                f"{lost.get('page_number')} ({lost.get('why')}); header fields {fields} "
+                f"were neither supplied nor corroborated and keep the damaged text "
+                f"layer's reading")
+        if lost_regions:
+            doc_flags.append(
+                "header region(s) could not be read on a document whose text layer is "
+                "degraded ("
+                + "; ".join(f"{l['name']}: {', '.join(l.get('fields') or []) or 'none'}"
+                            for l in lost_regions)
+                + ") — these header values are the damaged text layer's own")
+            needs_review = True
         # `text_layer_degraded` is passed SEPARATELY from `witness_index` and is not
         # inferrable from it: the three no-witness paths above (no VISION_LLM_BASE_URL, no
         # page manifest, a transcription that failed) all hand the refusal a None witness
