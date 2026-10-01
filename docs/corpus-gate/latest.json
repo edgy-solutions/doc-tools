@@ -2,16 +2,16 @@
   "schema": 1,
   "verdict": "pass",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-01T03:05:34Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:904fb4587ddadce1b88aaa346a92676c31bb0c5952db7c7b34c7ae14a40abf7d",
-  "measured_pin_note": "49ed4a1 (helm rev 25, sandbox) - carries PR #34, #35, #36, #37; #35 is the degraded-notice needs_review fix this run re-measures",
+  "generated_at": "2026-10-01T08:03:01Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:4c1f74cc1d016606f19f3fe064282ba4681609d104576a96a3f83dc3e62e6297",
+  "measured_pin_note": null,
   "fires": [
     {
       "n": 1,
       "exit": 0,
-      "started_at": null,
-      "ended_at": null,
-      "elapsed_s": 1374.4,
+      "started_at": "2026-10-01T07:00:19Z",
+      "ended_at": "2026-10-01T07:22:28Z",
+      "elapsed_s": 1329.7,
       "log": "fire1.log",
       "totals": {
         "gt": 898,
@@ -26,9 +26,9 @@
     {
       "n": 2,
       "exit": 0,
-      "started_at": null,
-      "ended_at": null,
-      "elapsed_s": 1327.2,
+      "started_at": "2026-10-01T07:22:28Z",
+      "ended_at": "2026-10-01T07:44:54Z",
+      "elapsed_s": 1346.0,
       "log": "fire2.log",
       "totals": {
         "gt": 898,
@@ -43,9 +43,9 @@
     {
       "n": 3,
       "exit": 0,
-      "started_at": null,
-      "ended_at": null,
-      "elapsed_s": 1297.8,
+      "started_at": "2026-10-01T07:44:54Z",
+      "ended_at": "2026-10-01T08:03:01Z",
+      "elapsed_s": 1086.2,
       "log": "fire3.log",
       "totals": {
         "gt": 898,
@@ -161,9 +161,36 @@
     "widens_when": "A new notice is ingested into processing-artifacts/sustainment/inbound/**. Then: add its TARGETS row, add its part numbers to notices{} under the same verbatim-presence rule as every other entry, and raise scored_entries / distinct_documents / gt_parts / distinct_parts here. Re-enumerating the bucket does NOT widen it -- that was done, and found nothing new."
   },
   "header_correctness": {
-    "observed": false,
-    "fires": {},
-    "reason": "no fire score JSON carries header_totals — scored by an image that predates header scoring. NOT a pass: the headers were not measured against ground truth at all."
+    "observed": true,
+    "fires": {
+      "1": {
+        "exact": 0,
+        "fields_scored": 3,
+        "clean": false,
+        "observed": true,
+        "unobserved": [],
+        "pending": []
+      },
+      "2": {
+        "exact": 1,
+        "fields_scored": 3,
+        "clean": false,
+        "observed": true,
+        "unobserved": [],
+        "pending": []
+      },
+      "3": {
+        "exact": 1,
+        "fields_scored": 3,
+        "clean": false,
+        "observed": true,
+        "unobserved": [],
+        "pending": []
+      }
+    },
+    "failing_notices": [
+      "TYC-PCN-24-210412.pdf"
+    ]
   },
   "header_agreement": {
     "exit": 1,
@@ -171,10 +198,12 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "mfr": "'TE Connecvity' | 'TE' | 'TE Connecvity'",
-          "mfr_source": "'TE Connecvity' | 'TE' | 'TE Connecvity'",
-          "doc_level_ltb_date": "None | '2024-06-06' | '2024-06-06'",
-          "doc_level_ltb_date_source": "None | '-2024\\n[Unca' | '-2024'"
+          "mfr": "'TE' | 'TE Connecvity' | 'TE'",
+          "mfr_source": "'TE' | 'TE Connecvity' | 'TE'",
+          "pub_date": "'2024-06-10' | '2024-06-07' | '2024-06-10'",
+          "pub_date_source": "'10-Jun-2024' | '07-JUN-24' | '10-Jun-2024'",
+          "doc_level_ltb_date": "None | None | '2024-06-06'",
+          "doc_level_ltb_date_source": "None | None | '06-JUN-2024'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
@@ -238,16 +267,8 @@
       "complete": true
     },
     "filenames": 9,
-    "distinct_notices": 8,
-    "collapses": [
-      {
-        "key": "diodes | pcn-2683 | r5",
-        "files": [
-          "Diodes_PCN_2683_FULLGREEN.pdf",
-          "Diodes_PCN_2683_Rev1_EOL.pdf"
-        ]
-      }
-    ],
+    "distinct_notices": 9,
+    "collapses": [],
     "incomplete_identity": [],
     "identity_half_unstable": [
       "TYC-PCN-24-210412.pdf"
@@ -259,7 +280,8 @@
   },
   "blocking": [],
   "exempted": [
-    "TYC-PCN-24-210412.pdf: header disagreement exempted — needs_review=True in all three fires",
-    "TYC-PCN-24-210412.pdf: identity-half instability (mfr/doc_id differ across fires) exempted — needs_review=True in all three fires"
+    "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires",
+    "TYC-PCN-24-210412.pdf: identity-half instability (mfr/doc_id differ across fires) exempted \u2014 needs_review=True in all three fires",
+    "TYC-PCN-24-210412.pdf: written header does not match ground truth \u2014 fire 1: doc_level_ltb_date (absent), mfr (distractor), pub_date (distractor); fire 2: doc_level_ltb_date (absent), mfr (distractor); fire 3: mfr (distractor), pub_date (distractor) (pcn_ground_truth.json notices[TYC-PCN-24-210412.pdf].headers) \u2014 exempted: needs_review=True in all three fires"
   ]
 }
