@@ -57,14 +57,25 @@ JUDGMENT CALLS made in this module (read before changing behaviour):
    key string.
 
 4. REVISION ORDERING is decided ONLY where genuinely unambiguous:
-     - both sides purely numeric (`"1"` vs `"2"`)    -> integer compare.
+     - both sides dotted-numeric (`"2.0"` vs `"1.15"`, `"1"` vs `"2"`, which
+       is the one-segment case of the same pattern) -> split on `.`, map
+       each segment to `int`, zero-pad the shorter tuple to the longer
+       one's length, and compare the tuples segment-wise. `2.0` vs `1.15`
+       is `(2, 0)` vs `(1, 15)` -> `2.0` is newer. `2.0.1` vs `2.0` is
+       `(2, 0, 1)` vs `(2, 0, 0)` -> `2.0.1` is newer. Zero-padding also
+       means equivalent spellings of the SAME revision compare equal
+       rather than ordered: `1.0` vs `1.00` is `(1, 0)` vs `(1, 0)`, and
+       `01` vs `1` is `(1,)` vs `(1,)`. An equal comparison is not
+       "revision_order_unknown" — `classify_pair` reports it as
+       `duplicate_copy` (judgment call relocated; see that function).
      - both sides a single alphabetic character (`"A"` vs `"B"`) -> compare.
    Everything else — mixed alpha/numeric (`"A"` vs `"1"`), multi-token
-   strings (`"Rev1"`), a printed dash against anything, ONE SIDE ABSENT,
-   two absent values colliding into the same key before this even runs —
-   returns `revision_order_unknown`. Getting a direction backwards would
-   hide the NEWER notice behind the OLDER one, which is strictly worse
-   than declining to answer, so this module never invents a total order.
+   strings (`"Rev1"`), a printed dash against anything, a dotted value with
+   a non-numeric segment (`"1.A"` vs `"1.B"`), ONE SIDE ABSENT, two absent
+   values colliding into the same key before this even runs — returns
+   `revision_order_unknown`. Getting a direction backwards would hide the
+   NEWER notice behind the OLDER one, which is strictly worse than
+   declining to answer, so this module never invents a total order.
 
    One-side-absent WAS in the decidable list, on the reasoning that a
    vendor leaves the first release unmarked and stamps only later
@@ -117,7 +128,10 @@ _CORPORATE_SUFFIXES = (
 _NOISE_PUNCTUATION_RE = re.compile(r"[.,']")
 _WHITESPACE_RE = re.compile(r"\s+")
 
-_NUMERIC_RE = re.compile(r"^[0-9]+$")
+# Dotted-numeric revision shape, e.g. "2", "2.0", "2.0.1" — one or more
+# all-digit segments joined by '.'. Subsumes the pure-integer case (a single
+# segment), so `_compare_revisions` has no separate integer-only branch.
+_DOTTED_NUMERIC_RE = re.compile(r"^[0-9]+(\.[0-9]+)*$")
 _SINGLE_ALPHA_RE = re.compile(r"^[a-z]$")
 
 
@@ -130,13 +144,49 @@ def normalize_component(value) -> str:
 
     Generic text normalization only — corporate-suffix stripping (judgment
     call #1) is mfr-specific and applied separately by `notice_key`, not
-    here, so this function stays meaningful for doc_id and revision too.
+    here. This function stays meaningful for doc_id, where a dot is always
+    typesetting noise. It is NOT used for revision — `normalize_revision`
+    below keeps the dot, because for a revision the dot is structural
+    (separates `2.0` from `2`, `0`) rather than noise; see that function.
     """
     if value is None:
         return ""
     text = str(value).casefold()
     text = _NOISE_PUNCTUATION_RE.sub("", text)
     text = _WHITESPACE_RE.sub(" ", text).strip()
+    return text
+
+
+def normalize_revision(value) -> str:
+    """Normalize a revision header component for identity comparison.
+
+    Does everything `normalize_component` does EXCEPT strip the `.` that
+    separates dotted revision segments (`"2.0"`, `"1.15"`): case-folds,
+    strips `,` and `'`, collapses internal whitespace runs to a single
+    space, strips surrounding whitespace — but leaves internal `.`
+    characters alone. A revision's dot is structural, not typesetting noise
+    (it is what makes `2.0` distinct from `2` and `0`, and what makes
+    `_compare_revisions`'s segment-wise comparison possible at all); that
+    is the opposite of `doc_id`/`mfr`, where a dot is always noise
+    (`"Diodes, Incorporated."`). `normalize_component` is still correct for
+    those two components — do not change it.
+
+    A LEADING or TRAILING `.` is still stripped, after the above: a
+    trailing dot is typesetting (`"2."` is revision `2` followed by a
+    sentence period, not a structural dot), not a revision segment
+    separator. Only dots BETWEEN digits/characters are structural.
+
+    `None` normalizes to `""` for parity with `normalize_component`, though
+    in practice `notice_key` never reaches this branch — it handles
+    `revision=None` itself via `_ABSENT_REVISION` before calling here.
+    """
+    if value is None:
+        return ""
+    text = str(value).casefold()
+    # Strip ',' and ''' only — NOT '.' — then collapse whitespace.
+    text = text.replace(",", "").replace("'", "")
+    text = _WHITESPACE_RE.sub(" ", text).strip()
+    text = text.strip(".")
     return text
 
 
@@ -167,10 +217,14 @@ def notice_key(mfr, doc_id, revision) -> str:
     Python's salted `hash()` or any run/process-specific state.
 
     `mfr` and `doc_id` normalize through `normalize_component` (`mfr` also
-    gets corporate-suffix stripping). `revision` is nullable AND `'-'` is a
-    real printed value (see judgment call #2): `None` maps to a private
-    absent-revision sentinel that cannot collide with any printed string,
-    including `'-'`.
+    gets corporate-suffix stripping). `revision` normalizes through
+    `normalize_revision` instead — it does everything `normalize_component`
+    does except strip the `.` that separates dotted revision segments
+    (`"2.0"`), because that dot is structural for a revision, not
+    typesetting noise; see `normalize_revision`. `revision` is also nullable
+    AND `'-'` is a real printed value (see judgment call #2): `None` maps to
+    a private absent-revision sentinel that cannot collide with any printed
+    string, including `'-'`.
 
     This function does not decide whether `mfr`/`doc_id` are "present
     enough" to trust — it will happily build a key from empty strings if
@@ -182,7 +236,7 @@ def notice_key(mfr, doc_id, revision) -> str:
     """
     mfr_component = _strip_corporate_suffix(normalize_component(mfr))
     doc_id_component = normalize_component(doc_id)
-    revision_component = _ABSENT_REVISION if revision is None else normalize_component(revision)
+    revision_component = _ABSENT_REVISION if revision is None else normalize_revision(revision)
     return SEPARATOR.join((mfr_component, doc_id_component, revision_component))
 
 
@@ -284,9 +338,19 @@ def _compare_revisions(rev_a: str, rev_b: str) -> Optional[int]:
         # copy. Declining costs a missed supersedes, which the next arrival can
         # still establish; deciding cost a false one.
         return None
-    if _NUMERIC_RE.match(rev_a) and _NUMERIC_RE.match(rev_b):
-        na, nb = int(rev_a), int(rev_b)
-        return (na > nb) - (na < nb)
+    if _DOTTED_NUMERIC_RE.match(rev_a) and _DOTTED_NUMERIC_RE.match(rev_b):
+        # Segment-wise, zero-padded tuple compare — NOT a string or whole-value
+        # integer compare. Subsumes the pure-integer case (one segment each).
+        # Zero-padding is what makes "2.0.1" > "2.0" (extra trailing segment is
+        # newer) and what makes "1.0" == "1.00" / "01" == "1" (equivalent
+        # spellings of the same revision, not an ordering) -- see judgment call
+        # #4 and classify_pair's `order == 0` branch below.
+        segs_a = tuple(int(s) for s in rev_a.split("."))
+        segs_b = tuple(int(s) for s in rev_b.split("."))
+        width = max(len(segs_a), len(segs_b))
+        segs_a = segs_a + (0,) * (width - len(segs_a))
+        segs_b = segs_b + (0,) * (width - len(segs_b))
+        return (segs_a > segs_b) - (segs_a < segs_b)
     if _SINGLE_ALPHA_RE.match(rev_a) and _SINGLE_ALPHA_RE.match(rev_b):
         return (rev_a > rev_b) - (rev_a < rev_b)
     return None
@@ -309,9 +373,19 @@ def classify_pair(a: dict, b: dict) -> dict:
                                    because identical bytes cannot supersede
                                    themselves however the header pass keyed
                                    them.
-      "duplicate_copy"         -- same key, different content_hash: same
-                                   notice identity, different bytes (a
-                                   re-render, a re-scan, a corrected typo).
+      "duplicate_copy"         -- reached two ways: (a) same key, different
+                                   content_hash: same notice identity,
+                                   different bytes (a re-render, a re-scan,
+                                   a corrected typo); or (b) different key
+                                   but same (mfr, doc_id) AND the revisions
+                                   are equivalent SPELLINGS of the same
+                                   revision (`"1.0"` vs `"1.00"`, `"01"` vs
+                                   `"1"` — `_compare_revisions` returns 0
+                                   without the keys being textually equal).
+                                   Route (b) is the same identity with
+                                   different bytes too, just discovered via
+                                   revision-order equality instead of a key
+                                   match.
       "supersedes"             -- same (mfr, doc_id), different revision,
                                    and `a` is the NEWER revision of `b`.
       "superseded_by"          -- same (mfr, doc_id), different revision,
@@ -382,10 +456,20 @@ def classify_pair(a: dict, b: dict) -> dict:
             "reason": (
                 f"same (mfr, doc_id); revisions {a.get('revision')!r} vs "
                 f"{b.get('revision')!r} differ but their order is not decidable "
-                f"(not both numeric, not both single-alphabetic, or one side is "
+                f"(not both dotted-numeric, not both single-alphabetic, or one side is "
                 f"absent and an absent revision may be a header miss rather than "
                 f"a document that prints none) — guessing would risk hiding the "
                 f"newer notice behind the older one"
+            ),
+        }
+    if order == 0:
+        return {
+            "relation": "duplicate_copy",
+            "reason": (
+                f"same (mfr, doc_id); revisions {a.get('revision')!r} vs "
+                f"{b.get('revision')!r} differ only in how the SAME revision was "
+                f"spelled (e.g. '1.0' vs '1.00', or a leading zero) — same notice "
+                f"identity, not an ordering"
             ),
         }
     if order > 0:
