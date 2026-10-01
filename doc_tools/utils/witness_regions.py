@@ -352,3 +352,240 @@ def validate_region_prompt(markdown: str) -> None:
     """Every REGION_SPECS section resolves. Called once, up front."""
     for spec in REGION_SPECS:
         region_prompt(markdown, spec["prompt_section"])
+
+
+# --------------------------------------------------------------------------- #
+# READING THE ANSWERS BACK -- the half that makes the questions worth asking.
+#
+# A region read that only CORROBORATES cannot fix a wrong value, and measured on
+# TYC-PCN-24-210412 (2026-10-01, three fires) every header field this witness is
+# asked about came back CORRECT while the shipped header stayed wrong, because
+# nothing could write what the witness read:
+#
+#   field                raw header (text layer)   region witness   page prints
+#   mfr                  TE Connecvity             TE Connectivity  TE Connectivity
+#   pub_date             2024-06-10 (print stamp)  07-JUN-24        07-JUN-24
+#   doc_level_ltb_date   2024-06-06 then REFUSED   06-JUN-2024      06-JUN-2024
+#
+# The first two were not even refused: a damaged text layer prints `TE Connecvity`
+# verbatim, so the value is "supported by the document" and passes the filter
+# intact, and `2024-06-10` really is printed on the page -- as the portal's print
+# stamp. A filter cannot reach either case. So the witness becomes a SUPPLIER for
+# the fields it was asked about, on a document whose text layer is measured
+# degraded, and `sustainment_header_trust.supply_header_from_regions` writes it.
+#
+# WHAT GUARDS THE SUPPLY. Vision substitutes digits, which is exactly why this was
+# not simply trusted: writing a wrong date is worse than keeping an unverified one.
+# Two guards, both built into the QUESTIONS rather than bolted on afterwards:
+#
+#   1. THE DISTRACTOR. `Current Date:` is asked separately from `Notice Date:`
+#      precisely because the measured failure is conflating the two. If the model
+#      answers them with the SAME date it has collapsed the distinction, and no
+#      pub_date is supplied.
+#   2. THE REDUNDANT LINE. `All Dates:` re-reads the dates block as explicit
+#      `label = date` pairs, so the date the model paired with "last order" can be
+#      checked against the date it reported for that question. A DISAGREEMENT
+#      blocks the supply; silence does not -- absence from a witness is not
+#      evidence, and a crop with one date may legitimately produce no pair.
+# --------------------------------------------------------------------------- #
+
+# `Label: value`, tolerant of the bullet and backtick decoration a model adds back
+# even when asked for plain text. The label is bounded to letters, spaces and
+# brackets so a date's own colon-free text cannot be mistaken for a new label.
+_ANSWER_LINE_RE = re.compile(r"^[\s\-*\u2022]*`?\s*([A-Za-z][A-Za-z ()/]{0,40}?)\s*`?\s*:\s*(.+?)\s*$")
+
+# Every way the prompt's own `not printed` comes back, folded. A model asked for a
+# value it cannot see says so in a handful of forms; all of them mean "no answer",
+# and treating any of them as a VALUE would write the literal string into a header.
+_NO_ANSWER = frozenset((
+    "notprinted", "none", "na", "n/a", "nil", "notavailable", "notapplicable",
+    "absent", "unknown", "notshown", "nodate", "", "-", "--",
+))
+
+# label (normalized) -> (header field, kind). `kind` selects how the answer is
+# turned into a value: "date" normalizes to ISO, "text" is taken verbatim.
+# `currentdate` is deliberately absent: it is asked ONLY to be discarded.
+REGION_FIELD_ANSWERS: Dict[str, Tuple[Tuple[str, str, str], ...]] = {
+    "header_block": (
+        ("manufacturer", "mfr", "text"),
+        ("documentnumber", "doc_id", "text"),
+        ("noticedate", "pub_date", "date"),
+    ),
+    "estimated_dates": (
+        ("lastorderdate", "doc_level_ltb_date", "date"),
+    ),
+}
+
+_LABEL_KEY_RE = re.compile(r"[^a-z0-9]+")
+# Labels in the `All Dates:` line that denote the last ORDER date, for the
+# redundancy check. Substring match after normalization, because a real notice
+# prints "Last Order Date (Obsolete Parts Only)".
+_LAST_ORDER_KEYS = ("lastorder", "lasttimebuy", "lastbuy", "ltb")
+
+
+def _label_key(s: str) -> str:
+    return _LABEL_KEY_RE.sub("", (s or "").lower())
+
+
+def parse_region_answer(text: Optional[str]) -> Dict[str, str]:
+    """A region's answer text -> {normalized label: verbatim value}.
+
+    Values are kept EXACTLY as the model printed them, because a supplied header
+    value needs a citation that is verbatim on the page -- normalizing here would
+    manufacture a source string that the page does not contain. Lines that are not
+    `Label: value` are dropped rather than guessed at.
+    """
+    out: Dict[str, str] = {}
+    for line in (text or "").splitlines():
+        m = _ANSWER_LINE_RE.match(line)
+        if not m:
+            continue
+        key, value = _label_key(m.group(1)), m.group(2).strip().strip("`").strip()
+        if not key or key in out:
+            continue  # first answer wins; a repeated label is the model rambling
+        out[key] = value
+    return out
+
+
+# An answer that is ALREADY an ISO date, matched anchored. See `_iso_date` for why
+# this cannot go through the shared date finder.
+_ISO_ANSWER_RE = re.compile(r"^\s*(\d{4})-(\d{1,2})-(\d{1,2})\s*$")
+
+
+def _iso_date(value: Optional[str]) -> Optional[str]:
+    """`07-JUN-24` -> `2024-06-07`, or None when the text names no single date.
+
+    Two paths, and the split is not tidiness. Named-month typographies go through
+    `ltb_candidates._find_dates`, borrowed rather than reimplemented because it
+    already handles every such form measured in this corpus including the 2-digit
+    year TYC prints, and a SECOND date parser is how two call sites come to
+    disagree about what a date means.
+
+    But that function cannot parse an ALL-NUMERIC date at all: its
+    `_try_date` routes the month through `_month_num`, a NAME lookup, so `2024-06-07`
+    and `06/07/2024` both return nothing from it even though its own
+    `_ISO_DASH_RE`/`_MDY_SLASH_RE` match them. That is a latent defect in
+    `ltb_candidates` -- a notice printing "last order date: 06/07/2024" yields no
+    candidate -- and it is NOT fixed from here: changing it would change LTB
+    candidate generation across the whole corpus, which is a measured change, not a
+    drive-by. So the ISO form, which is unambiguous, is matched here instead.
+
+    An ambiguous numeric form (`06/07/2024`) deliberately returns None rather than
+    picking a reading. This module's whole job is to WRITE a value, and the repo's
+    standing rule (see `_date_components_consistent`) is that guessing D/M against
+    M/D trades a fabrication risk for a silent off-by-months one. None means the
+    field is not supplied, which is the safe outcome.
+
+    Requires exactly one date in the answer -- two dates in a single-date answer is
+    a mispairing of the kind these two-column grids produce, not a value.
+    """
+    text = (value or "").strip()
+    m = _ISO_ANSWER_RE.match(text)
+    if m:
+        try:
+            from datetime import date as _date
+            return _date(int(m.group(1)), int(m.group(2)), int(m.group(3))).isoformat()
+        except ValueError:
+            return None
+    from doc_tools.utils.ltb_candidates import _find_dates
+    found = _find_dates(text)
+    isos = {iso for _, _, iso in found}
+    return found[0][2] if len(isos) == 1 else None
+
+
+def _all_dates_pairs(line: Optional[str]) -> List[Tuple[str, str]]:
+    """The `All Dates:` line -> [(normalized label, ISO date)] for each parseable pair.
+
+    The prompt asks for `label = date` and the live host answers with `label: date`
+    -- measured on TYC, where every pair came back colon-separated. Accepting only
+    the form that was ASKED for made this guard return no pairs at all on the real
+    data, which is the worst possible failure for a cross-check: silence does not
+    block a supply, so the guard was inert while looking present. Both separators
+    are taken, whichever appears first, because the date itself contains neither.
+    """
+    pairs: List[Tuple[str, str]] = []
+    for chunk in (line or "").split("|"):
+        cuts = [i for i in (chunk.find("="), chunk.find(":")) if i >= 0]
+        if not cuts:
+            continue
+        cut = min(cuts)
+        label, date_text = chunk[:cut], chunk[cut + 1:]
+        iso = _iso_date(date_text)
+        if iso and label.strip():
+            pairs.append((_label_key(label), iso))
+    return pairs
+
+
+def header_values_from_regions(witness: Sequence[dict]) -> Tuple[
+        Dict[str, Tuple[str, str]], List[str]]:
+    """What the region witness is willing to ASSERT: {field: (value, source)}.
+
+    `source` is the model's verbatim answer, which is what the page prints, so the
+    supplied value arrives at `refuse_unsourced_header_values` with a citation that
+    the witness itself contains -- the ordinary corroboration path then re-checks it
+    instead of this function being trusted on its own say-so.
+
+    The second return value is the notes: every answer this function DECLINED to
+    supply and why. They are returned rather than logged because a header field
+    that had a correct witness and was still not written is precisely what a human
+    reading the narrative needs to see.
+    """
+    answers: Dict[str, Dict[str, str]] = {}
+    for rec in witness or ():
+        name = str(rec.get("element_id") or "").split("_")[-1]
+        for spec in REGION_SPECS:
+            if str(rec.get("element_id") or "").endswith("_" + spec["name"]):
+                name = spec["name"]
+                break
+        answers[name] = parse_region_answer(rec.get("text"))
+
+    values: Dict[str, Tuple[str, str]] = {}
+    notes: List[str] = []
+    for region_name, mapping in REGION_FIELD_ANSWERS.items():
+        parsed = answers.get(region_name)
+        if not parsed:
+            continue
+        for label, field, kind in mapping:
+            raw = parsed.get(label)
+            if raw is None or _label_key(raw) in _NO_ANSWER:
+                continue
+            if kind == "date":
+                iso = _iso_date(raw)
+                if not iso:
+                    notes.append(
+                        f"region witness read {field} as '{raw}' but that text names "
+                        f"no single date; not supplied")
+                    continue
+                guard = _date_guard(field, iso, raw, parsed, notes)
+                if not guard:
+                    continue
+                values[field] = (iso, raw)
+            else:
+                values[field] = (raw, raw)
+    return values, notes
+
+
+def _date_guard(field: str, iso: str, raw: str, parsed: Dict[str, str],
+                notes: List[str]) -> bool:
+    """The two question-shaped guards. Appends its reason to `notes` when it blocks."""
+    if field == "pub_date":
+        current = parsed.get("currentdate")
+        if current and _label_key(current) not in _NO_ANSWER:
+            if _iso_date(current) == iso or _label_key(current) == _label_key(raw):
+                notes.append(
+                    f"region witness read pub_date and the current-date distractor as "
+                    f"the SAME date ('{raw}'); the two were asked separately because "
+                    f"conflating them is the measured failure, so pub_date is not "
+                    f"supplied")
+                return False
+    if field == "doc_level_ltb_date":
+        pairs = _all_dates_pairs(parsed.get("alldates"))
+        paired = [d for label, d in pairs
+                  if any(k in label for k in _LAST_ORDER_KEYS)]
+        if paired and iso not in paired:
+            notes.append(
+                f"region witness read the last order date as '{raw}' ({iso}) but its "
+                f"own row-by-row re-reading pairs that label with "
+                f"{', '.join(sorted(set(paired)))}; the disagreement blocks the supply")
+            return False
+    return True

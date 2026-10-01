@@ -1353,6 +1353,17 @@ class SustainmentPlugin(AugmentationPlugin):
         # healthy one. The refusal uses it to switch OFF reading a manufacturer's name out
         # of the document's own headings — a damaged text layer cannot be trusted to spell
         # one (`TE Connecvity`).
+        # SUPPLY BEFORE REFUSE, and in that order on purpose. The refusal is a filter:
+        # it fixes precision only, and measured on TYC it cannot reach either shape that
+        # made that notice wrong — a damaged text layer corroborating its own misspelling
+        # (`TE Connecvity`), and a date that IS printed on the page but is the portal's
+        # print stamp rather than the issue date. The region witness answers both
+        # correctly. Writing it first means the refusal then runs over the SUPPLIED
+        # values like any others, so nothing here is exempt from corroboration — the
+        # supplier only changes where the candidate came from.
+        reasons += header_trust.supply_header_from_regions(
+            header_d, header_witness,
+            text_layer_degraded=text_layer_assessment["text_layer_degraded"])
         reasons += header_trust.refuse_unsourced_header_values(
             header_d, index, witness_index=header_witness,
             text_layer_degraded=text_layer_assessment["text_layer_degraded"])
