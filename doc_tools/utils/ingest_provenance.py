@@ -17,6 +17,8 @@ from typing import Literal, Optional
 
 from iagent_mesh.provenance import AS_OF_UNKNOWN, OBTAINED_VIA, ProvenanceBlock
 
+from doc_tools.utils.ingest_id import canonical_ingest_id
+
 # Mirrors `ObtainedVia = Literal[OBTAINED_VIA]` inside iagent_mesh.provenance —
 # the SDK's own "one tuple is both the runtime membership check and the
 # static type" pattern, kept visible at this call site rather than re-typed.
@@ -42,7 +44,25 @@ def build_ingest_provenance(*, obtained_via: "_ObtainedVia", authoritative_sourc
     lets any `ValueError` it raises propagate uncaught: a claim that cannot
     say where it came from must not be written, and catching that here would
     silently let one through.
+
+    `ingest_id`, when supplied, is forced to the canonical ``sha256:<64 hex>``
+    spelling (architect ruling 2026-10-02). The SDK itself does NOT enforce
+    this — `provenance.py`'s `ingest_id` is a bare `Optional[str]` with no
+    validator — so a defective spelling would ride the SDK's validation all
+    the way onto the manifest and only fail far away, at Lane 1's promotion
+    guard. It is checked HERE, at the one place the block is built, because
+    this block's `ingest_id` IS the join key the cleanup sweep scopes an
+    `EdgeIdentityFilter` to. `None` stays `None`: the SDK declares it
+    optional, and the paths that have no ingest at all (non-user-drop
+    sources) legitimately have no id to spell. Refusing a None belongs at the
+    call site that KNOWS one was required — see `document_parser`'s sidecar
+    guard — not here.
     """
+    if ingest_id is not None:
+        ingest_id = canonical_ingest_id(
+            ingest_id, where=f"build_ingest_provenance(ingest_run={ingest_run!r})"
+        )
+
     block = ProvenanceBlock(
         authoritative_source=authoritative_source,
         obtained_via=obtained_via,

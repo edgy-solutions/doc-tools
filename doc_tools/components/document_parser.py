@@ -2,7 +2,6 @@ import os
 import json
 import io
 import re
-import hashlib
 import tempfile
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
@@ -13,6 +12,11 @@ from dagster.components.resolved.base import Resolvable
 from dagster.components.resolved.model import Model
 from dagster_aws.s3 import S3Resource
 from doc_tools.utils.extraction import extract_text_and_metadata, rasterize_pdf_pages
+# Top-level, unlike the ingest_provenance / IngestStatusResource imports below:
+# ingest_id.py is pure stdlib with no `iagent_mesh` dependency, so it cannot
+# re-introduce the import cost (or the 0.9.4-venv ModuleNotFoundError) those
+# local imports exist to avoid.
+from doc_tools.utils.ingest_id import canonical_ingest_id, mint_ingest_id
 from dag_tools.components.s3_sensor.file_component import S3FileConfig
 from dag_tools.utils.k8s import resolve_k8s_resource_tags
 
@@ -261,7 +265,27 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         f"content kind — refusing to use it as one."
                     )
 
-                # "extracting" — parse start, now that ingest_id is known.
+                # ADR-0041 ruling 2026-10-02 — ingest_id is the canonical
+                # `sha256:<64 hex>` spelling EVERYWHERE, and the uuid/bare-hex
+                # forms are defects. Checked HERE, beside the domain_type and
+                # content_kind guards, because this is the one place that holds
+                # the sidecar key to name in the error.
+                #
+                # The stamp below used to claim "now that ingest_id is known"
+                # while `sidecar.get("ingest_id")` could perfectly well be
+                # None — the comment was aspirational. A None join key is not
+                # fixable by minting one: `ingest_id` addresses a row in Lane
+                # 1's ingest_status_projection that Lane 1 created, and a
+                # locally minted substitute names no row (the same reason F2/D4
+                # makes the sidecar's provenance block WIN over a fresh mint,
+                # below). So a sidecar that omits it is refused, which is what
+                # makes the stamp's comment true rather than hopeful.
+                ingest_id = canonical_ingest_id(
+                    ingest_id, where=f"ADR-0041 sidecar {sidecar_key!r}"
+                )
+
+                # "extracting" — parse start, now that ingest_id is known
+                # (guaranteed canonical and non-None by the guard above).
                 status_resource.update(ingest_id, "extracting")
             else:
                 domain = domain_parts[0] if len(domain_parts) >= 2 else "unknown"
@@ -501,8 +525,17 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             # one call site that actually needs it.
                             from doc_tools.utils.ingest_provenance import build_ingest_provenance
 
+                            # Canonical `sha256:<64 hex>`, via the SAME
+                            # derivation as
+                            # invincible-agent/src/iagent/promotion.py:136's
+                            # `ingest_id_for` — this used to be a BARE
+                            # hexdigest, which is the spelling
+                            # `promotion.INGEST_ID_RE` refuses, so a document
+                            # minted here could not have been promoted later
+                            # without a spelling fix. Architect ruling
+                            # 2026-10-02; see doc_tools/utils/ingest_id.py.
                             with open(file_path, "rb") as f:
-                                minted_ingest_id = hashlib.sha256(f.read()).hexdigest()
+                                minted_ingest_id = mint_ingest_id(f.read())
                             if ingest_id is None:
                                 ingest_id = minted_ingest_id
 
@@ -521,8 +554,15 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     # row. Present whenever one is known (sidecar-supplied or
                     # freshly minted above) — absent for every vetted/no-sidecar,
                     # no-obtained_via instance, exactly like "provenance" itself.
+                    # Canonicalized on the way onto the manifest too, so the
+                    # ONE shape holds at the artifact boundary and not merely
+                    # at the status seam. Both producers already emit the
+                    # canonical form above; this is the belt, and it is what a
+                    # future third producer hits.
                     if ingest_id is not None:
-                        manifest["ingest_id"] = ingest_id
+                        manifest["ingest_id"] = canonical_ingest_id(
+                            ingest_id, where=f"manifest for doc_id={doc_id!r}"
+                        )
 
                     # Store manifest.json via Boto3, under the versioned prefix. This
                     # file is NEVER overwritten by a later reprocess — a different
@@ -559,6 +599,19 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 # "awaiting_disposition" — success, with the element/page
                 # counts this asset already computed above (`elements`,
                 # `pages_list`) rather than re-deriving a count elsewhere.
+                #
+                # TWO FIELDS, TWO UNITS — see IngestStatusResource's
+                # EXTRACTED_COUNT_UNIT / EXTRACTED_TOTAL_UNIT, which these two
+                # expressions are the authority for:
+                #   extracted_count = len(elements)    -> unstructured ELEMENTS
+                #   extracted_total = len(pages_list)  -> rasterized PAGES
+                # They are NOT a fraction. `extracted_count` counts the
+                # document's extracted elements and `extracted_total` counts
+                # the source PDF's pages, so count > total is the normal case
+                # (a 9-page notice yields hundreds of elements) and
+                # count/total is not a completion ratio. Naming this at the
+                # call site as well as at the resource because the mismatch is
+                # invisible from either side alone.
                 if status_resource is not None:
                     status_resource.update(
                         ingest_id, "awaiting_disposition",
@@ -568,8 +621,23 @@ class DocumentParserComponent(Component, Resolvable, Model):
 
                 return manifest
             except Exception as e:
+                # Only stamp when a join key is actually in hand. `ingest_id`
+                # is None until the sidecar is read, so a failure BEFORE that
+                # (a missing/unparseable sidecar, a refused domain_type) has
+                # nothing to address the stamp to — and since `update()` now
+                # refuses a non-canonical id, stamping anyway would raise
+                # inside this handler and MASK the original exception with a
+                # shape complaint. Log the gap instead, and re-raise `e`.
                 if status_resource is not None:
-                    status_resource.update(ingest_id, "failed", detail=str(e))
+                    if ingest_id is not None:
+                        status_resource.update(ingest_id, "failed", detail=str(e))
+                    else:
+                        context.log.error(
+                            "ADR-0041: ingest failed before an ingest_id was "
+                            "known, so no 'failed' stage could be stamped "
+                            "(nothing to join to Lane 1's "
+                            "ingest_status_projection). Underlying error: %s", e,
+                        )
                 raise
 
         # Define the pipeline job with dynamic K8s resource tags

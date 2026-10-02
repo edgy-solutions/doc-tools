@@ -43,6 +43,15 @@ from doc_tools.config import IngestionConfig
 
 BUCKET = "test-bucket"
 
+#: A canonical `ingest_id` for the fixtures: `sha256:` + 64 lowercase hex.
+#: The fixtures used to say "sha256:deadbeef" (8 hex) and "deadbeef" (no
+#: prefix). Both are now refused by `doc_tools/utils/ingest_id.py`
+#: (architect ruling 2026-10-02), and a fixture that cannot reach the
+#: assertion it is making is worse than one that fails: with the short id,
+#: `test_f5_..._rejects_unknown_stage` would still have "passed" while
+#: raising from the ID guard and never reaching the STAGE check at all.
+CANON_INGEST_ID = "sha256:" + "ab" * 32
+
 
 # --------------------------------------------------------------------------- #
 # Fakes for driving DocumentParserComponent's asset end to end (same shape as
@@ -149,11 +158,11 @@ def test_build_ingest_provenance_user_drop_round_trips_and_unknown_rung_raises()
         authoritative_source="user-upload",
         ingest_run="run-2",
         standing="unverified",
-        ingest_id="deadbeef",
+        ingest_id=CANON_INGEST_ID,
         as_of="2026-09-30",
     )
     assert block["obtained_via"] == "user-drop"
-    assert block["ingest_id"] == "deadbeef"
+    assert block["ingest_id"] == CANON_INGEST_ID
     assert block["as_of"] == "2026-09-30"
 
     with pytest.raises(Exception):
@@ -267,16 +276,33 @@ def _bkg_config():
 
 
 def test_enforcement_halts_for_a_domain_not_in_the_persists_set():
+    """MAINTENANCE, not manufacturing — and the swap is the point.
+
+    This test used to drive "manufacturing". It can no longer, and the
+    reason is a real behaviour change from the 2026-10-02 ruling rather
+    than a test-fixture detail: the content-kind resolution now runs
+    BEFORE the provenance check (it has to — it is the source of the
+    `domain_label` that check reports), so a declared-manufacturing
+    manifest with no resolvable `content_kind` raises
+    `UnclassifiableContentKindError` from ADR-0021 and never reaches
+    ADR-0041's check at all. That ADR-0021 halt is correct and is pinned
+    in tests/test_ingest_id_and_domain_ruling.py::test_b3_*.
+
+    MAINTENANCE exercises the same enforcement without entangling it:
+    it is unmigrated (no KIND_MAPPING row), so resolution falls back to
+    the manifest's declared domain, and MAINTENANCE is likewise absent
+    from DOMAINS_THAT_PERSIST_PROVENANCE.
+    """
     from doc_tools.assets.semantic_assets import (
         build_knowledge_graph, ProvenanceNotPersistableError, DOMAINS_THAT_PERSIST_PROVENANCE,
     )
-    assert "MANUFACTURING" not in DOMAINS_THAT_PERSIST_PROVENANCE
+    assert "MAINTENANCE" not in DOMAINS_THAT_PERSIST_PROVENANCE
 
-    with pytest.raises(ProvenanceNotPersistableError):
+    with pytest.raises(ProvenanceNotPersistableError, match="MAINTENANCE"):
         build_knowledge_graph(
             build_asset_context(),
             _bkg_config(),
-            _manifest_with_provenance("manufacturing"),
+            _manifest_with_provenance("maintenance"),
             s3=MagicMock(), neo4j=MagicMock(), weaviate=MagicMock(),
             llm=MagicMock(), jena=MagicMock(),
         )
@@ -489,11 +515,18 @@ def test_f3_guard_rejects_null_domain_type():
 
     Letting it through put {"domain_type": None} on the manifest, and
     `assets/semantic_assets.py` then raised a bare
-    `AttributeError: 'NoneType' object has no attribute 'upper'`: the chain
-    falls to `context.run.tags.get("domain_type")`, which returns None
-    WITHOUT raising (AssetExecutionContext exposes `.run`, dagster 1.12.21),
-    so the `except AttributeError` that supplies the "Training" default never
-    fires. The drop halted either way; only this way says why.
+    `AttributeError: 'NoneType' object has no attribute 'upper'`.
+
+    HISTORY, because the mechanism changed under this test: that chain used
+    to fall through to `context.run.tags.get("domain_type")`, which returns
+    None WITHOUT raising (`AssetExecutionContext` exposes `.run`, dagster
+    1.12.21), so the `except AttributeError` that supplied a "Training"
+    default never fired. The run-tag read, the handler and the default are
+    all GONE as of the 2026-10-02 ruling; the downstream failure for a
+    null domain is now `DomainTypeNotResolvableError`, raised deliberately.
+    This guard is unaffected and still earns its place: it halts at the
+    SIDECAR, naming the sidecar key, which is the only message that points
+    at the thing a human can fix.
     """
     # Deliberately NOT importorskip-gated: this guard raises BEFORE
     # IngestStatusResource.update() (the only SDK-dependent call on this
@@ -554,8 +587,11 @@ def test_f5_ingest_status_resource_rejects_unknown_stage():
     # "extracted" does not exist in INGEST_STAGES (do NOT add it — see the
     # spec's "Do NOT do" list; extracted_count/extracted_total are columns,
     # not a stage).
-    with pytest.raises(ValueError):
-        resource.update("sha256:deadbeef", "extracted")
+    # Matched on the message, not just the type: `IngestIdShapeError` IS a
+    # `ValueError`, so a bare `pytest.raises(ValueError)` over a malformed id
+    # would pass without the stage check ever running.
+    with pytest.raises(ValueError, match="INGEST_STAGES"):
+        resource.update(CANON_INGEST_ID, "extracted")
 
 
 def test_f5_ingest_status_resource_rejects_blank_detail_on_failed():
@@ -563,12 +599,12 @@ def test_f5_ingest_status_resource_rejects_blank_detail_on_failed():
     from doc_tools.utils.dagster_resources import IngestStatusResource
 
     resource = IngestStatusResource()
-    with pytest.raises(ValueError):
-        resource.update("sha256:deadbeef", "failed", detail="")
-    with pytest.raises(ValueError):
-        resource.update("sha256:deadbeef", "failed", detail="   ")
+    with pytest.raises(ValueError, match="detail"):
+        resource.update(CANON_INGEST_ID, "failed", detail="")
+    with pytest.raises(ValueError, match="detail"):
+        resource.update(CANON_INGEST_ID, "failed", detail="   ")
     # A non-blank detail is accepted (no raise).
-    resource.update("sha256:deadbeef", "failed", detail="boom")
+    resource.update(CANON_INGEST_ID, "failed", detail="boom")
 
 
 # --------------------------------------------------------------------------- #

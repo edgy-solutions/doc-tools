@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional
+from typing import ClassVar, Optional
 
 from dagster import ConfigurableResource
 
@@ -75,11 +75,44 @@ class IngestStatusResource(ConfigurableResource):
     transport is the entire scope of closing this seam later.
     """
 
+    #: THE UNITS, stated (architect ruling 2026-10-02: "extracted_count /
+    #: extracted_total are two fields with units stated"). They are two
+    #: fields, and they are NOT a progress fraction: they count different
+    #: things, so `extracted_count / extracted_total` is meaningless and a
+    #: consumer rendering "412 of 9" has mistaken the contract. Named as
+    #: constants rather than prose so the no-op log below carries the units
+    #: with every value it prints — that log is the entire observable surface
+    #: of this seam until a transport exists, so units living only in a
+    #: docstring are units a reader of the logs does not have.
+    #:
+    #: `ClassVar`, not a field: `ConfigurableResource` is a pydantic model, so
+    #: a bare annotated attribute here would be read as a REQUIRED config
+    #: field, and an UNannotated one is refused outright — which breaks the
+    #: import of `doc_tools.definitions`, and therefore every asset in the
+    #: repo, not just this seam.
+    EXTRACTED_COUNT_UNIT: ClassVar[str] = "unstructured elements extracted from the document"
+    EXTRACTED_TOTAL_UNIT: ClassVar[str] = "pages rasterized from the source PDF"
+
     def update(self, ingest_id: str, stage: str, *,
                extracted_count: Optional[int] = None,
                extracted_total: Optional[int] = None,
                detail: Optional[str] = None) -> None:
         """Validate and (for now) log one stage transition for `ingest_id`.
+
+        `ingest_id` must be ``sha256:<64 lowercase hex>``. That is Lane 1's
+        rule, NOT the SDK's — `invincible-agent/src/iagent/promotion.py:65`'s
+        `INGEST_ID_RE`, which `ingest_status.update_status` (the real transport
+        this no-op stands in for) already refuses a mismatch against. Checking
+        it here is the whole point of a *validating* no-op: a shape this seam
+        accepts today but the transport will reject is a defect that would
+        otherwise surface only once the transport lands. A bare hexdigest is
+        coerced with a warning; anything else raises. See
+        `doc_tools/utils/ingest_id.py` for why that constant is mirrored
+        rather than imported, and for what the SDK does and does not declare.
+
+        `extracted_count` and `extracted_total` are two independent fields in
+        the units named by `EXTRACTED_COUNT_UNIT` / `EXTRACTED_TOTAL_UNIT`
+        above. They are not numerator and denominator.
 
         Import the vocabulary, never mirror it: `INGEST_STAGES` is owned by
         `iagent_mesh.ingest` (SDK v0.9.5+, pinned in pyproject.toml).
@@ -90,6 +123,12 @@ class IngestStatusResource(ConfigurableResource):
         SDK installed for every caller that never calls `update()`.
         """
         from iagent_mesh.ingest import INGEST_STAGES
+
+        from doc_tools.utils.ingest_id import canonical_ingest_id
+
+        ingest_id = canonical_ingest_id(
+            ingest_id, where=f"IngestStatusResource.update(stage={stage!r})"
+        )
 
         if stage not in INGEST_STAGES:
             raise ValueError(
@@ -106,9 +145,12 @@ class IngestStatusResource(ConfigurableResource):
         logging.getLogger(__name__).info(
             "ADR-0041 ingest status (NO-OP transport — no write path to "
             "Lane 1's ingest_status_projection exists yet; see class "
-            "docstring): ingest_id=%s stage=%s extracted_count=%s "
-            "extracted_total=%s detail=%s",
-            ingest_id, stage, extracted_count, extracted_total, detail,
+            "docstring): ingest_id=%s stage=%s extracted_count=%s [%s] "
+            "extracted_total=%s [%s] detail=%s",
+            ingest_id, stage,
+            extracted_count, self.EXTRACTED_COUNT_UNIT,
+            extracted_total, self.EXTRACTED_TOTAL_UNIT,
+            detail,
         )
 
 

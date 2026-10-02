@@ -42,6 +42,20 @@ class ProvenanceNotPersistableError(RuntimeError):
 DOMAINS_THAT_PERSIST_PROVENANCE = frozenset({"SUSTAINMENT"})
 
 
+class DomainTypeNotResolvableError(RuntimeError):
+    """No registered content kind and no declared domain — so no domain.
+
+    Architect ruling 2026-10-02: *"domain_type comes from the registered
+    content kind's declared domain, never a run tag."* With the run-tag read
+    gone there is no third source to fall back to, and the `"Training"`
+    default that used to sit behind it was a silent semantic claim about an
+    unidentified document: it wrote the content into the TRAINING domain's
+    Neo4j label and graph. Halting is the same posture ADR-0021 already takes
+    for `content_kind` (`UnclassifiableContentKindError`) — the two are no
+    longer asymmetric.
+    """
+
+
 def _ensure_weaviate_collection(client, name: str) -> None:
     """Idempotently create the chunk collection using the Weaviate v4 API
     (mirrors ontology_assets). The deployed cluster supplies the default
@@ -198,21 +212,117 @@ def _build_knowledge_graph_impl(
     
     context.log.info(f"Building Graph for doc: {doc_id} using labels '{node_label}' and '{child_label}'")
     
-    # Domain Label for Neo4j Segregation
+    # ----------------------------------------------------------------------
+    # Domain label for Neo4j segregation.
+    #
+    # ARCHITECT RULING 2026-10-02: "domain_type comes from the registered
+    # content kind's declared domain, never a run tag." This supersedes the
+    # 2026-06-20 banking that deferred the question to "a future ADR" and
+    # asked that the domain_type/content_kind asymmetry not be collapsed
+    # without a ruling. It has been ruled; the asymmetry is collapsed.
+    #
+    # THREE THINGS WENT AWAY, and they went away for different reasons:
+    #
+    #  1. `context.run.tags.get("domain_type")` — deleted outright, the
+    #     explicit half of the ruling. It was also already inert: AGENTS.md
+    #     claims sensors inject a `domain_type` run tag, and the installed
+    #     `S3SensorComponent` injects NO run tags at all (measured on this
+    #     branch, 2026-10-02, dagster 1.12.21).
+    #  2. The `except AttributeError` around it — dead on this dagster
+    #     version. `AssetExecutionContext` DOES expose `.run`, and `.get`
+    #     returns None WITHOUT raising, so the handler never fired.
+    #  3. `metadata.get("project", "Training")` — unreachable, because it sat
+    #     inside (2). Its documented intent was "domain_type silently defaults
+    #     to Training", which is a semantic claim about an unidentified
+    #     document; nothing is put in its place (see
+    #     DomainTypeNotResolvableError).
+    #
+    # ORDERING. The old code resolved domain_type FIRST and then gated the
+    # content-kind resolution on `if domain_type == "manufacturing"` — it used
+    # domain_type to decide whether to resolve the kind that, under this
+    # ruling, SUPPLIES domain_type. The resolver is therefore called first
+    # now. It can be: `resolve_content_kind`'s metadata branch
+    # (`metadata["content_kind"]`) needs no domain at all. Its PATH-derive
+    # branch does need one (`_derive_from_path` matches s3_key's first segment
+    # against it), which is why the manifest's declared domain is still read —
+    # as the resolver's input and as the kind's fallback, not as the
+    # authority.
+    # ----------------------------------------------------------------------
     metadata = manifest.get("metadata", {})
-    domain_type = metadata.get("domain_type")
-    if not domain_type:
-        try:
-            domain_type = context.run.tags.get("domain_type")
-        except AttributeError:
-            # NOTE: domain_type silently defaults to "Training" here. This is
-            # the pre-ADR-0021 chain and is DELIBERATELY left in place —
-            # ADR-0021 is content_kind-scoped; whether domain_type should
-            # also halt is left to a future ADR. The asymmetry below
-            # (content_kind HALTS on missing row, domain_type defaults to
-            # "Training") is intentional. Do not collapse the two without
-            # an ADR ruling. (Banked at architect's request 2026-06-20.)
-            domain_type = metadata.get("project", "Training")
+    s3_key = manifest.get("source_object_key") or manifest.get("s3_key", "")
+
+    # See doc_tools/utils/content_kind.py for the mapping table + halt rule.
+    from doc_tools.utils.content_kind import (
+        resolve_content_kind, UnclassifiableContentKindError,
+    )
+
+    declared_domain = metadata.get("domain_type")
+
+    kind_entry = None
+    try:
+        kind_entry = resolve_content_kind(metadata, s3_key)
+        context.log.info(
+            f"ADR-0021 content_kind resolved: kind={kind_entry.kind!r} "
+            f"target={kind_entry.target_ontology_class!r} "
+            f"domain_type={kind_entry.domain_type!r}"
+        )
+    except UnclassifiableContentKindError:
+        # SCOPED MIGRATION — unchanged by the ruling, and the reason the
+        # resolver's halt is not simply propagated for every domain. Today
+        # KIND_MAPPING holds exactly ONE row (work-instructions ->
+        # manufacturing) and new rows are reserved to the architect, so every
+        # other domain — maintenance, training, compliance, SUSTAINMENT and
+        # the whole PCN corpus — is unmigrated and has no row to resolve.
+        # Propagating the halt here would brick them all. A domain joins the
+        # resolver by GAINING KIND_MAPPING rows, not by this except clause
+        # getting narrower.
+        #
+        # Manufacturing still HALTS, because it IS migrated: a manufacturing
+        # document whose kind does not resolve is a document whose registered
+        # kind is missing, and ADR-0021 §Precedence has no default for that.
+        if declared_domain == "manufacturing":
+            context.log.error(
+                "ADR-0021 content_kind resolution HALTED for manufacturing "
+                "path (no KIND_MAPPING row matches metadata.content_kind "
+                "or the path-derived segment)."
+            )
+            raise
+        context.log.info(
+            f"ADR-0021: no KIND_MAPPING row for doc_id={doc_id!r} "
+            f"(declared domain {declared_domain!r} is unmigrated — one row "
+            f"exists, for manufacturing). Falling back to the manifest's "
+            f"declared domain. This is the scoped migration, not a default."
+        )
+
+    if kind_entry is not None:
+        # THE RULING: the registered kind's declared domain is the authority.
+        domain_type = kind_entry.domain_type
+        if declared_domain and declared_domain != domain_type:
+            context.log.warning(
+                f"Domain disagreement for doc_id={doc_id!r}: the manifest "
+                f"declares {declared_domain!r} but registered content kind "
+                f"{kind_entry.kind!r} declares {kind_entry.domain_type!r}. "
+                f"The KIND WINS (architect ruling 2026-10-02) — the manifest's "
+                f"value is derived from an S3 path or a sidecar, the kind's is "
+                f"a registered row with a target_ontology_class behind it. "
+                f"Correct the upstream manifest/path if this is unexpected."
+            )
+    elif declared_domain:
+        domain_type = declared_domain
+    else:
+        raise DomainTypeNotResolvableError(
+            f"doc_id={doc_id!r} resolves to no domain: no KIND_MAPPING row "
+            f"matches (metadata.content_kind={metadata.get('content_kind')!r}, "
+            f"s3_key={s3_key!r}) and the manifest declares no domain_type. "
+            f"Per the 2026-10-02 ruling the domain comes from the registered "
+            f"content kind's declared domain and never from a run tag, so "
+            f"there is no third source to fall back to — and the 'Training' "
+            f"default that used to sit here would write this document into "
+            f"the TRAINING domain's graph on no evidence at all. Either add a "
+            f"KIND_MAPPING row for this content kind (reserved to the "
+            f"architect, doc_tools/utils/content_kind.py) or make the "
+            f"upstream manifest declare its domain_type."
+        )
 
     domain_label = domain_type.upper().replace(" ", "_").replace("-", "_")
 
@@ -239,49 +349,6 @@ def _build_knowledge_graph_impl(
             f"already does."
         )
 
-    # ----------------------------------------------------------------------
-    # ADR-0021 content_kind resolution (Phase 2/3)
-    # ----------------------------------------------------------------------
-    # Deterministic content-kind selection via the chartable mapping table.
-    # The resolver halts on unclassifiable input — NEVER silent default —
-    # for the domains it covers. Two asymmetries are deliberate:
-    #
-    #   1. domain_type silently defaults to "Training" (above);
-    #      content_kind HALTS via UnclassifiableContentKindError (here).
-    #      ADR-0021 is content_kind-scoped; the domain_type halt question
-    #      is for a future ADR. Same class of bug, one layer up.
-    #
-    #   2. Today only the manufacturing domain has KIND_MAPPING rows, so
-    #      the resolver runs ONLY for manufacturing. Other domains keep
-    #      their pre-ADR-0021 dispatch path. This is a SCOPED MIGRATION —
-    #      not a silent default for other domains. When a domain is
-    #      migrated, it gets KIND_MAPPING rows and joins the resolver call.
-    #
-    # See doc_tools/utils/content_kind.py for the table + halt rule.
-    from doc_tools.utils.content_kind import (
-        resolve_content_kind, UnclassifiableContentKindError,
-    )
-    s3_key = manifest.get("source_object_key") or manifest.get("s3_key", "")
-    kind_entry = None
-    if domain_type == "manufacturing":
-        try:
-            kind_entry = resolve_content_kind(metadata, s3_key)
-            context.log.info(
-                f"ADR-0021 content_kind resolved: kind={kind_entry.kind!r} "
-                f"target={kind_entry.target_ontology_class!r}"
-            )
-        except UnclassifiableContentKindError:
-            # Re-raise — manufacturing must halt on unclassifiable. The
-            # catch is here only to log + reraise with the same exception,
-            # so the operator can see the failure named in the asset's
-            # Dagster log. The halt is structural; this branch is decoration.
-            context.log.error(
-                "ADR-0021 content_kind resolution HALTED for manufacturing "
-                "path (no KIND_MAPPING row matches metadata.content_kind "
-                "or the path-derived segment)."
-            )
-            raise
-    
     s3_client = s3.get_client()
     neo4j_client = neo4j.get_client()
     weaviate_client = weaviate.get_client()
