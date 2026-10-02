@@ -205,22 +205,10 @@ image:
   #     the parts score (that score is MPN-only), but the stored artifacts will
   #     differ from what is in S3 today and there is no rollback for them.
   # ------------------------------------------------------------------
-  # THIS PIN: 0c46fdb (the #56 squash merge), 2026-10-02.
-  # Index sha256:8b1672ac71968dc34fee840d78eef565ad658a42a4ca3a31550e76eebc501906
+  # THIS PIN: 7f22479 (the #57 squash merge, main's tip), 2026-10-02.
+  # Index sha256:b54d9ef2a1fdc871beb31b7ccbede7a59c43489133f9bad890cb8fce63fc0a21
   #
-  # WHY NOT 7f22479, WHICH IS main's TIP: because no image exists for it.
-  # 7f22479 is #57, the chart-only pin commit below, and `build-and-push` is
-  # gated `if: needs.changes.outputs.code == 'true'`, so a commit that touches
-  # only charts/ SKIPS the build and publishes nothing. Its run is green --
-  # a skipped job completes as conclusion=skipped and does not fail the run --
-  # so "the newest green run on main" would have pointed at a commit with no
-  # image at all. The newest main commit that HAS one is 0c46fdb.
-  #
-  # Nothing is lost by that: the chart is not inside the image. #57's change is
-  # this very file, applied by helm from the repo, so pinning #56's image while
-  # main carries #57's chart is the correct pairing and not a compromise.
-  #
-  # WHAT THIS IMAGE CONTAINS, by ancestry (0c46fdb is a descendant of each):
+  # WHAT THIS IMAGE CONTAINS, by ancestry (7f22479 descends from each):
   #     f70d779  #52  per-notice defect lists; fire logs that outlive the pod
   #     4def9b4  #43  ingress-user stamp, stage status, level-2 dedupe
   #     78f8d10  #55  a report that measured the wrong image is VOID
@@ -228,30 +216,50 @@ image:
   #                   invariant of the write path (DOMAINS_THAT_PERSIST_
   #                   PROVENANCE deleted), and an unresolved origin returns
   #                   before any store is opened
+  #     7f22479  #57  this file's previous pin (chart only; see below)
   #
-  # SUPERSEDES THE 78f8d10 PIN DIRECTLY BELOW, which never reached a cluster:
-  # #57 merged and this bump was cut from the same main before any roll, so
-  # sandbox goes from 5c35568's image to this one in one step. There is no
-  # intermediate state to reconcile, and no roll to 78f8d10 ever happened.
+  # A CORRECTED PREMISE, LEFT HERE BECAUSE THE WRONG ONE IS PLAUSIBLE AND I
+  # HELD IT: this bump was first cut against 0c46fdb (#56) on the belief that
+  # main's tip had no image, because a chart-only commit would skip
+  # `build-and-push` under `if: needs.changes.outputs.code == 'true'`. THAT IS
+  # FALSE. The `changes` job ignores `^docs/` AND NOTHING ELSE, and the
+  # workflow carries a capitalized warning never to add `charts/` to that list
+  # -- precisely because charts/ is what DEPLOYS: a values change reaches a
+  # running pod with no image rebuild at all. So 7f22479 DID build and DID
+  # publish, and pinning 0c46fdb would have pinned a one-commit-stale image for
+  # no reason. Checked, not assumed: run 37068468384's build-and-push completed
+  # success and printed digest=b54d9ef2.
+  #
+  # (0c46fdb's image is real and contains all of #52 / #43 / #55 / #56 -- it is
+  #     sha256:8b1672ac71968dc34fee840d78eef565ad658a42a4ca3a31550e76eebc501906
+  # given in full because a rollback target with an elided digest is not a
+  # rollback target. It is simply one commit behind this one, and is the target
+  # if 7f22479 ever needs backing out without losing #56.)
   #
   # INDEX VERIFIED INDEPENDENTLY of the build log that printed the digest,
   # children fetched BY THEIR OWN DIGEST rather than read out of the index:
-  #     linux/amd64  sha256:edd5ff019601db0c9c8fd8d96b063dba391d91a20b853b67b9092e504cbb94d2
-  #     linux/arm64  sha256:5b41b4c73a8614841ffd67a9a51ffbc342e4be36bbb34f099b09eb536806dbea
+  #     linux/amd64  sha256:13ebbd0cfbecec1144a9943bc812d9a605be1d9610e44d6d142884d9a756fd3d
+  #     linux/arm64  sha256:a26cc636312956810d68e38173bc9abf59f7cbe5f06a802f133a82b4d0c4af2e
   # Both resolve as OCI image manifests. The arm64 child is the load-bearing
   # one -- sandbox schedules onto arm workers. (Two unknown/unknown entries are
   # buildx provenance/SBOM attestation manifests. Expected.)
   #
   # AND BOTH CHILDREN WERE ASKED WHICH COMMIT IS INSIDE THEM, rather than
   # trusted to be whatever their tag says -- the ADR-0034 build stamp:
-  #     DOC_TOOLS_VERSION=doc-tools@0c46fdb36853d84998e61270e9b1de3d5d233fd5
+  #     DOC_TOOLS_VERSION=doc-tools@7f22479a79ac4030ab1d51a02a9110e988511e66
   # on amd64 AND arm64. A tag is guessable from git log; a baked env var is the
-  # image answering for itself.
+  # image answering for itself. This is also the check that WOULD have caught
+  # the 0c46fdb mis-pin on its own: that image stamps 0c46fdb, not the tip.
+  #
+  # NOTE THE SELF-REFERENCE, WHICH IS HARMLESS: the image built at 7f22479
+  # contains a copy of this very file pinning 78f8d10. It does not matter --
+  # helm reads the chart from the REPO at deploy time, never from inside the
+  # image. The image ships no authority over its own pin.
   #
   # `corpusGate.expectImage` IS STILL EMPTY, AND #55's VOID RULING CANNOT FIRE
-  # UNTIL IT IS SET -- unchanged from the pin below, and it is the next action
-  # after the roll, not a deferral. With no expectation supplied the gate reads
-  # UNRECONCILED, which is the ABSENCE of the check, not a pass of it:
+  # UNTIL IT IS SET. It is the next action after the roll, not a deferral. With
+  # no expectation supplied the gate reads UNRECONCILED, which is the ABSENCE
+  # of the check, not a pass of it:
   #
   #     --set corpusGate.expectImage="pods=ghcr.io/edgy-solutions/doc-tools@<imageID>"
   #
@@ -424,7 +432,7 @@ image:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
   # ------------------------------------------------------------------
-  digest: "sha256:8b1672ac71968dc34fee840d78eef565ad658a42a4ca3a31550e76eebc501906"
+  digest: "sha256:b54d9ef2a1fdc871beb31b7ccbede7a59c43489133f9bad890cb8fce63fc0a21"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
