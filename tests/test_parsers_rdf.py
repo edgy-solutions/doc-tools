@@ -6,9 +6,14 @@ previously exercised only at import level (~10% coverage). Each builder is pure
 (lxml + rdflib, no I/O), so we feed representative XML and assert the emitted
 triples directly against the in-memory graph.
 """
-from rdflib import Literal, Namespace
+from rdflib import Literal, Namespace, URIRef
 from rdflib.namespace import RDF, RDFS
 
+from doc_tools.parsers.dmc_canonicalizer import canonicalize_dmc
+from doc_tools.parsers.mil_info_code_map import (
+    FALLTHROUGH_COUNT,
+    reset_fallthrough_count,
+)
 from doc_tools.parsers.s1000d_rdf import S1000dGraphBuilder
 from doc_tools.parsers.dita_rdf import DitaGraphBuilder
 from doc_tools.parsers.iads_rdf import IadsGraphBuilder
@@ -37,27 +42,167 @@ S1000D_XML = b"""
 """
 
 
+# The same data module with ONLY the disassembly code changed. Under S1000D
+# these are two distinct data modules; the builder used to read only the short
+# `disasCode` spelling, so a 4.x document's disassembly position vanished and
+# two modules differing only here collapsed onto one URI.
+S1000D_XML_4X_SPELLING = S1000D_XML.replace(
+    b'disasCode="00" disasCodeVariant="A"',
+    b'disassyCode="11" disassyCodeVariant="B"',
+)
+
+# Two documents that each reference the SAME part number and carry an
+# unlabelled figure. Pre-scoping this produced one merged part subject and a
+# `fig-fig_0` subject named after a loop index.
+S1000D_XML_OTHER_DM = S1000D_XML.replace(b'infoCode="520"', b'infoCode="720"')
+
+
 def test_s1000d_extracts_dmc_tools_parts_and_figures():
-    b = S1000dGraphBuilder(image_prefix=PREFIX)
+    b = S1000dGraphBuilder(doc_id="manual_v2", image_prefix=PREFIX)
     root = b.parse_data_module(S1000D_XML)
     g = b.graph
 
-    dmc = MIL["dmc-AE-A-32-1-0-00-00-A-520-A-A"]
+    dmc = MIL["dmc-AE-A-32-10-00-00A-520A-A"]
     assert root == str(dmc)
     assert (dmc, RDF.type, MIL.DataModule) in g
     assert (dmc, MIL.hasSNS, Literal("32")) in g
     assert (dmc, MIL.hasInfoCode, Literal("520")) in g
-    # tool
-    assert (MIL["part-WRENCH-01"], RDF.type, MIL.Tool) in g
-    assert (dmc, MIL.requiresTool, MIL["part-WRENCH-01"]) in g
+    # tool — prefix is `tool-`, not `part-`, and document-scoped
+    tool = MIL["tool-manual_v2-WRENCH-01"]
+    assert (tool, RDF.type, MIL.Tool) in g
+    assert (tool, MIL.hasPartNumber, Literal("WRENCH-01")) in g
+    assert (dmc, MIL.requiresTool, tool) in g
     # part
-    assert (MIL["part-SEAL-99"], RDF.type, MIL.Part) in g
-    assert (dmc, MIL.hasPart, MIL["part-SEAL-99"]) in g
+    part = MIL["part-manual_v2-SEAL-99"]
+    assert (part, RDF.type, MIL.Part) in g
+    assert (part, MIL.hasPartNumber, Literal("SEAL-99")) in g
+    assert (dmc, MIL.hasPart, part) in g
     # figure (URL composed from infoEntityIdent + image_prefix)
-    assert (MIL["fig-fig1"], RDF.type, MIL.Figure) in g
-    assert (MIL["fig-fig1"], RDFS.label, Literal("Assembly View")) in g
-    assert (MIL["fig-fig1"], MIL.hasURL, Literal(f"{PREFIX}ICN-001.png")) in g
-    assert (dmc, MIL.hasFigure, MIL["fig-fig1"]) in g
+    fig = MIL["fig-manual_v2-fig1"]
+    assert (fig, RDF.type, MIL.Figure) in g
+    assert (fig, RDFS.label, Literal("Assembly View")) in g
+    assert (fig, MIL.hasURL, Literal(f"{PREFIX}ICN-001.png")) in g
+    assert (dmc, MIL.hasFigure, fig) in g
+
+
+def test_s1000d_dmc_is_the_canonical_form_the_read_path_resolves():
+    """The write path's DMC must round-trip through `canonicalize_dmc`.
+
+    dmc_canonicalizer's own docstring states the rule this pins:
+    "same-canonicalizer-both-sides" — the ingest writer and Engine E's
+    /resolve_dmc read path must agree, or the read returns
+    `n_candidates=0` for a document that IS present.
+
+    The inline join this builder used instead emitted
+    `AE-A-32-1-0-00-00-A-520-A-A`: eleven hyphen groups where the canonical
+    form has eight, because `subSystemCode`+`subSubSystemCode`,
+    `disasCode`+variant and `infoCode`+variant each concatenate. That string
+    does not match the canonical regex at all, so `canonicalize_dmc` returns
+    None for it — no S1000D data module this builder wrote was ever
+    resolvable by DMC.
+    """
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML)
+    built = root.split("#dmc-")[1]
+
+    assert canonicalize_dmc(built) == built
+    # and the shape that was being written before is not even a DMC
+    assert canonicalize_dmc("AE-A-32-1-0-00-00-A-520-A-A") is None
+
+
+def test_s1000d_emits_the_deterministic_content_kind():
+    """520 is a maintenance procedure; the root type alone is not enough.
+
+    Measured 2026-10-02 over the six mock OpenDDIL modules: every one landed
+    as the bare `mil:DataModule`, so a fault-isolation module, a procedure and
+    an IPD were indistinguishable downstream. Both types are emitted — Jena
+    serves these graphs without reasoning, so dropping the root would hide
+    classified modules from `?s a mil:DataModule`.
+    """
+    b = S1000dGraphBuilder(doc_id="d")
+    dmc = MIL["dmc-AE-A-32-10-00-00A-520A-A"]
+    b.parse_data_module(S1000D_XML)
+    assert (dmc, RDF.type, MIL.ProcedureDataModule) in b.graph
+    assert (dmc, RDF.type, MIL.DataModule) in b.graph
+
+
+def test_s1000d_unclassifiable_info_code_emits_only_the_root():
+    """A 3xx module has no mil:* kind, so it must NOT be mislabelled."""
+    reset_fallthrough_count()
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML.replace(b'infoCode="520"', b'infoCode="320"'))
+    kinds = set(b.graph.objects(URIRef(root), RDF.type))
+    assert kinds == {MIL.DataModule}
+    assert FALLTHROUGH_COUNT == {"3": 1}
+    reset_fallthrough_count()
+
+
+def test_s1000d_reads_the_4x_disassembly_spelling():
+    """`disassyCode` is the 4.x attribute name; reading only `disasCode`
+    dropped the whole disassembly position and merged distinct modules."""
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_4X_SPELLING)
+    assert root == str(MIL["dmc-AE-A-32-10-00-11B-520A-A"])
+    # distinct from the module that differs ONLY in the disassembly code
+    other = S1000dGraphBuilder(doc_id="d")
+    assert other.parse_data_module(S1000D_XML) != root
+
+
+def test_s1000d_part_and_figure_subjects_are_document_scoped():
+    """Two documents citing the same part number must not share a subject.
+
+    Pre-scoping, `mil:part-ODM-SE-0001` was coined by two of the six mock
+    modules and merged into one node carrying both documents' edges. That
+    silently fuses unrelated parts lists on a shared corpus and makes a
+    doc_id-keyed rollback impossible — deleting one document's subjects would
+    take the other's edges with them.
+    """
+    a = S1000dGraphBuilder(doc_id="doc_a")
+    a.parse_data_module(S1000D_XML)
+    b = S1000dGraphBuilder(doc_id="doc_b")
+    b.parse_data_module(S1000D_XML_OTHER_DM)
+
+    def scoped(g, pfx):
+        return {str(s) for s in set(g.subjects()) if f"#{pfx}-" in str(s)}
+
+    for pfx in ("part", "tool", "fig"):
+        assert scoped(a.graph, pfx) and scoped(b.graph, pfx), pfx
+        assert not scoped(a.graph, pfx) & scoped(b.graph, pfx), (
+            f"{pfx} subjects collide across documents: "
+            f"{scoped(a.graph, pfx) & scoped(b.graph, pfx)}"
+        )
+
+    # cross-document identity stays recoverable as a literal, not a shared URI
+    assert set(a.graph.objects(None, MIL.hasPartNumber)) == {
+        Literal("WRENCH-01"), Literal("SEAL-99")
+    }
+    assert (set(a.graph.objects(None, MIL.hasPartNumber))
+            == set(b.graph.objects(None, MIL.hasPartNumber)))
+
+
+def test_s1000d_a_tool_is_not_also_typed_a_part():
+    """One part number used as both tool and spare coined ONE dual-typed
+    subject, so "is this a consumable spare" answered yes for a wrench."""
+    xml = S1000D_XML.replace(b"<partNumber>SEAL-99</partNumber>",
+                             b"<partNumber>WRENCH-01</partNumber>")
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(xml)
+    dual = [s for s in set(b.graph.subjects())
+            if {MIL.Tool, MIL.Part} <= set(b.graph.objects(s, RDF.type))]
+    assert dual == []
+
+
+def test_s1000d_unsafe_characters_cannot_break_the_subject_uri():
+    """A part number with a space used to be spliced into the URI verbatim."""
+    xml = S1000D_XML.replace(b"<partNumber>SEAL-99</partNumber>",
+                             b"<partNumber>SEAL 99/B</partNumber>")
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(xml)
+    assert (MIL["part-d-SEAL_99_B"], RDF.type, MIL.Part) in b.graph
+    # the ORIGINAL value is preserved on the node, not lost to the scrub
+    assert (MIL["part-d-SEAL_99_B"], MIL.hasPartNumber,
+            Literal("SEAL 99/B")) in b.graph
+    assert b.serialize()  # serializes; a raw space would not
 
 
 def test_s1000d_missing_dmcode_returns_sentinel():
