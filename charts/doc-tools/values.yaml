@@ -106,7 +106,16 @@ secrets:
   JENA_USERNAME: "admin"
   JENA_PASSWORD: "password"
   DATAHUB_TOKEN: ""
+  # CLONE credential, for the DataHub schema-ingestion assets. Read-only by
+  # intent — do not widen it to cover the corpus gate's push, which has its
+  # own key below for exactly that reason.
   GIT_TOKEN: ""
+  # PUSH credential for the corpus gate's nightly report
+  # (scripts/pcn_gate_publish.py, enabled by corpusGate.publish.repo). Empty
+  # means the gate still runs and its report simply never leaves the pod.
+  # Scope it to contents+pull-requests write on that ONE repo: it is the only
+  # secret in this chart that can change the repository.
+  PCN_GATE_PUBLISH_TOKEN: ""
   # svc:doc-tools' client-credentials secret. THE CLIENT IS CREATED BY A DIFFERENT CHART —
   # invincible-agent's realm import owns the realm (`serviceClients: iagent-doc-tools`), and this
   # value must MATCH `docToolsClientSecret` there. Two charts, one credential: nothing fails
@@ -201,6 +210,17 @@ env:
   # raise if table text is small. Default 200.
   DOC_PARSER_PDF_IMAGE_DPI: "200"
 
+  # --- Whole-page render DPI (pypdfium2) for the SUSTAINMENT second witness ---
+  # Two readers, one raster. witness_regions cuts the header-block and
+  # dates-block CROPS the header witness reads out of this image, and a crop
+  # cannot be sharper than its source -- hence 300. _transcribe_pages_witness
+  # also transcribes the whole page, for parts corroboration only; measured
+  # 2026-10-01 that read is slightly better at 200 than at 300, so raising this
+  # trades latency on the page call for detail in every crop. Must stay >=
+  # DOC_PARSER_PDF_IMAGE_DPI. Written at INGEST, so a change here only takes
+  # effect for documents ingested afterwards.
+  DOC_PARSER_PAGE_RENDER_DPI: "300"
+
   # --- Embedding model for Weaviate vector writes/reads ---
   # doc-tools' semantic_assets.py and any other Weaviate writer
   # (doc_tools/utils/embed.py::embed_text) pull a vector from
@@ -263,12 +283,58 @@ corpusGate:
   enabled: false
   schedule: "0 7 * * *"
   # Defaults live under /tmp in-cluster, NOT docs/corpus-gate: the image's
-  # /app is not a git checkout anyone pushes from, so there is nowhere in the
-  # pod for a "committed" path to mean anything. Getting the report from
-  # workDir/reportDir into docs/corpus-gate on a branch is a separate, manual
-  # step (see the CronJob template's header comment).
+  # /app is not a git checkout, so a report written to a repo-shaped path in
+  # the pod would still be a file in a container. The report leaves the pod
+  # through the GitHub API instead — see publish below.
   workDir: /tmp/pcn-gate
   reportDir: /tmp/pcn-gate/report
+  # scripts/pcn_gate_publish.py commits the report to `branch` and keeps one
+  # pull request open against `base`. It is deliberately inert out of the box:
+  # `repo` empty means the step prints why it did nothing and the run still
+  # succeeds. Turning it on needs TWO things, and one of them is not a chart
+  # value — PCN_GATE_PUBLISH_TOKEN must be added to `secrets` as a token that
+  # may PUSH to `repo`. That is strictly more privilege than the GIT_TOKEN
+  # already in `secrets`, which only clones, so it is a separate key rather
+  # than a reuse: whoever provisions it should see that they are granting
+  # write access.
+  #
+  # NOT `main`. The report lands on a branch and a human merges it. `main` does
+  # now require the `corpus-gate` check, but it requires NO APPROVING REVIEW, so
+  # a machine pushing there would still be a final write with no human in front
+  # of it -- and the gate's own report is the last thing that should land that
+  # way.
+  #
+  # The merge must stay human for a second reason, learned the hard way on
+  # 2026-10-01: tests/test_corpus_gate_guard.py asserts the committed report is
+  # a PASS. So merging a FAIL report turns the required `corpus-gate` check red
+  # on main and blocks every subsequent CHART PR -- including the next pin bump,
+  # which is the one thing this gate exists to govern.
+  #
+  # CORRECTION, same day. I first wrote here that branch protection makes that
+  # mechanical -- that a red report PR cannot merge because its own
+  # `corpus-gate` run would be red. **That is false, and measured false on
+  # PR #45:** `corpus-gate` reports `skipping`. The job is gated
+  # `if: needs.changes.outputs.charts == 'true'` and a report PR touches only
+  # docs/corpus-gate/**, so `charts=false` and the job never runs; a required
+  # check that completes as `skipped` does NOT block. The skip is DELIBERATE --
+  # scoping the gate to charts/** is what stops a red gate wedging the repo shut
+  # against its own repair (see the job's comment in build-container.yml) -- so
+  # it is working as designed, and the design simply does not include this
+  # guarantee. Nothing mechanically prevents merging a red report. It is a human
+  # rule: read `verdict` in the diff before merging. That is also precisely why
+  # `base` is a PR target and not a push destination -- the human IS the control.
+  #
+  # TOKEN SCOPE, measured rather than assumed. The first real run proved the
+  # provisioned PCN_GATE_PUBLISH_TOKEN can write CONTENTS but has no
+  # `pull_requests: write`: the commit landed and the PR creation returned
+  # HTTP 403 "Resource not accessible by personal access token". The publisher
+  # REUSES an existing open PR, so once one exists the missing scope is not
+  # fatal -- but grant it, or a future branch recreation needs a human again.
+  publish:
+    repo: ""
+    branch: corpus-gate/nightly
+    base: main
+    path: docs/corpus-gate
   activeDeadlineSeconds: 21600
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3

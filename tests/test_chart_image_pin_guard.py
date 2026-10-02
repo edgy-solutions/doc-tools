@@ -99,18 +99,28 @@ def render(*args, values_file=None):
 
 
 def image_line(out):
-    """The container image reference, from the app container only.
+    """The container image reference, from the app containers only.
 
     Scoped deliberately: the chart also renders a busybox init container, and a
     test that grabbed the first `image:` in the manifest stream would pass while
     the app image was wrong.
+
+    There can be MORE THAN ONE app container in a render -- the corpus-gate
+    CronJob runs the same image as the Deployment, so enabling it doubles the
+    line -- and the assertion is that they are all the SAME pin, not that there
+    is only one of them. That is the stronger statement and the one this guard
+    is actually for: a render where the Deployment is digest-pinned and the
+    CronJob is on a floating tag would measure one image and serve another, and
+    a count-of-one assertion would have refused to render rather than catch it.
     """
-    lines = [
+    lines = sorted({
         ln.strip()
         for ln in out.splitlines()
         if ln.strip().startswith("image:") and "busybox" not in ln
-    ]
-    assert len(lines) == 1, f"expected exactly one app image line, got {lines}"
+    })
+    assert lines, "no app image line in the render at all"
+    assert len(lines) == 1, (
+        f"app containers do not share one pin, got {lines}")
     return lines[0]
 
 

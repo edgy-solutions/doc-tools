@@ -1,11 +1,19 @@
 {{/*
 This CronJob runs the PCN/PDN corpus release gate (scripts/pcn_corpus_gate.py
---run) and writes its report INSIDE THE POD, under
-.Values.corpusGate.workDir / .Values.corpusGate.reportDir. Getting that
-report committed to git — so tests/test_corpus_gate_guard.py can see it as
-docs/corpus-gate/latest.json — is a SEPARATE, manual step and is NOT
-automated by this chart. Nothing here pushes to a repository. Do not read
-this file as doing that.
+--run), which writes its report INSIDE THE POD under
+.Values.corpusGate.workDir / .Values.corpusGate.reportDir, and then runs
+scripts/pcn_gate_publish.py to commit that report to git so
+tests/test_corpus_gate_guard.py can read it as docs/corpus-gate/latest.json.
+
+WHETHER IT ACTUALLY PUBLISHES DEPENDS ON CONFIGURATION, NOT ON THIS FILE.
+The publish step needs .Values.corpusGate.publish.repo AND a
+PCN_GATE_PUBLISH_TOKEN in the chart's secret. With either missing it prints
+why and does nothing, and the report stays in the pod exactly as it did
+before this step existed. So the honest reading of this template is: the
+report is committed IF a push-scoped token has been provisioned. The earlier
+version of this comment said no automation existed at all; that is now
+wrong, but "the CronJob is enabled" alone still does not mean reports are
+reaching the repo. Check the Job log for PUBLISHED or PUBLISH SKIPPED.
 */}}
 {{- if .Values.corpusGate.enabled }}
 apiVersion: batch/v1
@@ -49,8 +57,23 @@ spec:
               # inline a tag or add a default here either.
               image: {{ include "doc-tools.image" . | quote }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
-              command: ["/opt/venv/bin/python", "/app/scripts/pcn_corpus_gate.py"]
-              args: ["--run"]
+              # A shell, not the gate directly, because the publish step has to
+              # run after a RED gate too — a failing report is the one most
+              # worth having in the repo, and `&&` or a second container would
+              # skip it. The gate's own exit code is preserved and still
+              # decides the Job's: it is the verdict, and a publish problem
+              # must not be able to paint a red corpus green. A publish failure
+              # under a green gate does fail the Job, so "no report arrived"
+              # cannot pass as success.
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  /opt/venv/bin/python /app/scripts/pcn_corpus_gate.py --run
+                  rc=$?
+                  /opt/venv/bin/python /app/scripts/pcn_gate_publish.py
+                  prc=$?
+                  if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+                  exit "$prc"
               workingDir: /app
               envFrom:
                 - secretRef:
@@ -59,6 +82,17 @@ spec:
                 {{- toYaml .Values.extraEnvFrom | nindent 16 }}
                 {{- end }}
               env:
+                # Python block-buffers stdout when stdout is not a TTY, so
+                # without this the whole ~70-minute run emits ZERO log bytes
+                # until it exits. A hang and healthy progress then look
+                # IDENTICAL from `kubectl logs`, and the only way to tell them
+                # apart is exec-ing into the pod to stat the per-fire logs --
+                # which is how the 2026-10-01 run had to be checked. Set BEFORE
+                # the .Values.env range on purpose: on duplicate env names the
+                # LATER entry is the effective one, so a values-level override
+                # still wins.
+                - name: PYTHONUNBUFFERED
+                  value: "1"
                 {{- range $key, $val := .Values.env }}
                 - name: {{ $key }}
                   value: {{ $val | quote }}
@@ -71,6 +105,20 @@ spec:
                   value: {{ .Values.corpusGate.workDir | quote }}
                 - name: PCN_GATE_REPORT_DIR
                   value: {{ .Values.corpusGate.reportDir | quote }}
+                # Where the report is committed. PCN_GATE_PUBLISH_TOKEN is NOT
+                # here: it is a credential and arrives through the secretRef
+                # above, so it never appears in `helm get manifest` output.
+                # repo empty (the chart default) means the publish step no-ops.
+                {{- with .Values.corpusGate.publish }}
+                - name: PCN_GATE_PUBLISH_REPO
+                  value: {{ .repo | quote }}
+                - name: PCN_GATE_PUBLISH_BRANCH
+                  value: {{ .branch | quote }}
+                - name: PCN_GATE_PUBLISH_BASE
+                  value: {{ .base | quote }}
+                - name: PCN_GATE_PUBLISH_PATH
+                  value: {{ .path | quote }}
+                {{- end }}
               resources:
                 {{- toYaml .Values.corpusGate.resources | nindent 16 }}
           {{- with .Values.nodeSelector }}

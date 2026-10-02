@@ -469,6 +469,56 @@ def check_ground_truth():
     extra = set(gt) - {t["file"] for t in TARGETS}
     if extra:
         raise SystemExit(f"ground truth has notices TARGETS does not: {sorted(extra)}")
+    check_corpus_enumeration(gt)
+
+
+def check_corpus_enumeration(gt):
+    """TARGETS must also agree with the `_corpus` enumeration, or the run is
+    measuring against a corpus nobody wrote down.
+
+    WHAT THIS IS FOR. "Eight documents is the corpus until production traffic
+    adds to it" was established by listing every object in every bucket; left in
+    prose it would be a claim a reader has to go and re-check. Here it is an
+    INPUT: the enumeration states 9 scored rows over 8 distinct document
+    contents, 898 harness parts, 496 distinct parts, and every one of those four
+    numbers is recomputed from TARGETS and the notices block and must match.
+
+    The distinct-parts arithmetic is the one that catches a real mistake. The
+    Diodes pair is one document under two filenames, so 402 of the 898 is the
+    same notice scored a second time; 898 - 402 = 496. If a later edit adds a
+    notice and bumps gt_parts without working out whether it is a new document,
+    this fails at startup instead of shipping a report whose denominator means
+    something different from the one before it.
+    """
+    corpus = pcn_score.load_corpus()
+    if not corpus:
+        raise SystemExit("ground truth has no `_corpus` block: the corpus is then "
+                         "whatever TARGETS happens to say, which is what that block "
+                         "exists to prevent")
+    files = {t["file"] for t in TARGETS}
+    docs = corpus["documents"]
+    enumerated = {fn for d in docs for fn in d["filenames"]}
+    if enumerated != files:
+        raise SystemExit(
+            f"`_corpus`.documents and TARGETS name different notices: "
+            f"only in _corpus {sorted(enumerated - files)}, "
+            f"only in TARGETS {sorted(files - enumerated)}")
+    if corpus["scored_entries"] != len(TARGETS):
+        raise SystemExit(f"`_corpus`.scored_entries={corpus['scored_entries']} but "
+                         f"TARGETS has {len(TARGETS)} rows")
+    if corpus["distinct_documents"] != len(docs):
+        raise SystemExit(f"`_corpus`.distinct_documents="
+                         f"{corpus['distinct_documents']} but documents[] lists "
+                         f"{len(docs)}")
+    if corpus["gt_parts"] != GT_TOTAL:
+        raise SystemExit(f"`_corpus`.gt_parts={corpus['gt_parts']} but TARGETS sums "
+                         f"to {GT_TOTAL}")
+    # One representative filename per distinct document content, so a document
+    # ingested under two names contributes its parts once.
+    distinct = sum(gt[d["filenames"][0]]["count"] for d in docs)
+    if corpus["distinct_parts"] != distinct:
+        raise SystemExit(f"`_corpus`.distinct_parts={corpus['distinct_parts']} but "
+                         f"one representative per distinct document sums to {distinct}")
 
 
 def main():

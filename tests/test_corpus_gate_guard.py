@@ -5,9 +5,13 @@ WHAT THIS GUARDS. `scripts/pcn_corpus_gate.py --run` runs inside an opt-in
 Kubernetes CronJob (`charts/doc-tools/templates/corpus-gate-cronjob.yaml`),
 not in CI: CI runners cannot reach the RFC1918 LLM/vision endpoints or the
 in-cluster MinIO the corpus lives in. The report it produces,
-`docs/corpus-gate/latest.json`, is committed to the repo BY HAND after a run.
-This file is the CI-side half of that split: it reads the committed report
-rather than trying to reproduce the run.
+`docs/corpus-gate/latest.json`, is committed to the repo by the same CronJob
+run, through `scripts/pcn_gate_publish.py` — onto a branch with a standing
+pull request, never onto main. That step is inert until a push-scoped token
+and `corpusGate.publish.repo` are configured, and falls back to a human
+copying the file out of the pod; either way what reaches CI is a commit. This
+file is the CI-side half of that split: it reads the committed report rather
+than trying to reproduce the run.
 
 A MISSING REPORT MUST FAIL, NOT SKIP. This repo has already shipped the
 opposite mistake once — see tests/test_chart_image_pin_guard.py's own
@@ -102,3 +106,39 @@ def test_report_is_not_stale():
         f"CORPUS_GATE_MAX_AGE_DAYS={CORPUS_GATE_MAX_AGE_DAYS} days. A stale 'pass' is "
         f"not evidence about the code currently on this branch — re-run the gate."
     )
+
+
+def test_the_report_states_the_corpus_it_was_measured_against():
+    """A score is a fraction, and a committed report that carries only the
+    numerator cannot be compared with the next one: `898/898` will mean something
+    different the day a tenth notice is ingested. The gate copies the `_corpus`
+    enumeration out of scripts/pcn_ground_truth.json into every report, and this
+    is the CI-side check that the two still describe the same corpus.
+
+    A REPORT WITHOUT THE BLOCK FAILS rather than skipping, for the reason in this
+    file's docstring: it is a report whose denominator is unstated, which is
+    unproven, not fine. It clears when the next gate run commits a report.
+    """
+    report = _load_report()
+    gt = json.loads(
+        (Path(__file__).resolve().parents[1] / "scripts" / "pcn_ground_truth.json")
+        .read_text(encoding="utf-8"))
+    declared = gt.get("_corpus") or {}
+    assert declared, (
+        "scripts/pcn_ground_truth.json carries no `_corpus` block, so there is no "
+        "enumeration for a report to be checked against."
+    )
+    corpus = report.get("corpus")
+    assert corpus, (
+        f"{REPORT_PATH} states no corpus. The gate copies the `_corpus` block of "
+        f"scripts/pcn_ground_truth.json into the report so the denominator travels "
+        f"with the numerator; a report predating that is a measurement whose corpus "
+        f"is unstated. Re-run the gate and commit the report."
+    )
+    for key in ("distinct_documents", "scored_entries", "gt_parts", "distinct_parts"):
+        assert corpus.get(key) == declared.get(key), (
+            f"{REPORT_PATH} was measured against {key}={corpus.get(key)!r} but "
+            f"ground truth now declares {key}={declared.get(key)!r}. Either the "
+            f"corpus widened since this report (re-run the gate) or the "
+            f"enumeration was edited without re-enumerating the bucket."
+        )

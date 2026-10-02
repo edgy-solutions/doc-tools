@@ -37,7 +37,13 @@ import time
 # installed package — this mirrors how pcn_header_agreement.py itself imports
 # its own sibling, pcn_corpus_run.py, inside build_index_by_file().
 sys.path.insert(0, "scripts")
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
 import pcn_header_agreement as hdr_agreement  # noqa: E402
+# For `load_corpus` only — the corpus enumeration the report is measured against.
+# Absolute path above, because the relative "scripts" entry resolves against the
+# CWD and this module is also imported by tests from elsewhere.
+import pcn_score  # noqa: E402
 
 from doc_tools.utils import notice_identity  # noqa: E402
 from doc_tools.utils.ingest_rates import render_rates  # noqa: E402
@@ -484,6 +490,117 @@ def needs_review_in_all_fires(corpus_by_fire, notice):
     )
 
 
+# Markers of a declaration ABOUT A HEADER FIELD, as the plugin phrases them. Matched
+# as substrings of `review_reasons` rather than by a flag, because there is no flag:
+# the product narrates, and narrowing this to a structured field would mean adding one
+# and keeping two representations of the same fact in step.
+_HEADER_DECLARATION_MARKERS = (
+    "refused",                 # refuse_unsourced_header_values blanked a field
+    "header pass failed",      # the header extraction itself raised
+    "region witness LOST",     # a located header region could not be read
+    "could not be located",    # no header region was locatable at all
+    "region witness DISABLED",
+)
+
+
+def header_declaration_in_all_fires(corpus_by_fire, notice):
+    """Did the product declare a problem WITH THE HEADER, in every fire?
+
+    Narrower than `needs_review_in_all_fires`, and the narrowing is the point. A
+    degraded text layer sets `needs_review` unconditionally
+    (`SustainmentPlugin._apply_text_layer_stats`), and degradation is a permanent
+    property of a PDF -- TYC-PCN-24-210412 can never stop declaring it. So the broad
+    predicate granted that notice a PERMANENT exemption from header correctness, which
+    is the one notice whose header was measured wrong. An exemption no measurement can
+    ever revoke is not an exemption, it is an exclusion.
+
+    What makes degradation the wrong declaration to accept here: the region witness
+    exists precisely to survive it. On a degraded notice the header fields are read
+    from CROPS of the page raster and cited verbatim, evidence the text layer had no
+    part in. A notice that supplied its header from pixels and still wrote the wrong
+    value has published a wrong value with no warning attached to it, which is exactly
+    what condition (e) is for.
+
+    So the exemption now has to be earned by a reason that names the HEADER: a refused
+    field, a failed header pass, a lost or unlocatable region. Any of those does mean a
+    human sees the field before it counts. `needs_review` is still required as well --
+    a narrated reason on a document nobody is told to review is not a declaration.
+    """
+    if not needs_review_in_all_fires(corpus_by_fire, notice):
+        return False
+    for n in (1, 2, 3):
+        reasons = (corpus_by_fire.get(n, {}).get(notice) or {}).get("review_reasons") or []
+        blob = " ".join(str(r) for r in reasons)
+        if not any(m in blob for m in _HEADER_DECLARATION_MARKERS):
+            return False
+    return True
+
+
+def check_header_correctness(header_totals_by_fire, corpus_by_fire):
+    """(e) Was the written header CORRECT, not merely stable across fires?
+
+    THE CASE THIS CATCHES, measured on the real f32 fire set: all three fires
+    wrote `pub_date = 2024-06-10` for TYC. Agreement (b) therefore records
+    pub_date as AGREE and says nothing — it compares the fires to each other,
+    and they matched. The page says the notice was published on the 7th; 06-10
+    is the portal's print stamp, the day the PDF was rendered. Stability over a
+    wrong value is the one failure a cross-fire check structurally cannot see,
+    so this condition reads `header_totals` from each fire's score JSON, which
+    `pcn_score.py` computes against the `headers` block in ground truth.
+
+    NOT OBSERVED IS NOT A PASS. Score JSONs from an image predating header
+    scoring carry no `header_totals`; that is recorded as `observed: false` and
+    does not block, exactly as `rates_available` does. It also is not reported
+    as zero failures.
+
+    THE DECLARATION EXEMPTION APPLIES HERE TOO, BUT NARROWED — see
+    `header_declaration_in_all_fires`. A notice the product flagged `needs_review`
+    in all three fires has not silently published a wrong value — a human sees it
+    before it counts — which is the same reasoning that exempts a disagreeing
+    notice in (d). But `needs_review` ALONE is too weak here: a degraded text
+    layer sets it unconditionally and permanently, so the broad predicate handed
+    the one notice with a measurably wrong header an exemption that no future
+    measurement could revoke. The reason must now NAME the header (a refused
+    field, a failed header pass, a lost region). The failure is reported either
+    way, and `strict_verdict` (which grants no exemptions) counts it regardless.
+    """
+    observed = {n: t for n, t in header_totals_by_fire.items() if t}
+    block = {"observed": bool(observed), "fires": {}}
+    blocking, exempted = [], []
+    if not observed:
+        block["reason"] = ("no fire score JSON carries header_totals — scored by an "
+                           "image that predates header scoring. NOT a pass: the "
+                           "headers were not measured against ground truth at all.")
+        return block, blocking, exempted
+
+    failures = {}  # notice -> {fire: [ "field (status)" ]}
+    for n, t in sorted(observed.items()):
+        block["fires"][n] = {
+            "exact": t.get("exact"), "fields_scored": t.get("fields_scored"),
+            "clean": t.get("clean"), "observed": t.get("observed"),
+            "unobserved": t.get("unobserved", []),
+            "pending": t.get("pending", []),
+        }
+        for status in ("distractor", "wrong", "misformatted", "unreadable", "absent"):
+            for located in t.get(status, []):
+                notice, _, field = located.partition(":")
+                failures.setdefault(notice, {}).setdefault(n, []).append(
+                    f"{field} ({status})")
+    block["failing_notices"] = sorted(failures)
+
+    for notice, by_fire in sorted(failures.items()):
+        detail = "; ".join(f"fire {n}: {', '.join(sorted(v))}"
+                           for n, v in sorted(by_fire.items()))
+        line = (f"{notice}: written header does not match ground truth — {detail} "
+                f"(pcn_ground_truth.json notices[{notice}].headers)")
+        if header_declaration_in_all_fires(corpus_by_fire, notice):
+            exempted.append(line + " — exempted: needs_review=True in all three fires "
+                                   "AND a review reason names the header")
+        else:
+            blocking.append(line)
+    return block, blocking, exempted
+
+
 def apply_declaration_rule(disagree_notices, identity_half_unstable, corpus_by_fire):
     blocking = []
     exempted = []
@@ -529,6 +646,7 @@ def score_fires(base_dir, fires):
 
     fire_reports = []
     corpus_by_fire = {}
+    header_totals_by_fire = {}
     rates = None
     rates_available = False
     for idx, f in enumerate(fires):
@@ -538,6 +656,9 @@ def score_fires(base_dir, fires):
         totals = None
         if score is not None:
             totals = score.get("totals")
+            # Per fire, not once: a header that is correct in one fire and a
+            # distractor in the next is two different facts and both must show.
+            header_totals_by_fire[f["n"]] = score.get("header_totals")
             # rates: singular in the report, not one per fire. All three fires run
             # the same pinned image in one gate invocation, so rates availability
             # (and the rates themselves) are a property of the image, not of which
@@ -633,9 +754,19 @@ def score_fires(base_dir, fires):
     blocking.extend(d_blocking)
     exempted.extend(d_exempted)
 
+    # (e) Header correctness against ground truth — see check_header_correctness
+    # for why agreement (b) cannot answer this.
+    header_correctness, h_blocking, h_exempted = check_header_correctness(
+        header_totals_by_fire, corpus_by_fire)
+    blocking.extend(h_blocking)
+    exempted.extend(h_exempted)
+
     verdict = "pass" if (fires_ok and not blocking) else "fail"
     strict_verdict = "pass" if (
         fires_ok and header_exit == 0 and not identity_half_unstable
+        # No exemptions in the strict view, so a declared notice whose header is
+        # wrong against the page still counts here.
+        and not header_correctness.get("failing_notices")
     ) else "fail"
 
     report = {
@@ -648,6 +779,15 @@ def score_fires(base_dir, fires):
         "fires": fire_reports,
         "rates_available": rates_available,
         "rates": rates,
+        # THE CORPUS THIS WAS MEASURED AGAINST, copied from the `_corpus` block of
+        # pcn_ground_truth.json (which pcn_corpus_run.check_corpus_enumeration
+        # asserts TARGETS against at startup). A score is a fraction and a report
+        # that carries only the numerator cannot be compared with the next one:
+        # "898/898" means something different the day a tenth notice is ingested.
+        # Eight documents is the corpus until production traffic adds to it, and
+        # this is the copy a reader of the report sees.
+        "corpus": pcn_score.load_corpus(),
+        "header_correctness": header_correctness,
         "header_agreement": {
             "exit": header_exit,
             "notices": parsed_notices,
@@ -713,6 +853,59 @@ def _render_rates_block(rates_available, rates):
     return "```\n" + render_rates(rates) + "\n```"
 
 
+def _render_corpus_block(corpus):
+    """The denominator, stated in the report itself.
+
+    A report that gives only a numerator cannot be compared with the next one:
+    `898/898` means a different thing the day a tenth notice is ingested. The
+    enumeration is copied from ground truth rather than recomputed here, so
+    there is one definition of what the corpus is.
+    """
+    out = ["## Corpus measured against", ""]
+    if not corpus:
+        out.append("**NOT STATED** — the ground truth this was scored against "
+                   "carries no `_corpus` block, so the denominator below is "
+                   "whatever that file happened to contain. Not comparable with "
+                   "a report that states its corpus.")
+        return "\n".join(out)
+    out += [
+        f"- distinct documents: **{corpus.get('distinct_documents')}**",
+        f"- scored entries (filenames): **{corpus.get('scored_entries')}**",
+        f"- harness parts: **{corpus.get('gt_parts')}**, "
+        f"distinct parts: **{corpus.get('distinct_parts')}**",
+        "",
+        corpus.get("statement", ""),
+    ]
+    if corpus.get("nine_vs_eight"):
+        out += ["", corpus["nine_vs_eight"]]
+    return "\n".join(out)
+
+
+def _render_header_correctness_block(block):
+    """(e) in the report: correct against the page, not merely stable."""
+    out = ["## Header correctness (against ground truth)", ""]
+    if not block:
+        out.append("**NOT PRESENT** — this report was produced by a gate that did "
+                   "not check header correctness.")
+        return "\n".join(out)
+    if not block.get("observed"):
+        out.append(f"**NOT SCORED** — {block.get('reason', 'no header_totals')}")
+        return "\n".join(out)
+    out += ["| fire | exact/scored | clean | pending |", "|---|---|---|---|"]
+    for n, f in sorted(block.get("fires", {}).items()):
+        out.append(f"| {n} | {f.get('exact')}/{f.get('fields_scored')} | "
+                   f"{f.get('clean')} | {', '.join(f.get('pending') or []) or '—'} |")
+    out.append("")
+    if block.get("failing_notices"):
+        out.append("failing notices: " + ", ".join(block["failing_notices"])
+                   + " — see Blocking/Exempted for the field and the class of "
+                     "failure. A `distractor` is a value ground truth names and "
+                     "explains; agreement across fires cannot detect one.")
+    else:
+        out.append("every established header field matched the page in every fire.")
+    return "\n".join(out)
+
+
 def render_markdown(report, gate_dir, command_str, log_paths):
     lines = []
     date = report["generated_at"][:10]
@@ -739,6 +932,8 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     lines.append(f"- `DOC_TOOLS_IMAGE`: {report['measured_image'] or 'not set'}")
     lines.append(f"- `DOC_TOOLS_PIN_NOTE`: {report['measured_pin_note'] or 'not set'}")
+    lines.append("")
+    lines.append(_render_corpus_block(report.get("corpus")))
     lines.append("")
     lines.append("## Per-fire results")
     lines.append("")
@@ -775,6 +970,8 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     if report["header_agreement"]["not_measured"]:
         lines.append(f"NOT MEASURED: {', '.join(report['header_agreement']['not_measured'])}")
         lines.append("")
+    lines.append(_render_header_correctness_block(report.get("header_correctness")))
+    lines.append("")
     lines.append("## Identity")
     lines.append("")
     ident = report["identity"]
@@ -844,6 +1041,32 @@ def render_markdown(report, gate_dir, command_str, log_paths):
 
 
 # --------------------------------------------------------------------------
+
+def dated_report_name(generated_at):
+    """Archive filename for one run's markdown report.
+
+    PER RUN, NOT PER DAY -- this used to be `report-{generated_at[:10]}.md`,
+    and the date alone is not a run identity. The second run of a UTC day
+    silently OVERWROTE the first one's archived report, and git shows that as
+    an ordinary modification, so nothing anywhere says a measurement was
+    destroyed. `main` carries the proof: `report-2026-10-01.md` and
+    `report-2026-10-01-rereduced.md` are two different runs of the same day,
+    and the second survives only because a human noticed and renamed it by
+    hand. A third run that night overwrote the file again on the publish
+    branch, which is how this was found.
+
+    `latest.json` SHOULD keep overwriting -- it is the pointer the CI guard
+    reads and "latest" is its whole contract. The dated markdown is the
+    archive, and an archive that drops a run defeats its only purpose.
+
+    The colons of the ISO timestamp are stripped because they are illegal in
+    Windows filenames, and the rest of the ISO form is kept so the names still
+    sort chronologically as plain text. `scripts/pcn_gate_publish.py` picks the
+    file up through its `report-*.md` glob, so the longer name needs no change
+    there.
+    """
+    return "report-%s.md" % generated_at.replace(":", "")
+
 
 def main(argv):
     parser = argparse.ArgumentParser(
@@ -921,7 +1144,7 @@ def main(argv):
         json.dump(report, f, indent=2)
         f.write("\n")
 
-    dated_path = os.path.join(report_dir, f"report-{report['generated_at'][:10]}.md")
+    dated_path = os.path.join(report_dir, dated_report_name(report["generated_at"]))
     with open(dated_path, "w", encoding="utf-8") as f:
         f.write(markdown)
 

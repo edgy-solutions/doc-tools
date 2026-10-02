@@ -8,8 +8,8 @@ Strict verdict (no declaration exemptions): **FAIL**
 
 ## Image measured
 
-- `DOC_TOOLS_IMAGE`: ghcr.io/edgy-solutions/doc-tools@sha256:4c1f74cc1d016606f19f3fe064282ba4681609d104576a96a3f83dc3e62e6297
-- `DOC_TOOLS_PIN_NOTE`: not set
+- `DOC_TOOLS_IMAGE`: ghcr.io/edgy-solutions/doc-tools@sha256:904fb4587ddadce1b88aaa346a92676c31bb0c5952db7c7b34c7ae14a40abf7d
+- `DOC_TOOLS_PIN_NOTE`: 49ed4a1 (helm rev 25, sandbox) - carries PR #34, #35, #36, #37; #35 is the degraded-notice needs_review fix this run re-measures
 
 ## Corpus measured against
 
@@ -25,9 +25,9 @@ Both numbers are correct and neither is a defect to fix. The harness scores 9 FI
 
 | fire | exit | elapsed_s | exact/gt | spurious | missing | malformed |
 |---|---|---|---|---|---|---|
-| 1 | 0 | 1329.7 | 898/898 | 0 | 0 | 0 |
-| 2 | 0 | 1346.0 | 898/898 | 0 | 0 | 0 |
-| 3 | 0 | 1086.2 | 898/898 | 0 | 0 | 0 |
+| 1 | 0 | 1374.4 | 898/898 | 0 | 0 | 0 |
+| 2 | 0 | 1327.2 | 898/898 | 0 | 0 | 0 |
+| 3 | 0 | 1297.8 | 898/898 | 0 | 0 | 0 |
 
 ## Rates
 
@@ -52,30 +52,24 @@ exit: 1
 | EOL-36_BYV34-400,-BYV34-500.pdf | agree | — |
 | PCN23-002.pdf | agree | — |
 | PCN24-029.pdf | agree | — |
-| TYC-PCN-24-210412.pdf | DISAGREE | `mfr`: 'TE' | 'TE Connecvity' | 'TE', `mfr_source`: 'TE' | 'TE Connecvity' | 'TE', `pub_date`: '2024-06-10' | '2024-06-07' | '2024-06-10', `pub_date_source`: '10-Jun-2024' | '07-JUN-24' | '10-Jun-2024', `doc_level_ltb_date`: None | None | '2024-06-06', `doc_level_ltb_date_source`: None | None | '06-JUN-2024' |
+| TYC-PCN-24-210412.pdf | DISAGREE | `mfr`: 'TE Connecvity' | 'TE' | 'TE Connecvity', `mfr_source`: 'TE Connecvity' | 'TE' | 'TE Connecvity', `doc_level_ltb_date`: None | '2024-06-06' | '2024-06-06', `doc_level_ltb_date_source`: None | '-2024\n[Unca' | '-2024' |
 | onsemi_Generic_IPCN25300X.pdf | agree | — |
 | onsemi_Generic_PD26044X1.pdf | agree | — |
 
 ## Header correctness (against ground truth)
 
-| fire | exact/scored | clean | pending |
-|---|---|---|---|
-| 1 | 0/3 | False | — |
-| 2 | 1/3 | False | — |
-| 3 | 1/3 | False | — |
-
-failing notices: TYC-PCN-24-210412.pdf — see Blocking/Exempted for the field and the class of failure. A `distractor` is a value ground truth names and explains; agreement across fires cannot detect one.
+**NOT SCORED** — no fire score JSON carries header_totals — scored by an image that predates header scoring. NOT a pass: the headers were not measured against ground truth at all.
 
 ## Identity
 
-filenames: 9, distinct_notices: 9
+filenames: 9, distinct_notices: 8
 
 header source: `corpus_json`
 same source bytes across fires: verified for all 9 notices across 3 fires
 
 ### Collapses (same notice, multiple files; fire 1)
 
-(none)
+- `diodes | pcn-2683 | r5`: Diodes_PCN_2683_FULLGREEN.pdf, Diodes_PCN_2683_Rev1_EOL.pdf
 
 ### Identity-half unstable across fires (BLOCKS unless declared)
 
@@ -93,13 +87,12 @@ Diodes_PCN_2683_FULLGREEN.pdf, Diodes_PCN_2683_Rev1_EOL.pdf
 
 - TYC-PCN-24-210412.pdf: header disagreement exempted — needs_review=True in all three fires
 - TYC-PCN-24-210412.pdf: identity-half instability (mfr/doc_id differ across fires) exempted — needs_review=True in all three fires
-- TYC-PCN-24-210412.pdf: written header does not match ground truth — fire 1: doc_level_ltb_date (absent), mfr (distractor), pub_date (distractor); fire 2: doc_level_ltb_date (absent), mfr (distractor); fire 3: mfr (distractor), pub_date (distractor) (pcn_ground_truth.json notices[TYC-PCN-24-210412.pdf].headers) — exempted: needs_review=True in all three fires
 
 ## How it was run
 
-Command: `/opt/venv/bin/python scripts/pcn_corpus_gate.py --run`
+Command: `/opt/venv/bin/python scripts/pcn_corpus_gate.py --from-logs /tmp/pcn-gate-49ed4a1 --log-prefix fire --corpus-prefix corpus_f --score-prefix score_f --seal-prefix seal_f`
 
 Logs:
-- `/tmp/pcn-gate/fire1.log`
-- `/tmp/pcn-gate/fire2.log`
-- `/tmp/pcn-gate/fire3.log`
+- `/tmp/pcn-gate-49ed4a1/fire1.log`
+- `/tmp/pcn-gate-49ed4a1/fire2.log`
+- `/tmp/pcn-gate-49ed4a1/fire3.log`

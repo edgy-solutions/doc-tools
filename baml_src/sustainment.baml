@@ -237,6 +237,44 @@ function TranscribePage(page_image: image, system_instructions: string) -> strin
 // The image is therefore the LAST thing in the user block, with nothing after it, and
 // system_instructions rides in the system role rather than the user block.
 
+// -- Second witness, REGION form: one small CROP of the page, asked targeted
+// per-field questions, multimodal on Gemma (client Vision). This is the witness that
+// scores; TranscribePage above now serves only the parts-corroboration half of a
+// degraded document.
+//
+// WHY A CROP AND NOT THE PAGE. Measured against the live host on TYC-PCN-24-210412
+// (2026-10-01): asked about the WHOLE page this model answers `10-Jan-2024` for a date
+// the page prints as `10-Jun-2024`, twice, one-shot and multi-turn — and asked about a
+// CROP of the same page's header block it answers `10-Jun-2024`. Same model, same host,
+// same token. Raising the page render from 150 to 200 DPI fixed two other dates on that
+// page and never fixed this one, so the lever is the amount of page in the frame, not
+// the number of pixels on it. doc_tools/utils/witness_regions.py cuts the crop from the
+// text layer's own element geometry (the glyphs are damaged on these documents; the
+// coordinates are not).
+//
+// Same plain-string return and the same missing `### OUTPUT FORMAT ###` as
+// TranscribePage, for the reason spelled out above it: the return type is a bare string,
+// so ctx.output_format would render an empty section immediately before the image.
+// `### REGION ###` is a plain section label, not a request for a format.
+function ReadRegion(region_image: image, system_instructions: string) -> string {
+  client Vision
+  prompt #"
+    {{ _.role("system") }}
+    ### INSTRUCTIONS ###
+    {{ system_instructions }}
+
+    {{ _.role("user") }}
+    ### REGION ###
+
+    {{ region_image }}
+  "#
+}
+// NOTE: same image-placement rules as every multimodal function above, and for the same
+// reason (vLLM's gemma multimodal template only inserts the image placeholder for an
+// image in a USER turn, and fails to place it at all when text follows it in that turn).
+// The image is the LAST thing in the user block with nothing after it, and
+// system_instructions rides in the system role.
+
 // -- Legacy single-pass extractor. Retained for backward compat
 //    (scripts/test_fallback_resilience.py, ad-hoc runs); NOT used by the
 //    two-pass router in sustainment.py. --
