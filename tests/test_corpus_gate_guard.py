@@ -48,12 +48,37 @@ assert a thing only a later change can supply (PR #40's mistake):
    the pods' `imageID`, which neither CI nor the gate's own Job can read (the
    Job's ServiceAccount has no Role; there is no role.yaml in
    charts/doc-tools/templates/). A human supplies it at helm-upgrade time
-   through `corpusGate.expectImage`. Tighten to `checked is True` once that is
-   set in values-sandbox.yaml.
+   through `corpusGate.expectImage`.
 2. The block may be absent entirely, because the gate runs the image the CHART
    is pinned to — so the block appears only after a pin bump carries the
-   emitting code into that image. Tighten to a presence assertion once such a
-   bump has landed.
+   emitting code into that image.
+
+THE TIGHTENING CONDITION, CORRECTED 2026-10-02 — AND THE TWO GAPS ARE ONE.
+An earlier draft of gap 1 said to tighten "once `corpusGate.expectImage` is set
+in values-sandbox.yaml". That is wrong, and acting on it would have reproduced
+PR #40's mistake a third time. `expectImage` IS now set (read off pod
+doc-tools-67b8dcc99b-pzb9h after the helm revision 30 roll), and at that same
+moment `docs/corpus-gate/latest.json` still carried `image_identity: null` —
+because a values key governs FUTURE runs while the committed report is a PAST
+artifact, measured at `d881069b` by an image built before #55's code existed.
+Asserting `checked is True` on that report goes red on the spot, and
+`corpus-gate` is required on main, so it would block every chart PR including
+any that could fix it.
+
+The condition is therefore a property of the REPORT, never of the chart:
+
+    tighten once docs/corpus-gate/latest.json carries an `image_identity`
+    block with `checked: true` — i.e. once a nightly has run on an image
+    containing the emitting code AND with an expectation supplied, and that
+    report has been merged.
+
+Both gaps close at that one moment, because both are waiting on the same
+artifact: gap 2 needs the block to exist, gap 1 needs it to be populated, and
+the first report that has one has both. The pinned image (`b54d9ef2`,
+`7f22479`) descends from #55, so it emits the block, and `expectImage` is set,
+so it will reconcile — making the next nightly the first report that can
+satisfy this. Check the report before tightening rather than assuming that
+run happened.
 
 Neither is "fine". Both are surfaced in the report's own markdown, which is
 what a human reads when merging it: an unreconciled run leads with a **NOT
@@ -243,9 +268,14 @@ def test_the_image_identity_block_is_consistent_if_it_is_there():
     a report with no block renders "Not recorded — ... whether it measured the
     declared image is **unknown**" in its own section, above the scores.
 
-    TIGHTEN THIS to a hard presence assertion once a pin bump has landed a
-    gate image that emits the block (tracked in HANDOFF.md). Until then this
-    test is a consistency check, not a coverage claim.
+    TIGHTEN THIS to a hard presence assertion once a REPORT carrying the block
+    has landed in docs/corpus-gate/latest.json — not merely once a pin bump has
+    (see the module docstring's corrected condition). The pin bump is necessary
+    and not sufficient: on 2026-10-02 the pinned image emitted the block and
+    `corpusGate.expectImage` was set, while the committed report still carried
+    `image_identity: null` from two pins back. The artifact this test reads is
+    what has to change, and only a nightly can change it. Until then this test
+    is a consistency check, not a coverage claim.
     """
     report = _load_report()
     identity = report.get("image_identity")
