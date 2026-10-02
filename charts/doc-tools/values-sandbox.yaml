@@ -256,12 +256,21 @@ image:
   # helm reads the chart from the REPO at deploy time, never from inside the
   # image. The image ships no authority over its own pin.
   #
-  # `corpusGate.expectImage` IS STILL EMPTY, AND #55's VOID RULING CANNOT FIRE
-  # UNTIL IT IS SET. It is the next action after the roll, not a deferral. With
-  # no expectation supplied the gate reads UNRECONCILED, which is the ABSENCE
-  # of the check, not a pass of it:
+  # [HISTORICAL, AS OF THIS PIN. SETTLED 2026-10-02 -- see
+  # `corpusGate.expectImage` further down this file, which is now SET from a
+  # post-roll pod reading at helm revision 30.]
   #
-  #     --set corpusGate.expectImage="pods=ghcr.io/edgy-solutions/doc-tools@<imageID>"
+  # `corpusGate.expectImage` WAS STILL EMPTY WHEN THIS PIN LANDED, AND #55's
+  # VOID RULING COULD NOT FIRE UNTIL IT WAS SET. It was the next action after
+  # the roll, not a deferral. With no expectation supplied the gate reads
+  # UNRECONCILED, which is the ABSENCE of the check, not a pass of it:
+  #
+  #     corpusGate.expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@<imageID>"
+  #
+  # WRITTEN INTO THIS FILE, NOT PASSED WITH `--set`. Both blocks below
+  # originally said `--set`, and that was wrong for the same reason the pin
+  # itself lives here: a value supplied only on the command line makes the
+  # next person's plain `helm upgrade -f` a silent rollback of it.
   #
   # read off `status.containerStatuses[*].imageID` AFTER the roll -- imageID,
   # NOT image, which reports a config digest matching nothing. It must NOT be
@@ -325,13 +334,22 @@ image:
   # itself. This is the check that would have caught the f70d779 substitution
   # even if the ancestry had not.
   #
-  # `corpusGate.expectImage` IS STILL EMPTY, AND #55's VOID RULING CANNOT FIRE
-  # UNTIL IT IS SET. This pin carries the ruling that a report measuring the
-  # wrong image is VOID rather than a verdict; with no expectation supplied the
-  # run is UNRECONCILED and says so, which is the ABSENCE of that check, not a
-  # pass of it. It must be set from a POST-ROLL reading of the pods:
+  # [HISTORICAL, AS OF THIS PIN. SETTLED 2026-10-02 -- see
+  # `corpusGate.expectImage` further down this file.]
   #
-  #     --set corpusGate.expectImage="pods=ghcr.io/edgy-solutions/doc-tools@<imageID>"
+  # `corpusGate.expectImage` WAS STILL EMPTY WHEN THIS PIN LANDED, AND #55's
+  # VOID RULING COULD NOT FIRE UNTIL IT WAS SET. This pin carries the ruling
+  # that a report measuring the wrong image is VOID rather than a verdict; with
+  # no expectation supplied the run is UNRECONCILED and says so, which is the
+  # ABSENCE of that check, not a pass of it. It had to be set from a POST-ROLL
+  # reading of the pods:
+  #
+  #     corpusGate.expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@<imageID>"
+  #
+  # WRITTEN INTO THIS FILE, NOT PASSED WITH `--set`. Both blocks below
+  # originally said `--set`, and that was wrong for the same reason the pin
+  # itself lives here: a value supplied only on the command line makes the
+  # next person's plain `helm upgrade -f` a silent rollback of it.
   #
   # read off `status.containerStatuses[*].imageID` -- imageID, NOT image. It
   # must NOT be filled in from the digest on the line below: comparing this
