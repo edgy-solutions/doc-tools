@@ -17,8 +17,20 @@ tests/test_mesh_sdk_pin.py). Those tests call `pytest.importorskip` first so
 they skip (not fail) under the shared venv and only run for real against the
 pinned wheel. The path-derivation, no-provenance-no-op, and enforcement-point
 tests need no SDK at all and run in both environments.
+
+PART 2 (below) covers spec-ingress-user-live-routes.md's F1-F6: gating the
+sensor on Lane 1's live `POST /ingest` key shape, reading Lane 1's own
+sidecar instead of deriving a semantic label from a file FORMAT or a HASH,
+carrying `ingest_id` as the join key, and the stage-status seam
+(`IngestStatusResource`). Any test that exercises the sidecar-enabled
+parser path transitively imports `iagent_mesh.ingest` (via
+`IngestStatusResource.update`'s "extracting"/"awaiting_disposition" calls),
+so those are ALSO gated with `pytest.importorskip("iagent_mesh.ingest")`,
+matching this file's existing SDK-gating style.
 """
+import json
 import os
+import re
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -366,3 +378,193 @@ def test_sustainment_rdf_omits_provenance_entirely_when_absent():
     assert "provenance_obtained_via" not in blob
     assert "generatedAtTime" not in sp
     assert "wasDerivedFrom" not in sp
+
+
+# =========================================================================== #
+# PART 2 — Lane 1's LIVE routes (spec-ingress-user-live-routes.md, F1-F6).
+#
+# Lane 1's `POST /ingest` (invincible-agent/src/iagent/gateway.py:8277)
+# writes, into bucket `processing-artifacts`:
+#   ingress-user/{kind}/{sha256}/{filename}      <- the document
+#   ingress-user/{kind}/{sha256}/manifest.json   <- the sidecar
+# where `kind` is a FILE FORMAT ("pdf"/"cad"; ingest_status.KINDS), not a
+# semantic domain, and `sha256` is 64 lowercase hex. The four defects this
+# closes (D1-D4) and the live key shapes below are measured against the
+# sandbox, not re-derived here.
+# =========================================================================== #
+
+_LIVE_DOC_KEY_1 = "ingress-user/pdf/736499f2eebb7dece392ad285e1a5b03e49e50a88a069cb0cc820b91dc4149d9/roll11-capture.pdf"
+_LIVE_SIDECAR_KEY_1 = "ingress-user/pdf/736499f2eebb7dece392ad285e1a5b03e49e50a88a069cb0cc820b91dc4149d9/manifest.json"
+_LIVE_DOC_KEY_2 = "ingress-user/pdf/fa231498f527921fc547cb97009a7d98fb45927bdaf7237028ea1cb60305e9bb/PCN23-002.pdf"
+_LIVE_SIDECAR_KEY_2 = "ingress-user/pdf/fa231498f527921fc547cb97009a7d98fb45927bdaf7237028ea1cb60305e9bb/manifest.json"
+
+
+# --------------------------------------------------------------------------- #
+# F1 — the sensor's s3_filter regex is the GATE (D1/D2): matches the two
+# live document keys, rejects the two live sidecar keys, and rejects a CAD
+# drop. filter_patterns' "manifest.json" entry is the independent BELT.
+# --------------------------------------------------------------------------- #
+def test_f1_sensor_gate_matches_pdf_rejects_sidecar_and_cad():
+    from doc_tools.definitions import ingress_user_sensor
+
+    pattern = ingress_user_sensor.s3_filter
+    assert pattern, "ingress_user_sensor must declare an s3_filter (D1/D2 gate)"
+
+    assert re.match(pattern, _LIVE_DOC_KEY_1)
+    assert re.match(pattern, _LIVE_DOC_KEY_2)
+    assert re.match(pattern, _LIVE_SIDECAR_KEY_1) is None
+    assert re.match(pattern, _LIVE_SIDECAR_KEY_2) is None
+
+    # D2 — a CAD drop must never reach the PDF parser.
+    assert re.match(pattern, "ingress-user/cad/" + "a" * 64 + "/part.step") is None
+
+    # The belt: stated by a SECOND, independent mechanism.
+    assert "manifest.json" in ingress_user_sensor.filter_patterns
+
+
+# --------------------------------------------------------------------------- #
+# Shared sidecar fixture for the F2-F6 tests below.
+# --------------------------------------------------------------------------- #
+def _live_sidecar(ingest_id="sha256:fa231498f527921fc547cb97009a7d98fb45927bdaf7237028ea1cb60305e9bb",
+                   domain_type=None, content_kind=None, provenance="default"):
+    if provenance == "default":
+        provenance = {
+            "authoritative_source": "unconfirmed-at-intake",
+            "obtained_via": "user-drop",
+            "as_of": "unknown",
+            "ingested_at": "2026-10-02T00:00:00+00:00",
+            "ingest_run": f"user-drop:{ingest_id}",
+            "standing": "supervised",
+            "ingest_id": ingest_id,
+        }
+    sidecar = {
+        "ingest_id": ingest_id,
+        "object_ref": _LIVE_DOC_KEY_2,
+        "content_kind": content_kind,
+        "domain_type": domain_type,
+    }
+    if provenance is not None:
+        sidecar["provenance"] = provenance
+    return sidecar
+
+
+def _user_parser_kwargs():
+    return dict(
+        name="process_user_document_artifact",
+        partition_name="user_pdf_files",
+        obtained_via="user-drop",
+        path_prefix_strip="ingress-user/",
+        sidecar_manifest_name="manifest.json",
+    )
+
+
+# --------------------------------------------------------------------------- #
+# F2 — the sidecar's own provenance block WINS over minting a fresh one
+# (D4): the emitted manifest's "provenance" is exactly the sidecar's block,
+# and "ingest_id" (the join key to Lane 1's ingest_status_projection row)
+# is present at the manifest's TOP LEVEL (F4), sibling of "provenance".
+# --------------------------------------------------------------------------- #
+def test_f2_sidecar_provenance_wins_and_ingest_id_is_carried():
+    pytest.importorskip("iagent_mesh.ingest")
+    sidecar = _live_sidecar()
+    fake_client = _FakeS3Client()
+    fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
+
+    manifest = _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
+
+    assert manifest["provenance"] == sidecar["provenance"]
+    assert manifest["ingest_id"] == sidecar["ingest_id"]
+    # D3 — the live sidecar's domain_type/content_kind are null; they must
+    # stay null, never fall back to the path's "pdf" / 64-hex sha.
+    assert manifest["metadata"]["domain_type"] is None
+    assert manifest["metadata"]["content_kind"] is None
+
+
+# --------------------------------------------------------------------------- #
+# F2 — a missing or unparseable sidecar is a HARD FAILURE: no path-
+# derivation fallback, and the exception names the sidecar key.
+# --------------------------------------------------------------------------- #
+def test_f2_missing_sidecar_raises_and_names_the_key():
+    with pytest.raises(RuntimeError, match=re.escape(_LIVE_SIDECAR_KEY_2)):
+        _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2)  # no sidecar seeded
+
+
+# --------------------------------------------------------------------------- #
+# F3 — the D3 guard: a resolved domain_type that is still a FILE FORMAT, or
+# a resolved content_kind that is still a sha256 HASH, must raise rather
+# than silently becoming a semantic label.
+# --------------------------------------------------------------------------- #
+def test_f3_guard_rejects_format_as_domain_type():
+    sidecar = _live_sidecar(domain_type="pdf")
+    fake_client = _FakeS3Client()
+    fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
+
+    with pytest.raises(ValueError, match="domain_type"):
+        _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
+
+
+def test_f3_guard_rejects_sha256_hash_as_content_kind():
+    sidecar = _live_sidecar(content_kind="c" * 64)
+    fake_client = _FakeS3Client()
+    fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
+
+    with pytest.raises(ValueError, match="content_kind"):
+        _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
+
+
+# --------------------------------------------------------------------------- #
+# F5 — IngestStatusResource.update validates against the REAL imported
+# vocabulary (never a mirrored copy) and Lane 1's own "failed"/"rejected"
+# need-a-detail rule.
+# --------------------------------------------------------------------------- #
+def test_f5_ingest_status_resource_rejects_unknown_stage():
+    pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.dagster_resources import IngestStatusResource
+
+    resource = IngestStatusResource()
+    # "extracted" does not exist in INGEST_STAGES (do NOT add it — see the
+    # spec's "Do NOT do" list; extracted_count/extracted_total are columns,
+    # not a stage).
+    with pytest.raises(ValueError):
+        resource.update("sha256:deadbeef", "extracted")
+
+
+def test_f5_ingest_status_resource_rejects_blank_detail_on_failed():
+    pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.dagster_resources import IngestStatusResource
+
+    resource = IngestStatusResource()
+    with pytest.raises(ValueError):
+        resource.update("sha256:deadbeef", "failed", detail="")
+    with pytest.raises(ValueError):
+        resource.update("sha256:deadbeef", "failed", detail="   ")
+    # A non-blank detail is accepted (no raise).
+    resource.update("sha256:deadbeef", "failed", detail="boom")
+
+
+# --------------------------------------------------------------------------- #
+# F6 — nothing new to build: assert the join. notice_identity's Level-2 key
+# and the manifest's ingest_id (F4) both land on the SAME emitted
+# manifest/base_dir pair, so Lane 1 can join notice_identity -> ingest_id
+# without a second dedupe implementation.
+# --------------------------------------------------------------------------- #
+def test_f6_notice_identity_and_ingest_id_join_on_the_same_manifest():
+    pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.notice_identity import build_identity
+
+    sidecar = _live_sidecar()
+    fake_client = _FakeS3Client()
+    fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
+
+    manifest = _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
+
+    # doc_id here stands in for the header's doc_id a later sustainment
+    # pass extracts (notice_identity has no knowledge of ingest_id and must
+    # not gain one). The join this asserts: both values are read off the
+    # ONE manifest this run produced, at the SAME base_dir.
+    identity = build_identity(mfr="Diodes", doc_id=manifest["doc_id"], revision="A")
+    assert identity["complete"] is True
+    assert identity["doc_id"] == manifest["doc_id"]
+    assert manifest["ingest_id"] == sidecar["ingest_id"]
+    assert manifest["source_key"] == _LIVE_DOC_KEY_2
+    assert manifest["source_key"].startswith(os.path.dirname(_LIVE_SIDECAR_KEY_2))
