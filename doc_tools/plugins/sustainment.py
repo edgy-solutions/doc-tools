@@ -1740,7 +1740,17 @@ class SustainmentPlugin(AugmentationPlugin):
         return DocumentNode(base_extraction=section, domain_augmentation=None)
 
     def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "",
-                         image_prefix: str = "") -> Tuple[List[str], List[str]]:
+                         image_prefix: str = "",
+                         provenance: Optional[Dict[str, Any]] = None) -> Tuple[List[str], List[str]]:
+        """`provenance` is the ADR-0041 block (doc_tools/utils/ingest_provenance.py's
+        `as_dict()` output) off the manifest — present only for documents that
+        arrived via a non-vetted path (e.g. the ingress-user sensor). When absent
+        (every pre-ADR-0041 call site, and every vetted sensor), this emits exactly
+        what it emitted before this parameter existed — no stamp, no change. See
+        doc_tools/assets/semantic_assets.py's DOMAINS_THAT_PERSIST_PROVENANCE for
+        why SUSTAINMENT is the one domain allowed to receive a provenance-bearing
+        manifest at all.
+        """
         cypher_queries: List[dict] = []
         sparql_queries: List[str] = []
 
@@ -1800,6 +1810,42 @@ class SustainmentPlugin(AugmentationPlugin):
                 },
             })
 
+            # ADR-0041 — persist the provenance block onto the SAME per-document
+            # node the queries above already MERGE (n:SustainmentNotice), never a
+            # new node type and never keyed on a component/figure subject — those
+            # IRIs/ids are shared across notices (see AGENTS.md), so a
+            # subject-keyed provenance write would be destructive to unrelated
+            # notices. Absent `provenance`, nothing here runs: emits exactly what
+            # was emitted before this parameter existed.
+            if provenance:
+                cypher_queries.append({
+                    "query": f"""
+                    MERGE (n:SustainmentNotice:{self.domain_label} {{id: $notice_id}})
+                    SET n.provenance_obtained_via = $obtained_via,
+                        n.provenance_authoritative_source = $authoritative_source,
+                        n.provenance_as_of = $as_of,
+                        n.provenance_ingested_at = $ingested_at,
+                        n.provenance_ingest_run = $ingest_run,
+                        n.provenance_standing = $standing,
+                        n.provenance_derived_from = $derived_from,
+                        n.provenance_ingest_id = $ingest_id
+                    """,
+                    "params": {
+                        "notice_id": notice.doc_id,
+                        "obtained_via": provenance.get("obtained_via", ""),
+                        "authoritative_source": provenance.get("authoritative_source", ""),
+                        "as_of": provenance.get("as_of", ""),
+                        "ingested_at": provenance.get("ingested_at", ""),
+                        "ingest_run": provenance.get("ingest_run", ""),
+                        "standing": provenance.get("standing", ""),
+                        # "" not None, same reasoning as mfr_parent/revision above:
+                        # a Cypher null DROPS the property, collapsing "optional
+                        # field genuinely absent" into "property never set".
+                        "derived_from": provenance.get("derived_from", ""),
+                        "ingest_id": provenance.get("ingest_id", ""),
+                    },
+                })
+
             # --- JENA SPARQL/RDF ---
             # notice.doc_id is already normalized at finalization; normalize again
             # here (idempotent) so the graph IRI keys on the SAME canonical slug as
@@ -1848,6 +1894,28 @@ class SustainmentPlugin(AugmentationPlugin):
                     sparql += f"""
                     <http://internal/components/{safe_mpn}> pcn:hasReplacement <http://internal/components/{safe_rep}> .
                     """
+            # ADR-0041 — the two provenance fields the SDK maps onto PROV terms,
+            # written into the SAME GRAPH <..._INSTANCES> block above (never the
+            # default graph — invisible to the mesh resolver — and never the
+            # vocabulary graph <http://internal/{DOMAIN}>, which prime DROPs on
+            # every re-ingest and would wipe this runtime instance data).
+            # PROV_DERIVED_FROM/PROV_GENERATED_AT come from iagent_mesh.provenance
+            # (SDK v0.9.5+) rather than inventing pcn:* predicates for them, per
+            # ADR-0035's "cherry-picked standard vocabulary" posture.
+            if provenance:
+                from iagent_mesh.provenance import PROV_DERIVED_FROM, PROV_GENERATED_AT
+
+                ingested_at = provenance.get("ingested_at")
+                if ingested_at:
+                    sparql += f"""
+                <http://internal/sustainment/doc/{safe_notice_id}> <{PROV_GENERATED_AT}> "{escape_sparql_string(ingested_at)}"^^xsd:dateTime .
+                """
+                derived_from = provenance.get("derived_from")
+                if derived_from:
+                    sparql += f"""
+                <http://internal/sustainment/doc/{safe_notice_id}> <{PROV_DERIVED_FROM}> <{derived_from}> .
+                """
+
             sparql += "  }\n}"  # close GRAPH, then INSERT DATA
             sparql_queries.append(sparql)
 
