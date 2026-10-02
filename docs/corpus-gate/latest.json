@@ -1,17 +1,17 @@
 {
   "schema": 1,
-  "verdict": "pass",
+  "verdict": "fail",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-02T03:02:23Z",
+  "generated_at": "2026-10-02T08:13:12Z",
   "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:d881069b6e33c0f67153da31687ae01c86ec334f914e6cbfda487a028dea3f11",
   "measured_pin_note": null,
   "fires": [
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-10-02T01:50:38Z",
-      "ended_at": "2026-10-02T02:14:41Z",
-      "elapsed_s": 1443.1,
+      "started_at": "2026-10-02T07:00:19Z",
+      "ended_at": "2026-10-02T07:24:59Z",
+      "elapsed_s": 1480.7,
       "log": "fire1.log",
       "totals": {
         "gt": 898,
@@ -26,9 +26,9 @@
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-10-02T02:14:41Z",
-      "ended_at": "2026-10-02T02:38:29Z",
-      "elapsed_s": 1427.7,
+      "started_at": "2026-10-02T07:24:59Z",
+      "ended_at": "2026-10-02T07:49:10Z",
+      "elapsed_s": 1450.5,
       "log": "fire2.log",
       "totals": {
         "gt": 898,
@@ -43,9 +43,9 @@
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-10-02T02:38:29Z",
-      "ended_at": "2026-10-02T03:02:23Z",
-      "elapsed_s": 1433.9,
+      "started_at": "2026-10-02T07:49:10Z",
+      "ended_at": "2026-10-02T08:13:12Z",
+      "elapsed_s": 1442.2,
       "log": "fire3.log",
       "totals": {
         "gt": 898,
@@ -196,13 +196,16 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "doc_level_ltb_date": "None | '2024-06-06' | '2024-06-06'",
-          "doc_level_ltb_date_source": "None | '06-JUN-2024' | '06-JUN-2024'"
+          "mfr": "'TE Connecvity' | 'TE Connecvity' | 'TE'",
+          "mfr_source": "'TE Connecvity' | 'TE Connecvity' | 'TE'",
+          "doc_level_ltb_date_source": "'-2024\\n[Unca' | '06-JUN-2024' | '-2024\\n[Unca'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
-        "verdict": "agree",
-        "fields": {}
+        "verdict": "DISAGREE",
+        "fields": {
+          "doc_id": "'PCN #: 2683' | 'PCN-2683' | 'PCN-2683'"
+        }
       },
       "Diodes_PCN_2683_FULLGREEN.pdf": {
         "verdict": "agree",
@@ -269,7 +272,9 @@
       "Diodes_PCN_2683_Rev1_EOL.pdf"
     ]
   },
-  "blocking": [],
+  "blocking": [
+    "Diodes_PCN_2683_Rev1_EOL.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log"
+  ],
   "exempted": [
     "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires"
   ]
