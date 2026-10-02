@@ -288,6 +288,33 @@ corpusGate:
   # through the GitHub API instead — see publish below.
   workDir: /tmp/pcn-gate
   reportDir: /tmp/pcn-gate/report
+  # What DOC_TOOLS_IMAGE is SUPPOSED to be, as `source=reference` entries. Any
+  # mismatch makes the report VOID (verdict: void, exit 2) instead of a
+  # verdict -- a score of the wrong image is not a worse score, it is not a
+  # score. Comparison is on the sha256 digest, so registry spelling does not
+  # matter; a tag-only reference on either side is `uncomparable`, which is
+  # also void.
+  #
+  # DELIBERATELY EMPTY, and the chart MUST NOT fill in its own pin here.
+  # Inside this CronJob, DOC_TOOLS_IMAGE and the container's `image:` both
+  # render from `include "doc-tools.image" .`, which reads image.digest -- so
+  # `chart=<that>` would compare a value with itself and report **match**
+  # every time it ran. A check that cannot fail is worse than no check: it is
+  # the `source_key` failure again, where a set-wide boolean read "verified"
+  # across manifests the check was inert on.
+  #
+  # The comparison that carries information is the PODS' imageID, and the gate
+  # cannot read it: this Job's ServiceAccount has no Role (there is no
+  # role.yaml in templates/) and the image carries no kubectl. So it is
+  # supplied from outside by whoever can read a pod:
+  #
+  #   --set corpusGate.expectImage="pods=ghcr.io/edgy-solutions/doc-tools@sha256:..."
+  #
+  # read off `kubectl get pod -o custom-columns=:status.containerStatuses[*].imageID`
+  # -- imageID, NOT image, which since the digest pin reports a config digest
+  # matching no image. Left empty, the run is UNRECONCILED and the report says
+  # so in its own section; that is the absence of this check, not a pass of it.
+  expectImage: ""
   # scripts/pcn_gate_publish.py commits the report to `branch` and keeps one
   # pull request open against `base`. It is deliberately inert out of the box:
   # `repo` empty means the step prints why it did nothing and the run still

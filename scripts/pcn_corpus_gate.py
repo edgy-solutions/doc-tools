@@ -738,6 +738,146 @@ def fire_log_tail(log_path, max_bytes):
     return (data.decode("utf-8", "replace"), total, max(0, total - len(data)))
 
 
+# --------------------------------------------------------------------------
+# Image identity: VOID, which is not a verdict.
+
+#: `sha256:<hex>` anywhere in an image reference. Comparison is on the DIGEST
+#: and never on the whole string: the same image is spelled
+#: `ghcr.io/edgy-solutions/doc-tools@sha256:X` in the chart,
+#: `ghcr.io/v2/edgy-solutions/doc-tools/manifests/sha256:X` in a registry
+#: probe, and `ghcr.io/edgy-solutions/doc-tools@sha256:X` again in a pod's
+#: `imageID` — three spellings, one image. A string compare would report
+#: those as a mismatch and void a good report.
+_DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def _digest_of(ref):
+    """The `sha256:<64 hex>` in `ref`, or None.
+
+    None is a real outcome, not a parse failure to be papered over: a
+    tag-only reference (`...:latest`, `...:0.4.12`) names no digest, and a
+    tag cannot be reconciled with anything — `:latest` has pointed at a
+    config digest matching no image in this cluster's history. A reference
+    that cannot be reduced to a digest is UNCOMPARABLE, and that is
+    reported as such rather than guessed at.
+    """
+    if not ref or not isinstance(ref, str):
+        return None
+    m = _DIGEST_RE.search(ref)
+    return m.group(0) if m else None
+
+
+def parse_expectations(values):
+    """`["chart=ghcr.io/...@sha256:X", ...]` -> `[{"source": ..., "ref": ...}]`.
+
+    The SOURCE LABEL IS REQUIRED and is not cosmetic. "measured_image differs
+    from the chart digest" and "measured_image differs from the pods'
+    imageID" are different findings with different remedies — the first says
+    the report is not about the image the chart declares, the second says the
+    cluster is not running what the chart declares — and a report that says
+    only "mismatch" leaves a reader unable to tell which. A bare value with
+    no `source=` prefix is taken as source "unlabelled" rather than
+    rejected, so an operator in a hurry still gets the comparison.
+    """
+    out = []
+    for raw in values or []:
+        for part in str(raw).split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if "=" in part:
+                source, ref = part.split("=", 1)
+                source, ref = source.strip() or "unlabelled", ref.strip()
+            else:
+                source, ref = "unlabelled", part
+            if ref:
+                out.append({"source": source, "ref": ref})
+    return out
+
+
+def check_image_identity(measured, expectations):
+    """Compare `measured_image` against what it was SUPPOSED to be.
+
+    THE RULING (architect, 2026-10-02): "a report whose measured_image
+    differs from the chart digest or the pods' imageID is VOID, not a
+    verdict." Void is a third state beside pass and fail, because a
+    mismatch does not tell you the corpus scored badly — it tells you the
+    score is about some other image, so the pass/fail it carries is a
+    statement about nothing. Reporting that as `fail` would be as wrong as
+    reporting it as `pass`: someone would go looking for extraction defects
+    that are not there.
+
+    WHY THE EXPECTATIONS ARE SUPPLIED AND NEVER FETCHED. This function is
+    told what to compare against; it does not reach into the cluster. The
+    gate runs in a Job whose ServiceAccount has no Role at all (there is no
+    `role.yaml` in charts/doc-tools/templates/), so it cannot read a pod's
+    `imageID`, and the container carries no kubectl. Giving it that RBAC to
+    let it grade itself would also be the weaker design: an instrument that
+    sources its own expectation can agree with itself. So the chart digest
+    arrives as an env var the chart renders, and the pods' imageID — when
+    anyone supplies it — arrives from whoever could read it.
+
+    WHICH COMPARISONS RAN IS PART OF THE RESULT. `checked` is False when no
+    expectation was supplied, and every comparison is listed with its own
+    `result`. This is the lesson from the `source_key` checks, which went
+    inert on 11 of 22 manifests while a set-wide boolean still read
+    "verified": a check that did not run must never be indistinguishable
+    from a check that passed.
+
+    A tag-only `measured_image`, or an expectation that carries no digest,
+    is `uncomparable` and is ALSO void. The ruling's subject is digests; a
+    report whose image is pinned by a moving tag cannot be reconciled with
+    anything, and `:latest` is exactly the case that made "what is sandbox
+    running?" unanswerable for weeks.
+    """
+    measured_digest = _digest_of(measured)
+    comparisons = []
+    void_reasons = []
+
+    for exp in expectations or []:
+        exp_digest = _digest_of(exp["ref"])
+        if measured_digest is None or exp_digest is None:
+            result = "uncomparable"
+            which = []
+            if measured_digest is None:
+                which.append(f"measured_image={measured!r} carries no sha256 digest")
+            if exp_digest is None:
+                which.append(f"{exp['source']} expectation {exp['ref']!r} carries no sha256 digest")
+            void_reasons.append(
+                f"image identity UNCOMPARABLE against {exp['source']}: "
+                + "; ".join(which)
+                + ". A tag is not an identity — this report cannot be shown to "
+                  "be about the image it claims, so it is not a verdict."
+            )
+        elif measured_digest == exp_digest:
+            result = "match"
+        else:
+            result = "mismatch"
+            void_reasons.append(
+                f"measured_image digest {measured_digest} differs from the "
+                f"{exp['source']} digest {exp_digest}. This report is VOID, not "
+                f"a fail: it scores a different image than the one "
+                f"{exp['source']} declares, so neither its pass nor its "
+                f"blocking list says anything about "
+                f"{'the chart' if exp['source'] == 'chart' else exp['source']}."
+            )
+        comparisons.append({
+            "source": exp["source"],
+            "expected": exp["ref"],
+            "expected_digest": exp_digest,
+            "result": result,
+        })
+
+    return {
+        "measured": measured,
+        "measured_digest": measured_digest,
+        # False means NO COMPARISON RAN. Not "nothing was wrong".
+        "checked": bool(comparisons),
+        "comparisons": comparisons,
+        "void_reasons": void_reasons,
+    }
+
+
 def fires_needing_preservation(report, fires):
     """`[(report_entry, fire)]` for the fires whose log a reader will need.
 
@@ -827,7 +967,7 @@ def preserved_log_dumps(report, fires, max_bytes):
         yield "\n".join(head) + text.rstrip("\n") + f"\n\n===== END fire {n} log ====="
 
 
-def score_fires(base_dir, fires):
+def score_fires(base_dir, fires, expectations=None):
     blocking = []
     exempted = []
 
@@ -964,9 +1104,20 @@ def score_fires(base_dir, fires):
     blocking.extend(h_blocking)
     exempted.extend(h_exempted)
 
+    # (f) Image identity — the VOID term. Evaluated LAST and overriding both
+    # other verdicts: see check_image_identity for why a mismatch is neither
+    # a pass nor a fail.
+    image_identity = check_image_identity(
+        os.environ.get("DOC_TOOLS_IMAGE") or None, expectations)
+
     verdict = "pass" if (fires_ok and not blocking) else "fail"
+    if image_identity["void_reasons"]:
+        verdict = "void"
     strict_verdict = "pass" if (
         fires_ok and header_exit == 0 and not identity_half_unstable
+        # A void report has no strict verdict either: both views describe a
+        # score, and a score about the wrong image is not a stricter score.
+        and not image_identity["void_reasons"]
         # No exemptions in the strict view, so a declared notice whose header is
         # wrong against the page still counts here.
         and not header_correctness.get("failing_notices")
@@ -979,6 +1130,11 @@ def score_fires(base_dir, fires):
         "generated_at": _utcnow_iso(),
         "measured_image": os.environ.get("DOC_TOOLS_IMAGE") or None,
         "measured_pin_note": os.environ.get("DOC_TOOLS_PIN_NOTE") or None,
+        # WHICH comparisons ran, and what each one found. `checked: false`
+        # means none ran — a report that was never reconciled with the chart
+        # or the pods, which is the state the 2026-10-02 hand-run report was
+        # in when it became the committed authority.
+        "image_identity": image_identity,
         "fires": fire_reports,
         "rates_available": rates_available,
         "rates": rates,
@@ -1221,6 +1377,43 @@ def _render_log_preservation_block(report):
     return "\n".join(lines)
 
 
+def _render_image_identity(identity):
+    """The identity comparisons, INCLUDING the fact that none ran.
+
+    "Reconciled against nothing" and "reconciled and agreed" must not render
+    the same. The silent-inert failure mode is the one this repo keeps
+    re-learning: `source_key` checks read as "verified" across a set where
+    they were inert on half the manifests, and the committed authority report
+    named a branch image for days because nothing ever compared it to the
+    chart. So an unreconciled report says so, in its own section, above the
+    scores.
+    """
+    if not identity:
+        return ("### Identity\n\nNot recorded — this report predates the "
+                "image-identity check (it carries no `image_identity` block), so "
+                "whether it measured the declared image is **unknown**.")
+    out = ["### Identity", ""]
+    if not identity.get("checked"):
+        out.append(
+            "**NOT RECONCILED.** No expectation was supplied (`--expect-image` / "
+            "`PCN_GATE_EXPECT_IMAGE`), so this run never compared the image it "
+            "measured against the chart's pin or the pods' `imageID`. That is "
+            "not a pass of the identity check — it is the absence of one, and "
+            "the verdict below is only as trustworthy as the unverified claim "
+            "that `DOC_TOOLS_IMAGE` is the right image."
+        )
+        return "\n".join(out)
+    out.append(f"- measured digest: `{identity.get('measured_digest') or 'none — not a digest'}`")
+    out.append("")
+    out.append("| expected by | digest | result |")
+    out.append("|---|---|---|")
+    for c in identity.get("comparisons", []):
+        out.append(
+            f"| {c['source']} | `{c.get('expected_digest') or c['expected']}` | "
+            f"**{c['result']}** |")
+    return "\n".join(out)
+
+
 def render_markdown(report, gate_dir, command_str, log_paths):
     lines = []
     date = report["generated_at"][:10]
@@ -1228,7 +1421,26 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     lines.append("## Verdict")
     lines.append("")
-    if report["verdict"] == "pass":
+    if report["verdict"] == "void":
+        # VOID COMES FIRST, and deliberately does NOT print what the
+        # pass/fail terms found. A reader who sees "898/898" beside "VOID"
+        # will remember the number and forget the void: that is how the
+        # 2026-10-01 green check became evidence about a digest that never
+        # reached main. The score is still in the JSON and in the per-fire
+        # table below; what is withheld here is the SENTENCE that would
+        # read as a verdict.
+        lines.append("**VOID — this is not a verdict.**")
+        lines.append("")
+        lines.append(
+            "The image this run measured is not the image it was supposed to "
+            "measure, so neither a pass nor a fail can be read off it. The "
+            "scores below describe *some* image; they are not evidence about "
+            "the pin in the chart. Re-run the gate against the declared image."
+        )
+        lines.append("")
+        for reason in report["image_identity"]["void_reasons"]:
+            lines.append(f"- {reason}")
+    elif report["verdict"] == "pass":
         reason = ("all three fires exited 0; every header disagreement / identity "
                    "instability, if any, was declared (needs_review=True) in all "
                    "three fires") if report["exempted"] else \
@@ -1247,6 +1459,8 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     lines.append(f"- `DOC_TOOLS_IMAGE`: {report['measured_image'] or 'not set'}")
     lines.append(f"- `DOC_TOOLS_PIN_NOTE`: {report['measured_pin_note'] or 'not set'}")
+    lines.append("")
+    lines.append(_render_image_identity(report.get("image_identity")))
     lines.append("")
     lines.append(_render_corpus_block(report.get("corpus")))
     lines.append("")
@@ -1422,7 +1636,35 @@ def main(argv):
                               "measurement with a synthetic one (measured_image: null), "
                               "and the overwrite is invisible until someone reads git "
                               "status. Overrides PCN_GATE_REPORT_DIR.")
+    parser.add_argument("--expect-image", action="append", default=None,
+                         metavar="SOURCE=REF",
+                         help="What DOC_TOOLS_IMAGE is SUPPOSED to be, as "
+                              "source=reference (repeatable, or comma-separated): "
+                              "e.g. --expect-image chart=ghcr.io/o/doc-tools@sha256:... "
+                              "--expect-image pods=ghcr.io/o/doc-tools@sha256:... . "
+                              "Any mismatch makes the report VOID (verdict: void, "
+                              "exit 2) rather than a fail: a score of the wrong "
+                              "image is not a worse score, it is not a score. "
+                              "Comparison is on the sha256 digest, so registry "
+                              "spelling differences do not matter and a tag-only "
+                              "reference on either side is reported uncomparable "
+                              "(also void). Defaults to PCN_GATE_EXPECT_IMAGE. "
+                              "Supplying nothing leaves the run UNRECONCILED, "
+                              "which the report says in as many words -- it is "
+                              "not a pass of this check.")
     args = parser.parse_args(argv)
+
+    # The pods' imageID cannot be read from inside the gate's Job: its
+    # ServiceAccount has no Role (there is no role.yaml in
+    # charts/doc-tools/templates/) and the container carries no kubectl. So
+    # expectations are SUPPLIED -- by the chart for its own pin, and by
+    # whoever can read a pod for the imageID -- never fetched. See
+    # check_image_identity.
+    expectations = parse_expectations(
+        args.expect_image
+        if args.expect_image is not None
+        else [os.environ.get("PCN_GATE_EXPECT_IMAGE", "")]
+    )
 
     if args.from_logs:
         base_dir = args.from_logs
@@ -1439,7 +1681,7 @@ def main(argv):
         fires = run_fires(base_dir)
         command_str = f"{sys.executable} scripts/pcn_corpus_gate.py --run"
 
-    report, header_stdout = score_fires(base_dir, fires)
+    report, header_stdout = score_fires(base_dir, fires, expectations)
 
     # Report dir default is docs/corpus-gate, relative to repo root. ^docs/ is
     # the ENTIRE paths-ignore list on the build workflow, so a committed report
@@ -1485,6 +1727,13 @@ def main(argv):
 
     print(markdown)
 
+    # 2, NOT 1. A void report and a failing report call for opposite
+    # actions -- re-run against the right image vs. go fix an extraction
+    # defect -- and a caller that can only see "non-zero" will treat the
+    # first as the second. The publisher and the CronJob both read this
+    # status, so the distinction has to live in the number.
+    if report["verdict"] == "void":
+        return 2
     return 0 if report["verdict"] == "pass" else 1
 
 
