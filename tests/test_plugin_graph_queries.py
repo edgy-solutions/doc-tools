@@ -30,6 +30,12 @@ def _count(queries, substr):
     return sum(substr in q["query"] for q in queries)
 
 
+def _sp(sparql_batches):
+    """Flatten a list of {"graph","iri","triples"} batches into one string,
+    the way these tests used to join a list of raw SPARQL strings."""
+    return " ".join(t for b in sparql_batches for t in b["triples"])
+
+
 # --------------------------------------------------------------------------- #
 # Compliance
 # --------------------------------------------------------------------------- #
@@ -59,8 +65,8 @@ def test_compliance_to_graph_queries():
     # only the first rule carries a hazard -> exactly one APPLIES_TO_HAZARD block
     assert _count(cypher, "APPLIES_TO_HAZARD") == 1
 
-    sp = " ".join(sparql)
-    assert "iof:ComplianceRule" in sp
+    sp = _sp(sparql)
+    assert "<http://example.com/iof#ComplianceRule>" in sp
     assert "hasManualReference" in sp and "DAFMAN 91-201" in sp
     assert sp.count("hasTargetMetric") == 1        # only rule 0
     assert sp.count("appliesToHazardClass") == 1   # only rule 0
@@ -117,12 +123,13 @@ def test_maintenance_to_graph_queries():
     assert by_id["mstep_mro-1_1"]["maintenance_level"] == "Depot"
     assert by_id["mstep_mro-1_2"]["duration"] == -1  # None -> -1 default
 
-    sp = " ".join(sparql)
-    assert "mro:MaintenanceStep" in sp
-    assert "mro:governedBy mro:TM91005_Standard" in sp   # standard_ref sanitized
-    assert 'mro:usesTool "Torque Wrench"' in sp
-    assert 'mro:consumesMaterial "Grease"' in sp
-    assert "mro:referencesFigure mro:fig_5" in sp
+    sp = _sp(sparql)
+    MRO_NS = "http://example.com/maintenance#"
+    assert f"<{MRO_NS}MaintenanceStep>" in sp
+    assert f"<{MRO_NS}governedBy> <{MRO_NS}TM91005_Standard>" in sp  # standard_ref sanitized
+    assert f'<{MRO_NS}usesTool> "Torque Wrench"' in sp
+    assert f'<{MRO_NS}consumesMaterial> "Grease"' in sp
+    assert f"<{MRO_NS}referencesFigure> <{MRO_NS}fig_5>" in sp
 
 
 # --------------------------------------------------------------------------- #
@@ -202,13 +209,14 @@ def test_sustainment_to_graph_queries():
     assert edge_q["params"]["notice_id"] == "PDN-500"
     assert len(edge_q["params"]["impacted_parts"]) == 2
 
-    sp = " ".join(sparql)
-    assert "pcn:ProductDiscontinuationNotice" in sp        # PDN -> discontinuation class
-    assert "pcn:hasChangeCategory pcn:Discontinuation" in sp
-    assert "pcn:hasChangeCategory pcn:LastTimeBuy" in sp
+    sp = _sp(sparql)
+    PCN_NS = "http://internal/sustainment/pcn#"
+    assert f"<{PCN_NS}ProductDiscontinuationNotice>" in sp     # PDN -> discontinuation class
+    assert f"<{PCN_NS}hasChangeCategory> <{PCN_NS}Discontinuation>" in sp
+    assert f"<{PCN_NS}hasChangeCategory> <{PCN_NS}LastTimeBuy>" in sp
     assert "http://internal/components/MPN-A" in sp
-    assert sp.count("pcn:hasReplacement") == 1            # only MPN-A has a replacement
-    assert sp.count("pcn:hasLastTimeBuyDate") == 1        # only MPN-A has an LTB date
+    assert sp.count(f"<{PCN_NS}hasReplacement>") == 1          # only MPN-A has a replacement
+    assert sp.count(f"<{PCN_NS}hasLastTimeBuyDate>") == 1      # only MPN-A has an LTB date
 
 
 def test_sustainment_pcn_uses_process_change_class():
@@ -221,4 +229,4 @@ def test_sustainment_pcn_uses_process_change_class():
                         domain_augmentation=SustainmentAugmentation(notice=notice))
     config = SimpleNamespace(graph_node_label="Document", graph_child_label="Section")
     _, sparql = SustainmentPlugin(domain_type="sustainment").to_graph_queries([node], config)
-    assert "pcn:ProcessChangeNotification" in " ".join(sparql)
+    assert "<http://internal/sustainment/pcn#ProcessChangeNotification>" in _sp(sparql)

@@ -87,7 +87,7 @@ def test_proprietary_overlay_field_extracted_and_persisted(tmp_path, monkeypatch
     config = SimpleNamespace(graph_child_label="Part")
     cypher, sparql = plugin.to_graph_queries(nodes, config, doc_id="part_test", image_prefix="img/")
     cypher_blob = json.dumps(cypher)
-    sparql_blob = " ".join(sparql)
+    sparql_blob = " ".join(t for b in sparql for t in b["triples"])
     assert "lot_acceptance_code" in cypher_blob, "proprietary field not SET on the step node"
     assert "hasLotAcceptanceCode" in sparql_blob, "proprietary RDF literal not emitted"
 
