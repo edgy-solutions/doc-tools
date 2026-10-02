@@ -205,8 +205,59 @@ image:
   #     the parts score (that score is MPN-only), but the stored artifacts will
   #     differ from what is in S3 today and there is no rollback for them.
   # ------------------------------------------------------------------
-  # THIS PIN: db2d863 (the #40 squash merge), 2026-10-01.
-  # Index sha256:cec58b3a06592a90fa310fff17d57b6789a643a5f783ab09460092948932e609
+  # THIS PIN: 5c35568 (the #47 squash merge), 2026-10-01.
+  # Index sha256:d881069b6e33c0f67153da31687ae01c86ec334f914e6cbfda487a028dea3f11
+  #
+  # WHY IT MOVED: #47 replaced the header witness. It no longer transcribes the
+  # whole page; it asks per-field questions on REGION CROPS (the title/header
+  # block and the Estimated Dates block, each cut from the page raster by the
+  # text layer's own element bbox) and on a degraded notice it SUPPLIES the
+  # header rather than merely corroborating it.
+  #
+  # THE PIN IS THE ONLY WAY THIS REACHES THE CORPUS. The page render and the
+  # parse artifacts are written at INGEST, so candidate code measured on one
+  # notice changes no stored artifact and no score. #47's own PR says so
+  # explicitly ("the corpus is not re-scored"). The sequence that makes it a
+  # corpus number is: this pin -> re-ingest all nine notices -> one score.
+  # TYC's `current.json` points at `doc-tools@fa19b85` until that runs, so the
+  # corpus is mixed vintage in the meantime and a score taken before the
+  # re-ingest completes measures two different extractors at once.
+  #
+  # WHAT #47 SEALED, and the limit of it: TYC-PCN-24-210412's three ground-truth
+  # header fields read verbatim on three consecutive fires (`TE Connectivity`,
+  # `2024-06-07`, `2024-06-06`), 2 of 2 regions read, 0 retries. That is ONE
+  # notice on candidate code against the live host. It is not a corpus result
+  # and this pin does not make it one.
+  #
+  # IT CARRIES A GATE NARROWING (57f1806), WHICH CAN RED THE NIGHTLY. The
+  # header-correctness exemption used to key on `needs_review_in_all_fires`, and
+  # `needs_review` is set unconditionally by a degraded text layer -- a
+  # permanent property of the PDF -- so TYC held an exemption no measurement
+  # could revoke. It must now be earned by a reason that NAMES the header. The
+  # chain to watch: the in-cluster CronJob on this pin may write a red
+  # `docs/corpus-gate/latest.json` -> CI's `corpus-gate` job checks that
+  # committed report and is scoped to `charts/**` -> a pin bump is a chart diff.
+  # So a red report reds THE NEXT PIN, not ordinary code PRs. That is the gate
+  # working as designed; it is noted here because the next person to bump this
+  # line is the one who meets it.
+  #
+  # A green `build-and-push` is NOT evidence an image exists: that step is
+  # gated `push: ${{ github.event_name != 'pull_request' }}`, so PR runs build
+  # both architectures as a compile check and publish nothing. This digest comes
+  # from the `push`-event run on main (36942763463), which does publish.
+  #
+  # INDEX VERIFIED BEFORE COMMITTING, children fetched BY THEIR OWN DIGEST
+  # rather than merely read out of the index:
+  #     linux/amd64  sha256:be02ce80235b72df7d33213df97306beb78a3d189659fa4c19ba4fdee31dce86
+  #     linux/arm64  sha256:f77400502c12bfc647094747c67853fb01b1ec0c5d0033b2c6edd007393b7eb1
+  # Both return 200 as OCI image manifests. The arm64 child is the one that
+  # matters -- sandbox schedules onto arm workers. (Two unknown/unknown entries
+  # are buildx provenance/SBOM attestations. Expected.)
+  # ------------------------------------------------------------------
+  #
+  # PREVIOUS PIN, kept for the rollback target and the reasoning behind it:
+  # db2d863 (the #40 squash merge), 2026-10-01,
+  # sha256:cec58b3a06592a90fa310fff17d57b6789a643a5f783ab09460092948932e609.
   #
   # WHY IT MOVED, and this one is not an optimization. The previous pin
   # (904fb458) DOES NOT CONTAIN scripts/pcn_gate_publish.py -- checked in the
@@ -234,15 +285,11 @@ image:
   # both architectures as a compile check and publish nothing. This digest comes
   # from the `push`-event run on main (36815972470), which does publish.
   #
-  # INDEX VERIFIED BEFORE COMMITTING, children fetched BY THEIR OWN DIGEST
-  # rather than merely read out of the index:
+  # Its index was verified the same way, children fetched by their own digest:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
-  # Both return 200 as OCI image manifests. The arm64 child is the one that
-  # matters -- sandbox schedules onto arm workers. (Two unknown/unknown entries
-  # are buildx provenance/SBOM attestations. Expected.)
   # ------------------------------------------------------------------
-  digest: "sha256:cec58b3a06592a90fa310fff17d57b6789a643a5f783ab09460092948932e609"
+  digest: "sha256:d881069b6e33c0f67153da31687ae01c86ec334f914e6cbfda487a028dea3f11"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
