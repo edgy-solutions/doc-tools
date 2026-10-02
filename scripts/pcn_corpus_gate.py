@@ -631,6 +631,202 @@ def apply_declaration_rule(disagree_notices, identity_half_unstable, corpus_by_f
 # --------------------------------------------------------------------------
 # Scoring — assembles (a)-(d) into the report dict. Same path for both modes.
 
+DEFECT_KINDS = ("missing", "spurious", "malformed")
+
+
+def notice_defects(score):
+    """Per-notice `missing` / `spurious` / `malformed` MPNs, for the notices with any.
+
+    WHY THIS IS CARRIED AND THE TOTALS ARE NOT ENOUGH. `pcn_score.py` has always
+    written a `per_notice` block naming the exact MPNs each notice lost, and this
+    gate always threw it away and kept `totals`. On 2026-10-01 fire 3 scored
+    890/898 while fires 1 and 2 scored 898/898 on verified-identical source
+    bytes. The report said 8 parts went missing and could not say from where: the
+    breakdown was in the pod's `fire3.log`, the Job had already reached `Failed`,
+    and a `Failed` pod refuses `kubectl exec`. The first observed PARTS
+    nondeterminism in this corpus was therefore unattributable, and nothing but
+    a re-run could recover it.
+
+    Per-fire totals say a run is red. Only this says where, and it is the
+    cheapest possible fix because the data was already being computed.
+
+    Returns `None` when there is no per-notice data to carry (the fire's score
+    JSON was unreadable or predates `per_notice`) -- distinct from `{}`, which
+    means every notice in that fire was clean. A reader must be able to tell
+    "nothing wrong" from "nothing measured".
+
+    A notice is included when it has any defect MPN, carries an `error` (absent
+    from the run, or the run reported failure), or is simply not `clean` --
+    that last case catches a notice whose counts do not add up even though all
+    three lists came back empty.
+
+    SIZE. The lists are carried WHOLE, not truncated. Worst case is a total
+    extraction failure, where every one of the 898 harness MPNs is missing in
+    every fire -- roughly 12 KB of JSON per fire. That is the run where a
+    truncated list would be worth least, so the bound is accepted deliberately.
+    """
+    if score is None:
+        return None
+    per = score.get("per_notice")
+    if not isinstance(per, dict):
+        return None
+
+    out = {}
+    for fn in sorted(per):
+        rec = per[fn] if isinstance(per[fn], dict) else {}
+        lists = {kind: list(rec.get(kind) or []) for kind in DEFECT_KINDS}
+        error = rec.get("error")
+        if not any(lists.values()) and not error and rec.get("clean", True):
+            continue
+        entry = {
+            "count": rec.get("count"),
+            "exact": rec.get("exact"),
+            "emitted": rec.get("emitted"),
+            "clean": rec.get("clean"),
+        }
+        entry.update(lists)
+        if error:
+            entry["error"] = error
+        out[fn] = entry
+    return out
+
+
+LOG_TAIL_BYTES_DEFAULT = 256 * 1024
+
+
+def log_tail_bytes():
+    """Cap on how much of one fire log is echoed, overridable by an operator.
+
+    256 KiB per fire, so three failing fires add at most ~768 KiB to this
+    process's stdout. The kubelet rotates a container's log at 10 MiB by
+    default, and evicting the report from `kubectl logs` in order to preserve
+    the logs would be a poor trade -- hence a cap rather than the whole file.
+    """
+    raw = os.environ.get("PCN_GATE_LOG_TAIL_BYTES")
+    if not raw:
+        return LOG_TAIL_BYTES_DEFAULT
+    try:
+        value = int(raw)
+    except ValueError:
+        return LOG_TAIL_BYTES_DEFAULT
+    return value if value > 0 else LOG_TAIL_BYTES_DEFAULT
+
+
+def fire_log_tail(log_path, max_bytes):
+    """`(text, total_bytes, omitted_bytes)` for the TAIL of one fire log.
+
+    The tail, not the head: `pcn_corpus_run.py` prints its per-notice table and
+    its missing/spurious lists last, so the end of the file is the diagnostic
+    part. Decoded with `errors="replace"` and seeked to a byte offset, so a cut
+    through a multi-byte character degrades one character rather than raising.
+
+    Never raises. A log that cannot be read is itself a finding and must not
+    take the report down with it -- by the time this runs the fires are over and
+    the report is already assembled.
+    """
+    try:
+        total = os.path.getsize(log_path)
+    except OSError as exc:
+        return (f"<could not stat {log_path}: {exc}>", None, None)
+    try:
+        with open(log_path, "rb") as fh:
+            if total > max_bytes:
+                fh.seek(total - max_bytes)
+            data = fh.read()
+    except OSError as exc:
+        return (f"<could not read {log_path}: {exc}>", total, None)
+    return (data.decode("utf-8", "replace"), total, max(0, total - len(data)))
+
+
+def fires_needing_preservation(report, fires):
+    """`[(report_entry, fire)]` for the fires whose log a reader will need.
+
+    THE SELECTOR IS THE JOB'S VERDICT, NOT EACH FIRE'S EXIT CODE, and that
+    distinction is the whole correctness of this feature. On 2026-10-01 all
+    three fires exited 0; the Job failed because the GATE's verdict was `fail`,
+    and it is fire 3's log that was then lost. A per-fire `exit != 0` selector
+    would not have preserved the one log anyone wanted. So: a failing verdict
+    preserves every fire log.
+
+    Nor is "the fire with defects" sufficient. A red caused by header
+    disagreement can leave every fire clean on parts, and the per-notice corpus
+    JSON carries no header fields at all -- the header values the agreement
+    check compared exist in the fire logs and nowhere else. Narrowing to the
+    defective fire would discard exactly that evidence.
+
+    On a PASSING verdict nothing is echoed, with one exception kept as a
+    belt-and-braces: a fire whose own score JSON could not be read
+    (`totals`/`defects` is None), or which exited non-zero, is a fire the report
+    can say least about, and should not be able to pass quietly.
+    """
+    by_n = {f["n"]: f for f in fires}
+    failing = report.get("verdict") != "pass"
+    out = []
+    for entry in report.get("fires", []):
+        unmeasured = (entry.get("exit") != 0
+                      or entry.get("totals") is None
+                      or entry.get("defects") is None)
+        fire = by_n.get(entry["n"])
+        if fire is None or not (failing or unmeasured):
+            continue
+        out.append((entry, fire))
+    return out
+
+
+def annotate_log_preservation(report, fires, max_bytes):
+    """Record, in the report itself, each log's size and whether it was echoed.
+
+    Without this the report cannot tell a reader that the log they want is in
+    `kubectl logs` rather than in a file they can no longer reach.
+    """
+    by_n = {f["n"]: f for f in fires}
+    echoed = {entry["n"] for entry, _ in fires_needing_preservation(report, fires)}
+    for entry in report.get("fires", []):
+        fire = by_n.get(entry["n"])
+        size = None
+        if fire is not None:
+            try:
+                size = os.path.getsize(fire["log_path"])
+            except OSError:
+                size = None
+        entry["log_bytes"] = size
+        entry["log_echoed"] = entry["n"] in echoed
+        entry["log_echo_cap_bytes"] = max_bytes if entry["n"] in echoed else None
+
+
+def preserved_log_dumps(report, fires, max_bytes):
+    """Yield one delimited block per fire log that has to outlive the pod.
+
+    THE PROBLEM THIS SOLVES. Fire logs are written to the gate's working
+    directory, which in the cluster is a path inside the pod. When a Job fails
+    the pod is retained but refuses `exec` ("cannot exec into a container in a
+    completed pod"), so the files are unreachable while the pod that holds them
+    still exists -- `kubectl logs` keeps working the whole time. Echoing the
+    logs into this process's own stdout therefore moves them from the one
+    channel that closes to the one that does not, and needs no volume, no
+    object store and no second credential.
+
+    The delimiters are greppable on purpose: a reader pipes
+    `kubectl logs job/<job>` through
+    `sed -n '/BEGIN fire 3 log/,/END fire 3 log/p'`.
+    """
+    for entry, fire in fires_needing_preservation(report, fires):
+        n = entry["n"]
+        text, total, omitted = fire_log_tail(fire["log_path"], max_bytes)
+        head = [
+            "",
+            f"===== BEGIN fire {n} log ({fire['log_path']}) =====",
+            f"exit={entry.get('exit')} bytes={total} omitted_from_head={omitted} "
+            f"cap={max_bytes}",
+            "Reproduced because this run is not a clean pass. The file itself "
+            "dies with the pod -- and a completed pod refuses `exec` while "
+            "`kubectl logs` keeps serving -- so this text is the copy that "
+            "outlives the Job.",
+            "",
+        ]
+        yield "\n".join(head) + text.rstrip("\n") + f"\n\n===== END fire {n} log ====="
+
+
 def score_fires(base_dir, fires):
     blocking = []
     exempted = []
@@ -654,8 +850,12 @@ def score_fires(base_dir, fires):
         score, score_err = _load_json_soft(f["score_path"])
         corpus_by_fire[f["n"]] = corpus or {}
         totals = None
+        # None, not {}: "no per-notice data" and "every notice clean" are
+        # different facts and the report must not blur them.
+        defects = None
         if score is not None:
             totals = score.get("totals")
+            defects = notice_defects(score)
             # Per fire, not once: a header that is correct in one fire and a
             # distractor in the next is two different facts and both must show.
             header_totals_by_fire[f["n"]] = score.get("header_totals")
@@ -681,6 +881,9 @@ def score_fires(base_dir, fires):
             "n": f["n"], "exit": f["exit"],
             "started_at": f["started_at"], "ended_at": f["ended_at"],
             "elapsed_s": f["elapsed_s"], "log": f["log"], "totals": totals,
+            # Per-notice MPN lists. The totals say a fire is red; this says
+            # which notice, and it is the only copy that outlives the pod.
+            "defects": defects,
             # True in --run mode (the real exit code covered the seal) and in
             # --from-logs with --seal-prefix; False when the seal term could not
             # be evaluated.
@@ -906,6 +1109,118 @@ def _render_header_correctness_block(block):
     return "\n".join(out)
 
 
+def _render_defects_block(report):
+    """Per-notice defects, per fire. The block whose absence made a red run undiagnosable."""
+    lines = [
+        "Which notice lost what. A clean fire contributes nothing here.",
+        "",
+        "THE ABSENCE OF THIS BLOCK IS WHY THE 2026-10-01 RED COULD NOT BE "
+        "DIAGNOSED: fire 3 scored 890/898 while fires 1 and 2 scored 898/898 on "
+        "verified-identical source bytes, the report carried per-fire TOTALS "
+        "only, and the breakdown died with the pod. Totals say a run is red; "
+        "this says where.",
+        "",
+    ]
+
+    unreadable = [e["n"] for e in report["fires"] if e.get("defects") is None]
+    with_defects = [e for e in report["fires"] if e.get("defects")]
+
+    if unreadable:
+        lines.append(
+            "- fire(s) " + ", ".join(str(n) for n in unreadable) +
+            ": **no per-notice data**. That fire's score JSON could not be read, "
+            "or was written by an image predating `per_notice`. Not a clean "
+            "result -- an unmeasured one; see the echoed log below."
+        )
+        lines.append("")
+
+    if not with_defects:
+        if not unreadable:
+            lines.append("No notice in any fire is missing a part, carries a spurious "
+                         "one, or emitted a malformed one.")
+        return "\n".join(lines)
+
+    for entry in with_defects:
+        defects = entry["defects"]
+        totals = entry.get("totals") or {}
+        lines.append(f"### fire {entry['n']}")
+        lines.append("")
+        lines.append("| notice | exact/count | missing | spurious | malformed | error |")
+        lines.append("|---|---|---|---|---|---|")
+        for fn in sorted(defects):
+            rec = defects[fn]
+            lines.append(
+                f"| `{fn}` | {rec.get('exact')}/{rec.get('count')} | "
+                f"{len(rec['missing'])} | {len(rec['spurious'])} | "
+                f"{len(rec['malformed'])} | {rec.get('error') or ''} |"
+            )
+        lines.append("")
+        for fn in sorted(defects):
+            rec = defects[fn]
+            for kind in DEFECT_KINDS:
+                if rec[kind]:
+                    listed = ", ".join(f"`{mpn}`" for mpn in rec[kind])
+                    lines.append(f"- `{fn}` {kind} ({len(rec[kind])}): {listed}")
+        lines.append("")
+
+        # The per-notice lists and the headline totals are computed by the same
+        # scorer over the same data, so they cannot legitimately disagree. If
+        # they do, one of them is wrong and the report must say so rather than
+        # presenting both as if either could be relied on.
+        for kind in DEFECT_KINDS:
+            summed = sum(len(rec[kind]) for rec in defects.values())
+            stated = totals.get(kind)
+            if stated is not None and summed != stated:
+                lines.append(
+                    f"**THE INSTRUMENT DISAGREES WITH ITSELF on fire {entry['n']}:** "
+                    f"the per-notice lists account for {summed} {kind} part(s), the "
+                    f"fire's totals say {stated}. Trust neither number until that is "
+                    f"explained."
+                )
+                lines.append("")
+
+    return "\n".join(lines).rstrip()
+
+
+def _render_log_preservation_block(report):
+    """Where to find each fire log, given that the files die with the pod."""
+    lines = [
+        "A fire log is written into the gate's working directory, which in the "
+        "cluster is a path inside the pod. When the Job fails the pod is kept "
+        "but refuses `exec` (\"cannot exec into a container in a completed "
+        "pod\"), so those files become unreachable while `kubectl logs` keeps "
+        "working -- which is exactly how fire 3's log was lost on 2026-10-01. "
+        "So whenever the verdict is not `pass`, EVERY fire log is echoed into "
+        "this run's own stdout, ahead of this report. Not just the fire that "
+        "looks guilty: on 2026-10-01 all three fires exited 0 and the Job "
+        "failed on the gate's own verdict, and a header-caused red leaves the "
+        "header values in the logs and nowhere else.",
+        "",
+        "Retrieve one with:",
+        "",
+        "```",
+        "kubectl logs job/<the failed job> | sed -n '/BEGIN fire 3 log/,/END fire 3 log/p'",
+        "```",
+        "",
+        "| fire | log | bytes | echoed to stdout |",
+        "|---|---|---|---|",
+    ]
+    for entry in report["fires"]:
+        size = entry.get("log_bytes")
+        cap = entry.get("log_echo_cap_bytes")
+        if entry.get("log_echoed"):
+            echoed = "yes"
+            if size is not None and cap is not None and size > cap:
+                echoed = f"yes, last {cap} bytes"
+        else:
+            echoed = "no — the verdict passed and this fire was measured"
+        lines.append(
+            f"| {entry['n']} | `{entry.get('log')}` | "
+            f"{'unknown' if size is None else size} | {echoed} |"
+        )
+    return "\n".join(lines)
+
+
 def render_markdown(report, gate_dir, command_str, log_paths):
     lines = []
     date = report["generated_at"][:10]
@@ -948,6 +1263,10 @@ def render_markdown(report, gate_dir, command_str, log_paths):
                 f"| {f['n']} | {f['exit']} | {f['elapsed_s']} | {t['exact']}/{t['gt']} | "
                 f"{t['spurious']} | {t['missing']} | {t['malformed']} |"
             )
+    lines.append("")
+    lines.append("## Per-notice defects")
+    lines.append("")
+    lines.append(_render_defects_block(report))
     lines.append("")
     lines.append("## Rates")
     lines.append("")
@@ -1036,6 +1355,10 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("Logs:")
     for p in log_paths:
         lines.append(f"- `{p}`")
+    lines.append("")
+    lines.append("### Reaching a fire log after the pod is gone")
+    lines.append("")
+    lines.append(_render_log_preservation_block(report))
     lines.append("")
     return "\n".join(lines)
 
@@ -1137,6 +1460,11 @@ def main(argv):
     os.makedirs(report_dir, exist_ok=True)
 
     log_paths = [f["log_path"] for f in fires]
+
+    # Annotated BEFORE rendering, because the report has to be able to tell a
+    # reader that the log they want is in `kubectl logs` and not in a file.
+    tail_bytes = log_tail_bytes()
+    annotate_log_preservation(report, fires, tail_bytes)
     markdown = render_markdown(report, base_dir, command_str, log_paths)
 
     latest_path = os.path.join(report_dir, "latest.json")
@@ -1147,6 +1475,13 @@ def main(argv):
     dated_path = os.path.join(report_dir, dated_report_name(report["generated_at"]))
     with open(dated_path, "w", encoding="utf-8") as f:
         f.write(markdown)
+
+    # ORDER IS LOAD-BEARING: the echoed logs go out BEFORE the report, so that
+    # if the kubelet rotates this container's log the thing evicted is the
+    # reproduced log and not the report. The report is also committed to git by
+    # the publisher; the echoed log exists nowhere else.
+    for chunk in preserved_log_dumps(report, fires, tail_bytes):
+        print(chunk)
 
     print(markdown)
 
