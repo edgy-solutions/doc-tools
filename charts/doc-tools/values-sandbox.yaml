@@ -205,7 +205,71 @@ image:
   #     the parts score (that score is MPN-only), but the stored artifacts will
   #     differ from what is in S3 today and there is no rollback for them.
   # ------------------------------------------------------------------
-  # THIS PIN: 78f8d10 (the #55 squash merge), 2026-10-02.
+  # THIS PIN: 0c46fdb (the #56 squash merge), 2026-10-02.
+  # Index sha256:8b1672ac71968dc34fee840d78eef565ad658a42a4ca3a31550e76eebc501906
+  #
+  # WHY NOT 7f22479, WHICH IS main's TIP: because no image exists for it.
+  # 7f22479 is #57, the chart-only pin commit below, and `build-and-push` is
+  # gated `if: needs.changes.outputs.code == 'true'`, so a commit that touches
+  # only charts/ SKIPS the build and publishes nothing. Its run is green --
+  # a skipped job completes as conclusion=skipped and does not fail the run --
+  # so "the newest green run on main" would have pointed at a commit with no
+  # image at all. The newest main commit that HAS one is 0c46fdb.
+  #
+  # Nothing is lost by that: the chart is not inside the image. #57's change is
+  # this very file, applied by helm from the repo, so pinning #56's image while
+  # main carries #57's chart is the correct pairing and not a compromise.
+  #
+  # WHAT THIS IMAGE CONTAINS, by ancestry (0c46fdb is a descendant of each):
+  #     f70d779  #52  per-notice defect lists; fire logs that outlive the pod
+  #     4def9b4  #43  ingress-user stamp, stage status, level-2 dedupe
+  #     78f8d10  #55  a report that measured the wrong image is VOID
+  #     0c46fdb  #56  the seven content kinds registered; provenance is now an
+  #                   invariant of the write path (DOMAINS_THAT_PERSIST_
+  #                   PROVENANCE deleted), and an unresolved origin returns
+  #                   before any store is opened
+  #
+  # SUPERSEDES THE 78f8d10 PIN DIRECTLY BELOW, which never reached a cluster:
+  # #57 merged and this bump was cut from the same main before any roll, so
+  # sandbox goes from 5c35568's image to this one in one step. There is no
+  # intermediate state to reconcile, and no roll to 78f8d10 ever happened.
+  #
+  # INDEX VERIFIED INDEPENDENTLY of the build log that printed the digest,
+  # children fetched BY THEIR OWN DIGEST rather than read out of the index:
+  #     linux/amd64  sha256:edd5ff019601db0c9c8fd8d96b063dba391d91a20b853b67b9092e504cbb94d2
+  #     linux/arm64  sha256:5b41b4c73a8614841ffd67a9a51ffbc342e4be36bbb34f099b09eb536806dbea
+  # Both resolve as OCI image manifests. The arm64 child is the load-bearing
+  # one -- sandbox schedules onto arm workers. (Two unknown/unknown entries are
+  # buildx provenance/SBOM attestation manifests. Expected.)
+  #
+  # AND BOTH CHILDREN WERE ASKED WHICH COMMIT IS INSIDE THEM, rather than
+  # trusted to be whatever their tag says -- the ADR-0034 build stamp:
+  #     DOC_TOOLS_VERSION=doc-tools@0c46fdb36853d84998e61270e9b1de3d5d233fd5
+  # on amd64 AND arm64. A tag is guessable from git log; a baked env var is the
+  # image answering for itself.
+  #
+  # `corpusGate.expectImage` IS STILL EMPTY, AND #55's VOID RULING CANNOT FIRE
+  # UNTIL IT IS SET -- unchanged from the pin below, and it is the next action
+  # after the roll, not a deferral. With no expectation supplied the gate reads
+  # UNRECONCILED, which is the ABSENCE of the check, not a pass of it:
+  #
+  #     --set corpusGate.expectImage="pods=ghcr.io/edgy-solutions/doc-tools@<imageID>"
+  #
+  # read off `status.containerStatuses[*].imageID` AFTER the roll -- imageID,
+  # NOT image, which reports a config digest matching nothing. It must NOT be
+  # filled in from the digest line below: comparing this file against itself is
+  # a check that cannot fail, which is worse than no check. The informative
+  # question is whether the PODS rolled, and only the pods can answer it.
+  #
+  # WHAT THIS DOES NOT DO: re-score the corpus. The committed authority
+  # (docs/corpus-gate/latest.json, verdict pass) measured d881069b, two pins
+  # back. #56 touches the ingest write path -- the parent-document MERGE and
+  # the content-kind lookup -- but no parts or header extraction, so the score
+  # is expected to hold rather than known to; the next nightly is the first run
+  # on this image and is the thing that says so.
+  # ------------------------------------------------------------------
+  #
+  # SUPERSEDED PIN (merged as #57, never rolled): 78f8d10 (#55), 2026-10-02.
   # Index sha256:0d5ac758698e2e85981310ad3a95d085172cc8fb5b1d25f86c5e00944eba597e
   #
   # THE PIN ASKED FOR WAS f70d779, AND IT CANNOT DO WHAT IT WAS ASKED TO DO.
@@ -360,7 +424,7 @@ image:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
   # ------------------------------------------------------------------
-  digest: "sha256:0d5ac758698e2e85981310ad3a95d085172cc8fb5b1d25f86c5e00944eba597e"
+  digest: "sha256:8b1672ac71968dc34fee840d78eef565ad658a42a4ca3a31550e76eebc501906"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
