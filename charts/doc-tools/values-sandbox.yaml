@@ -205,7 +205,78 @@ image:
   #     the parts score (that score is MPN-only), but the stored artifacts will
   #     differ from what is in S3 today and there is no rollback for them.
   # ------------------------------------------------------------------
-  # THIS PIN: 5c35568 (the #47 squash merge), 2026-10-01.
+  # THIS PIN: 78f8d10 (the #55 squash merge), 2026-10-02.
+  # Index sha256:0d5ac758698e2e85981310ad3a95d085172cc8fb5b1d25f86c5e00944eba597e
+  #
+  # THE PIN ASKED FOR WAS f70d779, AND IT CANNOT DO WHAT IT WAS ASKED TO DO.
+  # The order reads "the pin bump to f70d779's digest when its build lands so
+  # #52 and the #43 rulings reach sandbox". f70d779 IS #52, and it is the
+  # PARENT of 4def9b4 (#43) -- measured, not inferred:
+  #
+  #     git merge-base --is-ancestor f70d779 4def9b4   -> true
+  #     git merge-base --is-ancestor 4def9b4 f70d779   -> false
+  #
+  # So f70d779's image predates #43 and contains none of it. Pinning the
+  # commit as named would have delivered #52, silently NOT delivered the #43
+  # rulings, and left the deployment looking like it satisfied an order whose
+  # own stated purpose it half-missed. That is the failure mode already on
+  # record here as "a branch image can lack a fix merged after the cut": the
+  # newest green build is not the newest code.
+  #
+  # 78f8d10 is the newest commit on main with a published image, and it
+  # STRICTLY CONTAINS all three (checked by ancestry, both true):
+  #     f70d779  #52  per-notice defect lists; fire logs that outlive the pod
+  #     4def9b4  #43  ingress-user stamp, stage status, level-2 dedupe
+  #     78f8d10  #55  a report that measured the wrong image is VOID
+  # Pinning it satisfies the order's purpose exactly, and over-delivers only
+  # #55 -- which is itself a gate ruling this seat now owns the duty for.
+  #
+  # A green `build-and-push` is NOT evidence an image exists: that step is
+  # gated `push: ${{ github.event_name != 'pull_request' }}`, so PR runs build
+  # both architectures as a compile check and publish nothing. This digest
+  # comes from the `push`-event run on main (37042320366), which does publish,
+  # and which printed it as `digest=...` in its own log.
+  #
+  # INDEX VERIFIED INDEPENDENTLY OF THAT LOG, children fetched BY THEIR OWN
+  # DIGEST rather than merely read out of the index:
+  #     linux/amd64  sha256:38806d6e024e18df60e66711aed78d456a0de548b3dbfb44bbaf3fe955ac9576
+  #     linux/arm64  sha256:158d616be18673085d0ba7f85229820729de6b638bedbb35de60f4d268005bc0
+  # Both return 200 as OCI image manifests. The arm64 child is the one that
+  # matters -- sandbox schedules onto arm workers. (Two unknown/unknown entries
+  # are buildx provenance/SBOM attestations. Expected.)
+  #
+  # AND THE IMAGE WAS ASKED WHICH COMMIT IS INSIDE IT, rather than trusted to
+  # be whatever its tag says. The arm64 child's own config carries the build
+  # stamp ADR-0034 bakes in:
+  #     DOC_TOOLS_VERSION=doc-tools@78f8d10a1c7137da1f3ec30e72e046202d673cd5
+  # A tag is guessable from git log; a baked env var is the image answering for
+  # itself. This is the check that would have caught the f70d779 substitution
+  # even if the ancestry had not.
+  #
+  # `corpusGate.expectImage` IS STILL EMPTY, AND #55's VOID RULING CANNOT FIRE
+  # UNTIL IT IS SET. This pin carries the ruling that a report measuring the
+  # wrong image is VOID rather than a verdict; with no expectation supplied the
+  # run is UNRECONCILED and says so, which is the ABSENCE of that check, not a
+  # pass of it. It must be set from a POST-ROLL reading of the pods:
+  #
+  #     --set corpusGate.expectImage="pods=ghcr.io/edgy-solutions/doc-tools@<imageID>"
+  #
+  # read off `status.containerStatuses[*].imageID` -- imageID, NOT image. It
+  # must NOT be filled in from the digest on the line below: comparing this
+  # file against itself is a check that cannot fail, which is worse than no
+  # check. The informative question is whether the PODS rolled, and only the
+  # pods can answer it.
+  #
+  # WHAT THIS DOES NOT DO: re-score the corpus. The committed authority
+  # (docs/corpus-gate/latest.json, verdict pass) measured d881069b, the pin
+  # below this one. None of #52 / #43 / #55 touches parts or header
+  # extraction -- two are gate-side and one is the ingress stamp -- so this
+  # bump does not invalidate that score, but the next nightly is the first run
+  # on this image and its measured_image will differ from the committed one
+  # until it publishes.
+  # ------------------------------------------------------------------
+  #
+  # PREVIOUS PIN: 5c35568 (the #47 squash merge), 2026-10-01.
   # Index sha256:d881069b6e33c0f67153da31687ae01c86ec334f914e6cbfda487a028dea3f11
   #
   # WHY IT MOVED: #47 replaced the header witness. It no longer transcribes the
@@ -289,7 +360,7 @@ image:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
   # ------------------------------------------------------------------
-  digest: "sha256:d881069b6e33c0f67153da31687ae01c86ec334f914e6cbfda487a028dea3f11"
+  digest: "sha256:0d5ac758698e2e85981310ad3a95d085172cc8fb5b1d25f86c5e00944eba597e"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
