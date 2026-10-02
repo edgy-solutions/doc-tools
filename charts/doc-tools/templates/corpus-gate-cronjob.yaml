@@ -101,6 +101,18 @@ spec:
                 # what it saw instead of a guess pieced together after the fact.
                 - name: DOC_TOOLS_IMAGE
                   value: {{ include "doc-tools.image" . | quote }}
+                # What that digest was SUPPOSED to be. Note what is NOT here:
+                # the chart does not pass its own pin. DOC_TOOLS_IMAGE above and
+                # this container's `image:` both render from the same
+                # `include "doc-tools.image" .`, so a `chart=` expectation would
+                # compare a value with itself and always match -- a check that
+                # cannot fail, reported as a pass. The informative comparison is
+                # the pods' imageID, which this Job cannot read (its
+                # ServiceAccount has no Role), so it is supplied through
+                # corpusGate.expectImage by whoever can. Empty leaves the run
+                # unreconciled, which the report states.
+                - name: PCN_GATE_EXPECT_IMAGE
+                  value: {{ .Values.corpusGate.expectImage | default "" | quote }}
                 - name: PCN_GATE_DIR
                   value: {{ .Values.corpusGate.workDir | quote }}
                 - name: PCN_GATE_REPORT_DIR
