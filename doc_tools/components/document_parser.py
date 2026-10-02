@@ -208,6 +208,52 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         f"{domain!r} is a file FORMAT (ingest_status.KINDS), "
                         f"not a semantic domain — refusing to use it as one."
                     )
+                # A MISSING domain is not a label either, and it must halt HERE
+                # rather than 200 lines downstream. Traced 2026-10-02 on this
+                # branch: Lane 1's live sidecar carries `domain_type: null`
+                # (`gateway.py`'s POST /ingest hardcodes it and accepts no
+                # domain parameter), so letting the null through puts
+                # `{"domain_type": None}` on the manifest. In
+                # `assets/semantic_assets.py` the resolution chain then reads
+                # a falsy domain_type, falls to `context.run.tags.get(
+                # "domain_type")` -> None WITHOUT raising (AssetExecutionContext
+                # DOES expose `.run`, dagster 1.12.21), so the
+                # `except AttributeError` that supplies the "Training" default
+                # never fires and `domain_type.upper()` raises a bare
+                # `AttributeError: 'NoneType' object has no attribute 'upper'`.
+                # That is strictly worse than the D3 behaviour it replaced: the
+                # drop halted either way, but as `ProvenanceNotPersistableError`
+                # it said WHY. The null is therefore refused here, where the
+                # sidecar key and the real blocker are both in hand.
+                #
+                # This is NOT fixable inside doc-tools. Reaching a persisted
+                # user drop needs three ARCHITECT decisions:
+                #   1. Lane 1's POST /ingest must accept and record a domain
+                #      (it hardcodes "domain_type": None today);
+                #   2. `utils/content_kind.py`'s KIND_MAPPING needs a row for
+                #      the user-drop content kind (it has exactly one,
+                #      work-instructions -> manufacturing, and its note
+                #      reserves new rows to the architect);
+                #   3. the resolved domain must be in
+                #      DOMAINS_THAT_PERSIST_PROVENANCE ({"SUSTAINMENT"}), which
+                #      requires that domain's plugin to persist the block first.
+                # Defaulting the domain here would be this lane inventing a
+                # semantic claim about every user drop. It refuses instead.
+                if not domain:
+                    raise ValueError(
+                        f"ADR-0041 guard: sidecar {sidecar_key!r} carries no "
+                        f"domain_type (got {domain!r}), and a null domain is "
+                        f"not a semantic label. Lane 1's POST /ingest hardcodes "
+                        f"domain_type=None and accepts no domain parameter, so "
+                        f"this halts every user drop by design until the "
+                        f"architect rules on: (1) a domain on Lane 1's route, "
+                        f"(2) a KIND_MAPPING row for this content kind, and "
+                        f"(3) that domain being added to "
+                        f"DOMAINS_THAT_PERSIST_PROVENANCE once its plugin "
+                        f"persists the provenance block. Refusing to guess a "
+                        f"domain: a wrong one writes unvetted content into a "
+                        f"vetted domain's graph."
+                    )
                 if content_kind_from_path and re.match(r"^[0-9a-f]{64}$", content_kind_from_path):
                     raise ValueError(
                         f"ADR-0041 guard: sidecar {sidecar_key!r} content_kind="

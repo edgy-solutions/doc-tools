@@ -466,7 +466,11 @@ def _user_parser_kwargs():
 # --------------------------------------------------------------------------- #
 def test_f2_sidecar_provenance_wins_and_ingest_id_is_carried():
     pytest.importorskip("iagent_mesh.ingest")
-    sidecar = _live_sidecar()
+    # A domain is supplied here ONLY so this test measures provenance
+    # precedence rather than re-measuring the null-domain halt below. The
+    # LIVE sidecar carries domain_type=null; that case is
+    # test_f3_guard_rejects_null_domain_type.
+    sidecar = _live_sidecar(domain_type="sustainment")
     fake_client = _FakeS3Client()
     fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
 
@@ -474,10 +478,33 @@ def test_f2_sidecar_provenance_wins_and_ingest_id_is_carried():
 
     assert manifest["provenance"] == sidecar["provenance"]
     assert manifest["ingest_id"] == sidecar["ingest_id"]
-    # D3 — the live sidecar's domain_type/content_kind are null; they must
-    # stay null, never fall back to the path's "pdf" / 64-hex sha.
-    assert manifest["metadata"]["domain_type"] is None
+    # D3 — resolved from the SIDECAR, never from the path, which would have
+    # read domain_type="pdf" / content_kind="<64 hex>".
+    assert manifest["metadata"]["domain_type"] == "sustainment"
     assert manifest["metadata"]["content_kind"] is None
+
+
+def test_f3_guard_rejects_null_domain_type():
+    """The LIVE sidecar's domain_type is null, and the null must halt HERE.
+
+    Letting it through put {"domain_type": None} on the manifest, and
+    `assets/semantic_assets.py` then raised a bare
+    `AttributeError: 'NoneType' object has no attribute 'upper'`: the chain
+    falls to `context.run.tags.get("domain_type")`, which returns None
+    WITHOUT raising (AssetExecutionContext exposes `.run`, dagster 1.12.21),
+    so the `except AttributeError` that supplies the "Training" default never
+    fires. The drop halted either way; only this way says why.
+    """
+    # Deliberately NOT importorskip-gated: this guard raises BEFORE
+    # IngestStatusResource.update() (the only SDK-dependent call on this
+    # path), so it must run even in a venv without the SDK installed.
+    sidecar = _live_sidecar()  # domain_type=None, as Lane 1 actually writes it
+    assert sidecar["domain_type"] is None, "fixture must match Lane 1's live sidecar"
+    fake_client = _FakeS3Client()
+    fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
+
+    with pytest.raises(ValueError, match=re.escape(_LIVE_SIDECAR_KEY_2)):
+        _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
 
 
 # --------------------------------------------------------------------------- #
@@ -504,7 +531,9 @@ def test_f3_guard_rejects_format_as_domain_type():
 
 
 def test_f3_guard_rejects_sha256_hash_as_content_kind():
-    sidecar = _live_sidecar(content_kind="c" * 64)
+    # a valid domain so this isolates the CONTENT_KIND guard; the null-domain
+    # guard runs first and would otherwise shadow it.
+    sidecar = _live_sidecar(domain_type="sustainment", content_kind="c" * 64)
     fake_client = _FakeS3Client()
     fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
 
@@ -552,7 +581,9 @@ def test_f6_notice_identity_and_ingest_id_join_on_the_same_manifest():
     pytest.importorskip("iagent_mesh.ingest")
     from doc_tools.utils.notice_identity import build_identity
 
-    sidecar = _live_sidecar()
+    # domain supplied so this test measures the JOIN, not the null-domain
+    # halt (test_f3_guard_rejects_null_domain_type owns that).
+    sidecar = _live_sidecar(domain_type="sustainment")
     fake_client = _FakeS3Client()
     fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
 
