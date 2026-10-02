@@ -2,16 +2,16 @@
   "schema": 1,
   "verdict": "pass",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-01T08:03:01Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:4c1f74cc1d016606f19f3fe064282ba4681609d104576a96a3f83dc3e62e6297",
+  "generated_at": "2026-10-02T03:02:23Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:d881069b6e33c0f67153da31687ae01c86ec334f914e6cbfda487a028dea3f11",
   "measured_pin_note": null,
   "fires": [
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-10-01T07:00:19Z",
-      "ended_at": "2026-10-01T07:22:28Z",
-      "elapsed_s": 1329.7,
+      "started_at": "2026-10-02T01:50:38Z",
+      "ended_at": "2026-10-02T02:14:41Z",
+      "elapsed_s": 1443.1,
       "log": "fire1.log",
       "totals": {
         "gt": 898,
@@ -26,9 +26,9 @@
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-10-01T07:22:28Z",
-      "ended_at": "2026-10-01T07:44:54Z",
-      "elapsed_s": 1346.0,
+      "started_at": "2026-10-02T02:14:41Z",
+      "ended_at": "2026-10-02T02:38:29Z",
+      "elapsed_s": 1427.7,
       "log": "fire2.log",
       "totals": {
         "gt": 898,
@@ -43,9 +43,9 @@
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-10-01T07:44:54Z",
-      "ended_at": "2026-10-01T08:03:01Z",
-      "elapsed_s": 1086.2,
+      "started_at": "2026-10-02T02:38:29Z",
+      "ended_at": "2026-10-02T03:02:23Z",
+      "elapsed_s": 1433.9,
       "log": "fire3.log",
       "totals": {
         "gt": 898,
@@ -164,33 +164,31 @@
     "observed": true,
     "fires": {
       "1": {
-        "exact": 0,
+        "exact": 3,
         "fields_scored": 3,
-        "clean": false,
+        "clean": true,
         "observed": true,
         "unobserved": [],
         "pending": []
       },
       "2": {
-        "exact": 1,
+        "exact": 3,
         "fields_scored": 3,
-        "clean": false,
+        "clean": true,
         "observed": true,
         "unobserved": [],
         "pending": []
       },
       "3": {
-        "exact": 1,
+        "exact": 3,
         "fields_scored": 3,
-        "clean": false,
+        "clean": true,
         "observed": true,
         "unobserved": [],
         "pending": []
       }
     },
-    "failing_notices": [
-      "TYC-PCN-24-210412.pdf"
-    ]
+    "failing_notices": []
   },
   "header_agreement": {
     "exit": 1,
@@ -198,12 +196,8 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "mfr": "'TE' | 'TE Connecvity' | 'TE'",
-          "mfr_source": "'TE' | 'TE Connecvity' | 'TE'",
-          "pub_date": "'2024-06-10' | '2024-06-07' | '2024-06-10'",
-          "pub_date_source": "'10-Jun-2024' | '07-JUN-24' | '10-Jun-2024'",
-          "doc_level_ltb_date": "None | None | '2024-06-06'",
-          "doc_level_ltb_date_source": "None | None | '06-JUN-2024'"
+          "doc_level_ltb_date": "None | '2024-06-06' | '2024-06-06'",
+          "doc_level_ltb_date_source": "None | '06-JUN-2024' | '06-JUN-2024'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
@@ -270,18 +264,13 @@
     "distinct_notices": 9,
     "collapses": [],
     "incomplete_identity": [],
-    "identity_half_unstable": [
-      "TYC-PCN-24-210412.pdf"
-    ],
+    "identity_half_unstable": [],
     "revision_half_unstable": [
-      "Diodes_PCN_2683_FULLGREEN.pdf",
       "Diodes_PCN_2683_Rev1_EOL.pdf"
     ]
   },
   "blocking": [],
   "exempted": [
-    "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires",
-    "TYC-PCN-24-210412.pdf: identity-half instability (mfr/doc_id differ across fires) exempted \u2014 needs_review=True in all three fires",
-    "TYC-PCN-24-210412.pdf: written header does not match ground truth \u2014 fire 1: doc_level_ltb_date (absent), mfr (distractor), pub_date (distractor); fire 2: doc_level_ltb_date (absent), mfr (distractor); fire 3: mfr (distractor), pub_date (distractor) (pcn_ground_truth.json notices[TYC-PCN-24-210412.pdf].headers) \u2014 exempted: needs_review=True in all three fires"
+    "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires"
   ]
 }
