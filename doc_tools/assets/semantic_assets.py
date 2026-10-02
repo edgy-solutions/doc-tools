@@ -15,31 +15,34 @@ from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
 from doc_tools.plugins.sustainment import SustainmentPlugin
 from doc_tools.utils.ingest_rates import render_rates, summarize_rates
+from doc_tools.utils.provenance_stamp import (
+    PROVENANCE_FIELDS, provenance_params, provenance_set_fragment,
+)
 import weaviate.classes as wvc
 from weaviate.util import generate_uuid5
 
 
-class ProvenanceNotPersistableError(RuntimeError):
-    """Raised when a manifest carries an ADR-0041 provenance block but the
-    resolved domain's plugin does not declare that it persists one.
+class ProvenanceStampFailedError(RuntimeError):
+    """The provenance stamp could not be written, so nothing else may be.
 
-    A `provenance` block on the manifest means the content is NOT vetted —
-    see ADR-0041 (quarantine is a STATUS, never a PLACE). If the plugin that
-    would handle this domain doesn't write that block onto the graph, the
-    content reaches Neo4j/Jena indistinguishable from vetted content,
-    distinguished only by an S3 path nothing downstream ever looks at again.
-    So this is a hard halt, never a silent unstamped write.
+    REPLACES ``ProvenanceNotPersistableError`` and the
+    ``DOMAINS_THAT_PERSIST_PROVENANCE`` frozenset it guarded. ARCHITECT RULING
+    2026-10-02: *"provenance persists for every domain; it is an invariant of
+    the write path, not an opt-in."* The old design asked the resolved domain
+    whether its plugin happened to persist the block and halted the ingest if
+    not — correct given that only SustainmentPlugin did, but it made the
+    invariant a per-domain property. It is now a property of the write itself:
+    the parent-document MERGE carries the stamp for every domain (see
+    doc_tools/utils/provenance_stamp.py).
+
+    What remains refusable is a FAILED stamp. The parent-node write is
+    otherwise best-effort (it logs and continues), and leaving it best-effort
+    for a provenance-bearing document would reintroduce exactly the harm the
+    deleted check prevented: unvetted content in Neo4j, indistinguishable from
+    vetted content, because the one write that would have said so errored into
+    a log line. So for a manifest carrying provenance, and only then, that
+    write is load-bearing and its failure raises.
     """
-
-
-# Domains whose plugin's to_graph_queries() persists an ADR-0041 provenance
-# block onto the graph, declared explicitly as DATA — not inferred via
-# hasattr/try-except around a write. This is the "enforced on both ends, not
-# by convention" posture the vocabulary/instance graph split already uses
-# (see AGENTS.md's Domain Semantic Graph section). Add a domain here ONLY
-# once its plugin's to_graph_queries() actually writes the block (Neo4j
-# properties + the PROV-term RDF triples) — see doc_tools/plugins/sustainment.py.
-DOMAINS_THAT_PERSIST_PROVENANCE = frozenset({"SUSTAINMENT"})
 
 
 class DomainTypeNotResolvableError(RuntimeError):
@@ -294,6 +297,60 @@ def _build_knowledge_graph_impl(
             f"declared domain. This is the scoped migration, not a default."
         )
 
+    if kind_entry is not None and kind_entry.domain_type is None:
+        # ------------------------------------------------------------------
+        # ORIGIN UNRESOLVED — the terminal state for a FORMAT-LEVEL kind.
+        #
+        # ARCHITECT RULING 2026-10-02: *"engineering-document, doors-export,
+        # pdf -> none (origin resolved by evidence, not kind)"*, and *"until
+        # origin resolves, such a drop is visible to the dropper only and
+        # lands in no domain graph; the stage is 'origin unresolved', not a
+        # staging domain. No INGRESS domain class."*
+        #
+        # So this is a RETURN, not a raise and not a fallback:
+        #
+        #  - not a raise, because nothing is wrong. The kind resolved; what it
+        #    says is that a PDF has no domain of its own. A halt here would
+        #    read as a defect in the drop and would put every user drop back
+        #    on the floor.
+        #  - not a fallback to `declared_domain`, even when the manifest
+        #    carries one. Under ruling 1 the kind is the authority over the
+        #    manifest, and the manifest value on this path is derived from an
+        #    S3 prefix or a Lane-1 sidecar that hardcodes null — neither is
+        #    evidence of ORIGIN. Taking it would be choosing a vetted domain
+        #    for unvetted content from the file format, which is the hazard
+        #    the ruling names.
+        #  - and nothing is written: no parent node (it needs a domain label
+        #    for the MERGE), no chunks (the Weaviate collection is shared), no
+        #    plugin (plugin selection IS by domain), no triples. The parse
+        #    artifacts the upstream asset already wrote under the dropper's
+        #    own prefix are the whole of what the dropper sees, which is what
+        #    "visible to the dropper only" means here.
+        #
+        # This returns BEFORE any resource client is fetched, so the
+        # short-circuit cannot write a byte by accident.
+        # ------------------------------------------------------------------
+        context.log.info(
+            f"ORIGIN UNRESOLVED for doc_id={doc_id!r}: content kind "
+            f"{kind_entry.kind!r} is a format-level kind and declares no "
+            f"domain (architect ruling 2026-10-02 — origin is resolved by "
+            f"evidence, not by kind). Writing nothing: no domain graph, no "
+            f"Neo4j label, no chunks, no triples. The drop stays visible to "
+            f"the dropper only. Resolving it needs the document-identity pass "
+            f"(document number, revision, CAGE code, contract/program "
+            f"identifiers) and the seam's match against a system of record — "
+            f"neither of which is a domain this asset may pick. "
+            f"declared_domain on the manifest was {declared_domain!r} and is "
+            f"deliberately NOT used as a fallback."
+        )
+        return {
+            "doc_id": doc_id,
+            "status": "origin_unresolved",
+            "content_kind": kind_entry.kind,
+            "node_label": node_label,
+            "collection": collection_name,
+        }
+
     if kind_entry is not None:
         # THE RULING: the registered kind's declared domain is the authority.
         domain_type = kind_entry.domain_type
@@ -327,26 +384,19 @@ def _build_knowledge_graph_impl(
     domain_label = domain_type.upper().replace(" ", "_").replace("-", "_")
 
     # ----------------------------------------------------------------------
-    # ADR-0041 enforcement — a manifest carrying "provenance" means this
-    # content is NOT vetted (e.g. it arrived via the ingress-user sensor).
-    # If the resolved domain's plugin doesn't persist that block, the
-    # content would reach the graph looking exactly like vetted content.
-    # Halt instead of writing unstamped. See DOMAINS_THAT_PERSIST_PROVENANCE
-    # above for the declared (not inferred) set of domains that do persist it.
+    # ADR-0041 — a manifest carrying "provenance" means this content is NOT
+    # vetted (e.g. it arrived via the ingress-user sensor). It is stamped on
+    # the way in for EVERY domain; the stamp rides the parent-document MERGE
+    # below, which is the one Cypher write that runs whatever the domain and
+    # whatever the plugin. There is no longer a set of domains to be in.
     # ----------------------------------------------------------------------
     provenance = manifest.get("provenance")
-    if provenance and domain_label not in DOMAINS_THAT_PERSIST_PROVENANCE:
-        raise ProvenanceNotPersistableError(
-            f"Manifest for doc_id={doc_id!r} carries an ADR-0041 provenance "
-            f"block (obtained_via={provenance.get('obtained_via')!r}) but "
-            f"domain {domain_label!r} is not in DOMAINS_THAT_PERSIST_PROVENANCE "
-            f"— its plugin has no to_graph_queries() path that writes the "
-            f"block onto the graph. Refusing to write this content unstamped: "
-            f"it would become indistinguishable from vetted content once in "
-            f"Neo4j/Jena. Either add {domain_label!r} to "
-            f"DOMAINS_THAT_PERSIST_PROVENANCE once its plugin actually "
-            f"persists the block, or route this document to a domain that "
-            f"already does."
+    if provenance:
+        context.log.info(
+            f"ADR-0041: doc_id={doc_id!r} carries a provenance block "
+            f"(obtained_via={provenance.get('obtained_via')!r}, "
+            f"standing={provenance.get('standing')!r}); it will be stamped "
+            f"onto the {domain_label} document node."
         )
 
     s3_client = s3.get_client()
@@ -370,13 +420,46 @@ def _build_knowledge_graph_impl(
     # --- PASS 1: CREATE NODES ---
     
     # Create Parent Node
+    #
+    # THE PROVENANCE INVARIANT LIVES HERE (architect ruling 2026-10-02). This
+    # MERGE is the only Cypher write in the pipeline that runs for every
+    # domain and every plugin, which is what lets "provenance persists for
+    # every domain" be one implementation instead of five. Property names come
+    # from doc_tools/utils/provenance_stamp.py so this site and
+    # SustainmentPlugin's own notice-node stamp cannot drift apart.
+    #
+    # Note the ERROR POLICY SPLIT below: this write stays best-effort for a
+    # vetted document (as it always was) and becomes load-bearing for a
+    # provenance-bearing one. Logging a failed stamp and continuing would put
+    # unvetted content in the graph wearing no mark, which is precisely what
+    # the deleted DOMAINS_THAT_PERSIST_PROVENANCE check existed to prevent.
     try:
         title = manifest.get("filename", doc_id)
+        set_clause = "SET n.title = $title"
+        parent_params = {"id": doc_id, "title": title}
+        if provenance:
+            set_clause += ", " + provenance_set_fragment("n")
+            parent_params.update(provenance_params(provenance))
         neo4j_client.execute_query(
-            f"MERGE (n:{node_label}:{domain_label} {{id: $id}}) SET n.title = $title",
-            {"id": doc_id, "title": title}
+            f"MERGE (n:{node_label}:{domain_label} {{id: $id}}) {set_clause}",
+            parent_params
         )
+        if provenance:
+            context.log.info(
+                f"ADR-0041 stamp written onto ({node_label}:{domain_label} "
+                f"{{id: {doc_id!r}}}): {len(PROVENANCE_FIELDS)} provenance_* "
+                f"properties."
+            )
     except Exception as e:
+        if provenance:
+            raise ProvenanceStampFailedError(
+                f"The parent-document MERGE for doc_id={doc_id!r} carried the "
+                f"ADR-0041 provenance stamp and FAILED ({e}). Halting the "
+                f"ingest rather than continuing: every write after this one "
+                f"would land unvetted content in the {domain_label} graph with "
+                f"nothing on it to say so, which is the harm the stamp exists "
+                f"to prevent. A vetted document would only have logged here."
+            ) from e
         context.log.error(f"Parent Node creation failed: {e}")
 
     # Process Pages/Chunks (Content Extraction)
@@ -665,13 +748,24 @@ def _build_knowledge_graph_impl(
 
     # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
     #
-    # ADR-0041: the provenance block (when present) is threaded through only
-    # for sustainment, which is the one plugin whose to_graph_queries() knows
-    # how to persist it (see DOMAINS_THAT_PERSIST_PROVENANCE above and the
-    # enforcement halt that runs before this domain can even reach here).
-    # Other plugins' to_graph_queries() signatures don't accept this kwarg,
-    # so it's passed conditionally rather than unconditionally — same
-    # _extra-dict pattern already used for process_fulltext above.
+    # ADR-0041, AND THE ONE RESIDUAL OF THE INVARIANT, NAMED.
+    #
+    # The Neo4j stamp is universal as of 2026-10-02 — it rides the parent
+    # MERGE above, for every domain. This thread is about the RDF side, which
+    # is not: SustainmentPlugin is still the only to_graph_queries() that
+    # emits the PROV-term triples (PROV_DERIVED_FROM / PROV_GENERATED_AT into
+    # <http://internal/{DOMAIN}_INSTANCES>), and triples are emitted per
+    # plugin because there is no generic RDF write to hang them on the way
+    # there is a generic Cypher one. The other four signatures do not accept
+    # the kwarg, so it is passed conditionally — same _extra-dict pattern
+    # already used for process_fulltext above.
+    #
+    # Net position after this change: a provenance-bearing document in ANY
+    # domain is distinguishable from vetted content in Neo4j, and only a
+    # sustainment one is distinguishable in Jena. Widening the other four
+    # plugins is the remaining work; it is a residual of the invariant, not a
+    # contradiction of it, and it is written down here rather than left for a
+    # reader to discover from a missing triple.
     _graph_extra = {}
     if domain_type == "sustainment":
         _graph_extra = {"provenance": provenance}

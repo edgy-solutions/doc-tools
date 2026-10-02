@@ -303,12 +303,15 @@ def test_a11_no_bare_hexdigest_mint_survives_in_the_parser():
 # Driven by DIRECT INVOCATION of build_knowledge_graph with mocked
 # resources, the same pattern test_ingress_user_stamp.py uses: the
 # orchestration past the top of the function is heavy I/O left to
-# integration tests. The RESOLVED domain is observable without reaching any
-# of it, because the ADR-0041 provenance check sits immediately after the
-# resolution and puts `domain_label` in its own message. So a manifest that
-# carries a provenance block turns "which domain did it resolve to?" into
-# "which exception, naming which label?" — a real discriminator rather than
-# a mock assertion.
+# integration tests.
+#
+# THE DISCRIMINATOR MOVED (2026-10-02). It used to be the ADR-0041 provenance
+# check, which sat immediately after resolution and named `domain_label` in
+# its refusal — so "which domain did it resolve to?" was answerable as "which
+# exception?". That check is deleted (provenance now persists for every
+# domain), so the discriminator is now the DOMAIN LABEL IN THE PARENT-DOCUMENT
+# MERGE, read off the Neo4j mock. Strictly better: it is the actual graph
+# write rather than a refusal that stood in for one.
 # =========================================================================== #
 def _bkg_config():
     return IngestionConfig(
@@ -352,45 +355,52 @@ def _invoke(manifest, s3=None):
     )
 
 
+def _parent_label(manifest):
+    """The domain label the parent-document MERGE actually used."""
+    import contextlib
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
+
+    neo4j = MagicMock()
+    with contextlib.suppress(Exception):
+        build_knowledge_graph(
+            build_asset_context(), _bkg_config(), manifest,
+            s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
+            llm=MagicMock(), jena=MagicMock(),
+        )
+    calls = neo4j.get_client.return_value.execute_query.call_args_list
+    assert calls, "no Cypher write was recorded"
+    query = calls[0].args[0]
+    # "MERGE (n:WorkInstruction:MANUFACTURING {id: $id}) SET ..."
+    return query.split("{id:")[0].strip().split(":")[-1].strip()
+
+
 def test_b1_the_registered_kind_overrides_the_manifests_declared_domain():
     """THE RULING, at its only live discriminator.
 
-    `content_kind="work-instructions"` is the one row in KIND_MAPPING and it
-    declares domain manufacturing. The manifest declares sustainment. If the
-    kind wins, domain_label is MANUFACTURING, which is NOT in
-    DOMAINS_THAT_PERSIST_PROVENANCE, so the provenance check halts and names
-    it. If the MANIFEST had won, domain_label would be SUSTAINMENT, which IS
-    in that set, and execution would have fallen through to the s3 sentinel.
-    The two outcomes are mutually exclusive, so this test cannot pass for
-    the wrong reason.
+    `content_kind="work-instructions"` declares domain manufacturing; the
+    manifest declares sustainment. The two outcomes are mutually exclusive and
+    both are visible in the same place — the label on the document node — so
+    this cannot pass for the wrong reason.
     """
-    from doc_tools.assets.semantic_assets import (
-        DOMAINS_THAT_PERSIST_PROVENANCE, ProvenanceNotPersistableError,
+    label = _parent_label(_manifest({
+        "domain_type": "sustainment",
+        "content_kind": "work-instructions",
+    }))
+    assert label == "MANUFACTURING", (
+        f"the kind declares manufacturing and must win; the document node got "
+        f":{label}, which means the MANIFEST won"
     )
-    assert "SUSTAINMENT" in DOMAINS_THAT_PERSIST_PROVENANCE
-    assert "MANUFACTURING" not in DOMAINS_THAT_PERSIST_PROVENANCE
-
-    s3 = MagicMock()
-    s3.get_client.side_effect = RuntimeError("SENTINEL_MANIFEST_WON")
-
-    with pytest.raises(ProvenanceNotPersistableError, match="MANUFACTURING"):
-        _invoke(
-            _manifest({
-                "domain_type": "sustainment",
-                "content_kind": "work-instructions",
-            }),
-            s3=s3,
-        )
 
 
 def test_b2_an_unmigrated_domain_still_falls_back_to_the_manifest():
     """The SCOPED MIGRATION, pinned.
 
-    KIND_MAPPING has one row, so SUSTAINMENT — and the entire PCN corpus
-    gate — has no kind to resolve. The resolver's halt must NOT propagate
-    for it, or every non-manufacturing drop bricks. Proven by reaching the
-    sentinel: resolution completed, domain_label became SUSTAINMENT, and
-    the provenance check passed it through.
+    No KIND_MAPPING row matches a curated sustainment key — the sensor
+    watches `sustainment/inbound/`, which path-derives to "inbound" (pinned in
+    tests/test_kind_registry.py). So SUSTAINMENT, and the entire PCN corpus
+    gate, has no kind to resolve. The resolver's halt must NOT propagate for
+    it, or every non-manufacturing drop bricks. Proven by reaching the
+    sentinel: resolution completed and execution carried on into the body.
     """
     s3 = MagicMock()
     s3.get_client.side_effect = RuntimeError("SENTINEL_PAST_RESOLUTION")

@@ -5,7 +5,8 @@ Covers the five deliverables end to end at the unit level:
   2. DocumentParserComponent's path_prefix_strip / obtained_via stamp fields
   3. (wiring only — partitions.py / definitions.py; no runtime behavior to
      unit-test beyond what (2) already covers)
-  4. The ProvenanceNotPersistableError enforcement point in
+  4. The provenance stamp on the write path (was: the
+     ProvenanceNotPersistableError enforcement point) in
      doc_tools/assets/semantic_assets.py's build_knowledge_graph
   5. SustainmentPlugin.to_graph_queries() persisting the block onto
      SustainmentNotice (Neo4j properties + PROV-term RDF in the
@@ -232,19 +233,21 @@ def test_flat_drop_does_not_become_domain_ingress_user():
 
 
 # --------------------------------------------------------------------------- #
-# 6. Enforcement point: a manifest carrying "provenance" halts unless the
-#    resolved domain is in DOMAINS_THAT_PERSIST_PROVENANCE.
+# 6. What replaced the enforcement point.
 #
-# build_knowledge_graph's orchestration past this point is heavy (S3/Neo4j/
-# Weaviate/LLM/Jena I/O) and is intentionally left to integration tests
-# (see tests/test_semantic_assets.py's module docstring). The enforcement
-# check runs at the very top of the function, before any of that I/O, so
-# both cases here are exercised via DIRECT INVOCATION of the asset function
-# with mocked resources: the halting case never reaches the resources at
-# all, and the pass-through case proves it got PAST the check by making the
-# very next resource call (s3.get_client()) raise a distinct sentinel
-# exception — if ProvenanceNotPersistableError had fired instead, the
-# sentinel would never be reached.
+# UNTIL 2026-10-02 this section pinned a HALT: a manifest carrying
+# "provenance" was refused unless its resolved domain was in
+# DOMAINS_THAT_PERSIST_PROVENANCE. The architect deleted both the set and the
+# check — *"provenance persists for every domain; it is an invariant of the
+# write path, not an opt-in"* — so the two tests that asserted the halt would
+# now be asserting the opposite of the ruling. They are replaced here by the
+# supply side, and the stamp itself is covered in depth by
+# tests/test_provenance_invariant.py.
+#
+# build_knowledge_graph's orchestration is heavy (S3/Neo4j/Weaviate/LLM/Jena
+# I/O) and is intentionally left to integration tests (see
+# tests/test_semantic_assets.py's module docstring), so these drive the asset
+# directly with mocked resources and read the RECORDED parent-document write.
 # --------------------------------------------------------------------------- #
 def _manifest_with_provenance(domain_type):
     return {
@@ -275,44 +278,49 @@ def _bkg_config():
     )
 
 
-def test_enforcement_halts_for_a_domain_not_in_the_persists_set():
-    """MAINTENANCE, not manufacturing — and the swap is the point.
+def _first_write(manifest):
+    """Drive the asset and return the first recorded Cypher call, or None.
 
-    This test used to drive "manufacturing". It can no longer, and the
-    reason is a real behaviour change from the 2026-10-02 ruling rather
-    than a test-fixture detail: the content-kind resolution now runs
-    BEFORE the provenance check (it has to — it is the source of the
-    `domain_label` that check reports), so a declared-manufacturing
-    manifest with no resolvable `content_kind` raises
-    `UnclassifiableContentKindError` from ADR-0021 and never reaches
-    ADR-0041's check at all. That ADR-0021 halt is correct and is pinned
-    in tests/test_ingest_id_and_domain_ruling.py::test_b3_*.
-
-    MAINTENANCE exercises the same enforcement without entangling it:
-    it is unmigrated (no KIND_MAPPING row), so resolution falls back to
-    the manifest's declared domain, and MAINTENANCE is likewise absent
-    from DOMAINS_THAT_PERSIST_PROVENANCE.
+    The run is allowed to fail after the parent write — downstream needs real
+    Weaviate/LLM/Jena — so the exception is suppressed and the assertion is on
+    what reached Neo4j, which is the thing under test.
     """
-    from doc_tools.assets.semantic_assets import (
-        build_knowledge_graph, ProvenanceNotPersistableError, DOMAINS_THAT_PERSIST_PROVENANCE,
-    )
-    assert "MAINTENANCE" not in DOMAINS_THAT_PERSIST_PROVENANCE
+    import contextlib
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
 
-    with pytest.raises(ProvenanceNotPersistableError, match="MAINTENANCE"):
+    neo4j = MagicMock()
+    with contextlib.suppress(Exception):
         build_knowledge_graph(
-            build_asset_context(),
-            _bkg_config(),
-            _manifest_with_provenance("maintenance"),
-            s3=MagicMock(), neo4j=MagicMock(), weaviate=MagicMock(),
+            build_asset_context(), _bkg_config(), manifest,
+            s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
             llm=MagicMock(), jena=MagicMock(),
         )
+    calls = neo4j.get_client.return_value.execute_query.call_args_list
+    return (calls[0].args[0], calls[0].args[1]) if calls else None
 
 
-def test_enforcement_passes_through_for_sustainment():
-    from doc_tools.assets.semantic_assets import (
-        build_knowledge_graph, DOMAINS_THAT_PERSIST_PROVENANCE,
-    )
-    assert "SUSTAINMENT" in DOMAINS_THAT_PERSIST_PROVENANCE
+def test_a_user_drop_into_maintenance_is_now_STAMPED_not_refused():
+    """The inverted test, and the inversion is the ruling.
+
+    MAINTENANCE is still a domain whose plugin's to_graph_queries() writes no
+    provenance block. It used to be refused for that. It is now stamped
+    anyway, because the stamp rides the parent-document MERGE rather than the
+    plugin — the write path, not the domain, is what carries the invariant.
+    """
+    query, params = _first_write(_manifest_with_provenance("maintenance"))
+    assert ":MAINTENANCE {id: $id}" in query
+    assert "n.provenance_obtained_via = $prov_obtained_via" in query
+    assert params["prov_obtained_via"] == "user-drop"
+    assert params["prov_standing"] == "unverified"
+
+
+def test_sustainment_still_reaches_the_rest_of_the_pipeline():
+    """The old pass-through case, kept — minus the set it used to consult.
+
+    Sustainment was the one domain the deleted check let through, so this test
+    is the control: whatever else changed, the path that worked still works.
+    """
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
 
     s3 = MagicMock()
     s3.get_client.side_effect = RuntimeError("SENTINEL_PAST_ENFORCEMENT")
@@ -324,6 +332,64 @@ def test_enforcement_passes_through_for_sustainment():
             s3=s3, neo4j=MagicMock(), weaviate=MagicMock(),
             llm=MagicMock(), jena=MagicMock(),
         )
+
+
+# --------------------------------------------------------------------------- #
+# 6b. ORIGIN UNRESOLVED — the terminal state for a format-level kind.
+#
+# *"Until origin resolves, such a drop is visible to the dropper only and
+# lands in no domain graph; the stage is 'origin unresolved', not a staging
+# domain. No INGRESS domain class."* (architect, 2026-10-02)
+#
+# This is the half of the ruling that CANNOT be tested by what gets written,
+# because the whole point is that nothing does. So it is tested by absence on
+# all three stores at once, plus the returned status.
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("kind", ["pdf", "engineering-document", "doors-export"])
+def test_a_format_level_kind_resolves_to_origin_unresolved_and_writes_nothing(kind):
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
+
+    manifest = _manifest_with_provenance(None)
+    manifest["metadata"]["content_kind"] = kind
+
+    neo4j, weaviate, jena, s3 = (MagicMock() for _ in range(4))
+    result = build_knowledge_graph(
+        build_asset_context(), _bkg_config(), manifest,
+        s3=s3, neo4j=neo4j, weaviate=weaviate, llm=MagicMock(), jena=jena,
+    )
+
+    assert result["status"] == "origin_unresolved"
+    assert result["content_kind"] == kind
+    # No store was even OPENED — the short-circuit returns before any client
+    # is fetched, so this cannot pass by a write silently failing on a mock.
+    assert not neo4j.get_client.called
+    assert not weaviate.get_client.called
+    assert not jena.get_client.called
+    assert not s3.get_client.called
+
+
+def test_a_declared_domain_is_not_a_fallback_for_a_format_level_kind():
+    """The trap this ruling exists to close.
+
+    The manifest here declares `maintenance` AND the kind declares none. Under
+    ruling 1 the kind is the authority, and the manifest value on this path is
+    derived from an S3 prefix or a Lane-1 sidecar — not evidence of ORIGIN.
+    Taking it would pick a vetted domain for unvetted content out of the file
+    format, which is the hazard the architect named. So the declared domain
+    loses, and loses silently-in-the-log rather than quietly-in-the-graph.
+    """
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
+
+    manifest = _manifest_with_provenance("maintenance")
+    manifest["metadata"]["content_kind"] = "pdf"
+    neo4j = MagicMock()
+    result = build_knowledge_graph(
+        build_asset_context(), _bkg_config(), manifest,
+        s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
+        llm=MagicMock(), jena=MagicMock(),
+    )
+    assert result["status"] == "origin_unresolved"
+    assert not neo4j.get_client.called
 
 
 # --------------------------------------------------------------------------- #
