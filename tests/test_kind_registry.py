@@ -154,14 +154,22 @@ def test_the_rows_load_and_validate_through_the_sdk():
     is why this skips locally.
 
     **IF THIS TEST STARTS FAILING WITH "domain Field required", THAT IS THE
-    ALARM, NOT A BUG HERE.** The SDK has an in-flight, untagged 0.9.7 that adds
+    ALARM, NOT A BUG HERE** — and it would mean a 0.9.7 shipped in a shape the
+    architect already ruled against. The in-flight, untagged 0.9.7 first added
     a REQUIRED non-empty ``domain: str`` to ``ContentKindRegistration``
-    ("a kind with no domain has no audience"). It refuses all seven of these
-    row files, and it cannot represent the ruling's ``none`` for ``pdf`` /
+    ("a kind with no domain has no audience"), which refused all seven of these
+    row files and could not represent the ruling's ``none`` for ``pdf`` /
     ``engineering-document`` / ``doors-export`` at all — a required non-empty
-    string has no spelling for "this kind has no domain of its own". That
-    collision is the architect's to resolve (either the ruled ``none`` or the
-    required field moves); a pin bump to 0.9.7 lands it here first.
+    string has no spelling for "this kind has no domain of its own".
+
+    RESOLVED 2026-10-02: the field goes ``str | None``, optional, in lane/ca's
+    next commit, and these rows register against that shape unchanged. An
+    optional field is ignorable; it is the required one that was unsatisfiable
+    without inventing a domain for a format-level kind. The rows do not gain a
+    ``domain`` key here: at the ``v0.9.5`` pin the model is ``extra="forbid"``,
+    so that migration travels with the pin bump —
+    ``test_a_domain_key_in_a_row_would_be_refused_at_the_pin`` carries the
+    detail.
     """
     ingest = pytest.importorskip(
         "iagent_mesh.ingest",
@@ -190,26 +198,42 @@ def test_a_domain_key_in_a_row_would_be_refused_at_the_pin():
     loading — measured, ``ValidationError``. That is the constraint the sidecar
     ``content_kind_domains.json`` exists to satisfy.
 
-    THIS ASSERTION IS PINNED TO THE PIN, AND IT IS EXPECTED TO INVERT. The
-    untagged 0.9.7 makes ``domain`` a required field, so the same call that
-    raises here would then be the only call that SUCCEEDS. Written as a
-    version-conditional rather than a bare ``raises`` so a pin bump produces a
-    readable failure naming the collision instead of a bare assertion error —
-    see ``test_the_rows_load_and_validate_through_the_sdk`` for what else
-    breaks at that bump.
+    THIS ASSERTION IS PINNED TO THE PIN, AND IT IS EXPECTED TO INVERT. At a
+    later SDK the same call that raises here becomes the only one that
+    SUCCEEDS, so it is written as a shape-conditional rather than a bare
+    ``raises``: a pin bump then produces a readable statement of which shape
+    arrived instead of a bare assertion error.
+
+    THE COLLISION IS RULED (2026-10-02): ``domain`` becomes ``str | None`` —
+    OPTIONAL. So the mere PRESENCE of the field is the expected end state and
+    is NOT an alarm; this test accepts it and still passes. What stays an alarm
+    is a **required** ``domain``, because a required non-empty string has no
+    spelling for the ruled ``none`` on ``pdf`` / ``engineering-document`` /
+    ``doors-export``, and the only way to satisfy it would be to invent a
+    domain for a format-level kind — writing unvetted content into a vetted
+    domain's graph, which is the exact failure the ruling prevents.
+
+    What the optional field does NOT do is make the rows carry it yet. At the
+    ``v0.9.5`` pin the model is ``extra="forbid"``, so a ``domain:`` key in a
+    YAML row still raises; the sidecar stays until the pin bump, and the row
+    migration (``domain: null`` for the three format-level kinds, retiring
+    ``content_kind_domains.json``) travels WITH that bump, not before it.
     """
     ingest = pytest.importorskip("iagent_mesh.ingest")
-    fields = set(ingest.ContentKindRegistration.model_fields)
+    model_fields = ingest.ContentKindRegistration.model_fields
+    fields = set(model_fields)
     if "domain" in fields:
-        pytest.fail(
-            "the installed SDK's ContentKindRegistration declares a `domain` "
-            "field (0.9.7+), so the sidecar split in registry/ is no longer "
-            "the only way to carry a domain -- AND a required non-empty "
-            "`domain` cannot express the ruled `none` for pdf / "
-            "engineering-document / doors-export. Resolve the collision with "
-            "the architect before adapting the rows; do not invent a domain "
-            "for a format-level kind to satisfy the model."
+        assert not model_fields["domain"].is_required(), (
+            "the installed SDK declares `domain` as a REQUIRED field on "
+            "ContentKindRegistration. The 2026-10-02 ruling is `str | None` "
+            "(optional): a required non-empty domain cannot express the ruled "
+            "`none` for pdf / engineering-document / doors-export. Do NOT "
+            "invent a domain for a format-level kind to satisfy the model -- "
+            "take it back to the architect and to lane/ca."
         )
+        # The ruled shape. The rows still do not carry `domain` -- see the
+        # docstring: that migration belongs to the pin bump.
+        return
     assert fields == {"kind", "passes", "outputs"}, sorted(fields)
     with pytest.raises(Exception):
         ingest.ContentKindRegistration(
