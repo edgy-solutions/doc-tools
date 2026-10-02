@@ -172,8 +172,11 @@ class DocumentParserComponent(Component, Resolvable, Model):
             # content_kind="<64 hex>" — a file FORMAT and a HASH standing in
             # for a semantic label and a content kind. That is D3, and it is
             # why every user drop used to halt in semantic_assets.py with
-            # ProvenanceNotPersistableError ("PDF" not in
-            # DOMAINS_THAT_PERSIST_PROVENANCE). So: when sidecar_manifest_name
+            # ProvenanceNotPersistableError (the domain read as "PDF", which was
+            # not in the DOMAINS_THAT_PERSIST_PROVENANCE set -- both that set
+            # and that error are gone as of the 2026-10-02 invariant ruling:
+            # provenance now persists for every domain). So: when
+            # sidecar_manifest_name
             # is set, domain_type/content_kind/ingest_id/provenance all come
             # from the sidecar — never from domain_parts — and a missing or
             # unparseable sidecar is a HARD FAILURE (no path-derivation
@@ -212,51 +215,73 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         f"{domain!r} is a file FORMAT (ingest_status.KINDS), "
                         f"not a semantic domain — refusing to use it as one."
                     )
-                # A MISSING domain is not a label either, and it must halt HERE
-                # rather than 200 lines downstream. Traced 2026-10-02 on this
-                # branch: Lane 1's live sidecar carries `domain_type: null`
-                # (`gateway.py`'s POST /ingest hardcodes it and accepts no
-                # domain parameter), so letting the null through puts
-                # `{"domain_type": None}` on the manifest. In
-                # `assets/semantic_assets.py` the resolution chain then reads
-                # a falsy domain_type, falls to `context.run.tags.get(
-                # "domain_type")` -> None WITHOUT raising (AssetExecutionContext
-                # DOES expose `.run`, dagster 1.12.21), so the
-                # `except AttributeError` that supplies the "Training" default
-                # never fires and `domain_type.upper()` raises a bare
-                # `AttributeError: 'NoneType' object has no attribute 'upper'`.
-                # That is strictly worse than the D3 behaviour it replaced: the
-                # drop halted either way, but as `ProvenanceNotPersistableError`
-                # it said WHY. The null is therefore refused here, where the
-                # sidecar key and the real blocker are both in hand.
+                # A MISSING domain WAS a hard halt here, and the premises
+                # behind that halt were ruled on 2026-10-02. What changed, and
+                # what did not:
                 #
-                # This is NOT fixable inside doc-tools. Reaching a persisted
-                # user drop needs three ARCHITECT decisions:
-                #   1. Lane 1's POST /ingest must accept and record a domain
-                #      (it hardcodes "domain_type": None today);
-                #   2. `utils/content_kind.py`'s KIND_MAPPING needs a row for
-                #      the user-drop content kind (it has exactly one,
-                #      work-instructions -> manufacturing, and its note
-                #      reserves new rows to the architect);
-                #   3. the resolved domain must be in
-                #      DOMAINS_THAT_PERSIST_PROVENANCE ({"SUSTAINMENT"}), which
-                #      requires that domain's plugin to persist the block first.
-                # Defaulting the domain here would be this lane inventing a
-                # semantic claim about every user drop. It refuses instead.
+                #  - A null `domain_type` in Lane 1's sidecar is no longer a
+                #    defect. `gateway.py`'s POST /ingest hardcodes it and
+                #    accepts no domain parameter, and under the ruling that is
+                #    CORRECT: "domain_type comes from the registered content
+                #    kind's declared domain, never a run tag" -- and never a
+                #    door parameter either. The door declares the KIND; the
+                #    registered row declares the domain, or declares that the
+                #    kind has none.
+                #  - So the refusal moves from "no domain" to "no registered
+                #    kind". A drop declaring a kind that HAS a KIND_MAPPING row
+                #    is admissible with a null domain: `semantic_assets.py`
+                #    reads the domain off the row, and for a format-level kind
+                #    (pdf / engineering-document / doors-export, which declare
+                #    none) returns "origin unresolved" and writes nothing
+                #    anywhere.
+                #  - A drop declaring NO kind, or an unregistered one, still
+                #    halts, and still halts HERE rather than 200 lines
+                #    downstream where the sidecar key is out of reach. Same
+                #    refusal, with the blocker now being the one thing the door
+                #    controls: the picker's confirmed kind. Defaulting a domain
+                #    here would still be this lane inventing a semantic claim
+                #    about a user drop.
+                #  - The third old blocker is simply gone:
+                #    DOMAINS_THAT_PERSIST_PROVENANCE was deleted by the same
+                #    ruling ("provenance persists for every domain; it is an
+                #    invariant of the write path, not an opt-in"), so a
+                #    resolved domain no longer has to earn its way into a set.
                 if not domain:
-                    raise ValueError(
-                        f"ADR-0041 guard: sidecar {sidecar_key!r} carries no "
-                        f"domain_type (got {domain!r}), and a null domain is "
-                        f"not a semantic label. Lane 1's POST /ingest hardcodes "
-                        f"domain_type=None and accepts no domain parameter, so "
-                        f"this halts every user drop by design until the "
-                        f"architect rules on: (1) a domain on Lane 1's route, "
-                        f"(2) a KIND_MAPPING row for this content kind, and "
-                        f"(3) that domain being added to "
-                        f"DOMAINS_THAT_PERSIST_PROVENANCE once its plugin "
-                        f"persists the provenance block. Refusing to guess a "
-                        f"domain: a wrong one writes unvetted content into a "
-                        f"vetted domain's graph."
+                    from doc_tools.utils.content_kind import KIND_MAPPING, _lookup
+                    registered = _lookup(content_kind_from_path)
+                    if registered is None:
+                        raise ValueError(
+                            f"ADR-0041 guard: sidecar {sidecar_key!r} carries no "
+                            f"domain_type (got {domain!r}) AND no registered "
+                            f"content_kind (got {content_kind_from_path!r}). "
+                            f"Since 2026-10-02 the null domain is expected -- the "
+                            f"registered kind's row is what declares the domain, "
+                            f"so a drop needs a kind the table knows. Registered "
+                            f"kinds: {sorted(e.kind for e in KIND_MAPPING.values())}. "
+                            f"Either have the door send one of those as "
+                            f"`content_kind` (POST /ingest's optional form field, "
+                            f"which it writes to the sidecar) or add a row to "
+                            f"KIND_MAPPING (reserved to the architect). Refusing "
+                            f"to guess a domain: a wrong one writes unvetted "
+                            f"content into a vetted domain's graph."
+                        )
+                    # Deliberately NOT copied onto the manifest as a domain.
+                    # The row is read again downstream, where the
+                    # origin-unresolved short-circuit lives; copying its domain
+                    # here would create a second authority for the same value,
+                    # and for a format-level kind there is no value to copy.
+                    _row_note = (
+                        "a format-level kind: it declares no domain, so the "
+                        "write path will return origin_unresolved and write "
+                        "nothing"
+                        if registered.domain_type is None
+                        else "the domain is declared by the row"
+                    )
+                    context.log.info(
+                        f"ADR-0041: sidecar {sidecar_key!r} has domain_type=None "
+                        f"with registered content_kind="
+                        f"{content_kind_from_path!r} -> admissible "
+                        f"(domain_type={registered.domain_type!r}; {_row_note})."
                     )
                 if content_kind_from_path and re.match(r"^[0-9a-f]{64}$", content_kind_from_path):
                     raise ValueError(

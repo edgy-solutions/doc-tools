@@ -213,8 +213,32 @@ def test_every_KIND_MAPPING_row_has_a_well_formed_target_uri():
             f"row {source_value!r} has {entry.target_ontology_class!r}"
         )
         assert entry.kind, f"row {source_value!r} has empty kind"
-        assert entry.baml_function, f"row {source_value!r} has empty baml_function"
-        assert entry.extractor_config, f"row {source_value!r} has empty extractor_config"
+        # NARROWED 2026-10-02. This used to demand a non-empty baml_function
+        # and extractor_config on EVERY row, which was true while the table
+        # held one BAML-extracted kind. The ruling added rows that are not
+        # BAML-extracted at all:
+        #
+        #   * s1000d-data-module runs a deterministic XML->RDF parse
+        #     (parsers/s1000d_rdf.py), so there is no BAML function to name;
+        #   * pdf / engineering-document / doors-export are FORMAT-LEVEL kinds
+        #     that declare no domain, and their pass is the document-identity
+        #     pass, not an extractor config.
+        #
+        # Inventing a BAML function name to satisfy the old assertion would
+        # have put a string in the table that resolves to nothing. So the
+        # requirement moves to where it is actually meaningful: a row must
+        # declare at least one PASS, and a row whose passes are BAML passes
+        # must name the function.
+        assert entry.passes, f"row {source_value!r} declares no passes"
+        if any("baml::" in p for p in entry.passes):
+            assert entry.baml_function, (
+                f"row {source_value!r} declares a BAML pass but names no "
+                f"baml_function"
+            )
+            assert entry.extractor_config, (
+                f"row {source_value!r} declares a BAML pass but names no "
+                f"extractor_config"
+            )
 
 
 # ---------------------------------------------------------------------------
