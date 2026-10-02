@@ -266,7 +266,11 @@ def test_a10_a_none_ingest_id_stays_none_in_the_block():
     from doc_tools.utils.ingest_provenance import build_ingest_provenance
 
     block = build_ingest_provenance(
-        obtained_via="trusted-feed",
+        # A non-user-drop rung: OBTAINED_VIA is
+        # ("direct", "etl", "warehouse", "manual-export", "user-drop") — the
+        # SDK validates it, so an invented rung fails here and not where the
+        # test means to look.
+        obtained_via="direct",
         authoritative_source="vendor-portal",
         ingest_run="run-1",
         standing="verified",
