@@ -29,6 +29,62 @@ unmergeable (the report for pin N+1 cannot exist until pin N+1 merges). The
 order this gate implements says a red gate blocks the *next* pin, not that
 every pin must carry proof of itself: the gate is "green and not stale",
 never "green for the exact digest in this diff".
+
+WHAT IT DOES ASSERT ABOUT THE IMAGE, since 2026-10-02. The architect ruled:
+"a report whose measured_image differs from the chart digest or the pods'
+imageID is VOID, not a verdict." That comparison is made by the PRODUCER
+(scripts/pcn_corpus_gate.py's check_image_identity), because only the
+producer knows what it was told to expect, and a void report carries
+`verdict: "void"` — which `test_verdict_is_pass` already refuses. What the
+checks below add is that the report cannot be silent about the question: it
+must carry the `image_identity` block, and it must name the image it
+measured.
+
+TWO GAPS, STATED RATHER THAN HIDDEN — both of the same shape, that CI cannot
+assert a thing only a later change can supply (PR #40's mistake):
+
+1. `image_identity.checked` can be False — "no expectation was supplied, so
+   nothing was compared" — and CI does not fail on that. The missing input is
+   the pods' `imageID`, which neither CI nor the gate's own Job can read (the
+   Job's ServiceAccount has no Role; there is no role.yaml in
+   charts/doc-tools/templates/). A human supplies it at helm-upgrade time
+   through `corpusGate.expectImage`.
+2. The block may be absent entirely, because the gate runs the image the CHART
+   is pinned to — so the block appears only after a pin bump carries the
+   emitting code into that image.
+
+THE TIGHTENING CONDITION, CORRECTED 2026-10-02 — AND THE TWO GAPS ARE ONE.
+An earlier draft of gap 1 said to tighten "once `corpusGate.expectImage` is set
+in values-sandbox.yaml". That is wrong, and acting on it would have reproduced
+PR #40's mistake a third time. `expectImage` IS now set (read off pod
+doc-tools-67b8dcc99b-pzb9h after the helm revision 30 roll), and at that same
+moment `docs/corpus-gate/latest.json` still carried `image_identity: null` —
+because a values key governs FUTURE runs while the committed report is a PAST
+artifact, measured at `d881069b` by an image built before #55's code existed.
+Asserting `checked is True` on that report goes red on the spot, and
+`corpus-gate` is required on main, so it would block every chart PR including
+any that could fix it.
+
+The condition is therefore a property of the REPORT, never of the chart:
+
+    tighten once docs/corpus-gate/latest.json carries an `image_identity`
+    block with `checked: true` — i.e. once a nightly has run on an image
+    containing the emitting code AND with an expectation supplied, and that
+    report has been merged.
+
+Both gaps close at that one moment, because both are waiting on the same
+artifact: gap 2 needs the block to exist, gap 1 needs it to be populated, and
+the first report that has one has both. The pinned image (`b54d9ef2`,
+`7f22479`) descends from #55, so it emits the block, and `expectImage` is set,
+so it will reconcile — making the next nightly the first report that can
+satisfy this. Check the report before tightening rather than assuming that
+run happened.
+
+Neither is "fine". Both are surfaced in the report's own markdown, which is
+what a human reads when merging it: an unreconciled run leads with a **NOT
+RECONCILED** section above the scores, and a report with no block renders
+"whether it measured the declared image is **unknown**". Both tightenings are
+tracked in HANDOFF.md so they do not rest on someone remembering.
 """
 import datetime
 import json
@@ -78,6 +134,20 @@ def test_verdict_is_pass():
     verdict = report.get("verdict")
     if verdict == "pass":
         return
+    if verdict == "void":
+        # A VOID REPORT IS NOT A FAILING CORPUS, and must not be reported as
+        # one: its `blocking` list is about an image nobody asked to be
+        # measured, so printing it would send a reader looking for extraction
+        # defects that are not there. The remedy is the opposite one — re-run
+        # the gate against the declared image.
+        reasons = report.get("image_identity", {}).get("void_reasons", [])
+        pytest.fail(
+            "corpus gate report is VOID, which is not a verdict: the image it "
+            "measured is not the image it was supposed to measure, so neither "
+            "its pass nor its blocking list is evidence about this branch. Do "
+            "NOT read the scores. Re-run the gate against the declared image.\n"
+            + "\n".join(f"  - {r}" for r in reasons)
+        )
     blocking = report.get("blocking", [])
     if blocking:
         detail = "blocking:\n" + "\n".join(f"  - {b}" for b in blocking)
@@ -141,4 +211,110 @@ def test_the_report_states_the_corpus_it_was_measured_against():
             f"ground truth now declares {key}={declared.get(key)!r}. Either the "
             f"corpus widened since this report (re-run the gate) or the "
             f"enumeration was edited without re-enumerating the bucket."
+        )
+
+
+def test_the_report_names_the_image_it_measured():
+    """A report with `measured_image: null` is a synthetic one.
+
+    Only a `--run` inside the CronJob has `DOC_TOOLS_IMAGE` set; a
+    `--from-logs` reduction over fixture logs writes null. That is not a
+    hypothetical: on 2026-10-02 a diagnostic `--from-logs` run with no
+    `--out-dir` overwrote `docs/corpus-gate/latest.json` — the committed
+    authority for the pinned image — with exactly such a report, and the
+    overwrite was invisible until someone read `git status`, because git calls
+    it a modification and CI calls it a pass.
+
+    An unnamed image also makes the whole identity ruling unenforceable: there
+    is nothing to compare, so the producer's check is `uncomparable` at best.
+    """
+    report = _load_report()
+    measured = report.get("measured_image")
+    assert measured, (
+        f"{REPORT_PATH} has measured_image={measured!r}. A report that does "
+        f"not name the image it measured cannot be evidence about any image — "
+        f"and null specifically means this file was written by a --from-logs "
+        f"reduction, not by a gate run in the cluster. Re-run the gate "
+        f"(`--run`), or re-point the diagnostic run at `--out-dir` and restore "
+        f"this file from git."
+    )
+    assert "sha256:" in measured, (
+        f"{REPORT_PATH} names measured_image={measured!r}, which carries no "
+        f"sha256 digest. A tag is not an identity: `:latest` in this cluster "
+        f"has reported a config digest matching no image, which is how 'what "
+        f"is sandbox running?' became unanswerable. Pin image.digest."
+    )
+
+
+def test_the_image_identity_block_is_consistent_if_it_is_there():
+    """IF the report records image comparisons, they must agree with its verdict.
+
+    WHY PRESENCE IS NOT ASSERTED, and why that is not the usual skip-as-pass
+    mistake. A first draft of this test demanded the `image_identity` block of
+    any report generated after a cutoff date. That cutoff was a time bomb, and
+    the reason is worth keeping: the gate runs the image the CHART is pinned
+    to, so the block can only appear in a report once a pin bump has carried
+    this code into the gate image. A date-based demand goes red on the next
+    nightly — before any pin bump can possibly have happened — and because
+    `corpus-gate` is required on main, it would block every chart PR including
+    the bump that fixes it. That is PR #40's mistake verbatim: a guard test
+    demanding a report block only a later change can supply.
+
+    THE STALENESS GUARD DOES NOT CLOSE THIS, which the first draft wrongly
+    claimed. Staleness bounds how old a report may be; it says nothing about
+    how old the CODE that produced it is, and those are a pin bump apart.
+
+    So the absence is surfaced where it will be read instead of asserted here:
+    a report with no block renders "Not recorded — ... whether it measured the
+    declared image is **unknown**" in its own section, above the scores.
+
+    TIGHTEN THIS to a hard presence assertion once a REPORT carrying the block
+    has landed in docs/corpus-gate/latest.json — not merely once a pin bump has
+    (see the module docstring's corrected condition). The pin bump is necessary
+    and not sufficient: on 2026-10-02 the pinned image emitted the block and
+    `corpusGate.expectImage` was set, while the committed report still carried
+    `image_identity: null` from two pins back. The artifact this test reads is
+    what has to change, and only a nightly can change it. Until then this test
+    is a consistency check, not a coverage claim.
+    """
+    report = _load_report()
+    identity = report.get("image_identity")
+    if identity is None:
+        # The report predates the check. It can still be held to one thing:
+        # a gate build with no identity check cannot have produced a void.
+        assert report.get("verdict") != "void", (
+            f"{REPORT_PATH} reports verdict='void' but carries no "
+            f"`image_identity` block. No gate build can produce that "
+            f"combination — void is only ever set from that block's "
+            f"void_reasons — so something other than the gate wrote this file."
+        )
+        return
+
+    assert isinstance(identity.get("checked"), bool), (
+        f"image_identity.checked is {identity.get('checked')!r}, not a bool. "
+        f"This field is the difference between 'reconciled and agreed' and "
+        f"'never reconciled', and it must never be absent or truthy-by-accident."
+    )
+    comparisons = identity.get("comparisons")
+    assert isinstance(comparisons, list), (
+        f"image_identity.comparisons is {type(comparisons).__name__}, not a list"
+    )
+    assert identity["checked"] == bool(comparisons), (
+        f"image_identity says checked={identity['checked']} with "
+        f"{len(comparisons or [])} comparison(s) recorded. Those two must agree: "
+        f"a check that did not run must never be indistinguishable from a check "
+        f"that passed (the `source_key` lesson — a set-wide boolean read "
+        f"'verified' across manifests it was inert on)."
+    )
+    # If the producer recorded a mismatch, the verdict MUST be void. This is
+    # the ruling itself, asserted against the committed artifact rather than
+    # trusted to the producer's control flow.
+    bad = [c for c in comparisons if c.get("result") != "match"]
+    if bad:
+        assert report.get("verdict") == "void", (
+            f"{REPORT_PATH} records {len(bad)} non-matching image comparison(s) "
+            f"{[(c.get('source'), c.get('result')) for c in bad]} but reports "
+            f"verdict={report.get('verdict')!r}. Under the 2026-10-02 ruling "
+            f"that report is VOID, not a verdict — the producer's verdict and "
+            f"its own evidence disagree."
         )

@@ -542,6 +542,103 @@ _DOCUMENT_WINS = {"mfr": mfr_from_document}
 
 
 # --------------------------------------------------------------------------- #
+# 2c-bis. THE REGION WITNESS AS A SUPPLIER
+#
+# Everything else in this module is a FILTER: it can empty a field the document
+# does not support, and that fixes precision only. Measured on TYC-PCN-24-210412
+# (2026-10-01), the filter cannot reach either shape that actually made that
+# notice wrong:
+#
+#   - `mfr` came back `TE Connecvity`, and PASSED, because the damaged text layer
+#     really does print `TE Connecvity` -- the broken layer corroborated itself.
+#   - `pub_date` came back `2024-06-10`, and PASSED, because that date really is
+#     printed on the page: it is the portal's print stamp, not the issue date.
+#
+# A region crop of the header block, asked those questions one at a time, answers
+# `TE Connectivity` and `07-JUN-24` -- correct, on every fire. So on a document
+# whose text layer is MEASURED degraded, the witness supplies the value and the
+# text layer does not. The ordinary refusal then runs over the supplied values
+# like any other, so this function grants no exemption from corroboration; it
+# only changes where the candidate came from.
+#
+# GATED ON THE MEASUREMENT, NOT THE DISAGREEMENT. This runs only when
+# `text_layer_degraded` is true. On a healthy document the text layer is the
+# better source -- it is exact, free, and complete -- and letting a vision read
+# overwrite it would trade a measured defect for an unmeasured one.
+# --------------------------------------------------------------------------- #
+
+# The fields the region witness may write. A subset of `HEADER_SOURCED_FIELDS`
+# plus `doc_id`: these are the fields the region prompt asks a direct question
+# about, and nothing else may be supplied from a crop no matter what the model
+# volunteers in its answer.
+REGION_SUPPLIABLE_FIELDS = ("mfr", "doc_id", "pub_date", "doc_level_ltb_date")
+
+
+def supply_header_from_regions(header_d: dict, region_witness,
+                               text_layer_degraded: bool = False) -> List[str]:
+    """Write the region witness's readings over a degraded document's header fields.
+
+    MUTATES `header_d` IN PLACE. Returns one reason string per field written and
+    one per reading declined, never raises. Call BEFORE
+    `refuse_unsourced_header_values`, so each supplied value is then re-checked by
+    the ordinary corroboration path against the witness it came from.
+
+    A supplied value carries the model's VERBATIM answer as its `*_source`, which
+    is what the crop prints. That matters for the refusal that follows: a source
+    the witness does not contain would be refused, so a fabricated citation cannot
+    be laundered through this path.
+    """
+    reasons: List[str] = []
+    if not text_layer_degraded or not region_witness:
+        return reasons
+
+    try:
+        from doc_tools.utils import witness_regions
+        values, notes = witness_regions.header_values_from_regions(region_witness)
+    except Exception as e:  # noqa: BLE001 -- a parse failure must not lose the document
+        return [f"region witness readings could not be parsed ({e}); the header is "
+                f"left as the text layer produced it"]
+
+    for field in REGION_SUPPLIABLE_FIELDS:
+        if field not in values:
+            continue
+        value, source = values[field]
+        source_field = f"{field}_source"
+        was = header_d.get(field)
+        if str(was or "") == str(value):
+            # THE VALUE AGREES -- BUT THE CITATION MAY STILL BE THE ONE THAT KILLS IT.
+            # Measured on TYC: the header pass read `doc_level_ltb_date` CORRECTLY as
+            # 2024-06-06 and cited it as `-2024`, a truncated snippet naming no date, so
+            # the refusal that runs next threw the correct value away
+            # ("source_is_a_different_date"). The crop prints `06-JUN-2024`. Returning
+            # early here because the value matched would leave the broken citation in
+            # place and lose the field anyway, which is why this is a repair and not a
+            # skip. The value is untouched; only its proof is replaced.
+            cited = header_d.get(source_field)
+            if source and str(cited or "") != str(source):
+                header_d[source_field] = source
+                reasons.append(
+                    f"header.{field} citation replaced from the region witness: the "
+                    f"value '{_clip(str(value))}' already agreed but was cited as "
+                    f"'{_clip(str(cited))}'; the crop prints "
+                    f"'{_clip(str(source))}'"
+                )
+            continue
+        header_d[field] = value
+        if source_field in header_d or field != "doc_id":
+            header_d[source_field] = source
+        reasons.append(
+            f"header.{field} supplied from the region witness: '{_clip(str(value))}' "
+            f"read from a crop of the page"
+            + (f", replacing the text layer's '{_clip(str(was))}'" if was else
+               " (the header pass returned none)")
+            + f"; the text layer is degraded, so the crop is the better source"
+        )
+    reasons.extend(notes)
+    return reasons
+
+
+# --------------------------------------------------------------------------- #
 # 2c. The refusal
 # --------------------------------------------------------------------------- #
 

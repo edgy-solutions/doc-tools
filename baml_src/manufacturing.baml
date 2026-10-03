@@ -29,7 +29,7 @@ class ManufacturingStep {
   // Hook 1: Direct link to DLA PUB LOG / Industry Specs
   military_and_industry_standards string[] @description("Extract formal standards: Military (MIL-, MS, AN*, NAS*, AS*), Joint Industry (J-STD-*), Electronics (IPC-*), Testing (ASTM-, SAE-, ANSI-, ISO-), Process (NADCAP*). Normalize to use a single hyphen between prefix and number (e.g., 'J STD 001', 'JSTD001' -> 'J-STD-001', 'MIL PRF 81733' -> 'MIL-PRF-81733'). Return empty array if none.")
 
-  // Hook 2: Direct link to Windchill
+  // Hook 2: Direct link to the customer PLM system of record (sor-plm-a)
   internal_part_numbers string[] @description("Extract internal proprietary part numbers, assembly numbers, or drawing numbers explicitly mentioned (e.g., 'PN 99-812', 'Assy 104-B'). Strip the 'PN' prefix; return the alphanumeric identifier.")
 
   // Hook 3: The Semantic Fallback (For Weaviate)

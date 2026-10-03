@@ -1,4 +1,7 @@
+import logging
 import os
+from typing import ClassVar, Optional
+
 from dagster import ConfigurableResource
 
 # We will need some stubs for the resources that the assets depend on.
@@ -49,6 +52,107 @@ class LLMExtractorResource(ConfigurableResource):
             "secret_key": self.langfuse_secret_key,
             "host": self.langfuse_host
         }
+
+class IngestStatusResource(ConfigurableResource):
+    """ADR-0041 stage-status seam for the ingress-user path.
+
+    Lane 1 (`invincible-agent/src/iagent/gateway.py`'s `POST /ingest`) owns a
+    `ingest_status_projection` row per ingest, keyed on the `ingest_id` its
+    own sidecar manifest already carries. This resource lets doc-tools
+    announce the stage *it* observes (received the file -> extracting ->
+    awaiting_disposition / failed) against that SAME vocabulary.
+
+    LOUD NO-OP, ON PURPOSE. There is today no write path from doc-tools to
+    that row: Lane 1 exposes only `GET /ingest/{id}/status` (read-only),
+    `PROJECTOR_POSTGRES_DSN` is not plumbed into doc-tools, and
+    `invincible-agent/src/iagent/ingest_status.py`'s own module docstring
+    says it "owns the WRITE path" to that table. Picking a transport (an
+    HTTP callback, a direct Postgres write, a queue) is a cross-repo
+    decision for whoever owns both sides of that seam — it is NOT something
+    to improvise here by reaching into Lane 1's database or duplicating its
+    SQL. So `update()` validates every call against the REAL vocabulary and
+    Lane 1's own rule, then only logs. Replacing the log call with a real
+    transport is the entire scope of closing this seam later.
+    """
+
+    #: THE UNITS, stated (architect ruling 2026-10-02: "extracted_count /
+    #: extracted_total are two fields with units stated"). They are two
+    #: fields, and they are NOT a progress fraction: they count different
+    #: things, so `extracted_count / extracted_total` is meaningless and a
+    #: consumer rendering "412 of 9" has mistaken the contract. Named as
+    #: constants rather than prose so the no-op log below carries the units
+    #: with every value it prints — that log is the entire observable surface
+    #: of this seam until a transport exists, so units living only in a
+    #: docstring are units a reader of the logs does not have.
+    #:
+    #: `ClassVar`, not a field: `ConfigurableResource` is a pydantic model, so
+    #: a bare annotated attribute here would be read as a REQUIRED config
+    #: field, and an UNannotated one is refused outright — which breaks the
+    #: import of `doc_tools.definitions`, and therefore every asset in the
+    #: repo, not just this seam.
+    EXTRACTED_COUNT_UNIT: ClassVar[str] = "unstructured elements extracted from the document"
+    EXTRACTED_TOTAL_UNIT: ClassVar[str] = "pages rasterized from the source PDF"
+
+    def update(self, ingest_id: str, stage: str, *,
+               extracted_count: Optional[int] = None,
+               extracted_total: Optional[int] = None,
+               detail: Optional[str] = None) -> None:
+        """Validate and (for now) log one stage transition for `ingest_id`.
+
+        `ingest_id` must be ``sha256:<64 lowercase hex>``. That is Lane 1's
+        rule, NOT the SDK's — `invincible-agent/src/iagent/promotion.py:65`'s
+        `INGEST_ID_RE`, which `ingest_status.update_status` (the real transport
+        this no-op stands in for) already refuses a mismatch against. Checking
+        it here is the whole point of a *validating* no-op: a shape this seam
+        accepts today but the transport will reject is a defect that would
+        otherwise surface only once the transport lands. A bare hexdigest is
+        coerced with a warning; anything else raises. See
+        `doc_tools/utils/ingest_id.py` for why that constant is mirrored
+        rather than imported, and for what the SDK does and does not declare.
+
+        `extracted_count` and `extracted_total` are two independent fields in
+        the units named by `EXTRACTED_COUNT_UNIT` / `EXTRACTED_TOTAL_UNIT`
+        above. They are not numerator and denominator.
+
+        Import the vocabulary, never mirror it: `INGEST_STAGES` is owned by
+        `iagent_mesh.ingest` (SDK v0.9.5+, pinned in pyproject.toml).
+        `invincible-agent/src/iagent/ingest_status.py` mirrors this same
+        tuple only because the fleet's OLD v0.9.3 pin lacked the module —
+        doc-tools is on v0.9.5 and imports the real thing. Local import so
+        this resource (and this whole module) stays importable without the
+        SDK installed for every caller that never calls `update()`.
+        """
+        from iagent_mesh.ingest import INGEST_STAGES
+
+        from doc_tools.utils.ingest_id import canonical_ingest_id
+
+        ingest_id = canonical_ingest_id(
+            ingest_id, where=f"IngestStatusResource.update(stage={stage!r})"
+        )
+
+        if stage not in INGEST_STAGES:
+            raise ValueError(
+                f"stage={stage!r} is not one of INGEST_STAGES={INGEST_STAGES!r}"
+            )
+        # Lane 1's own rule, at ingest_status.update_status: a terminal
+        # negative stage must say why.
+        if stage in ("rejected", "failed") and not (detail and detail.strip()):
+            raise ValueError(
+                f"stage={stage!r} requires a non-blank `detail` (Lane 1's "
+                f"rule at ingest_status.update_status) — got detail={detail!r}"
+            )
+
+        logging.getLogger(__name__).info(
+            "ADR-0041 ingest status (NO-OP transport — no write path to "
+            "Lane 1's ingest_status_projection exists yet; see class "
+            "docstring): ingest_id=%s stage=%s extracted_count=%s [%s] "
+            "extracted_total=%s [%s] detail=%s",
+            ingest_id, stage,
+            extracted_count, self.EXTRACTED_COUNT_UNIT,
+            extracted_total, self.EXTRACTED_TOTAL_UNIT,
+            detail,
+        )
+
 
 class JenaResource(ConfigurableResource):
     url: str 

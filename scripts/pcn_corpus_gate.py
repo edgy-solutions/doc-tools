@@ -490,6 +490,52 @@ def needs_review_in_all_fires(corpus_by_fire, notice):
     )
 
 
+# Markers of a declaration ABOUT A HEADER FIELD, as the plugin phrases them. Matched
+# as substrings of `review_reasons` rather than by a flag, because there is no flag:
+# the product narrates, and narrowing this to a structured field would mean adding one
+# and keeping two representations of the same fact in step.
+_HEADER_DECLARATION_MARKERS = (
+    "refused",                 # refuse_unsourced_header_values blanked a field
+    "header pass failed",      # the header extraction itself raised
+    "region witness LOST",     # a located header region could not be read
+    "could not be located",    # no header region was locatable at all
+    "region witness DISABLED",
+)
+
+
+def header_declaration_in_all_fires(corpus_by_fire, notice):
+    """Did the product declare a problem WITH THE HEADER, in every fire?
+
+    Narrower than `needs_review_in_all_fires`, and the narrowing is the point. A
+    degraded text layer sets `needs_review` unconditionally
+    (`SustainmentPlugin._apply_text_layer_stats`), and degradation is a permanent
+    property of a PDF -- TYC-PCN-24-210412 can never stop declaring it. So the broad
+    predicate granted that notice a PERMANENT exemption from header correctness, which
+    is the one notice whose header was measured wrong. An exemption no measurement can
+    ever revoke is not an exemption, it is an exclusion.
+
+    What makes degradation the wrong declaration to accept here: the region witness
+    exists precisely to survive it. On a degraded notice the header fields are read
+    from CROPS of the page raster and cited verbatim, evidence the text layer had no
+    part in. A notice that supplied its header from pixels and still wrote the wrong
+    value has published a wrong value with no warning attached to it, which is exactly
+    what condition (e) is for.
+
+    So the exemption now has to be earned by a reason that names the HEADER: a refused
+    field, a failed header pass, a lost or unlocatable region. Any of those does mean a
+    human sees the field before it counts. `needs_review` is still required as well --
+    a narrated reason on a document nobody is told to review is not a declaration.
+    """
+    if not needs_review_in_all_fires(corpus_by_fire, notice):
+        return False
+    for n in (1, 2, 3):
+        reasons = (corpus_by_fire.get(n, {}).get(notice) or {}).get("review_reasons") or []
+        blob = " ".join(str(r) for r in reasons)
+        if not any(m in blob for m in _HEADER_DECLARATION_MARKERS):
+            return False
+    return True
+
+
 def check_header_correctness(header_totals_by_fire, corpus_by_fire):
     """(e) Was the written header CORRECT, not merely stable across fires?
 
@@ -507,12 +553,16 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
     does not block, exactly as `rates_available` does. It also is not reported
     as zero failures.
 
-    THE DECLARATION EXEMPTION APPLIES HERE TOO, and that is a choice worth
-    stating. A notice the product flagged `needs_review` in all three fires has
-    not silently published a wrong value — a human sees it before it counts —
-    which is the same reasoning that exempts a disagreeing notice in (d). The
-    failure is reported either way, and `strict_verdict` (which grants no
-    exemptions) counts it regardless.
+    THE DECLARATION EXEMPTION APPLIES HERE TOO, BUT NARROWED — see
+    `header_declaration_in_all_fires`. A notice the product flagged `needs_review`
+    in all three fires has not silently published a wrong value — a human sees it
+    before it counts — which is the same reasoning that exempts a disagreeing
+    notice in (d). But `needs_review` ALONE is too weak here: a degraded text
+    layer sets it unconditionally and permanently, so the broad predicate handed
+    the one notice with a measurably wrong header an exemption that no future
+    measurement could revoke. The reason must now NAME the header (a refused
+    field, a failed header pass, a lost region). The failure is reported either
+    way, and `strict_verdict` (which grants no exemptions) counts it regardless.
     """
     observed = {n: t for n, t in header_totals_by_fire.items() if t}
     block = {"observed": bool(observed), "fires": {}}
@@ -543,8 +593,9 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
                            for n, v in sorted(by_fire.items()))
         line = (f"{notice}: written header does not match ground truth — {detail} "
                 f"(pcn_ground_truth.json notices[{notice}].headers)")
-        if needs_review_in_all_fires(corpus_by_fire, notice):
-            exempted.append(line + " — exempted: needs_review=True in all three fires")
+        if header_declaration_in_all_fires(corpus_by_fire, notice):
+            exempted.append(line + " — exempted: needs_review=True in all three fires "
+                                   "AND a review reason names the header")
         else:
             blocking.append(line)
     return block, blocking, exempted
@@ -580,7 +631,343 @@ def apply_declaration_rule(disagree_notices, identity_half_unstable, corpus_by_f
 # --------------------------------------------------------------------------
 # Scoring — assembles (a)-(d) into the report dict. Same path for both modes.
 
-def score_fires(base_dir, fires):
+DEFECT_KINDS = ("missing", "spurious", "malformed")
+
+
+def notice_defects(score):
+    """Per-notice `missing` / `spurious` / `malformed` MPNs, for the notices with any.
+
+    WHY THIS IS CARRIED AND THE TOTALS ARE NOT ENOUGH. `pcn_score.py` has always
+    written a `per_notice` block naming the exact MPNs each notice lost, and this
+    gate always threw it away and kept `totals`. On 2026-10-01 fire 3 scored
+    890/898 while fires 1 and 2 scored 898/898 on verified-identical source
+    bytes. The report said 8 parts went missing and could not say from where: the
+    breakdown was in the pod's `fire3.log`, the Job had already reached `Failed`,
+    and a `Failed` pod refuses `kubectl exec`. The first observed PARTS
+    nondeterminism in this corpus was therefore unattributable, and nothing but
+    a re-run could recover it.
+
+    Per-fire totals say a run is red. Only this says where, and it is the
+    cheapest possible fix because the data was already being computed.
+
+    Returns `None` when there is no per-notice data to carry (the fire's score
+    JSON was unreadable or predates `per_notice`) -- distinct from `{}`, which
+    means every notice in that fire was clean. A reader must be able to tell
+    "nothing wrong" from "nothing measured".
+
+    A notice is included when it has any defect MPN, carries an `error` (absent
+    from the run, or the run reported failure), or is simply not `clean` --
+    that last case catches a notice whose counts do not add up even though all
+    three lists came back empty.
+
+    SIZE. The lists are carried WHOLE, not truncated. Worst case is a total
+    extraction failure, where every one of the 898 harness MPNs is missing in
+    every fire -- roughly 12 KB of JSON per fire. That is the run where a
+    truncated list would be worth least, so the bound is accepted deliberately.
+    """
+    if score is None:
+        return None
+    per = score.get("per_notice")
+    if not isinstance(per, dict):
+        return None
+
+    out = {}
+    for fn in sorted(per):
+        rec = per[fn] if isinstance(per[fn], dict) else {}
+        lists = {kind: list(rec.get(kind) or []) for kind in DEFECT_KINDS}
+        error = rec.get("error")
+        if not any(lists.values()) and not error and rec.get("clean", True):
+            continue
+        entry = {
+            "count": rec.get("count"),
+            "exact": rec.get("exact"),
+            "emitted": rec.get("emitted"),
+            "clean": rec.get("clean"),
+        }
+        entry.update(lists)
+        if error:
+            entry["error"] = error
+        out[fn] = entry
+    return out
+
+
+LOG_TAIL_BYTES_DEFAULT = 256 * 1024
+
+
+def log_tail_bytes():
+    """Cap on how much of one fire log is echoed, overridable by an operator.
+
+    256 KiB per fire, so three failing fires add at most ~768 KiB to this
+    process's stdout. The kubelet rotates a container's log at 10 MiB by
+    default, and evicting the report from `kubectl logs` in order to preserve
+    the logs would be a poor trade -- hence a cap rather than the whole file.
+    """
+    raw = os.environ.get("PCN_GATE_LOG_TAIL_BYTES")
+    if not raw:
+        return LOG_TAIL_BYTES_DEFAULT
+    try:
+        value = int(raw)
+    except ValueError:
+        return LOG_TAIL_BYTES_DEFAULT
+    return value if value > 0 else LOG_TAIL_BYTES_DEFAULT
+
+
+def fire_log_tail(log_path, max_bytes):
+    """`(text, total_bytes, omitted_bytes)` for the TAIL of one fire log.
+
+    The tail, not the head: `pcn_corpus_run.py` prints its per-notice table and
+    its missing/spurious lists last, so the end of the file is the diagnostic
+    part. Decoded with `errors="replace"` and seeked to a byte offset, so a cut
+    through a multi-byte character degrades one character rather than raising.
+
+    Never raises. A log that cannot be read is itself a finding and must not
+    take the report down with it -- by the time this runs the fires are over and
+    the report is already assembled.
+    """
+    try:
+        total = os.path.getsize(log_path)
+    except OSError as exc:
+        return (f"<could not stat {log_path}: {exc}>", None, None)
+    try:
+        with open(log_path, "rb") as fh:
+            if total > max_bytes:
+                fh.seek(total - max_bytes)
+            data = fh.read()
+    except OSError as exc:
+        return (f"<could not read {log_path}: {exc}>", total, None)
+    return (data.decode("utf-8", "replace"), total, max(0, total - len(data)))
+
+
+# --------------------------------------------------------------------------
+# Image identity: VOID, which is not a verdict.
+
+#: `sha256:<hex>` anywhere in an image reference. Comparison is on the DIGEST
+#: and never on the whole string: the same image is spelled
+#: `ghcr.io/edgy-solutions/doc-tools@sha256:X` in the chart,
+#: `ghcr.io/v2/edgy-solutions/doc-tools/manifests/sha256:X` in a registry
+#: probe, and `ghcr.io/edgy-solutions/doc-tools@sha256:X` again in a pod's
+#: `imageID` — three spellings, one image. A string compare would report
+#: those as a mismatch and void a good report.
+_DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def _digest_of(ref):
+    """The `sha256:<64 hex>` in `ref`, or None.
+
+    None is a real outcome, not a parse failure to be papered over: a
+    tag-only reference (`...:latest`, `...:0.4.12`) names no digest, and a
+    tag cannot be reconciled with anything — `:latest` has pointed at a
+    config digest matching no image in this cluster's history. A reference
+    that cannot be reduced to a digest is UNCOMPARABLE, and that is
+    reported as such rather than guessed at.
+    """
+    if not ref or not isinstance(ref, str):
+        return None
+    m = _DIGEST_RE.search(ref)
+    return m.group(0) if m else None
+
+
+def parse_expectations(values):
+    """`["chart=ghcr.io/...@sha256:X", ...]` -> `[{"source": ..., "ref": ...}]`.
+
+    The SOURCE LABEL IS REQUIRED and is not cosmetic. "measured_image differs
+    from the chart digest" and "measured_image differs from the pods'
+    imageID" are different findings with different remedies — the first says
+    the report is not about the image the chart declares, the second says the
+    cluster is not running what the chart declares — and a report that says
+    only "mismatch" leaves a reader unable to tell which. A bare value with
+    no `source=` prefix is taken as source "unlabelled" rather than
+    rejected, so an operator in a hurry still gets the comparison.
+    """
+    out = []
+    for raw in values or []:
+        for part in str(raw).split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if "=" in part:
+                source, ref = part.split("=", 1)
+                source, ref = source.strip() or "unlabelled", ref.strip()
+            else:
+                source, ref = "unlabelled", part
+            if ref:
+                out.append({"source": source, "ref": ref})
+    return out
+
+
+def check_image_identity(measured, expectations):
+    """Compare `measured_image` against what it was SUPPOSED to be.
+
+    THE RULING (architect, 2026-10-02): "a report whose measured_image
+    differs from the chart digest or the pods' imageID is VOID, not a
+    verdict." Void is a third state beside pass and fail, because a
+    mismatch does not tell you the corpus scored badly — it tells you the
+    score is about some other image, so the pass/fail it carries is a
+    statement about nothing. Reporting that as `fail` would be as wrong as
+    reporting it as `pass`: someone would go looking for extraction defects
+    that are not there.
+
+    WHY THE EXPECTATIONS ARE SUPPLIED AND NEVER FETCHED. This function is
+    told what to compare against; it does not reach into the cluster. The
+    gate runs in a Job whose ServiceAccount has no Role at all (there is no
+    `role.yaml` in charts/doc-tools/templates/), so it cannot read a pod's
+    `imageID`, and the container carries no kubectl. Giving it that RBAC to
+    let it grade itself would also be the weaker design: an instrument that
+    sources its own expectation can agree with itself. So the chart digest
+    arrives as an env var the chart renders, and the pods' imageID — when
+    anyone supplies it — arrives from whoever could read it.
+
+    WHICH COMPARISONS RAN IS PART OF THE RESULT. `checked` is False when no
+    expectation was supplied, and every comparison is listed with its own
+    `result`. This is the lesson from the `source_key` checks, which went
+    inert on 11 of 22 manifests while a set-wide boolean still read
+    "verified": a check that did not run must never be indistinguishable
+    from a check that passed.
+
+    A tag-only `measured_image`, or an expectation that carries no digest,
+    is `uncomparable` and is ALSO void. The ruling's subject is digests; a
+    report whose image is pinned by a moving tag cannot be reconciled with
+    anything, and `:latest` is exactly the case that made "what is sandbox
+    running?" unanswerable for weeks.
+    """
+    measured_digest = _digest_of(measured)
+    comparisons = []
+    void_reasons = []
+
+    for exp in expectations or []:
+        exp_digest = _digest_of(exp["ref"])
+        if measured_digest is None or exp_digest is None:
+            result = "uncomparable"
+            which = []
+            if measured_digest is None:
+                which.append(f"measured_image={measured!r} carries no sha256 digest")
+            if exp_digest is None:
+                which.append(f"{exp['source']} expectation {exp['ref']!r} carries no sha256 digest")
+            void_reasons.append(
+                f"image identity UNCOMPARABLE against {exp['source']}: "
+                + "; ".join(which)
+                + ". A tag is not an identity — this report cannot be shown to "
+                  "be about the image it claims, so it is not a verdict."
+            )
+        elif measured_digest == exp_digest:
+            result = "match"
+        else:
+            result = "mismatch"
+            void_reasons.append(
+                f"measured_image digest {measured_digest} differs from the "
+                f"{exp['source']} digest {exp_digest}. This report is VOID, not "
+                f"a fail: it scores a different image than the one "
+                f"{exp['source']} declares, so neither its pass nor its "
+                f"blocking list says anything about "
+                f"{'the chart' if exp['source'] == 'chart' else exp['source']}."
+            )
+        comparisons.append({
+            "source": exp["source"],
+            "expected": exp["ref"],
+            "expected_digest": exp_digest,
+            "result": result,
+        })
+
+    return {
+        "measured": measured,
+        "measured_digest": measured_digest,
+        # False means NO COMPARISON RAN. Not "nothing was wrong".
+        "checked": bool(comparisons),
+        "comparisons": comparisons,
+        "void_reasons": void_reasons,
+    }
+
+
+def fires_needing_preservation(report, fires):
+    """`[(report_entry, fire)]` for the fires whose log a reader will need.
+
+    THE SELECTOR IS THE JOB'S VERDICT, NOT EACH FIRE'S EXIT CODE, and that
+    distinction is the whole correctness of this feature. On 2026-10-01 all
+    three fires exited 0; the Job failed because the GATE's verdict was `fail`,
+    and it is fire 3's log that was then lost. A per-fire `exit != 0` selector
+    would not have preserved the one log anyone wanted. So: a failing verdict
+    preserves every fire log.
+
+    Nor is "the fire with defects" sufficient. A red caused by header
+    disagreement can leave every fire clean on parts, and the per-notice corpus
+    JSON carries no header fields at all -- the header values the agreement
+    check compared exist in the fire logs and nowhere else. Narrowing to the
+    defective fire would discard exactly that evidence.
+
+    On a PASSING verdict nothing is echoed, with one exception kept as a
+    belt-and-braces: a fire whose own score JSON could not be read
+    (`totals`/`defects` is None), or which exited non-zero, is a fire the report
+    can say least about, and should not be able to pass quietly.
+    """
+    by_n = {f["n"]: f for f in fires}
+    failing = report.get("verdict") != "pass"
+    out = []
+    for entry in report.get("fires", []):
+        unmeasured = (entry.get("exit") != 0
+                      or entry.get("totals") is None
+                      or entry.get("defects") is None)
+        fire = by_n.get(entry["n"])
+        if fire is None or not (failing or unmeasured):
+            continue
+        out.append((entry, fire))
+    return out
+
+
+def annotate_log_preservation(report, fires, max_bytes):
+    """Record, in the report itself, each log's size and whether it was echoed.
+
+    Without this the report cannot tell a reader that the log they want is in
+    `kubectl logs` rather than in a file they can no longer reach.
+    """
+    by_n = {f["n"]: f for f in fires}
+    echoed = {entry["n"] for entry, _ in fires_needing_preservation(report, fires)}
+    for entry in report.get("fires", []):
+        fire = by_n.get(entry["n"])
+        size = None
+        if fire is not None:
+            try:
+                size = os.path.getsize(fire["log_path"])
+            except OSError:
+                size = None
+        entry["log_bytes"] = size
+        entry["log_echoed"] = entry["n"] in echoed
+        entry["log_echo_cap_bytes"] = max_bytes if entry["n"] in echoed else None
+
+
+def preserved_log_dumps(report, fires, max_bytes):
+    """Yield one delimited block per fire log that has to outlive the pod.
+
+    THE PROBLEM THIS SOLVES. Fire logs are written to the gate's working
+    directory, which in the cluster is a path inside the pod. When a Job fails
+    the pod is retained but refuses `exec` ("cannot exec into a container in a
+    completed pod"), so the files are unreachable while the pod that holds them
+    still exists -- `kubectl logs` keeps working the whole time. Echoing the
+    logs into this process's own stdout therefore moves them from the one
+    channel that closes to the one that does not, and needs no volume, no
+    object store and no second credential.
+
+    The delimiters are greppable on purpose: a reader pipes
+    `kubectl logs job/<job>` through
+    `sed -n '/BEGIN fire 3 log/,/END fire 3 log/p'`.
+    """
+    for entry, fire in fires_needing_preservation(report, fires):
+        n = entry["n"]
+        text, total, omitted = fire_log_tail(fire["log_path"], max_bytes)
+        head = [
+            "",
+            f"===== BEGIN fire {n} log ({fire['log_path']}) =====",
+            f"exit={entry.get('exit')} bytes={total} omitted_from_head={omitted} "
+            f"cap={max_bytes}",
+            "Reproduced because this run is not a clean pass. The file itself "
+            "dies with the pod -- and a completed pod refuses `exec` while "
+            "`kubectl logs` keeps serving -- so this text is the copy that "
+            "outlives the Job.",
+            "",
+        ]
+        yield "\n".join(head) + text.rstrip("\n") + f"\n\n===== END fire {n} log ====="
+
+
+def score_fires(base_dir, fires, expectations=None):
     blocking = []
     exempted = []
 
@@ -603,8 +990,12 @@ def score_fires(base_dir, fires):
         score, score_err = _load_json_soft(f["score_path"])
         corpus_by_fire[f["n"]] = corpus or {}
         totals = None
+        # None, not {}: "no per-notice data" and "every notice clean" are
+        # different facts and the report must not blur them.
+        defects = None
         if score is not None:
             totals = score.get("totals")
+            defects = notice_defects(score)
             # Per fire, not once: a header that is correct in one fire and a
             # distractor in the next is two different facts and both must show.
             header_totals_by_fire[f["n"]] = score.get("header_totals")
@@ -630,6 +1021,9 @@ def score_fires(base_dir, fires):
             "n": f["n"], "exit": f["exit"],
             "started_at": f["started_at"], "ended_at": f["ended_at"],
             "elapsed_s": f["elapsed_s"], "log": f["log"], "totals": totals,
+            # Per-notice MPN lists. The totals say a fire is red; this says
+            # which notice, and it is the only copy that outlives the pod.
+            "defects": defects,
             # True in --run mode (the real exit code covered the seal) and in
             # --from-logs with --seal-prefix; False when the seal term could not
             # be evaluated.
@@ -710,9 +1104,20 @@ def score_fires(base_dir, fires):
     blocking.extend(h_blocking)
     exempted.extend(h_exempted)
 
+    # (f) Image identity — the VOID term. Evaluated LAST and overriding both
+    # other verdicts: see check_image_identity for why a mismatch is neither
+    # a pass nor a fail.
+    image_identity = check_image_identity(
+        os.environ.get("DOC_TOOLS_IMAGE") or None, expectations)
+
     verdict = "pass" if (fires_ok and not blocking) else "fail"
+    if image_identity["void_reasons"]:
+        verdict = "void"
     strict_verdict = "pass" if (
         fires_ok and header_exit == 0 and not identity_half_unstable
+        # A void report has no strict verdict either: both views describe a
+        # score, and a score about the wrong image is not a stricter score.
+        and not image_identity["void_reasons"]
         # No exemptions in the strict view, so a declared notice whose header is
         # wrong against the page still counts here.
         and not header_correctness.get("failing_notices")
@@ -725,6 +1130,11 @@ def score_fires(base_dir, fires):
         "generated_at": _utcnow_iso(),
         "measured_image": os.environ.get("DOC_TOOLS_IMAGE") or None,
         "measured_pin_note": os.environ.get("DOC_TOOLS_PIN_NOTE") or None,
+        # WHICH comparisons ran, and what each one found. `checked: false`
+        # means none ran — a report that was never reconciled with the chart
+        # or the pods, which is the state the 2026-10-02 hand-run report was
+        # in when it became the committed authority.
+        "image_identity": image_identity,
         "fires": fire_reports,
         "rates_available": rates_available,
         "rates": rates,
@@ -855,6 +1265,155 @@ def _render_header_correctness_block(block):
     return "\n".join(out)
 
 
+def _render_defects_block(report):
+    """Per-notice defects, per fire. The block whose absence made a red run undiagnosable."""
+    lines = [
+        "Which notice lost what. A clean fire contributes nothing here.",
+        "",
+        "THE ABSENCE OF THIS BLOCK IS WHY THE 2026-10-01 RED COULD NOT BE "
+        "DIAGNOSED: fire 3 scored 890/898 while fires 1 and 2 scored 898/898 on "
+        "verified-identical source bytes, the report carried per-fire TOTALS "
+        "only, and the breakdown died with the pod. Totals say a run is red; "
+        "this says where.",
+        "",
+    ]
+
+    unreadable = [e["n"] for e in report["fires"] if e.get("defects") is None]
+    with_defects = [e for e in report["fires"] if e.get("defects")]
+
+    if unreadable:
+        lines.append(
+            "- fire(s) " + ", ".join(str(n) for n in unreadable) +
+            ": **no per-notice data**. That fire's score JSON could not be read, "
+            "or was written by an image predating `per_notice`. Not a clean "
+            "result -- an unmeasured one; see the echoed log below."
+        )
+        lines.append("")
+
+    if not with_defects:
+        if not unreadable:
+            lines.append("No notice in any fire is missing a part, carries a spurious "
+                         "one, or emitted a malformed one.")
+        return "\n".join(lines)
+
+    for entry in with_defects:
+        defects = entry["defects"]
+        totals = entry.get("totals") or {}
+        lines.append(f"### fire {entry['n']}")
+        lines.append("")
+        lines.append("| notice | exact/count | missing | spurious | malformed | error |")
+        lines.append("|---|---|---|---|---|---|")
+        for fn in sorted(defects):
+            rec = defects[fn]
+            lines.append(
+                f"| `{fn}` | {rec.get('exact')}/{rec.get('count')} | "
+                f"{len(rec['missing'])} | {len(rec['spurious'])} | "
+                f"{len(rec['malformed'])} | {rec.get('error') or ''} |"
+            )
+        lines.append("")
+        for fn in sorted(defects):
+            rec = defects[fn]
+            for kind in DEFECT_KINDS:
+                if rec[kind]:
+                    listed = ", ".join(f"`{mpn}`" for mpn in rec[kind])
+                    lines.append(f"- `{fn}` {kind} ({len(rec[kind])}): {listed}")
+        lines.append("")
+
+        # The per-notice lists and the headline totals are computed by the same
+        # scorer over the same data, so they cannot legitimately disagree. If
+        # they do, one of them is wrong and the report must say so rather than
+        # presenting both as if either could be relied on.
+        for kind in DEFECT_KINDS:
+            summed = sum(len(rec[kind]) for rec in defects.values())
+            stated = totals.get(kind)
+            if stated is not None and summed != stated:
+                lines.append(
+                    f"**THE INSTRUMENT DISAGREES WITH ITSELF on fire {entry['n']}:** "
+                    f"the per-notice lists account for {summed} {kind} part(s), the "
+                    f"fire's totals say {stated}. Trust neither number until that is "
+                    f"explained."
+                )
+                lines.append("")
+
+    return "\n".join(lines).rstrip()
+
+
+def _render_log_preservation_block(report):
+    """Where to find each fire log, given that the files die with the pod."""
+    lines = [
+        "A fire log is written into the gate's working directory, which in the "
+        "cluster is a path inside the pod. When the Job fails the pod is kept "
+        "but refuses `exec` (\"cannot exec into a container in a completed "
+        "pod\"), so those files become unreachable while `kubectl logs` keeps "
+        "working -- which is exactly how fire 3's log was lost on 2026-10-01. "
+        "So whenever the verdict is not `pass`, EVERY fire log is echoed into "
+        "this run's own stdout, ahead of this report. Not just the fire that "
+        "looks guilty: on 2026-10-01 all three fires exited 0 and the Job "
+        "failed on the gate's own verdict, and a header-caused red leaves the "
+        "header values in the logs and nowhere else.",
+        "",
+        "Retrieve one with:",
+        "",
+        "```",
+        "kubectl logs job/<the failed job> | sed -n '/BEGIN fire 3 log/,/END fire 3 log/p'",
+        "```",
+        "",
+        "| fire | log | bytes | echoed to stdout |",
+        "|---|---|---|---|",
+    ]
+    for entry in report["fires"]:
+        size = entry.get("log_bytes")
+        cap = entry.get("log_echo_cap_bytes")
+        if entry.get("log_echoed"):
+            echoed = "yes"
+            if size is not None and cap is not None and size > cap:
+                echoed = f"yes, last {cap} bytes"
+        else:
+            echoed = "no — the verdict passed and this fire was measured"
+        lines.append(
+            f"| {entry['n']} | `{entry.get('log')}` | "
+            f"{'unknown' if size is None else size} | {echoed} |"
+        )
+    return "\n".join(lines)
+
+
+def _render_image_identity(identity):
+    """The identity comparisons, INCLUDING the fact that none ran.
+
+    "Reconciled against nothing" and "reconciled and agreed" must not render
+    the same. The silent-inert failure mode is the one this repo keeps
+    re-learning: `source_key` checks read as "verified" across a set where
+    they were inert on half the manifests, and the committed authority report
+    named a branch image for days because nothing ever compared it to the
+    chart. So an unreconciled report says so, in its own section, above the
+    scores.
+    """
+    if not identity:
+        return ("### Identity\n\nNot recorded — this report predates the "
+                "image-identity check (it carries no `image_identity` block), so "
+                "whether it measured the declared image is **unknown**.")
+    out = ["### Identity", ""]
+    if not identity.get("checked"):
+        out.append(
+            "**NOT RECONCILED.** No expectation was supplied (`--expect-image` / "
+            "`PCN_GATE_EXPECT_IMAGE`), so this run never compared the image it "
+            "measured against the chart's pin or the pods' `imageID`. That is "
+            "not a pass of the identity check — it is the absence of one, and "
+            "the verdict below is only as trustworthy as the unverified claim "
+            "that `DOC_TOOLS_IMAGE` is the right image."
+        )
+        return "\n".join(out)
+    out.append(f"- measured digest: `{identity.get('measured_digest') or 'none — not a digest'}`")
+    out.append("")
+    out.append("| expected by | digest | result |")
+    out.append("|---|---|---|")
+    for c in identity.get("comparisons", []):
+        out.append(
+            f"| {c['source']} | `{c.get('expected_digest') or c['expected']}` | "
+            f"**{c['result']}** |")
+    return "\n".join(out)
+
+
 def render_markdown(report, gate_dir, command_str, log_paths):
     lines = []
     date = report["generated_at"][:10]
@@ -862,7 +1421,26 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     lines.append("## Verdict")
     lines.append("")
-    if report["verdict"] == "pass":
+    if report["verdict"] == "void":
+        # VOID COMES FIRST, and deliberately does NOT print what the
+        # pass/fail terms found. A reader who sees "898/898" beside "VOID"
+        # will remember the number and forget the void: that is how the
+        # 2026-10-01 green check became evidence about a digest that never
+        # reached main. The score is still in the JSON and in the per-fire
+        # table below; what is withheld here is the SENTENCE that would
+        # read as a verdict.
+        lines.append("**VOID — this is not a verdict.**")
+        lines.append("")
+        lines.append(
+            "The image this run measured is not the image it was supposed to "
+            "measure, so neither a pass nor a fail can be read off it. The "
+            "scores below describe *some* image; they are not evidence about "
+            "the pin in the chart. Re-run the gate against the declared image."
+        )
+        lines.append("")
+        for reason in report["image_identity"]["void_reasons"]:
+            lines.append(f"- {reason}")
+    elif report["verdict"] == "pass":
         reason = ("all three fires exited 0; every header disagreement / identity "
                    "instability, if any, was declared (needs_review=True) in all "
                    "three fires") if report["exempted"] else \
@@ -882,6 +1460,8 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append(f"- `DOC_TOOLS_IMAGE`: {report['measured_image'] or 'not set'}")
     lines.append(f"- `DOC_TOOLS_PIN_NOTE`: {report['measured_pin_note'] or 'not set'}")
     lines.append("")
+    lines.append(_render_image_identity(report.get("image_identity")))
+    lines.append("")
     lines.append(_render_corpus_block(report.get("corpus")))
     lines.append("")
     lines.append("## Per-fire results")
@@ -897,6 +1477,10 @@ def render_markdown(report, gate_dir, command_str, log_paths):
                 f"| {f['n']} | {f['exit']} | {f['elapsed_s']} | {t['exact']}/{t['gt']} | "
                 f"{t['spurious']} | {t['missing']} | {t['malformed']} |"
             )
+    lines.append("")
+    lines.append("## Per-notice defects")
+    lines.append("")
+    lines.append(_render_defects_block(report))
     lines.append("")
     lines.append("## Rates")
     lines.append("")
@@ -986,10 +1570,40 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     for p in log_paths:
         lines.append(f"- `{p}`")
     lines.append("")
+    lines.append("### Reaching a fire log after the pod is gone")
+    lines.append("")
+    lines.append(_render_log_preservation_block(report))
+    lines.append("")
     return "\n".join(lines)
 
 
 # --------------------------------------------------------------------------
+
+def dated_report_name(generated_at):
+    """Archive filename for one run's markdown report.
+
+    PER RUN, NOT PER DAY -- this used to be `report-{generated_at[:10]}.md`,
+    and the date alone is not a run identity. The second run of a UTC day
+    silently OVERWROTE the first one's archived report, and git shows that as
+    an ordinary modification, so nothing anywhere says a measurement was
+    destroyed. `main` carries the proof: `report-2026-10-01.md` and
+    `report-2026-10-01-rereduced.md` are two different runs of the same day,
+    and the second survives only because a human noticed and renamed it by
+    hand. A third run that night overwrote the file again on the publish
+    branch, which is how this was found.
+
+    `latest.json` SHOULD keep overwriting -- it is the pointer the CI guard
+    reads and "latest" is its whole contract. The dated markdown is the
+    archive, and an archive that drops a run defeats its only purpose.
+
+    The colons of the ISO timestamp are stripped because they are illegal in
+    Windows filenames, and the rest of the ISO form is kept so the names still
+    sort chronologically as plain text. `scripts/pcn_gate_publish.py` picks the
+    file up through its `report-*.md` glob, so the longer name needs no change
+    there.
+    """
+    return "report-%s.md" % generated_at.replace(":", "")
+
 
 def main(argv):
     parser = argparse.ArgumentParser(
@@ -1022,7 +1636,35 @@ def main(argv):
                               "measurement with a synthetic one (measured_image: null), "
                               "and the overwrite is invisible until someone reads git "
                               "status. Overrides PCN_GATE_REPORT_DIR.")
+    parser.add_argument("--expect-image", action="append", default=None,
+                         metavar="SOURCE=REF",
+                         help="What DOC_TOOLS_IMAGE is SUPPOSED to be, as "
+                              "source=reference (repeatable, or comma-separated): "
+                              "e.g. --expect-image chart=ghcr.io/o/doc-tools@sha256:... "
+                              "--expect-image pods=ghcr.io/o/doc-tools@sha256:... . "
+                              "Any mismatch makes the report VOID (verdict: void, "
+                              "exit 2) rather than a fail: a score of the wrong "
+                              "image is not a worse score, it is not a score. "
+                              "Comparison is on the sha256 digest, so registry "
+                              "spelling differences do not matter and a tag-only "
+                              "reference on either side is reported uncomparable "
+                              "(also void). Defaults to PCN_GATE_EXPECT_IMAGE. "
+                              "Supplying nothing leaves the run UNRECONCILED, "
+                              "which the report says in as many words -- it is "
+                              "not a pass of this check.")
     args = parser.parse_args(argv)
+
+    # The pods' imageID cannot be read from inside the gate's Job: its
+    # ServiceAccount has no Role (there is no role.yaml in
+    # charts/doc-tools/templates/) and the container carries no kubectl. So
+    # expectations are SUPPLIED -- by the chart for its own pin, and by
+    # whoever can read a pod for the imageID -- never fetched. See
+    # check_image_identity.
+    expectations = parse_expectations(
+        args.expect_image
+        if args.expect_image is not None
+        else [os.environ.get("PCN_GATE_EXPECT_IMAGE", "")]
+    )
 
     if args.from_logs:
         base_dir = args.from_logs
@@ -1039,7 +1681,7 @@ def main(argv):
         fires = run_fires(base_dir)
         command_str = f"{sys.executable} scripts/pcn_corpus_gate.py --run"
 
-    report, header_stdout = score_fires(base_dir, fires)
+    report, header_stdout = score_fires(base_dir, fires, expectations)
 
     # Report dir default is docs/corpus-gate, relative to repo root. ^docs/ is
     # the ENTIRE paths-ignore list on the build workflow, so a committed report
@@ -1060,6 +1702,11 @@ def main(argv):
     os.makedirs(report_dir, exist_ok=True)
 
     log_paths = [f["log_path"] for f in fires]
+
+    # Annotated BEFORE rendering, because the report has to be able to tell a
+    # reader that the log they want is in `kubectl logs` and not in a file.
+    tail_bytes = log_tail_bytes()
+    annotate_log_preservation(report, fires, tail_bytes)
     markdown = render_markdown(report, base_dir, command_str, log_paths)
 
     latest_path = os.path.join(report_dir, "latest.json")
@@ -1067,12 +1714,26 @@ def main(argv):
         json.dump(report, f, indent=2)
         f.write("\n")
 
-    dated_path = os.path.join(report_dir, f"report-{report['generated_at'][:10]}.md")
+    dated_path = os.path.join(report_dir, dated_report_name(report["generated_at"]))
     with open(dated_path, "w", encoding="utf-8") as f:
         f.write(markdown)
 
+    # ORDER IS LOAD-BEARING: the echoed logs go out BEFORE the report, so that
+    # if the kubelet rotates this container's log the thing evicted is the
+    # reproduced log and not the report. The report is also committed to git by
+    # the publisher; the echoed log exists nowhere else.
+    for chunk in preserved_log_dumps(report, fires, tail_bytes):
+        print(chunk)
+
     print(markdown)
 
+    # 2, NOT 1. A void report and a failing report call for opposite
+    # actions -- re-run against the right image vs. go fix an extraction
+    # defect -- and a caller that can only see "non-zero" will treat the
+    # first as the second. The publisher and the CronJob both read this
+    # status, so the distinction has to live in the number.
+    if report["verdict"] == "void":
+        return 2
     return 0 if report["verdict"] == "pass" else 1
 
 
