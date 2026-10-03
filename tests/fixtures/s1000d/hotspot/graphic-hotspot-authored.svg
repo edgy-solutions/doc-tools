@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AUTHORED BY THIS SESSION, NOT THE MOCK AUTHOR — see README.md in this
+  directory. A tiny hand-written stand-in for ICN-ODMRADHS-00007's artwork,
+  carrying exactly the element ids the hotspot-join test expects to resolve,
+  plus one extra id that no catalog item in ipd-hotspot-authored.xml claims
+  (a graphic may legitimately carry hotspots nothing references).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- claimed by catalog item 0001 via the nested-hotspot path -->
+  <rect id="HS-NESTED-01" x="5" y="5" width="20" height="20"/>
+  <!-- claimed by catalog item 0002 via the graphic-join-by-key path -->
+  <circle id="0002" cx="60" cy="20" r="10"/>
+  <!-- unclaimed: no catalog item references this id, and that is fine -->
+  <polygon id="HS-UNCLAIMED-99" points="40,80 60,80 50,60"/>
+</svg>

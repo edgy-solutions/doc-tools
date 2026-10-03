@@ -1,0 +1,32 @@
+{
+  "status": "DRAFT: ground truth when both sides confirm it (ADR-0046 v2 section 9)",
+  "bit_code": "MRAD-ARR-0417",
+  "bit_text": "array module fault, section 3",
+  "citations": {
+    "fault_isolation": {"dmc": "DMC-ODMRAD-A-34-10-01-00A-421A-A"},
+    "remove_install": {"dmc": ["DMC-ODMRAD-A-34-10-01-00A-520A-A", "DMC-ODMRAD-A-34-10-01-00A-720A-A"]},
+    "ipd": {"dmc": "DMC-ODMRAD-A-34-10-01-00A-941A-A", "part_number": "ODM-AM-0001", "quantity": 1,
+            "icn": "ICN-ODMRAD-00001",
+            "hotspot_id": null,
+            "hotspot_id_note": "unknown: the authored MRAD corpus carries no <hotspot> markup for ODM-AM-0001 (or anywhere else) — do not invent one."},
+    "planning_interval": {"dmc": "DMC-ODMRAD-A-34-10-01-00A-320A-A", "interval": "180 days"}
+  },
+  "options": [
+    {"n": 1, "outline": "no fault confirmed after a BIT re-run: return to service and monitor",
+     "dmcs": ["DMC-ODMRAD-A-34-10-01-00A-421A-A"], "picture_spare": "any"},
+    {"n": 2, "outline": "reseat the module connector and re-run BIT",
+     "dmcs": ["DMC-ODMRAD-A-34-10-01-00A-421A-A"], "picture_spare": "any"},
+    {"n": 3, "outline": "replace the array module from a spare on hand",
+     "dmcs": ["DMC-ODMRAD-A-34-10-01-00A-421A-A", "DMC-ODMRAD-A-34-10-01-00A-520A-A",
+              "DMC-ODMRAD-A-34-10-01-00A-720A-A", "DMC-ODMRAD-A-34-10-01-00A-941A-A"],
+     "picture_spare": "on_hand"},
+    {"n": 4, "outline": "replace the array module with a spare from the nearest site with stock",
+     "dmcs": ["DMC-ODMRAD-A-34-10-01-00A-421A-A", "DMC-ODMRAD-A-34-10-01-00A-520A-A",
+              "DMC-ODMRAD-A-34-10-01-00A-720A-A", "DMC-ODMRAD-A-34-10-01-00A-941A-A"],
+     "picture_spare": "nearest_site_with_stock"}
+  ],
+  "open_questions": [
+    "remove_install: the consumer's 7f shape has one dmc; this manual has separate remove (520) and install (720) modules, given here as a list. Either the shape takes a list or the manual merges them.",
+    "planning_interval: the consumer's walk cites 320 for its interval. The options cite it for none of the four; whether option 4 should cite it (scheduling the replacement) is open."
+  ]
+}
