@@ -67,10 +67,65 @@ That message is `#53`'s fallthrough logging working exactly as designed, and it
 is the only 3xx family in the MRAD fixture set. The other five modules (040,
 421, 520, 720, 941) all classify.
 
-**Ask:** a content kind for 3xx, e.g. `mil:MaintenancePlanningDataModule`
-`rdfs:subClassOf mil:DataModule`, plus the entry in
-`doc_tools/parsers/mil_info_code_map.py` once the class exists. The name is
-yours to pick — I am not going to coin a class in your namespace.
+### The ask, sourced from the issue in use (added 2026-10-02)
+
+The issue in use is **S1000D Issue 4.2**, uniformly across all six modules —
+every one declares
+`xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-2/xml_schema_flat/<name>.xsd"`.
+This matters because `mil_info_code_map.py`'s own docstring carries the
+standing caution *"Confirm the info-code ranges against the actual S1000D issue
+in use. The families are standardized but boundaries shift issue-to-issue"* —
+so here is that confirmation, read off the data rather than from memory.
+
+Each module's declared schema and authored `infoName`:
+
+| info code | schema declared | `infoName` | currently classifies as |
+|---|---|---|---|
+| 040 | `descript.xsd` | Description | `mil:DescriptiveDataModule` |
+| **320** | **`schedul.xsd`** | **Maintenance Planning Data** | **the bare root** |
+| 421 | `fault.xsd` | Fault Isolation | `mil:FaultIsolationDataModule` |
+| 520 | `proced.xsd` | Remove Procedure | `mil:ProcedureDataModule` |
+| 720 | `proced.xsd` | Install Procedure | `mil:ProcedureDataModule` |
+| 941 | `ipd.xsd` | Illustrated Parts Data | `mil:IllustratedPartsDataModule` |
+
+The schema location is a **reliable discriminator in this corpus**: for the
+five codes that do classify, the declared schema agrees with the kind the
+first-digit table assigns, in all five cases. That is what licenses using it
+for the sixth.
+
+**Ask:** a content kind for the 320 module, `rdfs:subClassOf mil:DataModule`,
+named from one of the two sourced candidates:
+
+- **`mil:ScheduledMaintenanceDataModule`** — from the declared schema
+  `schedul.xsd`, i.e. what the authoring tool says this module *is*.
+- **`mil:MaintenancePlanningDataModule`** — from the authored
+  `<infoName>Maintenance Planning Data</infoName>`, i.e. what the author says
+  it is.
+
+I lean to the **schema** name, because the schema is the structural contract
+the parser reads while `infoName` is free text an author can write anything
+into. Either is defensible and the name remains yours. Plus the matching entry
+in `doc_tools/parsers/mil_info_code_map.py` once the class exists.
+
+**One caution that is the real content of this ask.** `INFO_CODE_RANGES` keys
+on the **first digit**, so adding a row for `"3"` assigns the kind to the
+*whole* 3xx family. My evidence covers **info code 320 only** — one module.
+The `UNMAPPED_FAMILIES` gloss that calls 3xx *"maintenance-planning /
+scheduled-maintenance"* is now **sourced for 320** by `schedul.xsd`, and still
+**unsourced for the family**: nothing in this repo contains the Issue 4.2
+info-code table, so I cannot show that every 3xx code shares that meaning, and
+in S1000D the 3xx band is broader than scheduled maintenance alone. So either:
+
+1. give 3xx the kind at **sub-code granularity** (320, or the codes actually
+   evidenced), leaving the rest of the family counted as fallthrough; or
+2. confirm the family boundary against the Issue 4.2 info-code table and map
+   the whole first digit.
+
+Option 1 is what the evidence supports today. Option 2 needs a document I do
+not have — if you have the 4.2 info-code list, that single table settles it
+and also lets the `1xx` / `6xx` / `8xx` glosses in `UNMAPPED_FAMILIES` be
+sourced the same way, since all four are currently unsourced prose.
+
 
 **Why it matters more than it did last week:** the planning interval is the one
 2(e) output that is NOT forward-reachable from a fault code (the 320 module
