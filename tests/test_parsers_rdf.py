@@ -6,6 +6,9 @@ previously exercised only at import level (~10% coverage). Each builder is pure
 (lxml + rdflib, no I/O), so we feed representative XML and assert the emitted
 triples directly against the in-memory graph.
 """
+import pathlib
+
+from lxml import etree
 from rdflib import Literal, Namespace, URIRef
 from rdflib.namespace import RDF, RDFS
 
@@ -21,6 +24,7 @@ from doc_tools.parsers.mil_std_40051_rdf import MilStd40051GraphBuilder
 
 MIL = Namespace("http://edgy-solutions.com/ontology/mil#")
 PREFIX = "https://cdn.example/img/"
+HOTSPOT_FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "s1000d" / "hotspot"
 
 
 # --------------------------------------------------------------------------- #
@@ -383,6 +387,93 @@ S1000D_XML_FIGURE_NO_ID = b"""
 </dmodule>
 """
 
+# A graphic with ONLY a boardno, no infoEntityIdent — the conflation guard
+# (1a/1b): mil:hasICN must never carry a boardno.
+S1000D_XML_FIGURE_BOARDNO_ONLY = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <figure id="figB"><title>Board Figure</title><graphic boardno="BD-999"/></figure>
+  </content>
+</dmodule>
+"""
+
+# Hotspot nested directly inside the catalog item — unambiguous, case (a).
+S1000D_XML_IPD_HOTSPOT_NESTED = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Hotspot Nested</title>
+        <graphic infoEntityIdent="ICN-HS-1"/>
+        <catalogSeqNumberGroup>
+          <catalogSeqNumber item="0001">
+            <description><name>widget</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-W-0001</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <hotspot applicationStructureIdent="HS-N-1"/>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+        </catalogSeqNumberGroup>
+      </figure>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>
+"""
+
+# Hotspot under the graphic, joined by key — case (b) plus the
+# no-guessing-by-position guard: a SECOND graphic hotspot ("NO-MATCH")
+# matches neither item's @item and must attach to nothing.
+S1000D_XML_IPD_HOTSPOT_JOIN = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Hotspot Join</title>
+        <graphic infoEntityIdent="ICN-HS-2">
+          <hotspot applicationStructureIdent="0002"/>
+          <hotspot applicationStructureIdent="NO-MATCH"/>
+        </graphic>
+        <catalogSeqNumberGroup>
+          <catalogSeqNumber item="0001">
+            <description><name>widget one</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-W-0001</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+          <catalogSeqNumber item="0002">
+            <description><name>widget two</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-W-0002</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+        </catalogSeqNumberGroup>
+      </figure>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>
+"""
+
 
 def test_s1000d_brex_dmref_is_not_a_cross_reference():
     b = S1000dGraphBuilder(doc_id="d")
@@ -494,6 +585,110 @@ def test_s1000d_figure_identity_falls_back_to_the_authored_icn():
     figs = {str(s) for s in set(b.graph.subjects(RDF.type, MIL.Figure))}
     assert any("ICN-X-1" in f for f in figs)
     assert not any("fig_0" in f for f in figs)
+
+
+def test_s1000d_figure_emits_icn_from_info_entity_ident():
+    b = S1000dGraphBuilder(doc_id="d", image_prefix=PREFIX)
+    b.parse_data_module(S1000D_XML)
+    fig = MIL["fig-d-fig1"]
+    assert (fig, MIL.hasICN, Literal("ICN-001")) in b.graph
+
+
+def test_s1000d_boardno_only_graphic_yields_no_icn():
+    """The conflation guard (1a/1b): a boardno must never be emitted as an
+    ICN, because an ICN is not a boardno."""
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(S1000D_XML_FIGURE_BOARDNO_ONLY)
+    fig = MIL["fig-d-figB"]
+    assert not list(b.graph.objects(fig, MIL.hasICN))
+
+
+def test_s1000d_icn_with_no_image_prefix_emits_no_url():
+    """Pins 1c, the confabulation-kill, for THIS parser: now that the ICN
+    has its own predicate, the deleted `elif info_entity:` branch must not
+    be missed — an ICN with no image_prefix emits hasICN only, never a
+    fabricated hasURL built from the bare ICN string."""
+    b = S1000dGraphBuilder(doc_id="d")  # no image_prefix
+    b.parse_data_module(S1000D_XML)
+    fig = MIL["fig-d-fig1"]
+    assert (fig, MIL.hasICN, Literal("ICN-001")) in b.graph
+    assert not list(b.graph.objects(fig, MIL.hasURL)), (
+        "no image_prefix and no bare-ICN fallback means no hasURL at all"
+    )
+
+
+def test_s1000d_hotspot_nested_in_item_attaches_to_that_item():
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(S1000D_XML_IPD_HOTSPOT_NESTED)
+    items = list(b.graph.subjects(RDF.type, MIL.CatalogItem))
+    assert len(items) == 1
+    assert (items[0], MIL.hasHotspotId, Literal("HS-N-1")) in b.graph
+
+
+def test_s1000d_hotspot_joined_by_key_attaches_to_the_right_item_only():
+    """Case (b) plus the no-guessing-by-position guard: the graphic's
+    SECOND hotspot ("NO-MATCH") matches no item's key and must attach to
+    NOTHING — not item 0001, not item 0002, not by falling back to
+    position."""
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(S1000D_XML_IPD_HOTSPOT_JOIN)
+    g = b.graph
+    cat_items = {
+        str(pn): it
+        for it in g.subjects(RDF.type, MIL.CatalogItem)
+        for pn in g.objects(it, MIL.hasPartNumber)
+    }
+    item_0001 = cat_items["ODM-W-0001"]
+    item_0002 = cat_items["ODM-W-0002"]
+
+    assert not list(g.objects(item_0001, MIL.hasHotspotId)), (
+        "item 0001's key doesn't match either graphic hotspot"
+    )
+    assert (item_0002, MIL.hasHotspotId, Literal("0002")) in g
+    assert Literal("NO-MATCH") not in set(g.objects(None, MIL.hasHotspotId)), (
+        "a hotspot ident matching no item must attach to nothing"
+    )
+
+
+def test_s1000d_icn_is_identical_across_documents_but_figure_subjects_differ():
+    """The figure subject stays document-scoped while the ICN literal is
+    identical across two publications — the "two publications' figures
+    can't collide" claim, as an assertion."""
+    a = S1000dGraphBuilder(doc_id="doc_a")
+    a.parse_data_module(S1000D_XML)
+    c = S1000dGraphBuilder(doc_id="doc_c")
+    c.parse_data_module(S1000D_XML)
+
+    fig_a = MIL["fig-doc_a-fig1"]
+    fig_c = MIL["fig-doc_c-fig1"]
+    assert fig_a != fig_c
+    assert (fig_a, MIL.hasICN, Literal("ICN-001")) in a.graph
+    assert (fig_c, MIL.hasICN, Literal("ICN-001")) in c.graph
+
+
+def test_s1000d_hotspot_ids_resolve_into_the_svg_artwork():
+    """Every hotspot id the parser extracts from the authored hotspot
+    fixture module must be an id actually present in the sibling SVG
+    artwork. The converse is NOT required: the SVG carries one extra,
+    unclaimed id, and that must NOT cause a failure — a graphic may carry
+    hotspots no catalog item references. See
+    tests/fixtures/s1000d/hotspot/README.md."""
+    b = S1000dGraphBuilder(doc_id="hotspot-fixture")
+    xml_bytes = (HOTSPOT_FIXTURES / "ipd-hotspot-authored.xml").read_bytes()
+    b.parse_data_module(xml_bytes)
+    extracted_ids = {str(v) for v in b.graph.objects(None, MIL.hasHotspotId)}
+    assert extracted_ids, "the fixture should yield at least one hotspot id"
+
+    svg_root = etree.parse(str(HOTSPOT_FIXTURES / "graphic-hotspot-authored.svg")).getroot()
+    svg_ids = {el.get("id") for el in svg_root.iter() if el.get("id")}
+
+    missing = extracted_ids - svg_ids
+    assert not missing, f"hotspot ids not present in the SVG artwork: {missing}"
+    # The converse is explicitly NOT asserted: an id present in the SVG but
+    # not extracted (the "unclaimed" id) must not fail this seal.
+    assert svg_ids - extracted_ids, (
+        "expected at least one SVG id with no claiming catalog item"
+    )
 
 
 # --------------------------------------------------------------------------- #

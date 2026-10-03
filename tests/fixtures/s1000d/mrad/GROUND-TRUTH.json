@@ -5,7 +5,10 @@
   "citations": {
     "fault_isolation": {"dmc": "DMC-ODMRAD-A-34-10-01-00A-421A-A"},
     "remove_install": {"dmc": ["DMC-ODMRAD-A-34-10-01-00A-520A-A", "DMC-ODMRAD-A-34-10-01-00A-720A-A"]},
-    "ipd": {"dmc": "DMC-ODMRAD-A-34-10-01-00A-941A-A", "part_number": "ODM-AM-0001", "quantity": 1},
+    "ipd": {"dmc": "DMC-ODMRAD-A-34-10-01-00A-941A-A", "part_number": "ODM-AM-0001", "quantity": 1,
+            "icn": "ICN-ODMRAD-00001",
+            "hotspot_id": null,
+            "hotspot_id_note": "unknown: the authored MRAD corpus carries no <hotspot> markup for ODM-AM-0001 (or anywhere else) — do not invent one."},
     "planning_interval": {"dmc": "DMC-ODMRAD-A-34-10-01-00A-320A-A", "interval": "180 days"}
   },
   "options": [

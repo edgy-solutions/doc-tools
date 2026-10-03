@@ -121,8 +121,15 @@ def test_the_walk_reaches_the_remove_and_install_procedures(corpus, ground_truth
 
 
 def test_the_walk_reaches_the_parts_list_and_the_cited_part(corpus, ground_truth):
+    """`?icn` and `?hotspot_id` are OPTIONAL on purpose — this is
+    load-bearing, do not change either to a required pattern. The real
+    corpus has no hotspots at all; a required `?hotspot_id` would take the
+    walk from 3 rows to 0 and the seal would read a data absence as a
+    broken parser (the same failure mode as the dead-BIT-code trap in
+    HANDOFF.md). The ICN comes via the FIGURE, not the item, hence the
+    extra `?fig mil:hasCatalogItem ?item` hop."""
     rows = ask(corpus, """
-      SELECT DISTINCT ?ipdDm ?pn ?qty WHERE {
+      SELECT DISTINCT ?ipdDm ?pn ?qty ?icn ?hotspot_id WHERE {
         ?fc mil:hasFaultCodeValue "%s" .
         ?fiDm mil:hasFaultCode ?fc ;
               a mil:FaultIsolationDataModule ;
@@ -132,11 +139,29 @@ def test_the_walk_reaches_the_parts_list_and_the_cited_part(corpus, ground_truth
         ?ipdDm a mil:IllustratedPartsDataModule ;
                mil:hasCatalogItem ?item .
         ?item mil:hasPartNumber ?pn ; mil:hasQuantity ?qty .
+        OPTIONAL { ?fig mil:hasCatalogItem ?item ; mil:hasICN ?icn . }
+        OPTIONAL { ?item mil:hasHotspotId ?hotspot_id . }
       }""" % ground_truth["bit_code"])
     ipd = ground_truth["citations"]["ipd"]
     assert dmcs(rows) == [expect_dmc(ipd["dmc"])]
     pairs = {(str(r[1]), str(r[2])) for r in rows}
     assert (ipd["part_number"], str(ipd["quantity"])) in pairs
+
+    assert len(rows) == 3, f"expected 3 rows, got {len(rows)}"
+    want_icn = ground_truth["citations"]["ipd"]["icn"]
+    for row in rows:
+        assert row[3] is not None, "every real-corpus row should bind ?icn"
+        assert str(row[3]) == want_icn
+
+    # The real corpus has NO <hotspot> markup at all (measured 2026-10-02).
+    # This records that absence as a tracked fact, not an xfail/skip, so it
+    # is expected to change — and should be revisited — the day a
+    # hotspot-bearing publication is ingested.
+    assert all(row[4] is None for row in rows), (
+        "no real-corpus row should bind ?hotspot_id: the MRAD fixture "
+        "carries no <hotspot> markup, so a bound value here would mean "
+        "either the fixture changed or the join is over-matching"
+    )
 
 
 # --------------------------------------------------------------------------- #

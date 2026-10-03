@@ -61,6 +61,13 @@ class S1000dGraphBuilder:
         self.HAS_FAULT_CODE = self.MIL.hasFaultCode
         self.HAS_PLANNING_INTERVAL = self.MIL.hasPlanningInterval
         self.HAS_CATALOG_ITEM = self.MIL.hasCatalogItem
+        self.HAS_ICN = self.MIL.hasICN
+        # Hotspot id on an IPD catalog item, read from
+        # `hotspot/@applicationStructureIdent` (section 8). The six real
+        # MRAD corpus modules contain ZERO <hotspot> elements, so this path
+        # is exercised only by the authored fixture at
+        # tests/fixtures/s1000d/hotspot/ — not by real S1000D markup.
+        self.HAS_HOTSPOT_ID = self.MIL.hasHotspotId
 
     @property
     def doc_slug(self) -> str:
@@ -272,9 +279,26 @@ class S1000dGraphBuilder:
             # now itself a candidate for fig_id (below), so it must be known
             # before fig_id is decided, not re-read afterward.
             graphic_el = fig_el.find(".//graphic")
+            icn = ""
+            boardno = ""
             info_entity = ""
+            # Hotspot idents authored under this figure's graphic, read ONCE
+            # per figure (not per item) so section 8's join is a dict lookup
+            # rather than a re-query. Empty on every real-corpus module.
+            graphic_hotspot_idents = set()
             if graphic_el is not None:
-                info_entity = graphic_el.get("infoEntityIdent", "") or graphic_el.get("boardno", "")
+                # ICN and boardno are DIFFERENT identifiers — an ICN is not a
+                # boardno — kept in separate locals so mil:hasICN (below) can
+                # never carry a boardno. `info_entity` is the existing
+                # combined value that still feeds fig_id and the hasURL
+                # fallback below; its meaning is unchanged.
+                icn = (graphic_el.get("infoEntityIdent", "") or "").strip()
+                boardno = (graphic_el.get("boardno", "") or "").strip()
+                info_entity = icn or boardno
+                for raw_ident in graphic_el.xpath(".//hotspot/@applicationStructureIdent"):
+                    ident = (raw_ident or "").strip()
+                    if ident:
+                        graphic_hotspot_idents.add(ident)
 
             # Stable figure identity: @id -> authored infoEntityIdent/boardno
             # -> loop index, in that order. The mock IPD <figure> has NO id,
@@ -292,14 +316,28 @@ class S1000dGraphBuilder:
             figure_uri = self.MIL[f"fig-{scope}-{_fragment(fig_id)}"]
             self.graph.add((figure_uri, RDF.type, self.MIL.Figure))
             self.graph.add((figure_uri, RDFS.label, Literal(title)))
+            if icn:
+                # The ICN is a CONTENT identifier, deliberately NOT used as
+                # the Figure subject (fig_id above still prefers @id, then
+                # falls back to info_entity): the same ICN legitimately
+                # recurs across publications, while the subject must stay
+                # per-document (see doc_slug) so two publications' ICN-
+                # bearing figures don't collide.
+                self.graph.add((figure_uri, self.HAS_ICN, Literal(icn)))
             if info_entity and self.image_prefix:
                 full_s3_url = f"{self.image_prefix}{info_entity}.png"
                 self.graph.add((figure_uri, self.MIL.hasURL, Literal(full_s3_url)))
-            elif info_entity:
-                self.graph.add((figure_uri, self.MIL.hasURL, Literal(info_entity)))
+            # NOTE: the bare-ICN-as-a-URL fallback (`elif info_entity:`) was
+            # deleted here. It emitted the bare string (e.g.
+            # "ICN-ODMRAD-00001") as a mil:hasURL literal — a fake URL
+            # indistinguishable downstream from a real one, the same
+            # confabulation already killed in mil_std_40051_rdf.py (see its
+            # CONFABULATION-KILL comment and test_parsers_rdf.py's boardno
+            # test for that parser). Now that the ICN has its own predicate
+            # (above), the branch was redundant as well as confabulating.
             self.graph.add((dmc_uri, self.HAS_FIGURE, figure_uri))
 
-            figure_map[fig_el] = (fig_id, figure_uri)
+            figure_map[fig_el] = (fig_id, figure_uri, graphic_hotspot_idents)
 
         # 6. Fault codes (//faultCode). Document-scoped for the same reason
         # parts are (a delete-by-subject rollback must key on the
@@ -359,9 +397,11 @@ class S1000dGraphBuilder:
         for pos, item_el in enumerate(root.xpath("//catalogSeqNumber"), start=1):
             containing_fig_matches = item_el.xpath("ancestor::figure[1]")
             if containing_fig_matches and containing_fig_matches[0] in figure_map:
-                fig_key, figure_uri = figure_map[containing_fig_matches[0]]
+                fig_key, figure_uri, graphic_hotspot_idents = figure_map[
+                    containing_fig_matches[0]
+                ]
             else:
-                fig_key, figure_uri = "nofig", None
+                fig_key, figure_uri, graphic_hotspot_idents = "nofig", None, set()
 
             name_el = item_el.find(".//description/name")
             name = name_el.text.strip() if name_el is not None and name_el.text else ""
@@ -387,6 +427,31 @@ class S1000dGraphBuilder:
                 self.graph.add((it_uri, self.HAS_PART_NUMBER, Literal(pn)))
             if mfr:
                 self.graph.add((it_uri, self.MIL.hasManufacturerCode, Literal(mfr)))
+
+            # Hotspot id, precedence order (neither path is exercised by the
+            # real MRAD corpus — zero <hotspot> elements in all six modules
+            # — only by the authored fixture at tests/fixtures/s1000d/hotspot/):
+            #   1. Nested directly in this item — unambiguous, take the first.
+            #   2. Under the containing figure's graphic, joined by KEY: the
+            #      item's key is <itemSeqNumber> text if present, else @item.
+            #      A hotspot whose ident matches NEITHER item is simply not
+            #      attached — no guessing by position (the exact defect the
+            #      fig_0 fix removed).
+            hotspot_id = ""
+            nested_hotspot = item_el.xpath(".//hotspot/@applicationStructureIdent")
+            if nested_hotspot:
+                hotspot_id = (nested_hotspot[0] or "").strip()
+            if not hotspot_id:
+                item_seq_el = item_el.find("itemSeqNumber")
+                item_key = (
+                    item_seq_el.text.strip()
+                    if item_seq_el is not None and item_seq_el.text
+                    else item_attr
+                )
+                if item_key and item_key in graphic_hotspot_idents:
+                    hotspot_id = item_key
+            if hotspot_id:
+                self.graph.add((it_uri, self.HAS_HOTSPOT_ID, Literal(hotspot_id)))
 
             qty_el = item_el.find("reqQuantity")
             qty_text = qty_el.text.strip() if qty_el is not None and qty_el.text else ""
