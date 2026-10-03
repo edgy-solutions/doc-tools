@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dmodule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-2/xml_schema_flat/descript.xsd">
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="US"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="10" day="01"/>
+        <dmTitle>
+          <techName>Array Module</techName>
+          <infoName>Description</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <responsiblePartnerCompany enterpriseName="Synthetic"/>
+      <originator enterpriseName="Synthetic"/>
+      <applic>
+        <displayText>
+          <simplePara>All configurations.</simplePara>
+        </displayText>
+      </applic>
+      <brexDmRef>
+        <dmRef>
+          <dmRefIdent>
+            <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                    subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                    disassyCode="00" disassyCodeVariant="A"
+                    infoCode="040" infoCodeVariant="A" itemLocationCode="A"/>
+          </dmRefIdent>
+        </dmRef>
+      </brexDmRef>
+      <qualityAssurance>
+        <unverified/>
+      </qualityAssurance>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <description>
+      <levelledPara>
+        <title>Array Overview</title>
+        <para>The ODMRAD antenna array is built from 32 array module positions arranged in a
+        planar grid and numbered 1 through 32. Each array module is an independently replaceable
+        line-replaceable unit that contributes a portion of the array's transmit and receive
+        aperture. The array modules are identical and interchangeable between positions.</para>
+      </levelledPara>
+      <levelledPara>
+        <title>Built-In Test</title>
+        <para>Each array module runs a built-in test (BIT) routine on a periodic schedule and on
+        demand. BIT checks module power, RF path continuity and the module's internal control
+        logic. A module that fails BIT reports a BIT fault code identifying the failed position.</para>
+      </levelledPara>
+      <levelledPara>
+        <title>Effect of a Failed Array Module</title>
+        <para>When a single array module fails, the array sector served by that module position
+        loses gain, reducing detection range and track quality in that sector. The remaining array
+        modules continue to operate normally and the radar stays in service in a degraded mode
+        until the failed array module is replaced.</para>
+      </levelledPara>
+    </description>
+  </content>
+</dmodule>

@@ -218,6 +218,285 @@ def test_s1000d_serialize_emits_turtle():
 
 
 # --------------------------------------------------------------------------- #
+# S1000D 2(e): fault codes, dmRef edges, IPD items, planning intervals
+# --------------------------------------------------------------------------- #
+
+# A module whose identAndStatusSection/dmStatus/brexDmRef/dmRef names its OWN
+# dmCode (520), plus ONE content dmRef pointing at a different module (720).
+# //dmRef unfiltered would emit two refersToDataModule triples (one a
+# self-loop); [not(ancestor::identAndStatusSection)] must emit exactly one.
+S1000D_XML_WITH_DMREF = b"""
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress><dmIdent>
+      <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+              subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+              infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+    </dmIdent></dmAddress>
+    <dmStatus>
+      <brexDmRef><dmRef><dmRefIdent>
+        <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+                subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+                infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+      </dmRefIdent></dmRef></brexDmRef>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <para>See the removal procedure.
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+                subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+                infoCode="720" infoCodeVariant="A" itemLocationCode="A"/>
+      </dmRefIdent></dmRef>
+    </para>
+  </content>
+</dmodule>
+"""
+
+# A brexDmRef dmCode authored BEFORE the dmIdent. The bare `//dmCode[0]`
+# lookup this replaces would pick the brex module (ZZ-...-999Z-Z) instead of
+# the authored own ident (AE-...-520A-A).
+S1000D_XML_BREX_BEFORE_IDENT = b"""
+<dmodule>
+  <identAndStatusSection>
+    <dmStatus>
+      <brexDmRef><dmRef><dmRefIdent>
+        <dmCode modelIdentCode="ZZ" systemDiffCode="Z" systemCode="99" subSystemCode="9"
+                subSubSystemCode="9" assyCode="99" disasCode="99" disasCodeVariant="Z"
+                infoCode="999" infoCodeVariant="Z" itemLocationCode="Z"/>
+      </dmRefIdent></dmRef></brexDmRef>
+    </dmStatus>
+    <dmAddress><dmIdent>
+      <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+              subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+              infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+    </dmIdent></dmAddress>
+  </identAndStatusSection>
+  <content/>
+</dmodule>
+"""
+
+S1000D_XML_FAULT = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="421" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <faultIsolation>
+      <faultCode faultCodeValue="BIT-0417">
+        <faultCodeText>Array module fault.</faultCodeText>
+      </faultCode>
+    </faultIsolation>
+  </content>
+</dmodule>
+"""
+
+S1000D_XML_INTERVAL = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="320" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <scheduling><mpSystem><mpSystemChap>
+      <mpSection><title>Periodic Array Inspection</title>
+        <limit><threshold thresholdUnitOfMeasure="days">
+          <thresholdValue>180</thresholdValue>
+        </threshold></limit>
+      </mpSection>
+    </mpSystemChap></mpSystem></scheduling>
+  </content>
+</dmodule>
+"""
+
+S1000D_XML_IPD = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Array Module Assembly</title>
+        <graphic infoEntityIdent="ICN-ODMRAD-00001"/>
+        <catalogSeqNumberGroup>
+          <catalogSeqNumber item="0001">
+            <description><name>array module</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-AM-0001</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+        </catalogSeqNumberGroup>
+      </figure>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>
+"""
+
+# Same part number cited in BOTH reqSpares and an IPD catalog item, in one
+# document — must mint ONE part- subject, not two.
+S1000D_XML_IPD_AND_REQSPARES = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="720" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <reqSpares><spareDescr><partNumber>ODM-AM-0001</partNumber></spareDescr></reqSpares>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Array Module Assembly</title>
+        <catalogSeqNumberGroup>
+          <catalogSeqNumber item="0001">
+            <description><name>array module</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-AM-0001</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+        </catalogSeqNumberGroup>
+      </figure>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>
+"""
+
+S1000D_XML_FIGURE_NO_ID = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <figure><title>Array</title><graphic infoEntityIdent="ICN-X-1"/></figure>
+  </content>
+</dmodule>
+"""
+
+
+def test_s1000d_brex_dmref_is_not_a_cross_reference():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_WITH_DMREF)
+    refs = list(b.graph.objects(URIRef(root), MIL.refersToDataModule))
+    assert len(refs) == 1
+    assert refs[0] == MIL["dmc-AE-A-32-10-00-00A-720A-A"]
+    assert refs[0] != URIRef(root)
+
+
+def test_s1000d_dmref_target_matches_the_referenced_modules_own_subject():
+    """The STRONG test: an inline join could pass a label test and still
+    fail this, because it depends on BOTH sides using the same
+    canonicalizer-and-argument-mapping, not on the two strings looking
+    similar."""
+    a = S1000dGraphBuilder(doc_id="doc_a")
+    root_a = a.parse_data_module(S1000D_XML_WITH_DMREF)
+    ref_obj = next(iter(a.graph.objects(URIRef(root_a), MIL.refersToDataModule)))
+
+    b = S1000dGraphBuilder(doc_id="doc_b")
+    root_b = b.parse_data_module(S1000D_XML_OTHER_DM)  # infoCode 720
+
+    assert str(ref_obj) == root_b
+
+
+def test_s1000d_own_ident_is_not_taken_from_a_dmref():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_BREX_BEFORE_IDENT)
+    assert root == str(MIL["dmc-AE-A-32-10-00-00A-520A-A"])
+
+
+def test_s1000d_emits_the_fault_code_node():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_FAULT)
+    fc = MIL["faultcode-d-BIT-0417"]
+    assert (fc, RDF.type, MIL.FaultCode) in b.graph
+    assert (fc, RDFS.label, Literal("BIT-0417")) in b.graph
+    assert (fc, MIL.hasFaultCodeValue, Literal("BIT-0417")) in b.graph
+    assert (fc, MIL.hasFaultCodeText, Literal("Array module fault.")) in b.graph
+    assert (URIRef(root), MIL.hasFaultCode, fc) in b.graph
+
+
+def test_s1000d_fault_code_subjects_are_document_scoped():
+    a = S1000dGraphBuilder(doc_id="doc_a")
+    a.parse_data_module(S1000D_XML_FAULT)
+    c = S1000dGraphBuilder(doc_id="doc_c")
+    c.parse_data_module(S1000D_XML_FAULT)
+
+    fc_a = MIL["faultcode-doc_a-BIT-0417"]
+    fc_c = MIL["faultcode-doc_c-BIT-0417"]
+    assert fc_a != fc_c
+    assert (fc_a, RDF.type, MIL.FaultCode) in a.graph
+    assert (fc_c, RDF.type, MIL.FaultCode) in c.graph
+    assert set(a.graph.objects(None, MIL.hasFaultCodeValue)) == {Literal("BIT-0417")}
+    assert (set(a.graph.objects(None, MIL.hasFaultCodeValue))
+            == set(c.graph.objects(None, MIL.hasFaultCodeValue)))
+
+
+def test_s1000d_emits_the_planning_interval():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_INTERVAL)
+    ivs = list(b.graph.subjects(RDF.type, MIL.PlanningInterval))
+    assert len(ivs) == 1
+    iv = ivs[0]
+    # subject is named after the mpSection title, not a loop index
+    assert "Periodic_Array_Inspection" in str(iv)
+    assert (iv, RDFS.label, Literal("180 days")) in b.graph
+    assert (iv, MIL.hasIntervalValue, Literal("180")) in b.graph
+    assert (iv, MIL.hasIntervalUnit, Literal("days")) in b.graph
+    assert (URIRef(root), MIL.hasPlanningInterval, iv) in b.graph
+
+
+def test_s1000d_emits_ipd_items_with_part_number_and_quantity():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_IPD)
+    g = b.graph
+
+    items = list(g.subjects(RDF.type, MIL.CatalogItem))
+    assert len(items) == 1
+    it = items[0]
+    assert (it, MIL.hasPartNumber, Literal("ODM-AM-0001")) in g
+    qty = list(g.objects(it, MIL.hasQuantity))
+    assert qty == [Literal(1)]
+    assert qty[0].datatype == URIRef("http://www.w3.org/2001/XMLSchema#integer")
+
+    fig = next(iter(g.subjects(RDF.type, MIL.Figure)))
+    assert (fig, MIL.hasCatalogItem, it) in g
+    assert (URIRef(root), MIL.hasCatalogItem, it) in g
+
+
+def test_s1000d_an_ipd_part_and_a_reqspares_part_share_one_subject():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_IPD_AND_REQSPARES)
+    g = b.graph
+
+    parts = set(g.subjects(RDF.type, MIL.Part))
+    assert parts == {MIL["part-d-ODM-AM-0001"]}
+    part = MIL["part-d-ODM-AM-0001"]
+
+    assert (URIRef(root), MIL.hasPart, part) in g
+    items = list(g.subjects(RDF.type, MIL.CatalogItem))
+    assert len(items) == 1
+    assert (items[0], MIL.hasPart, part) in g
+
+
+def test_s1000d_figure_identity_falls_back_to_the_authored_icn():
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(S1000D_XML_FIGURE_NO_ID)
+    figs = {str(s) for s in set(b.graph.subjects(RDF.type, MIL.Figure))}
+    assert any("ICN-X-1" in f for f in figs)
+    assert not any("fig_0" in f for f in figs)
+
+
+# --------------------------------------------------------------------------- #
 # DITA
 # --------------------------------------------------------------------------- #
 DITA_XML = b"""

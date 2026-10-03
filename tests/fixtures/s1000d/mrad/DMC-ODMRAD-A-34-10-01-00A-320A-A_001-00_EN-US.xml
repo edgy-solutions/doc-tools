@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dmodule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-2/xml_schema_flat/schedul.xsd">
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="320" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="US"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="10" day="01"/>
+        <dmTitle>
+          <techName>Array Module</techName>
+          <infoName>Maintenance Planning Data</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <responsiblePartnerCompany enterpriseName="Synthetic"/>
+      <originator enterpriseName="Synthetic"/>
+      <applic>
+        <displayText>
+          <simplePara>All configurations.</simplePara>
+        </displayText>
+      </applic>
+      <brexDmRef>
+        <dmRef>
+          <dmRefIdent>
+            <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                    subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                    disassyCode="00" disassyCodeVariant="A"
+                    infoCode="320" infoCodeVariant="A" itemLocationCode="A"/>
+          </dmRefIdent>
+        </dmRef>
+      </brexDmRef>
+      <qualityAssurance>
+        <unverified/>
+      </qualityAssurance>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <!-- Simplified maintenance-planning structure: scheduling / mpSystem / mpSystemChap /
+         mpSection are used here as plausible stand-ins; the author was not fully certain of
+         the schedul.xsd schema's exact element names. See README for this judgement call. -->
+    <scheduling>
+      <mpSystem>
+        <mpSystemChap>
+          <title>Array Module Maintenance Plan</title>
+          <mpSection>
+            <title>On-Condition Replacement</title>
+            <para>Replace the array module on a confirmed BIT failure (fault code MRAD-ARR-0417).
+            See the fault isolation data for the isolation steps and the remove and install
+            procedures below for the replacement task.</para>
+            <dmRef>
+              <dmRefIdent>
+                <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                        subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                        disassyCode="00" disassyCodeVariant="A"
+                        infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+              </dmRefIdent>
+            </dmRef>
+            <dmRef>
+              <dmRefIdent>
+                <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                        subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                        disassyCode="00" disassyCodeVariant="A"
+                        infoCode="720" infoCodeVariant="A" itemLocationCode="A"/>
+              </dmRefIdent>
+            </dmRef>
+          </mpSection>
+          <mpSection>
+            <title>Periodic Array Inspection</title>
+            <limit>
+              <threshold thresholdUnitOfMeasure="days">
+                <thresholdValue>180</thresholdValue>
+              </threshold>
+            </limit>
+            <para>Every 180 days, inspect the array face for physical damage and inspect each
+            array module connector for corrosion or looseness.</para>
+          </mpSection>
+        </mpSystemChap>
+      </mpSystem>
+    </scheduling>
+  </content>
+</dmodule>

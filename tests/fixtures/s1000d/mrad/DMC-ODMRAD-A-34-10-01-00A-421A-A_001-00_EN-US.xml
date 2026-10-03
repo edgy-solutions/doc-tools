@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dmodule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-2/xml_schema_flat/fault.xsd">
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="421" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="US"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="10" day="01"/>
+        <dmTitle>
+          <techName>Array Module</techName>
+          <infoName>Fault Isolation</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <responsiblePartnerCompany enterpriseName="Synthetic"/>
+      <originator enterpriseName="Synthetic"/>
+      <applic>
+        <displayText>
+          <simplePara>All configurations.</simplePara>
+        </displayText>
+      </applic>
+      <brexDmRef>
+        <dmRef>
+          <dmRefIdent>
+            <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                    subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                    disassyCode="00" disassyCodeVariant="A"
+                    infoCode="421" infoCodeVariant="A" itemLocationCode="A"/>
+          </dmRefIdent>
+        </dmRef>
+      </brexDmRef>
+      <qualityAssurance>
+        <unverified/>
+      </qualityAssurance>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <!-- Simplified fault-isolation structure: faultIsolation / faultCode / isolationProcStep
+         are used here as plausible stand-ins for the 4.2 fault schema's exact element names,
+         which the author was not fully certain of. See README for this judgement call. -->
+    <faultIsolation>
+      <title>Array Module BIT Failure</title>
+      <faultCode faultCodeValue="MRAD-ARR-0417">
+        <faultCodeText>Array module fault, section 3.</faultCodeText>
+      </faultCode>
+      <isolationProcStep>
+        <title>Re-run BIT</title>
+        <test>Re-run BIT. Does fault code MRAD-ARR-0417 report again?</test>
+        <answer answerType="no">
+          <isolationAction>No fault confirmed. Return the array module to service and monitor.</isolationAction>
+        </answer>
+        <answer answerType="yes">
+          <isolationProcStep>
+            <title>Check module power LED</title>
+            <test>Check the array module power LED at the reported position. Is the LED illuminated?</test>
+            <answer answerType="no">
+              <isolationAction>Reseat the array module connector, then re-run BIT.</isolationAction>
+            </answer>
+            <answer answerType="yes">
+              <isolationProcStep>
+                <title>Reseat connector</title>
+                <test>Reseat the array module connector and re-run BIT. Does MRAD-ARR-0417 report again?</test>
+                <answer answerType="no">
+                  <isolationAction>No fault confirmed. Return the array module to service and monitor.</isolationAction>
+                </answer>
+                <answer answerType="yes">
+                  <isolationAction>Replace array module.</isolationAction>
+                  <dmRef>
+                    <dmRefIdent>
+                      <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                              subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                              disassyCode="00" disassyCodeVariant="A"
+                              infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+                    </dmRefIdent>
+                  </dmRef>
+                  <dmRef>
+                    <dmRefIdent>
+                      <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                              subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                              disassyCode="00" disassyCodeVariant="A"
+                              infoCode="720" infoCodeVariant="A" itemLocationCode="A"/>
+                    </dmRefIdent>
+                  </dmRef>
+                </answer>
+              </isolationProcStep>
+            </answer>
+          </isolationProcStep>
+        </answer>
+      </isolationProcStep>
+    </faultIsolation>
+  </content>
+</dmodule>
