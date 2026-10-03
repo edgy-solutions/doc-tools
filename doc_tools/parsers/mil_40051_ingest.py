@@ -3,7 +3,7 @@
 The sibling of s1000d_ingest.py for the 40051 (US Army TM) format track.
 Per the architect's 2026-06-13 40051-track assignment:
 
-  > "Structure as three layers so EAGLE later swaps only the first:
+  > "Structure as three layers so sor-events-a later swaps only the first:
   > iads_extract (unpack the .iads container — tool-specific) →
   > read_40051_wp (parse WP XML — format-general) →
   > classify_40051 (root-tag → mil: kind — format-general)."
@@ -11,7 +11,7 @@ Per the architect's 2026-06-13 40051-track assignment:
 This module is the read_40051_wp + substrate-write layer (the
 format-general half — same code regardless of WHICH 40051 container
 delivered the XML). The IADS container parser is the separate
-iads_extract module; an EAGLE adapter would be a different
+iads_extract module; an sor-events-a adapter would be a different
 iads_extract sibling and feed into this same reader.
 
 Architectural invariants encoded here (mirrors s1000d_ingest's):

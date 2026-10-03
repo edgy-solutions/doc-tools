@@ -5,13 +5,13 @@ Per the architect's 2026-06-13 40051-track assignment:
   > "iads_extract (unpack the .iads container — tool-specific) →
   >  read_40051_wp (parse WP XML — format-general) →
   >  classify_40051 (root-tag → mil: kind — format-general).
-  >  Keep iads_extract isolated so the EAGLE adapter later swaps only
+  >  Keep iads_extract isolated so the sor-events-a adapter later swaps only
   >  the first."
 
 This module is the ONLY place that knows about the IADS container
 binary format. The downstream layers (mil_40051_ingest,
 mil_40051_classifier) operate on raw WP XML bytes and don't care
-whether they came from an .iads archive, an EAGLE export, or a loose
+whether they came from an .iads archive, an sor-events-a export, or a loose
 directory of XML files.
 
 The IADS file format (observed from helmet.iads — IADS 4.0):
