@@ -40,51 +40,59 @@ checks below add is that the report cannot be silent about the question: it
 must carry the `image_identity` block, and it must name the image it
 measured.
 
-TWO GAPS, STATED RATHER THAN HIDDEN — both of the same shape, that CI cannot
-assert a thing only a later change can supply (PR #40's mistake):
+BOTH GAPS ARE NOW CLOSED, 2026-10-03 — and the history is kept because it is
+what stops them being re-opened by a well-meaning loosening.
 
-1. `image_identity.checked` can be False — "no expectation was supplied, so
-   nothing was compared" — and CI does not fail on that. The missing input is
-   the pods' `imageID`, which neither CI nor the gate's own Job can read (the
-   Job's ServiceAccount has no Role; there is no role.yaml in
-   charts/doc-tools/templates/). A human supplies it at helm-upgrade time
-   through `corpusGate.expectImage`.
-2. The block may be absent entirely, because the gate runs the image the CHART
-   is pinned to — so the block appears only after a pin bump carries the
-   emitting code into that image.
+Until today this file asserted only that the `image_identity` block was
+CONSISTENT if present, and said so loudly rather than hiding it. Two gaps:
+`checked` could be False ("no expectation was supplied, so nothing was
+compared"), and the block could be absent entirely — because the gate runs the
+image the CHART is pinned to, so the block appears only once a pin bump carries
+the emitting code into that image. Neither could be asserted at the time
+without reproducing PR #40's mistake: a guard test demanding a report block
+only a later change can supply, on a check that is required on main, which
+would block every chart PR including the bump that fixes it.
 
-THE TIGHTENING CONDITION, CORRECTED 2026-10-02 — AND THE TWO GAPS ARE ONE.
-An earlier draft of gap 1 said to tighten "once `corpusGate.expectImage` is set
-in values-sandbox.yaml". That is wrong, and acting on it would have reproduced
-PR #40's mistake a third time. `expectImage` IS now set (read off pod
-doc-tools-67b8dcc99b-pzb9h after the helm revision 30 roll), and at that same
-moment `docs/corpus-gate/latest.json` still carried `image_identity: null` —
-because a values key governs FUTURE runs while the committed report is a PAST
-artifact, measured at `d881069b` by an image built before #55's code existed.
-Asserting `checked is True` on that report goes red on the spot, and
-`corpus-gate` is required on main, so it would block every chart PR including
-any that could fix it.
+The condition for closing them was written as a property of the REPORT, never
+of the chart, precisely because a values key governs FUTURE runs while a
+committed report is a PAST artifact. An earlier draft said to tighten "once
+`corpusGate.expectImage` is set"; that was wrong, and on 2026-10-02 it was
+measurably wrong — `expectImage` WAS set and the pinned image DID descend from
+the emitting code, while `docs/corpus-gate/latest.json` still carried
+`image_identity: null` from two pins back. Asserting `checked is True` that day
+would have gone red on the spot.
 
-The condition is therefore a property of the REPORT, never of the chart:
+THE ARTIFACT THAT CLOSED IT. The 2026-10-03T08:15:13Z nightly is the first
+report to satisfy the condition, and it satisfies all of it:
 
-    tighten once docs/corpus-gate/latest.json carries an `image_identity`
-    block with `checked: true` — i.e. once a nightly has run on an image
-    containing the emitting code AND with an expectation supplied, and that
-    report has been merged.
+    image_identity.checked   True
+    comparisons              [{source: "pods", result: "match"}]
+    void_reasons             []
+    measured_digest          sha256:b54d9ef2…  == the comparison's
+                             expected_digest == the chart's active image.digest
 
-Both gaps close at that one moment, because both are waiting on the same
-artifact: gap 2 needs the block to exist, gap 1 needs it to be populated, and
-the first report that has one has both. The pinned image (`b54d9ef2`,
-`7f22479`) descends from #55, so it emits the block, and `expectImage` is set,
-so it will reconcile — making the next nightly the first report that can
-satisfy this. Check the report before tightening rather than assuming that
-run happened.
+Both gaps closed at that one moment, as predicted, because both were waiting on
+the same artifact: one needed the block to exist, the other needed it
+populated, and the first report that has one has both.
 
-Neither is "fine". Both are surfaced in the report's own markdown, which is
-what a human reads when merging it: an unreconciled run leads with a **NOT
+WHAT THIS NOW MEANS WHEN IT GOES RED. A missing or unreconciled block is a
+finding, not a condition to wait out. The remedy is never to relax these
+assertions — it is to make the gate reconcile:
+
+  - `checked: false` with no comparisons → the run was given no expectation to
+    compare against. `corpusGate.expectImage` is supplied at helm-upgrade time
+    from a pod `imageID` reading, because neither CI nor the gate's own Job can
+    read pods (the Job's ServiceAccount has no Role; there is no role.yaml in
+    charts/doc-tools/templates/). Supply it and re-run.
+  - the block absent → the report was produced by an image older than the
+    emitting code, or by a `--from-logs` reduction rather than a `--run`.
+
+Both failure modes are ALSO surfaced in the report's own markdown, where a
+human reads it when merging: an unreconciled run leads with a **NOT
 RECONCILED** section above the scores, and a report with no block renders
-"whether it measured the declared image is **unknown**". Both tightenings are
-tracked in HANDOFF.md so they do not rest on someone remembering.
+"whether it measured the declared image is **unknown**". That rendering stays —
+it is how a report read outside CI still tells the truth — but it is no longer
+the only thing standing between an unreconciled run and a green check.
 """
 import datetime
 import json
@@ -246,54 +254,56 @@ def test_the_report_names_the_image_it_measured():
     )
 
 
-def test_the_image_identity_block_is_consistent_if_it_is_there():
-    """IF the report records image comparisons, they must agree with its verdict.
+def test_the_image_identity_block_is_present_and_consistent():
+    """The report must say which image it measured and that it reconciled.
 
-    WHY PRESENCE IS NOT ASSERTED, and why that is not the usual skip-as-pass
-    mistake. A first draft of this test demanded the `image_identity` block of
-    any report generated after a cutoff date. That cutoff was a time bomb, and
-    the reason is worth keeping: the gate runs the image the CHART is pinned
-    to, so the block can only appear in a report once a pin bump has carried
-    this code into the gate image. A date-based demand goes red on the next
-    nightly — before any pin bump can possibly have happened — and because
-    `corpus-gate` is required on main, it would block every chart PR including
-    the bump that fixes it. That is PR #40's mistake verbatim: a guard test
-    demanding a report block only a later change can supply.
+    TIGHTENED 2026-10-03, when the condition in this module's docstring fired.
+    This test used to be a consistency check that returned early when the
+    block was absent, and the early return was correct at the time: the gate
+    runs the image the CHART is pinned to, so the block could not appear in a
+    report until a pin bump carried the emitting code into the gate image, and
+    demanding it sooner would have been PR #40's mistake a third time. The
+    2026-10-03T08:15:13Z nightly supplied the first report with
+    `checked: true`, a pod-sourced match and no void reasons, so the absence is
+    now a finding. See the module docstring for the remedy when this reds —
+    which is to make the gate reconcile, never to restore the early return.
 
-    THE STALENESS GUARD DOES NOT CLOSE THIS, which the first draft wrongly
-    claimed. Staleness bounds how old a report may be; it says nothing about
-    how old the CODE that produced it is, and those are a pin bump apart.
-
-    So the absence is surfaced where it will be read instead of asserted here:
-    a report with no block renders "Not recorded — ... whether it measured the
-    declared image is **unknown**" in its own section, above the scores.
-
-    TIGHTEN THIS to a hard presence assertion once a REPORT carrying the block
-    has landed in docs/corpus-gate/latest.json — not merely once a pin bump has
-    (see the module docstring's corrected condition). The pin bump is necessary
-    and not sufficient: on 2026-10-02 the pinned image emitted the block and
-    `corpusGate.expectImage` was set, while the committed report still carried
-    `image_identity: null` from two pins back. The artifact this test reads is
-    what has to change, and only a nightly can change it. Until then this test
-    is a consistency check, not a coverage claim.
+    NOTE ON THE DIGEST CHECK at the end. The old test could only ask whether
+    the producer LABELLED each comparison a match. That trusts a label against
+    the data sitting beside it, which is the failure this repo keeps paying
+    for. So a comparison claiming `result: "match"` is now held to its own
+    evidence: its `expected_digest` must equal the report's `measured_digest`.
+    A producer bug that labels a mismatch a match is exactly the bug no other
+    check can see, because every downstream consumer reads the label.
     """
     report = _load_report()
     identity = report.get("image_identity")
-    if identity is None:
-        # The report predates the check. It can still be held to one thing:
-        # a gate build with no identity check cannot have produced a void.
-        assert report.get("verdict") != "void", (
-            f"{REPORT_PATH} reports verdict='void' but carries no "
-            f"`image_identity` block. No gate build can produce that "
-            f"combination — void is only ever set from that block's "
-            f"void_reasons — so something other than the gate wrote this file."
-        )
-        return
+    assert isinstance(identity, dict), (
+        f"{REPORT_PATH} carries image_identity={identity!r}. Since the "
+        f"2026-10-03 nightly every gate run emits this block, so its absence "
+        f"means this report was produced either by an image older than the "
+        f"emitting code or by a `--from-logs` reduction rather than a `--run` "
+        f"in the cluster. Either way it cannot say whether it measured the "
+        f"image it was asked to measure, and that question is not optional: "
+        f"re-run the gate with `--run`."
+    )
+    # A gate build with no identity check cannot have produced a void, so this
+    # combination means something other than the gate wrote the file.
+    assert report.get("verdict") != "void" or identity.get("void_reasons"), (
+        f"{REPORT_PATH} reports verdict='void' with no void_reasons. Void is "
+        f"only ever set from that list, so something other than the gate "
+        f"wrote this file."
+    )
 
-    assert isinstance(identity.get("checked"), bool), (
-        f"image_identity.checked is {identity.get('checked')!r}, not a bool. "
-        f"This field is the difference between 'reconciled and agreed' and "
-        f"'never reconciled', and it must never be absent or truthy-by-accident."
+    assert identity.get("checked") is True, (
+        f"image_identity.checked is {identity.get('checked')!r}. This field is "
+        f"the difference between 'reconciled and agreed' and 'never "
+        f"reconciled', and `False` means the run was handed no expectation to "
+        f"compare against — so the report is silent on whether it measured the "
+        f"declared image. Supply `corpusGate.expectImage` from a pod imageID "
+        f"reading at helm-upgrade time and re-run the gate. `is True` and not "
+        f"a truthiness test on purpose: a non-empty string here would "
+        f"otherwise read as reconciled."
     )
     comparisons = identity.get("comparisons")
     assert isinstance(comparisons, list), (
@@ -318,3 +328,19 @@ def test_the_image_identity_block_is_consistent_if_it_is_there():
             f"that report is VOID, not a verdict — the producer's verdict and "
             f"its own evidence disagree."
         )
+    # A comparison is held to its own evidence, not to its label: the producer
+    # may only call something a match when the digests actually match.
+    measured_digest = identity.get("measured_digest")
+    mislabelled = [
+        c for c in comparisons
+        if c.get("result") == "match"
+        and c.get("expected_digest") != measured_digest
+    ]
+    assert not mislabelled, (
+        f"{REPORT_PATH} records comparison(s) labelled 'match' whose "
+        f"expected_digest differs from the report's measured_digest "
+        f"{measured_digest!r}: "
+        f"{[(c.get('source'), c.get('expected_digest')) for c in mislabelled]}. "
+        f"Every consumer downstream reads the label, so a producer bug that "
+        f"labels a mismatch a match is invisible everywhere except here."
+    )

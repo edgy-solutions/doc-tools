@@ -236,9 +236,15 @@ def test_the_void_markdown_withholds_the_sentence_that_reads_as_a_verdict():
 
 
 def test_the_unreconciled_markdown_says_so_above_the_scores():
-    """The absence of the check has to be visible where a human reads it,
-    because CI deliberately does not fail on it (see
-    tests/test_corpus_gate_guard.py's docstring)."""
+    """The absence of the check has to be visible where a human reads it.
+
+    This no longer says "because CI deliberately does not fail on it". As of
+    2026-10-03 CI DOES fail on it — tests/test_corpus_gate_guard.py now
+    asserts `image_identity.checked is True` on the committed report, the
+    condition in its docstring having fired. The rendering is still required,
+    because a report is read by humans outside CI and must tell the truth
+    there too; it is simply no longer the only thing standing between an
+    unreconciled run and a green check."""
     identity = {"measured": f"{REPO}@{A}", "measured_digest": A,
                 "checked": False, "comparisons": [], "void_reasons": []}
     md = gate.render_markdown(_report("pass", identity), ".", "cmd", [])
