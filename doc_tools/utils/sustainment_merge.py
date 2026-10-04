@@ -86,17 +86,49 @@ def dequote_parts(parts: List[dict]) -> int:
     return n
 
 
-def dedup_parts(parts: List[dict]) -> List[dict]:
+def dedup_parts(parts: List[dict], counts: Optional[dict] = None) -> List[dict]:
     """Dedup by affected_mpn across crops (first occurrence wins). Drops rows
     with no affected_mpn. This is the multi-crop reconciliation: a page-spanning
-    table extracted per-crop re-emits repeated headers / continued rows."""
+    table extracted per-crop re-emits repeated headers / continued rows.
+
+    When `counts` is passed, it is filled in place with two SEPARATE tallies:
+    `counts["duplicate"]` (a row whose affected_mpn repeats one already kept)
+    and `counts["no_mpn"]` (a row with no affected_mpn at all). Both keys are
+    always set, including to 0 — a row disappearing for one reason is a
+    different finding from it disappearing for the other, and 0 is itself
+    informative (it says this fire had nothing to collapse).
+
+    Routine collapsing is EXPECTED, not a defect signal: a page-spanning table
+    extracted per-crop re-emits its header row and any continued row on every
+    crop, so `duplicate` > 0 on a normal fire is the mechanism working as
+    designed, not evidence of a problem.
+
+    This counter is meant to be read as a FIRE-TO-FIRE DELTA, never as an
+    absolute. "Collapsed 1 means a misread" is wrong on its own: if a degraded
+    fire collapses one MORE duplicate than its sibling fires on the same
+    document, that extra duplicate is suspect — a misread row that happened to
+    collide with (or get produced alongside) a correct one, which dedup then
+    silently ate. But if two fires collapse the SAME number of duplicates and
+    one simply emitted fewer parts going in, the model never produced the
+    missing row in the first place; dedup had nothing to do with that loss.
+    Only the comparison across fires can tell those two cases apart.
+    """
     seen, out = set(), []
+    n_dup = 0
+    n_no_mpn = 0
     for p in parts:
         k = (p.get("affected_mpn") or "").strip()
-        if not k or k in seen:
+        if not k:
+            n_no_mpn += 1
+            continue
+        if k in seen:
+            n_dup += 1
             continue
         seen.add(k)
         out.append(p)
+    if counts is not None:
+        counts["duplicate"] = n_dup
+        counts["no_mpn"] = n_no_mpn
     return out
 
 
