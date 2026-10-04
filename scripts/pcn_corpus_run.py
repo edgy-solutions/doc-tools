@@ -565,7 +565,9 @@ def main():
                   f"failed={st.get('crops_failed')} trunc={st.get('crops_truncated')} "
                   f"near_cap={st.get('crops_near_cap')} row_short={st.get('crops_row_short')} "
                   f"text_layer_degraded={st.get('text_layer_degraded')} "
-                  f"(retention={st.get('text_layer_retention')})",
+                  f"(retention={st.get('text_layer_retention')}) "
+                  f"collapsed={st.get('parts_collapsed_duplicate') or 0}/"
+                  f"{st.get('parts_collapsed_no_mpn') or 0}",
                   flush=True)
 
     with open(OUT, "w") as f:
