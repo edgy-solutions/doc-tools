@@ -137,6 +137,8 @@ env:
   # resolve in the current cluster, so this call had been pointing at a non-existent host
   # whenever the env var was unset — which is always, because it was never in this chart.
   ONTOLOGY_SERVICE_URL: "http://iagent-engine-o:8084"
+  # Lane 1's stage route (`IngestStatusResource` -> `POST /ingest/{id}/stage`), svc:doc-tools.
+  IAGENT_GATEWAY_URL: "http://iagent-cortex-bff:8090"
   # Transport identity for the call above (svc:doc-tools). The SECRET rides in `secrets:`.
   DOC_TOOLS_CLIENT_ID: "iagent-doc-tools"
   RAW_KAFKA_TOPIC: "openddil.sensor.data"
