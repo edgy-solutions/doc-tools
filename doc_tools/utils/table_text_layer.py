@@ -475,6 +475,9 @@ def grid_outcome(
     if not grid:
         return GridOutcome([], GridDecline("empty grid", 0, 0, grid))
     hi = header_row if header_row is not None else find_header_row(grid)
+    # Which rule decided the columns — carried only so a zero-part outcome can say what
+    # it tried. See the silent-zero decline at the end of this function.
+    basis = "a declared header row"
     if hi is not None:
         pairs = pair_columns(grid[hi])
         start = hi + 1
@@ -496,6 +499,7 @@ def grid_outcome(
         # docs/pcn-corpus-validation-2026-09-21.md.
         pairs = inherited.pairs
         start = 0
+        basis = "an inherited header from the preceding table"
     else:
         # No column header and nothing to inherit. If a CAPTION names the contents
         # ("Table 3 - EOL Devices"), every column is an affected part and there are no
@@ -509,6 +513,7 @@ def grid_outcome(
         width = max((len(r) for r in grid[ti + 1:]), default=0)
         pairs = [(c, None) for c in range(width)]
         start = ti + 1
+        basis = "a caption naming the contents"
     if not pairs:
         return GridOutcome([], GridDecline(
             "header row produced no affected/replacement column pairs",
@@ -575,6 +580,44 @@ def grid_outcome(
                 # highlight THAT cell rather than reusing the affected one.
                 "rep_col": rep_col_value,
             })
+    # THE SILENT ZERO. A pairing was decided and then NO row yielded a part, while the
+    # grid plainly carries MPN-bearing rows. Until 2026-10-05 that returned
+    # `GridOutcome([], None)` — no parts AND no decline — which is the one outcome this
+    # module must never produce: a decline is the only independent check on the vision
+    # pass that runs afterwards (see GridDecline's docstring), so a grid that reports
+    # neither parts nor a reason makes the witness blind on exactly the page where it
+    # would be needed.
+    #
+    # Measured over the 9-notice corpus, 3 notices did this, 29 MPN-bearing rows in all,
+    # and the cause is NOT one mechanism — which is why this declines instead of trying
+    # to repair the pairing:
+    #
+    #   onsemi_Generic_IPCN25300X.pdf  p3  header `Part Number` at col 1, its 17 MPNs at
+    #                                      col 0 — a genuine header/data misalignment, and
+    #                                      UNDECIDABLE by shifting: col 0 and col 2 both
+    #                                      hold 17 MPN-like values, so a one-column shift
+    #                                      is equally likely to emit the Qualification
+    #                                      Vehicle column as affected parts. That is the
+    #                                      retracted-figure defect class exactly.
+    #   onsemi_Generic_PD26044X1.pdf   p1  `Title of Change: Update to PD26044X - Removal
+    #                                      of Part num...` matched `part num` as a header.
+    #                                      Prose, not a column.
+    #   EOL-36_BYV34-400,-BYV34-500    p1  `Manufacturing Location(s) Affected` matched the
+    #                                      bare word `affected`. A label, not a column.
+    #
+    # None of the three costs a part: fires 2 and 3 of the pinned corpus report score
+    # 898/898 exact with 0 missing, so the vision pass already has every one of these
+    # rows. What was lost is the CHECK on it. So this is deliberately a visibility fix and
+    # not a recall fix, and it cannot move the parts score — it emits no part either way.
+    if not out:
+        n_mpn = _mpn_bearing_rows(grid)
+        if n_mpn:
+            return GridOutcome([], GridDecline(
+                f"{basis} produced a column pairing, but no row yielded a part "
+                f"while {n_mpn} row(s) in the grid carry a part number — the paired "
+                f"column is empty in the data rows (misaligned header, or a prose cell "
+                f"that merely matched the header vocabulary)",
+                n_mpn, len(grid), grid))
     return GridOutcome(out, None)
 
 

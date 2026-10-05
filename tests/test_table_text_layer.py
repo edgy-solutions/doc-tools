@@ -9,8 +9,9 @@ The column logic is pure (grids of strings), so it tests without pdfplumber or a
 import pytest
 
 from doc_tools.utils.table_text_layer import (
-    find_header_row, find_title_row, header_pairing, looks_like_mpn, pair_columns,
-    parts_from_grid, parts_from_pages, split_composite_cell, strip_enclosing_quotes,
+    find_header_row, find_title_row, grid_outcome, header_pairing, looks_like_mpn,
+    pair_columns, parts_from_grid, parts_from_pages, split_composite_cell,
+    strip_enclosing_quotes,
 )
 
 # The real page-3 shape: a CAPTION, then a header declaring THREE (EOL, Replacement) pairs.
@@ -643,6 +644,101 @@ def test_split_composite_cell_strips_enclosing_quotes_per_fragment():
     same treatment so neither one is left with a stray quote at the cut point)."""
     assert split_composite_cell('"TYC1056344-1",\n"9501815SP-1"') == [
         "TYC1056344-1", "9501815SP-1"]
+
+
+# --------------------------------------------------------------------------- #
+# THE SILENT ZERO: a pairing was decided, no row yielded a part, and the grid
+# plainly carries part numbers. Measured 2026-10-05 on 3 of the 9 corpus
+# notices, 29 MPN-bearing rows in all. Before the fix that returned no parts
+# AND no decline, which is the one outcome this module must never produce: the
+# decline is the only independent check on the vision pass that follows it.
+# --------------------------------------------------------------------------- #
+
+# onsemi_Generic_IPCN25300X.pdf page 3, as pdfplumber really extracts it: the
+# header cell `Part Number` lands at index 1 while every data row carries its
+# MPN at index 0, and the Qualification Vehicle values sit at index 2.
+_ONSEMI_HEADER = ["", "Part Number", "", "Qualification Vehicle", ""]
+_ONSEMI_ROWS = [
+    ["SNSR15304NXT5G", "", "SNSR01F30NXT5G, NSR20F40NXT5G", "", ""],
+    ["NSR20F40NXT5G", "", "SNSR01F30NXT5G, NSR20F40NXT5G", "", ""],
+    ["NSR02F30NXT5G", "", "SNSR01F30NXT5G, NSR20F40NXT5G", "", ""],
+]
+
+
+def test_a_misaligned_header_declines_instead_of_returning_a_silent_zero():
+    """The real onsemi page-3 shape. Header detection and pairing are both CORRECT
+    here -- `find_header_row` finds the header and `pair_columns` returns the one
+    affected column it declares -- and the grid still yields nothing, because the
+    column the header names is empty in every data row. That used to be reported as
+    an ordinary empty table."""
+    grid = [_ONSEMI_HEADER] + _ONSEMI_ROWS
+    assert find_header_row(grid) == 0
+    assert pair_columns(grid[0]) == [(1, None)]
+
+    outcome = grid_outcome(grid)
+    assert outcome.parts == []
+    assert outcome.decline is not None, "a silent zero: no parts and no decline"
+    assert outcome.decline.n_rows == 3, (
+        "the MPN-bearing row count must survive the decline -- it is what lets the "
+        "witness compare 3 text-layer rows against what vision returned for the page"
+    )
+    assert "no row yielded a part" in outcome.decline.reason
+
+
+def test_the_misaligned_header_is_not_repaired_by_guessing_a_column_shift():
+    """WHY THIS DECLINES RATHER THAN SHIFTING. On the real grid, column 0 AND column 2
+    each carry an MPN-like value in all 17 data rows, so `Part Number` at index 1 is
+    equally consistent with a shift of -1 and a shift of +1. Shifting the wrong way
+    emits the Qualification Vehicle column as discontinued parts, which is the exact
+    defect class behind the retracted "136 of 402" figure. A column pairing the
+    document does not state must not be guessed."""
+    grid = [_ONSEMI_HEADER] + _ONSEMI_ROWS
+    parts = parts_from_grid(grid)
+    assert parts == []
+    emitted = {p["affected_mpn"] for p in parts}
+    assert "SNSR01F30NXT5G, NSR20F40NXT5G" not in emitted
+    assert "NSR02F30NXT5G" not in emitted, (
+        "recovering the affected column by a shift would be a GUESS; the two "
+        "candidate columns are indistinguishable from the grid alone"
+    )
+
+
+def test_a_prose_cell_matching_the_header_vocabulary_declines_too():
+    """The other two corpus cases are not misalignment at all, they are a label or a
+    sentence that happens to contain the vocabulary: `Manufacturing Location(s)
+    Affected` matches the bare word `affected`, and `Title of Change: ... Removal of
+    Part num...` matches `part num`. Same silent zero, different cause -- which is why
+    the decline is keyed on the OUTCOME (nothing came out) and not on a diagnosis."""
+    grid = [["Manufacturing Location(s) Affected", "N/A"],
+            ["", "BYV34-400"],
+            ["", "BYV34-500"]]
+    outcome = grid_outcome(grid)
+    assert outcome.parts == []
+    assert outcome.decline is not None
+    assert outcome.decline.n_rows == 2
+
+
+def test_a_grid_that_yields_parts_is_never_declined():
+    """The guard must be invisible to every table that works. Measured over the corpus:
+    parts 834 -> 834 unchanged on all nine notices, declines 19 -> 22."""
+    grid = [_CAPTION, _HEADER, _ROW1, _ROW2]
+    outcome = grid_outcome(grid)
+    assert len(outcome.parts) == 6
+    assert outcome.decline is None
+
+
+def test_a_paired_header_over_rows_with_no_part_numbers_is_not_declined():
+    """A decline asserts `n_rows` part-bearing rows were SEEN and not read. This grid
+    pairs its columns correctly and yields nothing because there is genuinely nothing
+    in it -- a process-change notice whose affected-parts table says "all". Inventing a
+    decline here would hand the witness a phantom loss to chase, so the new guard is
+    keyed on MPN-BEARING rows and not merely on an empty result."""
+    grid = [["Affected Part", "Replacement"],
+            ["Not applicable", ""],
+            ["All orderable parts", ""]]
+    outcome = grid_outcome(grid)
+    assert outcome.parts == []
+    assert outcome.decline is None, "no MPN-bearing rows, so nothing was lost"
 
 
 if __name__ == "__main__":
