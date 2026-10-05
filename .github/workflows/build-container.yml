@@ -479,15 +479,25 @@ jobs:
     # checks the committed report. The split is forced by the network, not
     # chosen for speed.
     #
-    # WHY IT IS SCOPED TO charts/**, WHICH LOOKS LIKE THE MISTAKE THE `changes`
-    # JOB WARNS ABOUT AND IS THE OPPOSITE OF IT. `changes` must never skip the
-    # BUILD on a chart diff, because charts/ is how a commit reaches a pod. This
-    # job inverts that: a chart diff is exactly when it MUST run, and it is the
-    # only time it should. If a red gate blocked every PR, the fix for a red
-    # gate could not merge — the gate would wedge the repo shut against its own
-    # repair. A pin bump IS a chart change, so scoping red to charts/** blocks
-    # the next pin (the thing the order asks for) while leaving ordinary code
-    # PRs, including the one that fixes the pipeline, free to merge.
+    # IT IS NO LONGER SCOPED TO charts/**, AND MUST NOT BE AGAIN — 2026-10-04.
+    # This job is the single REQUIRED status check on main (verified:
+    # `required_status_checks.contexts == ["corpus-gate"]`, no required
+    # reviews), and a required context that SKIPS is never satisfied, so an
+    # `if:` here blocks every PR that does not touch charts/ while showing
+    # nothing red. That is what happened: #68 (charts) concluded FAILURE and
+    # #69 (no charts) concluded SKIPPED, and both read mergeStateStatus
+    # BLOCKED. The paths scoping was written to stop a red gate wedging the
+    # repo shut against its own repair, and making the job required inverted
+    # it — the protection became half the wedge.
+    #
+    # The split that replaces it: this job asserts only that the committed
+    # report IS EVIDENCE ABOUT THIS CODE (present, parseable, fresh, naming its
+    # corpus and image, identity-reconciled, not void) — cheap, always
+    # dispatched, and unfalsifiable by an extraction defect. The OUTCOME
+    # assertion moved to `corpus-gate-verdict` below, which is the one scoped
+    # to charts/** and therefore the one that keeps "red blocks the next pin".
+    # See tests/test_corpus_gate_guard.py's docstring section "WHY THE REQUIRED
+    # CHECK NO LONGER ASSERTS THE OUTCOME" for the measurement behind this.
     #
     # NOT IN `build-and-push`'s `needs:`, following verify-image-pin above. This
     # job decides whether the CHART may change, not whether an image may be
@@ -499,15 +509,14 @@ jobs:
     # report rather than skipping (tests/test_corpus_gate_guard.py, and the
     # d7434d6 incident its docstring cites), and it fails on a stale one, so a
     # report that stopped being produced cannot read as a pass.
-    needs: changes
-    if: needs.changes.outputs.charts == 'true'
+    # No `if:` — see the block above. Always dispatched, because it is required.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-      - name: Corpus gate report must be green and fresh
+      - name: Corpus gate report must be current and identity-reconciled
         # `--no-project` + `--with pytest`, like telemetry-contract: the guard
         # reads a committed JSON with stdlib only, so it needs no extraction
         # stack and no `uv sync`. Runs in seconds.
@@ -518,9 +527,40 @@ jobs:
         # job, where it would block every PR. This job is the one place the
         # marker is selected, and `-rs` prints any skip reason rather than
         # hiding it.
+        #
+        # `and not corpus_gate_verdict` is the whole retarget. Both halves live
+        # in one file under the module-level `corpus_gate` mark; this selection
+        # is what keeps the OUTCOME assertion out of the required check.
         run: |
           uv run --no-project --with pytest \
-            -- python -m pytest tests/test_corpus_gate_guard.py -m corpus_gate -q -rs
+            -- python -m pytest tests/test_corpus_gate_guard.py \
+               -m "corpus_gate and not corpus_gate_verdict" -q -rs
+
+  corpus-gate-verdict:
+    # "RED BLOCKS THE NEXT PIN" — the outcome half, and the only place a FAIL
+    # verdict stops anything. A pin bump IS a chart change, so scoping to
+    # charts/** blocks the pin while leaving ordinary code PRs free, which is
+    # what the `corpus-gate` comment above used to try to do with one job.
+    #
+    # ADVISORY UNTIL IT IS ADDED TO main's REQUIRED CONTEXTS. Right now
+    # `corpus-gate` is the only required check, so this job going red shows on
+    # the PR but does not block the merge button. Making it required is a
+    # repo-settings change, and if it is made required it MUST lose the `if:`
+    # and decide internally instead — a skipped required context is never
+    # satisfied, which is the exact bug this split exists to undo.
+    needs: changes
+    if: needs.changes.outputs.charts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: A chart diff may not ship on a failing corpus report
+        run: |
+          uv run --no-project --with pytest \
+            -- python -m pytest tests/test_corpus_gate_guard.py \
+               -m corpus_gate_verdict -q -rs
 
   build-and-push:
     # BOTH gates, not one. `needs` is what makes them gates rather than reports:
