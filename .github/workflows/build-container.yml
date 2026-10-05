@@ -479,25 +479,39 @@ jobs:
     # checks the committed report. The split is forced by the network, not
     # chosen for speed.
     #
-    # IT IS NO LONGER SCOPED TO charts/**, AND MUST NOT BE AGAIN — 2026-10-04.
-    # This job is the single REQUIRED status check on main (verified:
+    # IT ASSERTS CURRENCY AND IDENTITY, NOT THE OUTCOME — 2026-10-04, retargeted
+    # by ruling. This job is the single REQUIRED status check on main (verified:
     # `required_status_checks.contexts == ["corpus-gate"]`, no required
-    # reviews), and a required context that SKIPS is never satisfied, so an
-    # `if:` here blocks every PR that does not touch charts/ while showing
-    # nothing red. That is what happened: #68 (charts) concluded FAILURE and
-    # #69 (no charts) concluded SKIPPED, and both read mergeStateStatus
-    # BLOCKED. The paths scoping was written to stop a red gate wedging the
-    # repo shut against its own repair, and making the job required inverted
-    # it — the protection became half the wedge.
+    # reviews). Merging the honest nightly FAIL (#67) therefore froze merging
+    # for the whole repo, circularly: the extraction fix that turns the verdict
+    # green has to merge through the check the red verdict was failing. #68
+    # (charts) concluded FAILURE and read mergeStateStatus BLOCKED.
     #
-    # The split that replaces it: this job asserts only that the committed
-    # report IS EVIDENCE ABOUT THIS CODE (present, parseable, fresh, naming its
-    # corpus and image, identity-reconciled, not void) — cheap, always
-    # dispatched, and unfalsifiable by an extraction defect. The OUTCOME
-    # assertion moved to `corpus-gate-verdict` below, which is the one scoped
-    # to charts/** and therefore the one that keeps "red blocks the next pin".
-    # See tests/test_corpus_gate_guard.py's docstring section "WHY THE REQUIRED
-    # CHECK NO LONGER ASSERTS THE OUTCOME" for the measurement behind this.
+    # The split that fixes it: this job asserts only that the committed report
+    # IS EVIDENCE ABOUT THIS CODE (present, parseable, fresh, naming its corpus
+    # and image, identity-reconciled, not void) — cheap, and unfalsifiable by
+    # an extraction defect. A measured `fail` warns here instead of failing.
+    # The OUTCOME assertion moved to `corpus-gate-verdict` below, which keeps
+    # "red blocks the next pin". See tests/test_corpus_gate_guard.py's
+    # docstring section "WHY THE REQUIRED CHECK NO LONGER ASSERTS THE OUTCOME"
+    # for the measurement behind this.
+    #
+    # THE `if:` STAYS, AND A SKIP IS NOT A BLOCK — corrected 2026-10-05. I
+    # briefly removed this scoping on the premise that a required context
+    # concluding SKIPPED is never satisfied. That premise is FALSE: #69 touches
+    # no charts, its `corpus-gate` concluded SKIPPED, and it reads
+    # mergeable=MERGEABLE / mergeStateStatus=CLEAN with `corpus-gate` still the
+    # only required context. A job-level skip reports conclusion `skipped` and
+    # GitHub treats that as satisfying the requirement. The earlier BLOCKED
+    # reading was a `mergeStateStatus` sampled minutes after the PR was opened,
+    # before the checks had concluded — that field is computed asynchronously
+    # and goes stale. So #68's FAILURE was the ONLY structural block.
+    #
+    # Keeping the scoping is not merely harmless, it is the safer design: an
+    # always-dispatched currency assertion would block EVERY PR whenever the
+    # nightly stops producing or goes void — the same wedge class the retarget
+    # just removed, reached from the staleness side. Currency only matters
+    # where a pin can ship, and that is a chart diff.
     #
     # NOT IN `build-and-push`'s `needs:`, following verify-image-pin above. This
     # job decides whether the CHART may change, not whether an image may be
@@ -509,7 +523,8 @@ jobs:
     # report rather than skipping (tests/test_corpus_gate_guard.py, and the
     # d7434d6 incident its docstring cites), and it fails on a stale one, so a
     # report that stopped being produced cannot read as a pass.
-    # No `if:` — see the block above. Always dispatched, because it is required.
+    needs: changes
+    if: needs.changes.outputs.charts == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -539,15 +554,17 @@ jobs:
   corpus-gate-verdict:
     # "RED BLOCKS THE NEXT PIN" — the outcome half, and the only place a FAIL
     # verdict stops anything. A pin bump IS a chart change, so scoping to
-    # charts/** blocks the pin while leaving ordinary code PRs free, which is
-    # what the `corpus-gate` comment above used to try to do with one job.
+    # charts/** blocks the pin while leaving ordinary code PRs free. This is the
+    # assertion that was wedging the repo when it lived in the required job.
     #
     # ADVISORY UNTIL IT IS ADDED TO main's REQUIRED CONTEXTS. Right now
     # `corpus-gate` is the only required check, so this job going red shows on
     # the PR but does not block the merge button. Making it required is a
-    # repo-settings change, and if it is made required it MUST lose the `if:`
-    # and decide internally instead — a skipped required context is never
-    # satisfied, which is the exact bug this split exists to undo.
+    # repo-settings change — and note that it would re-create the original
+    # wedge by a different name: a red verdict would once again block the
+    # extraction fix that turns it green. If you make it required, the escape
+    # hatch has to be explicit (an override label the job reads), not the
+    # `if:`.
     needs: changes
     if: needs.changes.outputs.charts == 'true'
     runs-on: ubuntu-latest
