@@ -205,7 +205,39 @@ image:
   #     the parts score (that score is MPN-only), but the stored artifacts will
   #     differ from what is in S3 today and there is no rollback for them.
   # ------------------------------------------------------------------
-  # THIS PIN: 7f22479 (the #57 squash merge, main's tip), 2026-10-02.
+  # THIS PIN: 877677c (the #72 merge commit, main's tip), 2026-10-05.
+  # Index sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be
+  #
+  # WHAT THIS IMAGE ADDS over 7f22479, by first-parent ancestry:
+  #     66d3f39  #68  ingest stage transitions posted to Lane 1's stage route
+  #     5066c53  #69  dedup_parts counts what it collapses (duplicate vs no-MPN)
+  #     877677c  #72  a text-layer grid that pairs columns and yields nothing declines
+  #     f5c1ab1  #71  gate-side only (the required check asserts currency and
+  #                   identity, not outcome); changes no image behaviour
+  #     plus #53/#54 (s1000d DMC, content kind, info-code fallthrough count), #58,
+  #     #60/#62 (placeholder names) and #61 (expectImage from a pod reading).
+  #
+  # PIN MERGE COMMITS ONLY, and this is one. The digest is the `push`-event run
+  # on main (37405002364), which publishes; a PR run builds and publishes nothing.
+  #
+  # MEASURED BEFORE COMMITTING: the full tag resolves to this index; the short
+  # tag `877677c` and the full tag with its last hex altered both answer 404; the
+  # previous pin b54d9ef2 still answers 200 (the rollback target exists).
+  # Children fetched BY THEIR OWN DIGEST, both 200:
+  #     linux/amd64  sha256:be133e635d6bf38bd4366830989d61c0dcaeddf2b59be88a67041783e49df23c
+  #     linux/arm64  sha256:46cb6b13d21c5d8230cff85bce066ea457a7b3d9dcbdaad39f5ec1892aade998
+  # (two unknown/unknown entries are the provenance/SBOM attestations.)
+  #
+  # `corpusGate.expectImage` IS DELIBERATELY NOT MOVED HERE. It is read off the
+  # pods' imageID AFTER the roll, never copied from this line; until then a run
+  # on this image reports UNRECONCILED against b54d9ef2, which is the truth.
+  #
+  # #72 can change what a degraded text layer extracts (a silent zero becomes a
+  # decline), so the first nightly on this pin is a new baseline for any notice
+  # it touches, not a repeat.
+  # ------------------------------------------------------------------
+  #
+  # PREVIOUS PIN: 7f22479 (the #57 squash merge, main's tip), 2026-10-02.
   # Index sha256:b54d9ef2a1fdc871beb31b7ccbede7a59c43489133f9bad890cb8fce63fc0a21
   #
   # WHAT THIS IMAGE CONTAINS, by ancestry (7f22479 descends from each):
@@ -450,7 +482,7 @@ image:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
   # ------------------------------------------------------------------
-  digest: "sha256:b54d9ef2a1fdc871beb31b7ccbede7a59c43489133f9bad890cb8fce63fc0a21"
+  digest: "sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
