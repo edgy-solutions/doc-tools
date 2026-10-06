@@ -73,3 +73,32 @@ def ontology_auth_headers() -> Dict[str, str]:
             client_id(), type(exc).__name__, str(exc)[:120], CLIENT_SECRET_ENV,
         )
         return {"X-Auth-Status": f"mint-failed:{type(exc).__name__}"}
+
+
+def stage_auth_headers() -> Dict[str, str] | None:
+    """Authorization header for Lane 1's `POST /ingest/{id}/stage` route.
+
+    Same svc:doc-tools identity as `ontology_auth_headers()` (same client id
+    / secret envs) — one repo, one service identity — but a DIFFERENT
+    failure contract. `ontology_auth_headers()` exists because engine-o
+    accepts unauthenticated callers today, so it degrades to an
+    `X-Auth-Status` marker and proceeds. Lane 1's stage route hard-401s an
+    unauthenticated caller (verified against sandbox), so there is nothing
+    useful to proceed with: a mint failure here returns ``None``, and the
+    caller (`IngestStatusResource.update()`) skips the POST entirely rather
+    than send one that route will refuse. Never raises.
+    """
+    try:
+        from iagent_mesh.service_identity import mint_token
+        token = mint_token(
+            client_id=client_id(),
+            client_secret=os.environ[CLIENT_SECRET_ENV],
+        )
+        return {"Authorization": f"Bearer {token}"}
+    except Exception as exc:  # noqa: BLE001 — log and return None, never raise
+        logger.warning(
+            "doc-tools could not mint a token for %s (%s: %s) — skipping the Lane 1 stage "
+            "POST rather than send one that route will 401; configure %s",
+            client_id(), type(exc).__name__, str(exc)[:120], CLIENT_SECRET_ENV,
+        )
+        return None
