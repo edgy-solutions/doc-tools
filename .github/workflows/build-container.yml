@@ -82,8 +82,17 @@ jobs:
       code: ${{ steps.decide.outputs.code }}
       # Read by `corpus-gate` below. Separate from `code` because the two ask
       # opposite questions: `code` is "could this diff reach the image", this is
-      # "is this diff a deploy" — and only the second one is what the corpus
-      # release gate blocks.
+      # "should the corpus release gate be consulted" — and only the second one
+      # is what that gate blocks on.
+      #
+      # THE NAME IS NARROWER THAN THE PREDICATE, deliberately. Since 2026-10-06
+      # it is true for `docs/corpus-gate/**` as well as `charts/**` (see the
+      # CHARTS block in `decide` for why). The name is kept because renaming an
+      # output fails in the WRONG DIRECTION: a typo'd reference evaluates to
+      # empty, the `if:` reads false, the job SKIPS, and a skip satisfies the
+      # required context — the gate would go inert silently and permanently. A
+      # typo inside the regex can only fail open. That asymmetry is the whole
+      # reason this reads oddly.
       charts: ${{ steps.decide.outputs.charts }}
     steps:
       - name: Checkout code
@@ -159,11 +168,28 @@ jobs:
           # someone looks. The cost of a false false is a pin deploying with the
           # release gate never consulted, which is the believed-built class this
           # whole file is built around. Those are not close.
-          if [ -n "${CHANGED:-}" ] && ! echo "$CHANGED" | grep -qE '^charts/'; then
+          # `docs/corpus-gate/` IS IN THIS PATTERN AND MUST STAY. It is not a
+          # deploy, so it reads like it belongs with the other docs — but it is
+          # the only path that rewrites the artifact the gate GRADES. Until
+          # 2026-10-06 a PR landing a nightly report matched nothing here,
+          # concluded SKIPPED, and the skip satisfied the required context: the
+          # guard that validates a report was the one job that never ran on the
+          # PR that installed one. A malformed, stale or wrong-image
+          # `latest.json` could land unchecked, and the next charts/** PR would
+          # then be graded against it. Verified on #75, which landed three
+          # reports with `corpus-gate` SKIPPED and `mergeStateStatus: CLEAN`;
+          # its payload was only ever checked by hand in a scratch worktree.
+          #
+          # This does NOT make the gate self-approving. The nightly publisher
+          # writes the report; this job re-runs tests/test_corpus_gate_guard.py
+          # against whatever was written, so the publisher cannot vouch for
+          # itself — schema, currency, corpus coverage and image identity are
+          # all asserted by a job the publisher does not control.
+          if [ -n "${CHANGED:-}" ] && ! echo "$CHANGED" | grep -qE '^(charts/|docs/corpus-gate/)'; then
             CHARTS=false
-            echo "no changed path matches ^charts/ -> charts=false (corpus gate not consulted)"
+            echo "no changed path matches ^charts/ or ^docs/corpus-gate/ -> charts=false (corpus gate not consulted)"
           else
-            echo "a changed path matches ^charts/, or the diff could not be proven -> charts=true"
+            echo "a changed path matches ^charts/ or ^docs/corpus-gate/, or the diff could not be proven -> charts=true"
           fi
 
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
