@@ -1562,8 +1562,14 @@ class SustainmentPlugin(AugmentationPlugin):
 
         # dedup across crops, then reconcile per-part LTB (per-row primary,
         # doc-level fallback)
+        dedup_counts: dict = {}
         parts_d = clean_replacements(
-            reconcile_ltb(dedup_parts(parts_d), header_d.get("doc_level_ltb_date")))
+            reconcile_ltb(dedup_parts(parts_d, counts=dedup_counts),
+                          header_d.get("doc_level_ltb_date")))
+        if dedup_counts.get("duplicate"):
+            stats["parts_collapsed_duplicate"] = dedup_counts["duplicate"]
+        if dedup_counts.get("no_mpn"):
+            stats["parts_collapsed_no_mpn"] = dedup_counts["no_mpn"]
 
         # THE SECOND WITNESS, PARTS SIDE. The header check above can afford to drop an
         # unsupported value; this one deliberately cannot. Tier 1 reads MPNs straight out

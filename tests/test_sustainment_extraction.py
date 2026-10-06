@@ -134,6 +134,65 @@ def test_dedup_parts_across_crops():
     assert [p["affected_mpn"] for p in out] == ["A", "B"]
 
 
+def test_dedup_parts_counts_duplicates_only():
+    parts = [
+        {"affected_mpn": "A"}, {"affected_mpn": "B"}, {"affected_mpn": "A"}, {"affected_mpn": "A"},
+    ]
+    counts = {}
+    out = merge.dedup_parts(parts, counts=counts)
+    assert [p["affected_mpn"] for p in out] == ["A", "B"]
+    assert counts == {"duplicate": 2, "no_mpn": 0}
+
+
+def test_dedup_parts_counts_no_mpn_only():
+    parts = [
+        {"affected_mpn": "A"}, {"affected_mpn": ""}, {"affected_mpn": None}, {"affected_mpn": "   "},
+    ]
+    counts = {}
+    out = merge.dedup_parts(parts, counts=counts)
+    assert [p["affected_mpn"] for p in out] == ["A"]
+    assert counts == {"duplicate": 0, "no_mpn": 3}
+
+
+def test_dedup_parts_counts_duplicate_and_no_mpn_independently():
+    parts = [
+        {"affected_mpn": "A"}, {"affected_mpn": "A"}, {"affected_mpn": ""},
+        {"affected_mpn": "B"}, {"affected_mpn": None}, {"affected_mpn": "A"},
+    ]
+    counts = {}
+    out = merge.dedup_parts(parts, counts=counts)
+    assert [p["affected_mpn"] for p in out] == ["A", "B"]
+    assert counts == {"duplicate": 2, "no_mpn": 2}
+
+
+def test_dedup_parts_counts_zero_when_nothing_to_collapse():
+    parts = [{"affected_mpn": "A"}, {"affected_mpn": "B"}, {"affected_mpn": "C"}]
+    counts = {}
+    out = merge.dedup_parts(parts, counts=counts)
+    assert [p["affected_mpn"] for p in out] == ["A", "B", "C"]
+    assert counts == {"duplicate": 0, "no_mpn": 0}
+
+
+def test_dedup_parts_without_counts_arg_is_unaffected():
+    parts = [
+        {"affected_mpn": "A"}, {"affected_mpn": "B"}, {"affected_mpn": "A"},
+        {"affected_mpn": ""}, {"affected_mpn": None},
+    ]
+    out = merge.dedup_parts(parts)
+    assert [p["affected_mpn"] for p in out] == ["A", "B"]
+
+
+def test_dedup_parts_returns_same_list_whether_or_not_counts_passed():
+    base = [
+        {"affected_mpn": "A"}, {"affected_mpn": "B"}, {"affected_mpn": "A"},
+        {"affected_mpn": ""}, {"affected_mpn": None},
+    ]
+    import copy
+    without = merge.dedup_parts(copy.deepcopy(base))
+    with_counts = merge.dedup_parts(copy.deepcopy(base), counts={})
+    assert without == with_counts
+
+
 def test_reconcile_ltb_applies_doc_level_fallback():
     parts = [{"affected_mpn": "A", "ltb_date": "2024-01-01"}, {"affected_mpn": "B", "ltb_date": None}]
     merge.reconcile_ltb(parts, "2025-12-31")
