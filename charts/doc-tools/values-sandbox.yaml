@@ -205,7 +205,11 @@ image:
   #     the parts score (that score is MPN-only), but the stored artifacts will
   #     differ from what is in S3 today and there is no rollback for them.
   # ------------------------------------------------------------------
-  # THIS PIN: 7f22479 (the #57 squash merge, main's tip), 2026-10-02.
+  # PREVIOUS PIN, superseded 2026-10-05 by 877677c -- see the block at the
+  # `digest:` line below for what is pinned now. This section is kept because
+  # its ancestry list and its corrected premise are still the record for
+  # b54d9ef2, which remains the rollback target:
+  # 7f22479 (the #57 squash merge, main's tip at the time), 2026-10-02.
   # Index sha256:b54d9ef2a1fdc871beb31b7ccbede7a59c43489133f9bad890cb8fce63fc0a21
   #
   # WHAT THIS IMAGE CONTAINS, by ancestry (7f22479 descends from each):
@@ -402,18 +406,71 @@ image:
   # working as designed; it is noted here because the next person to bump this
   # line is the one who meets it.
   #
+  # ==================================================================
+  # PIN BUMPED 2026-10-05 to 877677c, main's tip -- the #72 merge commit,
+  # and the first pin to carry all four of today's merges:
+  #
+  #   #71 f5c1ab1  the required corpus-gate asserts currency and identity,
+  #                NOT the outcome. This is what let this very bump through:
+  #                `docs/corpus-gate/latest.json` is still `verdict: fail`,
+  #                and before #71 that red blocked every `charts/**` diff,
+  #                which a pin bump is. Proven on #68: `corpus-gate` PASS,
+  #                `corpus-gate-verdict` fail-as-advisory.
+  #   #68 66d3f39  stage transitions posted to Lane 1's ingest route.
+  #   #69 5066c53  the dedup counter splits duplicate from no-MPN.
+  #   #72 877677c  a grid that pairs its columns and yields nothing now
+  #                DECLINES instead of returning a silent zero. Measured on
+  #                3 of the 9 notices / 29 MPN-bearing rows. It emits no part
+  #                either way, so it CANNOT move the corpus score (A/B over
+  #                the real PDFs: parts 834 -> 834, declines 19 -> 22). The
+  #                first nightly on this pin is therefore comparable to the
+  #                last one on `b54d9ef2` as far as parts go.
+  #
+  # It is a MERGE COMMIT, per the standing rule. 877677c is the tip, so it
+  # contains the other three; a parent would be an image missing whatever
+  # merged after its cut.
+  #
   # A green `build-and-push` is NOT evidence an image exists: that step is
   # gated `push: ${{ github.event_name != 'pull_request' }}`, so PR runs build
   # both architectures as a compile check and publish nothing. This digest comes
-  # from the `push`-event run on main (36942763463), which does publish.
+  # from the `push`-event run on main (37405002364), which does publish, and
+  # whose `build-and-push` job concluded success.
   #
   # INDEX VERIFIED BEFORE COMMITTING, children fetched BY THEIR OWN DIGEST
   # rather than merely read out of the index:
-  #     linux/amd64  sha256:be02ce80235b72df7d33213df97306beb78a3d189659fa4c19ba4fdee31dce86
-  #     linux/arm64  sha256:f77400502c12bfc647094747c67853fb01b1ec0c5d0033b2c6edd007393b7eb1
+  #     linux/amd64  sha256:be133e635d6bf38bd4366830989d61c0dcaeddf2b59be88a67041783e49df23c
+  #     linux/arm64  sha256:46cb6b13d21c5d8230cff85bce066ea457a7b3d9dcbdaad39f5ec1892aade998
   # Both return 200 as OCI image manifests. The arm64 child is the one that
   # matters -- sandbox schedules onto arm workers. (Two unknown/unknown entries
   # are buildx provenance/SBOM attestations. Expected.)
+  #
+  # ------------------------------------------------------------------
+  # REGENERATE THESE THREE LINES ON EVERY BUMP. DO NOT COPY THEM.
+  #
+  # The block this replaces was stale and nobody caught it, because every
+  # bump edited the `digest:` line and carried the verification above it
+  # forward unchanged. As committed until today, it read "INDEX VERIFIED
+  # BEFORE COMMITTING" over run 36942763463 and children be02ce80/f7740050
+  # -- but run 36942763463 built 5c35568, and those are the children of
+  # `d881069b`. The pin had moved twice since (d881069b -> 0d5ac758 ->
+  # b54d9ef2), and `b54d9ef2`'s real children are 13ebbd0c/a26cc636.
+  #
+  # Nothing was ever mispulled: the digest itself was whole, resolved, and
+  # had both arch children. What was wrong is the only VERIFICATION RECORD
+  # anyone consults -- so the prescribed "check the arm64 child on every
+  # re-pin" would have been performed against a child of a different image
+  # and produced a mismatch meaning nothing. That is the stale-ack failure
+  # one field over.
+  #
+  # Resolve them, anonymously, no token required:
+  #   GET https://ghcr.io/token?service=ghcr.io&scope=repository:edgy-solutions/doc-tools:pull
+  #   GET https://ghcr.io/v2/edgy-solutions/doc-tools/manifests/<full-sha-or-digest>
+  #       Accept: application/vnd.oci.image.index.v1+json, <and the docker v2 types>
+  # `Docker-Content-Digest` is the index digest; fetch each `.manifests[]`
+  # entry by its OWN digest, which is what makes these lines a check rather
+  # than a transcription. Then assert it in CI:
+  #   scripts/verify_image_pin.py --values charts/doc-tools/values-sandbox.yaml \
+  #       --require-platform linux/amd64 --require-platform linux/arm64
   # ------------------------------------------------------------------
   #
   # PREVIOUS PIN, kept for the rollback target and the reasoning behind it:
@@ -450,7 +507,7 @@ image:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
   # ------------------------------------------------------------------
-  digest: "sha256:b54d9ef2a1fdc871beb31b7ccbede7a59c43489133f9bad890cb8fce63fc0a21"
+  digest: "sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -650,6 +707,6 @@ corpusGate:
   # safe: it will VOID an otherwise good run by naming the previous image. Bump
   # image.digest and this line in the same commit, and read this one off a pod
   # after the roll -- never by copying the digest you just typed above.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:b54d9ef2a1fdc871beb31b7ccbede7a59c43489133f9bad890cb8fce63fc0a21"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be"
   publish:
     repo: edgy-solutions/doc-tools
