@@ -93,10 +93,66 @@ RECONCILED** section above the scores, and a report with no block renders
 "whether it measured the declared image is **unknown**". That rendering stays —
 it is how a report read outside CI still tells the truth — but it is no longer
 the only thing standing between an unreconciled run and a green check.
+
+WHY THE REQUIRED CHECK NO LONGER ASSERTS THE OUTCOME, 2026-10-04 (ruled).
+Merging the honest nightly FAIL (#67) froze merging for the whole repository,
+and the freeze was circular: the extraction fix that turns the verdict green
+had to merge through the check the red verdict was failing. Measured on two PRs
+that had touched none of this:
+
+  #68 (touches charts/**)  corpus-gate ran     -> conclusion FAILURE -> BLOCKED
+  #69 (touches no charts)  corpus-gate skipped -> conclusion SKIPPED -> CLEAN
+
+and `main`'s protection carries exactly ONE required context, `corpus-gate`,
+with no required reviews. So a FAILURE blocks a chart PR, which is the whole of
+the freeze.
+
+A SKIP IS NOT A BLOCK — corrected 2026-10-05, because I got this wrong in the
+other direction first. I read #69 as BLOCKED and concluded that a required
+context concluding SKIPPED can never be satisfied. It can: #69 now reads
+mergeable=MERGEABLE / mergeStateStatus=CLEAN with its `corpus-gate` still
+`skipped` and still the only required context. The BLOCKED reading came from a
+`mergeStateStatus` sampled minutes after the PR was opened, before its checks
+had concluded; that field is computed asynchronously and goes stale. Do not
+believe a merge-state field that disagrees with the per-check conclusions —
+re-read it once the checks have settled.
+
+So the `charts/**` scoping on the required job STAYS. It was written to prevent
+exactly the freeze that happened ("if a red gate blocked every PR, the fix for
+a red gate could not merge"); what inverted it was the OUTCOME assertion inside
+a required job, not the scoping. Removing the scoping would block every PR
+whenever the nightly stops producing or goes void — the same wedge class,
+reached from the staleness side.
+
+THE SPLIT THIS FILE NOW IMPLEMENTS. Two different questions were being asked
+by one assertion, and only the first belongs in a required check:
+
+  - IS THIS REPORT EVIDENCE ABOUT THIS CODE? — present, parseable, schema 1,
+    fresh, naming its corpus, naming its image, carrying a reconciled
+    `image_identity` block, and not `void`. All required, all cheap, and all
+    unfalsifiable by an extraction defect. A report that fails any of these is
+    not a bad score, it is NO MEASUREMENT, and that must block everything.
+  - IS THE SCORE A PASS? — an outcome. It governs whether the next PIN may
+    ship, which is what the original order asked for ("red blocks the next
+    pin"), and it is carried by `test_verdict_is_pass` under its own
+    `corpus_gate_verdict` marker, selected only by the advisory
+    `corpus-gate-verdict` job on a `charts/**` diff.
+
+A measured FAIL therefore warns in the required job and fails the advisory one.
+Nothing is lost: the red is still loud, still in the report's markdown, and
+still blocks a pin. What it no longer does is hold its own repair hostage.
+
+WHAT WOULD BE THE REGRESSION. Re-adding `verdict == "pass"`, or any other
+assertion about the SCORE, to the required half — that is the one change that
+re-wedges the repo, because the fix for a red score has to travel through it.
+Note the mirror image: making `corpus-gate-verdict` a required context would
+re-create the same wedge under a new name. If that is ever wanted, the escape
+hatch has to be explicit — an override label the job reads — and not an `if:`.
 """
 import datetime
 import json
 import os
+import warnings
 from pathlib import Path
 
 import pytest
@@ -137,7 +193,71 @@ def test_report_exists_and_has_the_expected_schema():
     )
 
 
+def test_the_report_is_a_real_measurement_and_not_void():
+    """THE REQUIRED CHECK'S OUTCOME TERM: the report must be a measurement of
+    this code — a `pass` or a `fail`, both of which are evidence about it.
+
+    `void` is neither, and it is the one verdict that is an IDENTITY defect
+    rather than an outcome: the producer sets it when the image it measured is
+    not the image it was told to measure, so its scores describe something
+    nobody asked about. That still fails, and must.
+
+    A measured `fail` is deliberately ALLOWED here and warned about instead.
+    A true red report is this gate working as designed; refusing to merge
+    anything while one is committed is what wedged the repo shut on
+    2026-10-03, because the extraction fix that turns the verdict green has to
+    merge through this very check. The outcome assertion lives in
+    `test_verdict_is_pass` below, which blocks a PIN rather than a merge.
+    """
+    report = _load_report()
+    verdict = report.get("verdict")
+
+    if verdict == "void":
+        reasons = report.get("image_identity", {}).get("void_reasons", [])
+        pytest.fail(
+            "corpus gate report is VOID, which is not a verdict: the image it "
+            "measured is not the image it was supposed to measure, so neither "
+            "its pass nor its blocking list is evidence about this branch. Do "
+            "NOT read the scores. Re-run the gate against the declared image.\n"
+            + "\n".join(f"  - {r}" for r in reasons)
+        )
+
+    assert verdict in ("pass", "fail"), (
+        f"corpus gate verdict is {verdict!r}, which is none of 'pass', 'fail' "
+        f"or 'void'. Either the producer's vocabulary changed (see the "
+        f"`verdict = ...` assignment in scripts/pcn_corpus_gate.py) or "
+        f"something else wrote this file. An unrecognized verdict is unproven, "
+        f"not fine — same rule as a missing report."
+    )
+
+    if verdict == "fail":
+        blocking = report.get("blocking", [])
+        detail = (
+            "\n".join(f"  - {b}" for b in blocking)
+            if blocking
+            else "  (no per-condition detail — a fires_ok failure; read fires[] totals)"
+        )
+        warnings.warn(
+            "corpus gate report is a measured FAIL. That does not block a merge "
+            "— currency and identity are what this check asserts — but it is the "
+            "current truth about the pinned image, and it still blocks the next "
+            "pin through the corpus-gate-verdict job:\n" + detail,
+            UserWarning,
+            stacklevel=2,
+        )
+
+
+@pytest.mark.corpus_gate_verdict
 def test_verdict_is_pass():
+    """THE PIN BLOCK — the only assertion in this file about the OUTCOME, and
+    the only one that is not part of the required `corpus-gate` check.
+
+    Selected by the advisory `corpus-gate-verdict` job, which runs this only
+    when the diff touches `charts/**`. That preserves the standing order "red
+    blocks the next pin" — a pin bump IS a chart change — while keeping a red
+    verdict off every ordinary code PR, which is the wedge this file's
+    docstring describes.
+    """
     report = _load_report()
     verdict = report.get("verdict")
     if verdict == "pass":
