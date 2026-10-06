@@ -407,6 +407,60 @@ image:
   # line is the one who meets it.
   #
   # ==================================================================
+  # PIN BUMPED 2026-10-06 to 5652f8d, main's tip -- the #77 merge commit.
+  #
+  # WHAT IT CARRIES, and this one is a live-behaviour fix rather than an
+  # extraction change: doc-tools had been authenticating as NOBODY.
+  # `iagent_mesh.service_identity.mint_token` reads `KEYCLOAK_REALM_URL` as
+  # `os.environ[...]` with NO default, and this chart set it nowhere, so every
+  # mint died on a KeyError before opening a socket. Measured in pod
+  # doc-tools-77ffcb4b94-cnlk2 before the fix, with DOC_TOOLS_CLIENT_ID and
+  # DOC_TOOLS_CLIENT_SECRET both present and KEYCLOAK* at zero variables:
+  #
+  #     ontology_auth_headers() -> ['X-Auth-Status']  classify POST went out
+  #                                                   UNAUTHENTICATED, accepted,
+  #                                                   200, asset green
+  #     stage_auth_headers()    -> None               Lane 1's stage POST was
+  #                                                   SKIPPED ENTIRELY
+  #
+  # #77 supplies the realm (see the `env` block above), makes the engine-o call
+  # REFUSE rather than degrade, and derives the warning's remedy from the
+  # exception instead of always naming DOC_TOOLS_CLIENT_SECRET -- the one
+  # variable that was set correctly.
+  #
+  # IT ALSO FLIPS A SENSOR ON. `ingress_user_sensor` now carries
+  # default_status="RUNNING"; dag_tools defaults to STOPPED, so a user drop into
+  # `ingress-user/` sat in MinIO until someone opened the Dagster UI. NOT
+  # retroactive -- `default_status` is consulted only where the instance has no
+  # stored status, so it cannot restart a sensor stopped on purpose.
+  #
+  # IT CANNOT MOVE THE CORPUS SCORE. Nothing in #77 touches extraction: the
+  # diff is a chart env key, the credential seam, its call site, one sensor
+  # flag and tests. So the first nightly on this pin stays comparable to the
+  # last one on `877677c`.
+  #
+  # A green `build-and-push` is NOT evidence an image exists: that step is
+  # gated `push: ${{ github.event_name != 'pull_request' }}`, so PR runs build
+  # both architectures as a compile check and publish nothing. This digest comes
+  # from the `push`-event run on main (37539876051), whose `build-and-push` job
+  # concluded SUCCESS. That run's OVERALL conclusion is `failure` -- from the
+  # ADVISORY `corpus-gate-verdict` job on a still-red `latest.json`, not from the
+  # build. Read the JOB, never the run.
+  #
+  # INDEX VERIFIED BEFORE COMMITTING, children fetched BY THEIR OWN DIGEST
+  # rather than merely read out of the index:
+  #     linux/amd64  sha256:87ca56345efdad826f9066464ba4edcf1e58f4f0320bf1167efbcaf5971a72f6
+  #     linux/arm64  sha256:a8464ae284b9d9fa8ac15e3dc1357618ec574ded67b46cb6801fc1d6d8c523ce
+  # Both return 200 as OCI image manifests. The arm64 child is the one that
+  # matters -- sandbox schedules onto arm workers. (Two unknown/unknown entries
+  # are buildx provenance/SBOM attestations. Expected.)
+  #
+  # THE IMAGE IS TAGGED WITH THE FULL 40-CHAR SHA, NOT THE SHORT ONE. The
+  # workflow pushes `${{ github.sha }}`, so a manifest GET on `5652f8d` 404s
+  # while the same request on the full sha resolves. A 404 here is the tag being
+  # wrong, not the build having failed -- `git rev-parse` first.
+  #
+  # ==================================================================
   # PIN BUMPED 2026-10-05 to 877677c, main's tip -- the #72 merge commit,
   # and the first pin to carry all four of today's merges:
   #
@@ -507,7 +561,7 @@ image:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
   # ------------------------------------------------------------------
-  digest: "sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be"
+  digest: "sha256:2e18b6dbdb6bf7702d80753c17588d444fdcdfddb417d39c24b674d24c485cd2"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -727,6 +781,21 @@ corpusGate:
   # safe: it will VOID an otherwise good run by naming the previous image. Bump
   # image.digest and this line in the same commit, and read this one off a pod
   # after the roll -- never by copying the digest you just typed above.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be"
+  #
+  # 2026-10-06, THIS BUMP ONLY -- READ WHY BEFORE IMITATING IT. The order for
+  # this pin was ONE roll, and the instruction above cannot be satisfied by one:
+  # reading the value off a pod requires the roll to have already happened, and
+  # committing what you read requires a second roll to apply it. So the check was
+  # INVERTED, not skipped -- this line was written as the index digest already
+  # verified against ghcr (both required platforms, each child re-fetched by its
+  # own digest), then the roll ran once and the pod's imageID was read and
+  # asserted equal to it.
+  #
+  # PREDICT-THEN-VERIFY IS WEAKER THAN READ-THEN-WRITE. A prediction that happens
+  # to be right proves less than a reading, and this is only acceptable because
+  # the assertion ran afterwards and a mismatch would have been loud and would
+  # have been fixed forward. If you have a second roll available, spend it and
+  # follow the instruction above instead of copying this shortcut.
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:2e18b6dbdb6bf7702d80753c17588d444fdcdfddb417d39c24b674d24c485cd2"
   publish:
     repo: edgy-solutions/doc-tools
