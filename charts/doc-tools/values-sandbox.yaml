@@ -562,6 +562,26 @@ env:
   # Lane 1's stage route (`IngestStatusResource` -> `POST /ingest/{id}/stage`), svc:doc-tools.
   IAGENT_GATEWAY_URL: "http://iagent-cortex-bff:8090"
   DOC_TOOLS_CLIENT_ID: "iagent-doc-tools"
+  # THE MINT'S REALM, AND WITHOUT IT THE CLIENT ID AND SECRET ABOVE ARE INERT.
+  # `iagent_mesh.service_identity.mint_token` reads `KEYCLOAK_REALM_URL` from the
+  # environment with NO DEFAULT (`os.environ[...]`), so an unset value is a
+  # KeyError before any socket opens. Both of doc-tools' credentialed calls then
+  # take their degraded path, and NEITHER of them says so loudly:
+  #   - the engine-o classify call went out UNAUTHENTICATED (X-Auth-Status only)
+  #   - Lane 1's `POST /ingest/{id}/stage` was SKIPPED ENTIRELY
+  # Measured in pod doc-tools-77ffcb4b94-cnlk2 on 2026-10-06, which had the id and
+  # the secret set and this key absent: a deployment can hold BOTH credentials and
+  # still authenticate as nobody.
+  #
+  # This is the value every engine gets — invincible-agent `values-sandbox.yaml`
+  # `agentFleet.env.KEYCLOAK_REALM_URL`, two charts quoting one realm. Verified
+  # before committing by exporting it into that pod and minting: both header
+  # helpers returned `Authorization`, and the DECODED token (not the 200 —
+  # the SDK's own rule is that the mint's witness is the subject) read
+  # azp=iagent-doc-tools, sub=service-account-iagent-doc-tools, realm roles
+  # offline_access/uma_authorization/default-roles only — no capability grants,
+  # which is what `utils/mesh_identity.py` means by TRANSPORT, NOT ENTITLEMENT.
+  KEYCLOAK_REALM_URL: "http://iagent-keycloak:8080/realms/invincible-agent"
   DATAHUB_GMS_URL: "http://datahub-datahub-gms:8080/api/graphql"
   # The Weaviate-host envvars above are split host/port; some code
   # paths in doc-tools may want a single URL — keep this as the

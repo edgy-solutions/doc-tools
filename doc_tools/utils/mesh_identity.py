@@ -38,18 +38,69 @@ CLIENT_ID_DEFAULT = "iagent-doc-tools"
 CLIENT_SECRET_ENV = "DOC_TOOLS_CLIENT_SECRET"
 
 
+#: Read by `iagent_mesh.service_identity.mint_token` as ``os.environ[...]`` with NO default, so an
+#: unset value is a KeyError before any socket opens. Named here only so the diagnostic below can
+#: tell you WHICH variable is missing — this module never reads it, the SDK does.
+REALM_URL_ENV = "KEYCLOAK_REALM_URL"
+
+
 def client_id() -> str:
     return os.getenv(CLIENT_ID_ENV, CLIENT_ID_DEFAULT)
 
 
-def ontology_auth_headers() -> Dict[str, str]:
+def _cause(exc: Exception) -> str:
+    return f"{type(exc).__name__}: {str(exc)[:120]}"
+
+
+def _remedy(exc: Exception) -> str:
+    """Name the variable that is ACTUALLY missing, not a plausible one.
+
+    Both warnings here used to end "configure DOC_TOOLS_CLIENT_SECRET" whatever the
+    cause. On 2026-10-06 that sent a reader at the one variable the pod had set
+    correctly, while the KeyError printed inline two fields earlier said
+    `KEYCLOAK_REALM_URL`. A fixed remedy string is a guess with the authority of a
+    diagnostic; derive it from the exception or admit you do not know.
+    """
+    if isinstance(exc, KeyError):
+        missing = exc.args[0] if exc.args else ""
+        if missing in (REALM_URL_ENV, CLIENT_SECRET_ENV, CLIENT_ID_ENV):
+            return f"{missing} is unset in this deployment"
+        return f"{missing!r} is unset in this deployment"
+    return (
+        f"check {REALM_URL_ENV} (the realm, no default), {CLIENT_SECRET_ENV} and that "
+        f"Keycloak is reachable — the cause above says which"
+    )
+
+
+def ontology_auth_headers() -> Dict[str, str] | None:
     """Authorization header for the engine-o call, under svc:doc-tools.
 
-    LOG AND PROCEED, NEVER RAISE. Engine-o accepts unauthenticated callers today (the mesh's
-    transport auth defaults to OBSERVE), so attaching a credential where none was sent is
-    behaviourally inert — and an asset that works today must not begin failing because Keycloak
-    blipped or because a chart value has not landed yet. When REQUIRE flips, the same failure
-    becomes a 401 at engine-o, which is the correct moment for it to become loud.
+    REFUSE, DO NOT DEGRADE — and this reverses what this function used to do. It
+    previously logged and returned an ``X-Auth-Status`` marker so the classify POST
+    went out UNAUTHENTICATED, on the reasoning that engine-o accepts such callers
+    today (transport auth defaults to OBSERVE) and that an asset which works must
+    not start failing over a chart value that has not landed. Both halves of that
+    reasoning turned out to be the problem rather than the justification:
+
+    - It made a missing credential INVISIBLE. On 2026-10-06 the sandbox pod held
+      `DOC_TOOLS_CLIENT_ID` and `DOC_TOOLS_CLIENT_SECRET` and had been classifying
+      happily for weeks — as caller:none, because `KEYCLOAK_REALM_URL` was unset
+      and nothing downstream rejects an anonymous caller. A deployment can hold
+      BOTH credentials and still authenticate as nobody, and a degraded path that
+      succeeds is a path nobody fixes.
+    - "It becomes loud when REQUIRE flips" means the flip is what discovers the
+      misconfiguration, in whatever environment flips first. That is backwards:
+      the credential seam should fail where it is configured, not where it is
+      enforced.
+
+    So a mint failure now returns ``None`` and the caller sends NOTHING — the same
+    contract `stage_auth_headers()` already had, for the different reason that its
+    route hard-401s. Two calls, one identity, and now one failure contract.
+
+    NEVER RAISES, still. The refusal is the caller's to make and to report: this
+    module stays importable with nothing but `os` and the SDK, and a helper that
+    raised would make the seam harder to exercise in a test than the thing it
+    guards. The call site turns ``None`` into a loud, attributable failure.
 
     FAILS LOCALLY BEFORE IT FAILS REMOTELY: ``os.environ[...]`` is evaluated BEFORE ``mint_token``
     is entered, so an unconfigured deployment raises here and never opens a socket. That is what
@@ -62,31 +113,35 @@ def ontology_auth_headers() -> Dict[str, str]:
             client_secret=os.environ[CLIENT_SECRET_ENV],
         )
         return {"Authorization": f"Bearer {token}"}
-    except Exception as exc:  # noqa: BLE001 — see LOG AND PROCEED above
-        # X-Auth-Status is DIAGNOSTIC ONLY and must never reach an authorization decision: it is
-        # caller-asserted and therefore unverifiable. Legal to LOG, illegal to TRUST. It exists so
-        # that a mint FAILURE and a caller that never minted are distinguishable at engine-o —
-        # without the discriminant, a Keycloak blip reads as caller-readiness regressing.
+    except Exception as exc:  # noqa: BLE001 — log and return None, never raise
         logger.warning(
-            "doc-tools minting no token for %s (%s: %s) — proceeding UNAUTHENTICATED; engine-o "
-            "records caller:none until %s is configured",
-            client_id(), type(exc).__name__, str(exc)[:120], CLIENT_SECRET_ENV,
+            "doc-tools could not mint a token for %s (%s) — REFUSING the engine-o classify "
+            "POST rather than send it unauthenticated; %s",
+            client_id(), _cause(exc), _remedy(exc),
         )
-        return {"X-Auth-Status": f"mint-failed:{type(exc).__name__}"}
+        return None
 
 
 def stage_auth_headers() -> Dict[str, str] | None:
     """Authorization header for Lane 1's `POST /ingest/{id}/stage` route.
 
     Same svc:doc-tools identity as `ontology_auth_headers()` (same client id
-    / secret envs) — one repo, one service identity — but a DIFFERENT
-    failure contract. `ontology_auth_headers()` exists because engine-o
-    accepts unauthenticated callers today, so it degrades to an
-    `X-Auth-Status` marker and proceeds. Lane 1's stage route hard-401s an
-    unauthenticated caller (verified against sandbox), so there is nothing
-    useful to proceed with: a mint failure here returns ``None``, and the
-    caller (`IngestStatusResource.update()`) skips the POST entirely rather
-    than send one that route will refuse. Never raises.
+    / secret envs) — one repo, one service identity — and since 2026-10-06
+    the same failure contract: a mint failure returns ``None`` and the
+    caller sends nothing. The two arrived at it from opposite directions,
+    which is worth keeping. This route hard-401s an unauthenticated caller
+    (verified against sandbox), so there was never anything to proceed
+    with; engine-o ACCEPTS one, so its helper used to degrade to an
+    `X-Auth-Status` marker and proceed — until that tolerance turned out to
+    hide an unset `KEYCLOAK_REALM_URL` in sandbox for weeks. A route that
+    refuses you is the kinder of the two.
+
+    Here the caller (`IngestStatusResource.update()`) skips the POST; the
+    engine-o caller raises `Failure`. The difference is not about the
+    credential: a stage transition is advisory telemetry about work that
+    still happened, while a classify run that binds no terms has done
+    nothing and should say so. Never raises — in both cases the refusal is
+    the caller's to make.
     """
     try:
         from iagent_mesh.service_identity import mint_token
@@ -97,8 +152,8 @@ def stage_auth_headers() -> Dict[str, str] | None:
         return {"Authorization": f"Bearer {token}"}
     except Exception as exc:  # noqa: BLE001 — log and return None, never raise
         logger.warning(
-            "doc-tools could not mint a token for %s (%s: %s) — skipping the Lane 1 stage "
-            "POST rather than send one that route will 401; configure %s",
-            client_id(), type(exc).__name__, str(exc)[:120], CLIENT_SECRET_ENV,
+            "doc-tools could not mint a token for %s (%s) — skipping the Lane 1 stage "
+            "POST rather than send one that route will 401; %s",
+            client_id(), _cause(exc), _remedy(exc),
         )
         return None

@@ -15,11 +15,15 @@ TWO PROPERTIES ARE PINNED, and the second is what makes shipping this safe:
 1. The call carries a credential minted as **svc:doc-tools** — its own identity, not a borrowed
    one. Reusing engine-a's or the supervisor's would be the `mint_service_token()` defect
    committed deliberately instead of by accident.
-2. A mint failure **logs and proceeds**, never raises. Engine-o accepts unauthenticated callers
-   today (transport auth defaults to OBSERVE), so attaching a credential where none was sent is
-   behaviourally inert — and an asset that works today must not start failing because Keycloak
-   blipped or a chart value has not landed. When REQUIRE flips, the same failure becomes a 401
-   at engine-o, which is the right moment for it to become loud.
+2. A mint failure **refuses the call** — the helper returns ``None``, the asset raises, and
+   nothing is POSTed. REVERSED ON 2026-10-06, and the old wording is kept here because the
+   reasoning that produced it was reasonable and still wrong: "logs and proceeds, never raises;
+   engine-o accepts unauthenticated callers today, so an asset that works must not start failing
+   because a chart value has not landed; when REQUIRE flips it becomes loud." What that bought
+   was a sandbox classifying as caller:none for weeks with BOTH doc-tools credentials present
+   and `KEYCLOAK_REALM_URL` unset — a degraded path that returns 200 is a path nobody fixes, and
+   deferring the discovery to the REQUIRE flip means the flip is what finds your misconfiguration.
+   A credential seam should fail where it is configured, not where it is enforced.
 
 THE SEAM IS IN `utils/mesh_identity.py` SO THESE PINS CAN ACTUALLY RUN. Defined inside the asset
 module they could only execute where dagster + dagster_aws + datahub all install, and would have
@@ -203,19 +207,32 @@ def _load_seam():
 mi = _load_seam()  # noqa: E402 — after the source pins above
 
 
-def test_a_mint_failure_LOGS_AND_PROCEEDS(monkeypatch, caplog):
-    """THE PIN THAT MAKES THIS SAFE TO SHIP. "No secret configured" is the state of every
-    deployment until the chart value lands, and it must not break a working asset."""
+def test_a_mint_failure_REFUSES(monkeypatch, caplog):
+    """THE PIN THAT REPLACED `..._LOGS_AND_PROCEEDS`, and the inversion is the point.
+
+    The old pin asserted an `X-Auth-Status: mint-failed:*` marker and no
+    `Authorization`, on the premise that "no secret configured" is the state of
+    every deployment until the chart value lands and must not break a working
+    asset. True, and it is precisely why the misconfiguration survived: the asset
+    kept working, anonymously, and said so only at WARNING level in a log nobody
+    reads when the run is green.
+
+    What is pinned now is that the helper returns ``None``. A dict — ANY dict — is
+    a header set the call site will happily pass to `requests.post`, so returning
+    the old marker again would silently restore the anonymous POST without
+    touching a line of the caller.
+    """
     monkeypatch.delenv(mi.CLIENT_SECRET_ENV, raising=False)
 
     with caplog.at_level(logging.WARNING, logger="doc_tools.utils.mesh_identity"):
         headers = mi.ontology_auth_headers()
 
-    assert "Authorization" not in headers, "no credential may be fabricated"
-    assert headers.get("X-Auth-Status", "").startswith("mint-failed:"), (
-        "a mint FAILURE must be distinguishable from a caller that never minted"
+    assert headers is None, (
+        "a mint failure must yield NO header set — a dict here is a POST the caller will send"
     )
-    assert any("UNAUTHENTICATED" in m for m in caplog.messages)
+    assert any("REFUSING" in m for m in caplog.messages)
+    # and the remedy names the variable that is actually unset, not a plausible one
+    assert any(mi.CLIENT_SECRET_ENV in m for m in caplog.messages)
 
 
 def test_it_fails_LOCALLY_before_opening_a_socket(monkeypatch):
@@ -229,7 +246,7 @@ def test_it_fails_LOCALLY_before_opening_a_socket(monkeypatch):
         raise AssertionError("mint_token was entered despite no secret being configured")
 
     monkeypatch.setattr(si, "mint_token", _boom)
-    assert "Authorization" not in mi.ontology_auth_headers()
+    assert mi.ontology_auth_headers() is None
 
 
 def test_a_successful_mint_produces_a_bearer(monkeypatch):

@@ -1,7 +1,7 @@
 import logging
 import os
 import requests
-from dagster import asset, AssetExecutionContext, Config
+from dagster import asset, AssetExecutionContext, Config, Failure
 from typing import Dict, Any
 from doc_tools.utils.dagster_resources import Neo4jResource
 
@@ -101,6 +101,36 @@ def apply_semantic_tags(
         context.log.info("No metadata found to classify.")
         return {"processed": 0, "tagged": 0, "human_review": 0}
 
+    # MINT ONCE, BEFORE THE LOOP, AND REFUSE HERE IF IT FAILS.
+    #
+    # Two things are deliberate about this placement. It is ONE mint for the whole
+    # asset instead of one per table, which is what the old call-inside-the-loop did
+    # — N tables meant N token requests at Keycloak for a credential that does not
+    # change within a run. And it is a refusal BEFORE the first POST: if doc-tools
+    # cannot prove who it is, no table gets classified, rather than every table being
+    # classified anonymously.
+    #
+    # `Failure`, not a skip or a degraded header. engine-o accepts anonymous callers
+    # today, so an unauthenticated POST SUCCEEDS and the asset goes green — that is
+    # exactly how the sandbox ran for weeks as caller:none with both doc-tools
+    # credentials present and `KEYCLOAK_REALM_URL` absent. A degraded path that
+    # returns 200 is invisible; a red asset naming the missing variable is not.
+    # `mint_token` reads the realm as `os.environ[...]`, so this costs no network
+    # call when it is the thing that is missing.
+    auth = ontology_auth_headers()
+    if auth is None:
+        raise Failure(
+            description=(
+                "doc-tools cannot mint its svc:doc-tools token, so it is REFUSING to classify "
+                f"{len(all_metadata)} table(s) rather than POST to {ONTOLOGY_SVC_URL} "
+                "unauthenticated. engine-o would accept the anonymous call and this asset "
+                "would go green having bound terms under caller:none. The preceding WARNING "
+                "from doc_tools.utils.mesh_identity names the variable that is unset — "
+                "KEYCLOAK_REALM_URL, DOC_TOOLS_CLIENT_SECRET and DOC_TOOLS_CLIENT_ID are all "
+                "required, and holding two of the three is indistinguishable from holding none."
+            ),
+        )
+
     stats = {"processed": 0, "tagged": 0, "human_review": 0}
     
     for table_name, meta in all_metadata.items():
@@ -119,7 +149,7 @@ def apply_semantic_tags(
         try:
             resp = requests.post(
                 f"{ONTOLOGY_SVC_URL}/classify_legacy_table", json=dossier, timeout=30,
-                headers=ontology_auth_headers(),
+                headers=auth,
             )
             resp.raise_for_status()
             classification = resp.json()
