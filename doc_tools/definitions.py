@@ -147,6 +147,19 @@ ingress_user_sensor = S3SensorComponent(
     target_op=user_document_parser.name,
     s3_filter=r"^ingress-user/pdf/[0-9a-f]{64}/[^/]+\.pdf$",
     filter_patterns=["archive/", "metadata.json", "generated/", "manifest.json"],
+    # THE USER-DROP SENSOR STARTS ITSELF. dag_tools' S3SensorComponent defaults
+    # `default_status` to "STOPPED", so on a fresh install (or any instance with
+    # no stored status for this sensor) a user drop into `ingress-user/` sat in
+    # MinIO until a human opened the Dagster UI and flipped it on. That is the
+    # one sensor a user's own upload depends on, so the default is wrong for it
+    # specifically; the other sensors here are deliberately left STOPPED.
+    #
+    # NOT RETROACTIVE, and this is the part that misleads: `default_status` is
+    # consulted only when the instance has NO stored status for the sensor. A
+    # sensor a human has ever explicitly started or stopped keeps that stored
+    # state across deploys, so this flag cannot restart one that was turned off
+    # on purpose — check the UI rather than inferring from this line.
+    default_status="RUNNING",
     s3_resource={
         "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
         "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
