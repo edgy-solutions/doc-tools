@@ -119,6 +119,22 @@ def _shared(a, b):
     return sorted(set(a) & set(b))
 
 
+def _domainless_split(rows):
+    """``(explicit_null, omitted)`` — two sets, because they are two claims.
+
+    Lane 1's route distinguishes them (pydantic ``model_fields_set``, through
+    ``iagent_mesh.ingest.compose``): an explicit ``domain: null`` is the
+    2026-10-02 ruling and routes to ``awaiting_origin``; an OMITTED key is
+    still refused ``422 no_declared_domain``. A single ``not
+    row.get("domain")`` cannot tell them apart, so the split lives here and
+    both tests below use it rather than re-deriving it.
+    """
+    explicit_null = {k for k, row in rows.items()
+                     if "domain" in row and not row["domain"]}
+    omitted = {k for k, row in rows.items() if "domain" not in row}
+    return explicit_null, omitted
+
+
 def test_the_two_registries_share_the_ruled_kinds(overlay_rows, our_rows):
     """The ordered pairs must be on both sides, or there is nothing to seal.
 
@@ -196,19 +212,96 @@ def test_the_shared_kinds_declare_the_same_domain(overlay_rows, our_domains):
         f"graph, or into none.")
 
 
-def test_a_domainless_overlay_row_is_reported_not_silently_accepted(overlay_rows):
-    """A row the platform declares with no domain is worth a loud failure.
+def test_a_domainless_overlay_row_is_exactly_one_we_ruled_domainless(
+        overlay_rows, our_domains):
+    """NARROWED 2026-10-07: domainless is now a RULING, not a defect.
 
-    invincible-agent 914c7fa refuses such a row at the review step with
-    ``422 no_declared_domain`` and writes nothing — so a domainless overlay row
-    is a drop that ingests and then dies at review, which is the shape of the
-    PCN26-117 bug (``audience = "document_promotion:None"``). Any kind the
-    overlay declares without a domain is named here rather than discovered from
-    a 422 in another lane's logs.
+    This test used to assert that NO overlay row was domainless, and that was
+    right while `invincible-agent` 914c7fa refused such a row at review with
+    ``422 no_declared_domain`` and wrote nothing — a drop that ingests and then
+    strands, the shape of the PCN26-117 bug.
+
+    Roll #20 (`invincible-agent` master ``a0c2ba18``) changed the behaviour it
+    was guarding: a REGISTERED kind whose row carries an EXPLICIT ``domain:
+    null`` now files no task, moves the row to ``awaiting_origin`` and returns
+    **200**, with the detail "origin resolved by evidence, not kind (ruling
+    2026-10-02)". That is precisely the disposition this repo rules for ``pdf``,
+    ``engineering-document`` and ``doors-export``, so keeping the blanket
+    assertion would make a correct overlay row red the moment Lane 1 adds one —
+    a test blocking the change it was written to protect.
+
+    So the assertion moves from "none" to "exactly the ruled set". An UNRULED
+    domainless row is still loud: the two registries would then disagree about
+    whether a kind resolves its origin from evidence, and this file exists to
+    catch exactly that disagreement.
+
+    VACUOUS TODAY, DELIBERATELY. The overlay currently declares four rows and
+    every one of them names a domain, so this assertion has nothing to reject
+    yet. It becomes load-bearing the moment Lane 1 adds the three ruled rows —
+    which is the point: the blanket version would have turned red on that
+    commit. ``test_the_discrimination_is_on_key_presence`` below seals the
+    LOGIC meanwhile, against synthetic rows, so a green run here is not the
+    only thing standing behind it.
     """
-    domainless = sorted(k for k, row in overlay_rows.items()
-                        if not row.get("domain"))
-    assert not domainless, (
-        f"the platform's overlay declares {domainless} with no domain. Review "
-        f"refuses such a row 422 no_declared_domain and writes nothing, so "
-        f"every drop of that kind would ingest and then strand.")
+    ruled_domainless = {k for k, v in our_domains.items() if v is None}
+    explicit_null, _ = _domainless_split(overlay_rows)
+
+    unruled = sorted(explicit_null - ruled_domainless)
+    assert not unruled, (
+        f"the platform's overlay declares {unruled} with an explicit null "
+        f"domain, but {DOMAINS_FILE.name} rules a domain for them (or does not "
+        f"declare them at all). Our ruled-domainless set is "
+        f"{sorted(ruled_domainless)}. Either the ruling moved or the overlay "
+        f"row is wrong; the two cannot both be right.")
+
+
+def test_an_overlay_row_that_omits_domain_entirely_is_still_a_defect(overlay_rows):
+    """The half the ruling did NOT make legal, kept separate on purpose.
+
+    Lane 1's route distinguishes an explicit ``domain: null`` from an OMITTED
+    key (pydantic ``model_fields_set``, through ``iagent_mesh.ingest.compose``).
+    The explicit null is the 2026-10-02 ruling and routes to
+    ``awaiting_origin``; an omitted key is still refused ``422
+    no_declared_domain``, because "we ruled this kind resolves its origin from
+    evidence" and "nobody filled the field in" are different claims that happen
+    to produce the same empty value.
+
+    Folding these two into one ``not row.get("domain")`` check — which is what
+    the previous version of this file did — would let an omitted key ride in
+    under the ruling's exemption and strand every drop of that kind.
+    """
+    _, omitted_set = _domainless_split(overlay_rows)
+    omitted = sorted(omitted_set)
+    assert not omitted, (
+        f"the platform's overlay rows {omitted} OMIT the domain key. An "
+        f"omitted key is not the 2026-10-02 ruling: review refuses it 422 "
+        f"no_declared_domain and writes nothing, so every drop of that kind "
+        f"would ingest and then strand. A kind that resolves its origin from "
+        f"evidence must say so with an explicit `domain: null`.")
+
+
+def test_the_discrimination_is_on_key_presence_not_on_falsiness():
+    """The logic the two tests above lean on, sealed without the overlay.
+
+    Both of them are satisfied today by an overlay in which every row names a
+    domain, so neither can show that the explicit-null / omitted distinction is
+    actually made. This can, and it needs no overlay checkout — so it also runs
+    in single-repo CI, where the two tests above skip.
+
+    The empty string is here because it is the third way a YAML row can fail to
+    name a domain, and it must land with the explicit nulls rather than with
+    the omissions: the key was written, so the row is making the ruling's claim
+    badly, not failing to make it.
+    """
+    rows = {
+        "named": {"kind": "named", "domain": "sustainment"},
+        "null": {"kind": "null", "domain": None},
+        "empty": {"kind": "empty", "domain": ""},
+        "absent": {"kind": "absent"},
+    }
+    explicit_null, omitted = _domainless_split(rows)
+    assert explicit_null == {"null", "empty"}
+    assert omitted == {"absent"}
+    # And a row that names a domain is in neither — the property that keeps
+    # both assertions above from firing on a perfectly ordinary row.
+    assert "named" not in explicit_null and "named" not in omitted
