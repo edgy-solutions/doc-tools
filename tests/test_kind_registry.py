@@ -280,11 +280,18 @@ def test_the_phantom_outputs_are_exactly_the_two_owed_by_lane_1():
 def test_every_unbuilt_pass_belongs_to_a_kind_that_writes_nothing():
     """The safety property that makes declaring an unbuilt pass harmless.
 
-    ``identity.document_identity`` does not exist yet — it is the next ordered
-    item of work. Nothing can run it, because every kind that declares it also
-    declares no domain, and a domainless kind short-circuits at
-    "origin unresolved" before any pass could be dispatched. If someone gave a
-    DOMAIN-declaring kind an unbuilt pass, this test fails and says so.
+    An unbuilt pass is harmless only while nothing can reach it: every kind
+    that declares one must also declare no domain, because a domainless kind
+    short-circuits at "origin unresolved" before any pass could be dispatched.
+    If someone gave a DOMAIN-declaring kind an unbuilt pass, this test fails
+    and says so.
+
+    ``UNBUILT_PASSES`` is currently EMPTY — ``identity.document_identity`` is
+    built (``doc_tools/passes/identity.py``) — which makes this test vacuously
+    true today. That is the point of leaving it: it is the guard that has to
+    hold the next time a row declares something before it exists. Whether a
+    listed pass is genuinely unbuilt is enforced separately, by
+    ``tests/test_passes_registry.py``.
     """
     for entry in KIND_MAPPING.values():
         unbuilt = set(entry.passes) & set(UNBUILT_PASSES)

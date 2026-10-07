@@ -100,14 +100,24 @@ class ContentKindEntry:
 #: failing ingest. Enumerated by ``tests/test_kind_registry.py``, which asserts
 #: this is exactly the set of undeclared/unbuilt references in the table.
 #:
-#: ``identity.document_identity`` is the document-identity pass the architect
-#: ordered on 2026-10-02 ("document number, revision, CAGE code, contract/
-#: program identifiers from title blocks and DOORS module attributes, verbatim
-#: with sources, refused if not printed"). It is the NEXT item of work, not
-#: built yet. Nothing runs it meanwhile: the three kinds that declare it all
-#: declare no domain, so the write path short-circuits them at
-#: "origin unresolved" before any pass could run.
-UNBUILT_PASSES = ("identity.document_identity",)
+#: ``identity.document_identity`` — the pass the architect ordered on
+#: 2026-10-02 ("document number, revision, CAGE code, contract/program
+#: identifiers from title blocks and DOORS module attributes, verbatim with
+#: sources, refused if not printed") — is NO LONGER UNBUILT. It is
+#: ``doc_tools/passes/identity.py``, deterministic and sealed on two fixtures.
+#:
+#: BUILT IS NOT WIRED, and this tuple only ever claimed the former. Nothing
+#: dispatches a pass by name yet, and the three kinds that declare this one all
+#: declare no domain, so the write path still short-circuits them at
+#: "origin unresolved". The pass is callable; no ingest calls it.
+#:
+#: The tuple is now self-enforcing rather than hand-maintained:
+#: ``tests/test_passes_registry.py`` requires every declared pass to resolve to
+#: a callable at ``doc_tools.passes.<namespace>.<name>`` UNLESS it is listed
+#: here, AND requires everything listed here NOT to resolve. So a pass cannot
+#: be built while still declared unbuilt, and cannot be declared without being
+#: either built or listed.
+UNBUILT_PASSES: tuple[str, ...] = ()
 
 #: Output classes with no ``owl:Class`` declaration in any TTL yet. ADR-0019 §6
 #: calls these phantoms: an output URI is a phantom until it resolves to a
