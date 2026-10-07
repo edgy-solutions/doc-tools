@@ -407,6 +407,46 @@ image:
   # line is the one who meets it.
   #
   # ==================================================================
+  # PIN BUMPED 2026-10-07 to cb2cf2d, main's tip -- the #86 merge commit.
+  #
+  # ORDERED, not routine. #84 adds `extraction_ref` to the `review` stage POST,
+  # which is the field Lane 1's promotion filing 422s without; it exists only in
+  # the image, so the field is not live until this pin is rolled.
+  #
+  # Eight merges since 5652f8d: #76 (CI path filter), #79 (the nightly publisher
+  # reparents onto main), #80 (registry kind seal), #81 (the DOORS export
+  # parser), #83 (the document-identity pass), #84 (extraction_ref), #85
+  # (CLAUDE.md), #86 (the domainless split).
+  #
+  # #79 IS THE ONLY LIVE-BEHAVIOUR CHANGE, and it is the gate's own publisher.
+  # The in-cluster CronJob runs `scripts/pcn_gate_publish.py` OUT OF THE IMAGE,
+  # so the reparent-onto-main and its truncated-tree guard do nothing until this
+  # pin is rolled. Today's 07:00Z report (`e82f8e4`) is parented on `de92cfa`
+  # rather than main's tip for exactly that reason -- expected, not a defect.
+  #
+  # IT CANNOT MOVE THE CORPUS SCORE, checked rather than assumed:
+  # `git diff 5652f8d..cb2cf2d -- doc_tools/ scripts/` is seven files and none
+  # is on the parts path -- manifest fields, a transport field, an emptied tuple
+  # of unbuilt passes, two new modules nothing imports, and the publisher. No
+  # geometry, no grid, no prompt. The 2026-10-07 read measured 898/898 in all
+  # three fires, so the next nightly on this pin is comparable to it rather than
+  # a new baseline. (Contrast the 2026-10-06 bump below, which carried #39 and
+  # touched notice_identity -- that one WAS a new baseline.)
+  #
+  # A green `build-and-push` is NOT evidence an image exists: the push step is
+  # gated on the event not being a pull_request, so PR runs build both
+  # architectures as a compile check and publish nothing. This digest comes from
+  # the `push`-event run on main (37641456485), which does publish.
+  #
+  # INDEX VERIFIED BEFORE COMMITTING, children fetched BY THEIR OWN DIGEST
+  # (regenerated for this pin -- never carried forward from the block below):
+  #     linux/amd64  sha256:62bd0da2cc0cd4750b9008dc31f8bc07f98d2c494c35299aae58804ccd2c87ca
+  #     linux/arm64  sha256:c00499ea7f71c0dcc4dee31370d60ff1c72382d469a8d1d55a33b8845ad5c94a
+  # Both return 200 as OCI image manifests. The arm64 child is the load-bearing
+  # one: sandbox schedules onto arm workers, so an index whose arm64 child is
+  # missing or stale pulls green here and fails there.
+  #
+  # ==================================================================
   # PIN BUMPED 2026-10-06 to 5652f8d, main's tip -- the #77 merge commit.
   #
   # WHAT IT CARRIES, and this one is a live-behaviour fix rather than an
@@ -560,8 +600,11 @@ image:
   # Its index was verified the same way, children fetched by their own digest:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
+  # ^ THOSE TWO CHILDREN ARE THE SUPERSEDED 2026-10-06 PIN'S, kept as
+  # its record. The children of the digest below are in the 2026-10-07
+  # block at the top of this comment chain.
   # ------------------------------------------------------------------
-  digest: "sha256:2e18b6dbdb6bf7702d80753c17588d444fdcdfddb417d39c24b674d24c485cd2"
+  digest: "sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -796,6 +839,6 @@ corpusGate:
   # the assertion ran afterwards and a mismatch would have been loud and would
   # have been fixed forward. If you have a second roll available, spend it and
   # follow the instruction above instead of copying this shortcut.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:2e18b6dbdb6bf7702d80753c17588d444fdcdfddb417d39c24b674d24c485cd2"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb"
   publish:
     repo: edgy-solutions/doc-tools
