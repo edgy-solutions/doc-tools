@@ -519,7 +519,18 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         "extraction_metadata": extraction_metadata,
                         "embedded_images": embedded_images_map,
                         "pages": pages_list,  # full-page renders: {page, s3_url, basename, width, height, dpi}
-                        "text_location": f"{base_dir}/generated/{base_name}/{version}/text.json"
+                        "text_location": f"{base_dir}/generated/{base_name}/{version}/text.json",
+                        # DECLARED, not left to be read off the key's path.
+                        # This manifest is the artifact the `review` stage
+                        # POST names as its `extraction_ref`, and Lane 1
+                        # derives `pipeline_version` from the artifact rather
+                        # than trusting a caller-asserted one (ADR-0034). The
+                        # version IS also the second-to-last path segment of
+                        # this object's own key, but recovering it that way is
+                        # the same path-derivation guess `source_key` exists
+                        # to avoid — it breaks the first time the layout
+                        # changes, and silently.
+                        "pipeline_version": version,
                     }
 
                     # ADR-0041 — when this instance is configured with obtained_via
@@ -637,11 +648,23 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 # count/total is not a completion ratio. Naming this at the
                 # call site as well as at the resource because the mismatch is
                 # invisible from either side alone.
+                #
+                # `extraction_ref` — the versioned manifest key written just
+                # above. This is the stage Lane 1 turns into a
+                # `document_promotion` task, and a promote on a task whose
+                # payload cannot name the extraction is refused 422
+                # (measured on PCN26-119, roll #19). The key is bucket-
+                # relative, matching `object_ref`'s convention for the same
+                # document, and it names the IMMUTABLE versioned manifest —
+                # never `current.json`, which the next reprocess repoints, so
+                # a decision record naming it would later describe a
+                # different extraction than the one that was reviewed.
                 if status_resource is not None:
                     status_resource.update(
                         ingest_id, "awaiting_disposition",
                         extracted_count=len(elements) if elements else 0,
                         extracted_total=len(pages_list) if pages_list else None,
+                        extraction_ref=manifest_object_name,
                     )
 
                 return manifest
