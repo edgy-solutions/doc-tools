@@ -132,9 +132,17 @@ class IngestStatusResource(ConfigurableResource):
     EXTRACTED_COUNT_UNIT: ClassVar[str] = "unstructured elements extracted from the document"
     EXTRACTED_TOTAL_UNIT: ClassVar[str] = "pages rasterized from the source PDF"
 
+    #: The wire stage whose POST Lane 1 turns into a `document_promotion`
+    #: task. A promote/reject on that task builds a decision record, and the
+    #: record must name what was reviewed — so this is the one stage where an
+    #: absent `extraction_ref` is a defect rather than a missing nicety. See
+    #: `update()`'s `extraction_ref` paragraph.
+    _PROMOTION_FILING_WIRE_STAGE: ClassVar[str] = "review"
+
     def update(self, ingest_id: str, stage: str, *,
                extracted_count: Optional[int] = None,
                extracted_total: Optional[int] = None,
+               extraction_ref: Optional[str] = None,
                detail: Optional[str] = None) -> None:
         """Validate and (for now) log one stage transition for `ingest_id`.
 
@@ -160,6 +168,30 @@ class IngestStatusResource(ConfigurableResource):
         doc-tools is on v0.9.5 and imports the real thing. Local import so
         this resource (and this whole module) stays importable without the
         SDK installed for every caller that never calls `update()`.
+
+        `extraction_ref` NAMES THE EXTRACTION THE DECISION RECORD IS ABOUT.
+        Measured live on roll #19 (Lane 1's packet 2026-10-07): PCN26-119
+        reached `review` through this very method, Lane 1 filed
+        `document_promotion:<id>` from it, and the promote was refused
+        `422 promotion_payload_invalid … missing ['object_ref',
+        'content_kind', 'pipeline_version', 'format_fingerprint',
+        'standing', 'extraction_ref']`. Lane 1 holds `object_ref`,
+        `content_kind` and `standing` already; the other three describe an
+        extraction only this side has seen. Under ADR-0034 `pipeline_version`
+        and `format_fingerprint` must NOT be caller-asserted, so this seam
+        sends neither — it sends one bucket-relative artifact KEY and Lane 1
+        derives them from the artifact. That is the whole of the contract: a
+        key, not a claim.
+
+        Bucket-relative on purpose: `object_ref` (which Lane 1 wrote at
+        `/ingest` for the same document) is a bare key in the same bucket, so
+        the two refs resolve the same way. A fully-qualified `s3://` URL here
+        would be a second convention for one pair of fields.
+
+        An absent `extraction_ref` is loud at `review` and silent everywhere
+        else, because `review` is the only stage that files a promotion task
+        — at `extracting` or `failed` there is no record to name and no
+        manifest written yet.
         """
         from iagent_mesh.ingest import INGEST_STAGES
 
@@ -179,6 +211,18 @@ class IngestStatusResource(ConfigurableResource):
             raise ValueError(
                 f"stage={stage!r} requires a non-blank `detail` (Lane 1's "
                 f"rule at ingest_status.update_status) — got detail={detail!r}"
+            )
+
+        # A blank/whitespace `extraction_ref` is worse than none: it reaches
+        # Lane 1 as a present-but-unresolvable key, so the 422 it was sent to
+        # cure is replaced by a 404 on a key that names nothing. Refused at
+        # the call site, where the caller still knows what it meant to send.
+        if extraction_ref is not None and not str(extraction_ref).strip():
+            raise ValueError(
+                f"extraction_ref={extraction_ref!r} is blank. Pass the "
+                f"artifact key or pass None — a blank ref names no artifact "
+                f"and Lane 1 cannot derive pipeline_version or "
+                f"format_fingerprint from it."
             )
 
         logger = logging.getLogger(__name__)
@@ -220,11 +264,27 @@ class IngestStatusResource(ConfigurableResource):
             )
             return
 
+        # The promotion payload's one doc-tools-owned field. Sent only when
+        # it is in hand; the route accepts it as optional (Lane 1's packet),
+        # so an older body still posts.
+        if wire_stage == self._PROMOTION_FILING_WIRE_STAGE and extraction_ref is None:
+            logger.warning(
+                "ADR-0041 ingest status: posting wire stage %r with NO "
+                "extraction_ref for ingest_id=%s. Lane 1 files a "
+                "document_promotion task from this POST, and a promote on a "
+                "task whose payload cannot name the extraction is refused "
+                "422 promotion_payload_invalid — the row will sit at review. "
+                "The caller should pass the versioned manifest key.",
+                wire_stage, ingest_id,
+            )
+
         body = {"stage": wire_stage}
         if extracted_count is not None:
             body["extracted_count"] = extracted_count
         if extracted_total is not None:
             body["extracted_total"] = extracted_total
+        if extraction_ref is not None:
+            body["extraction_ref"] = extraction_ref
         if detail is not None:
             body["detail"] = detail
 
@@ -253,11 +313,11 @@ class IngestStatusResource(ConfigurableResource):
             logger.info(
                 "ADR-0041 ingest status posted: ingest_id=%s stage=%s "
                 "[wire=%s] status=%s extracted_count=%s [%s] "
-                "extracted_total=%s [%s] detail=%s",
+                "extracted_total=%s [%s] extraction_ref=%s detail=%s",
                 ingest_id, stage, wire_stage, response.status_code,
                 extracted_count, self.EXTRACTED_COUNT_UNIT,
                 extracted_total, self.EXTRACTED_TOTAL_UNIT,
-                detail,
+                extraction_ref, detail,
             )
         else:
             logger.warning(

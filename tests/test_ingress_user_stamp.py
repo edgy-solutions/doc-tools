@@ -701,3 +701,71 @@ def test_f6_notice_identity_and_ingest_id_join_on_the_same_manifest():
     assert manifest["ingest_id"] == sidecar["ingest_id"]
     assert manifest["source_key"] == _LIVE_DOC_KEY_2
     assert manifest["source_key"].startswith(os.path.dirname(_LIVE_SIDECAR_KEY_2))
+
+
+# --------------------------------------------------------------------------- #
+# F7 — the `review` stage POST names the extraction it is about.
+#
+# Lane 1 files a `document_promotion` task from that POST; a promote on a task
+# whose payload cannot name the extraction is refused `422
+# promotion_payload_invalid` (measured live on PCN26-119, roll #19). The field
+# is produced HERE, so it is pinned here and not only at the transport.
+# --------------------------------------------------------------------------- #
+class _RecordingStatusResource:
+    """Stands in for `IngestStatusResource`, recording every `update()`.
+
+    Replaces the class the asset constructs, so the real `update()` (and its
+    `iagent_mesh.ingest` import, which this venv's pinned SDK lacks) never
+    runs. What is under test here is what the PRODUCER passes, which the
+    transport tests cannot see.
+    """
+
+    calls: list = []
+
+    def __init__(self, *a, **k):
+        pass
+
+    def update(self, ingest_id, stage, **kwargs):
+        type(self).calls.append({"ingest_id": ingest_id, "stage": stage, **kwargs})
+
+
+def test_f7_awaiting_disposition_names_the_versioned_manifest_it_wrote(monkeypatch):
+    import doc_tools.utils.dagster_resources as dr
+
+    version = "doc-tools@f7seal"
+    monkeypatch.setenv("DOC_TOOLS_VERSION", version)
+    _RecordingStatusResource.calls = []
+    monkeypatch.setattr(dr, "IngestStatusResource", _RecordingStatusResource)
+
+    sidecar = _live_sidecar(domain_type="sustainment")
+    fake_client = _FakeS3Client()
+    fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
+
+    manifest = _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
+
+    posted = [c for c in _RecordingStatusResource.calls
+              if c["stage"] == "awaiting_disposition"]
+    assert len(posted) == 1
+    ref = posted[0]["extraction_ref"]
+
+    # The ref must name an object this run ACTUALLY WROTE. Asserting it
+    # against a re-derived string would only prove the test can do the same
+    # f-string surgery the asset does; asserting it against the fake S3's
+    # keys proves the ref resolves.
+    assert (BUCKET, ref) in fake_client.objects, (
+        f"extraction_ref={ref!r} names no object this run wrote. "
+        f"Keys written: {sorted(k for _b, k in fake_client.objects)}"
+    )
+    assert ref.endswith(f"/{version}/manifest.json")
+
+    # NOT current.json — the one mutable pointer. A decision record naming
+    # current.json would describe whatever the NEXT reprocess repointed it
+    # at, which is not the extraction that was reviewed.
+    assert not ref.endswith("current.json")
+
+    # And the named artifact is self-describing: Lane 1 derives
+    # pipeline_version from it (ADR-0034 forbids this side asserting it on
+    # the wire), so it has to be IN the artifact and not only in its path.
+    written = json.loads(fake_client.objects[(BUCKET, ref)].decode("utf-8"))
+    assert written["pipeline_version"] == version
+    assert manifest["pipeline_version"] == version

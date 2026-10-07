@@ -284,6 +284,131 @@ def test_gateway_url_trailing_slash_does_not_double(monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
+# THE PROMOTION PAYLOAD'S ONE DOC-TOOLS FIELD.
+#
+# Measured live by Lane 1 on roll #19: PCN26-119 reached `review` through this
+# method, Lane 1 filed a `document_promotion` task from the POST, and the
+# promote was refused `422 promotion_payload_invalid` for a payload that could
+# not name the extraction it was about. `extraction_ref` is the one field of
+# the six that only this side can supply; Lane 1 derives `pipeline_version`
+# and `format_fingerprint` FROM the named artifact rather than from anything
+# asserted here (ADR-0034), which is why this seam sends a key and not a
+# claim.
+# --------------------------------------------------------------------------- #
+def test_review_post_carries_extraction_ref(monkeypatch):
+    _stub_ingest_stages(monkeypatch)
+    _authed(monkeypatch)
+    fake_post = _FakePost()
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    ref = "ingress-user/pdf/abc/generated/PCN26-119_pdf/doc-tools@deadbee/manifest.json"
+    _resource().update(
+        CANON_INGEST_ID, "awaiting_disposition",
+        extracted_count=18, extracted_total=9, extraction_ref=ref,
+    )
+
+    body = fake_post.calls[0]["json"]
+    assert body["stage"] == "review"
+    # Verbatim. A ref the transport normalises, strips or re-prefixes names a
+    # different object than the one the producer wrote.
+    assert body["extraction_ref"] == ref
+
+
+def test_extraction_ref_rides_other_stages_too_when_given(monkeypatch):
+    """Not gated on the stage.
+
+    The WARNING below is specific to `review`, but the field is not: gating
+    the field on a stage spelling would mean a future route change (or a
+    second filing stage) silently drops it, which is the failure this whole
+    change exists to cure.
+    """
+    _stub_ingest_stages(monkeypatch)
+    _authed(monkeypatch)
+    fake_post = _FakePost()
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    _resource().update(CANON_INGEST_ID, "extracting", extraction_ref="k/m.json")
+
+    assert fake_post.calls[0]["json"]["extraction_ref"] == "k/m.json"
+
+
+def test_absent_extraction_ref_leaves_the_body_as_it_was(monkeypatch):
+    """The compatibility half, pinned.
+
+    Lane 1's route accepts the field as optional, so a body without it must
+    still be exactly the body that posted before this change — no `null`, no
+    empty string, no key at all.
+    """
+    _stub_ingest_stages(monkeypatch)
+    _authed(monkeypatch)
+    fake_post = _FakePost()
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    _resource().update(CANON_INGEST_ID, "awaiting_disposition", extracted_count=1)
+
+    assert fake_post.calls[0]["json"] == {"stage": "review", "extracted_count": 1}
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "\n", "\t "])
+def test_a_blank_extraction_ref_is_refused_before_the_post(monkeypatch, blank):
+    """Blank is worse than absent, so it raises rather than posting.
+
+    A present-but-unresolvable ref trades the 422 this field cures for a 404
+    on a key that names nothing — and a 404 is diagnosed at Lane 1's end,
+    days later, by someone who cannot see which producer sent it. The refusal
+    happens where the caller still knows what it meant to send.
+    """
+    _stub_ingest_stages(monkeypatch)
+    _authed(monkeypatch)
+    fake_post = _FakePost()
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(ValueError, match="extraction_ref"):
+        _resource().update(
+            CANON_INGEST_ID, "awaiting_disposition", extraction_ref=blank)
+
+    assert fake_post.calls == []
+
+
+def test_review_without_extraction_ref_warns_and_still_posts(monkeypatch, caplog):
+    """Loud, but never fatal.
+
+    This is the exact state that produced the live 422, so it must not pass
+    silently. It must also not stop the POST: the row still belongs at
+    `review`, and a stage write that failed an extraction would be a far
+    worse trade than a task that needs its payload backfilled.
+    """
+    _stub_ingest_stages(monkeypatch)
+    _authed(monkeypatch)
+    fake_post = _FakePost()
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with caplog.at_level("WARNING", logger="doc_tools.utils.dagster_resources"):
+        _resource().update(CANON_INGEST_ID, "awaiting_disposition")
+
+    assert len(fake_post.calls) == 1
+    assert any("extraction_ref" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.parametrize("stage", ["extracting", "failed"])
+def test_other_stages_do_not_warn_about_a_missing_ref(monkeypatch, caplog, stage):
+    """The silence half.
+
+    `extracting` runs before a manifest exists and `failed` has no extraction
+    to name, so warning on either would train a reader to ignore the warning
+    that matters.
+    """
+    _stub_ingest_stages(monkeypatch)
+    _authed(monkeypatch)
+    monkeypatch.setattr(httpx, "post", _FakePost())
+
+    with caplog.at_level("WARNING", logger="doc_tools.utils.dagster_resources"):
+        _resource().update(CANON_INGEST_ID, stage, detail="because")
+
+    assert not any("extraction_ref" in r.getMessage() for r in caplog.records)
+
+
+# --------------------------------------------------------------------------- #
 # TRIPWIRE, not a behaviour test. Deliberately NOT using the stub above —
 # this one watches the REAL SDK. If it fails, the SDK has adopted "review"
 # into INGEST_STAGES and `_WIRE_STAGE` (dagster_resources.py) must be
