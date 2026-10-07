@@ -1,0 +1,59 @@
+Module: /MRAD Program/Requirements/SRS-MRAD-001
+Module Name: SRS-MRAD-001 Software Requirements Specification
+Prefix: SRS
+Baseline: 2.1
+Project: MRAD Program
+CAGE Code: 1AB23
+Contract Number: W58RGZ-24-C-0031
+Document Number: SRS-MRAD-001
+Revision: C
+View: All Objects (Formal)
+Exported On: 15 March 2026 14:22:08
+Exported By: j.alvarez
+
+Object Identifier,Object Level,Object Heading,Object Text,Object Type,Verification Method,Satisfies,Allocated To,Absolute Number,Last Modified On
+SRS-1,1,Scope,,Heading,,,,1,12 March 2026
+SRS-2,2,Identification,"This specification establishes the requirements for the Computer Software Configuration Item (CSCI) identified as the MRAD Arresting Control Software, CSCI number 7429-01.",Information,,,,2,12 March 2026
+SRS-3,1,Functional Requirements,,Heading,,,,3,12 March 2026
+SRS-4,2,Arrestment Sequencing,,Heading,,,,4,12 March 2026
+SRS-5,3,,"The CSCI shall command the retarding force setpoint within 40 ms of receiving a valid ENGAGE discrete, where ""valid"" means two of three channels agree.",Requirement,Test,SSS-MRAD-114,CSCI-7429-01,5,13 March 2026
+SRS-6,3,,"The CSCI shall limit commanded retarding force to 1,250 kN under all operating conditions, including degraded sensor modes.",Requirement,Analysis,SSS-MRAD-115,CSCI-7429-01,6,13 March 2026
+SRS-7,3,,"The CSCI shall record each arrestment event to non-volatile storage.
+
+Each record shall contain the event timestamp, peak retarding force, and the identity of the commanding channel.",Requirement,Demonstration,SSS-MRAD-118,CSCI-7429-01,7,14 March 2026
+SRS-8,2,Interface Signal Budget,,Heading,,,,8,14 March 2026
+SRS-9,3,,"Table 1 defines the allocated latency budget for each external interface. The CSCI shall not exceed the values in Table 1.",Requirement,Analysis,SSS-MRAD-120,CSCI-7429-01,9,14 March 2026
+SRS-10,3,,,Table,,,,10,14 March 2026
+SRS-11,4,,,Table Row,,,,11,14 March 2026
+SRS-12,5,,Interface,Table Cell,,,,12,14 March 2026
+SRS-13,5,,Signal,Table Cell,,,,13,14 March 2026
+SRS-14,5,,Budget (ms),Table Cell,,,,14,14 March 2026
+SRS-15,4,,,Table Row,,,,15,14 March 2026
+SRS-16,5,,MIL-STD-1553B,Table Cell,,,,16,14 March 2026
+SRS-17,5,,ENGAGE discrete,Table Cell,,,,17,14 March 2026
+SRS-18,5,,12,Table Cell,,,,18,14 March 2026
+SRS-19,4,,,Table Row,,,,19,14 March 2026
+SRS-20,5,,"RS-422, channel A",Table Cell,,,,20,14 March 2026
+SRS-21,5,,Force feedback,Table Cell,,,,21,14 March 2026
+SRS-22,5,,8,Table Cell,,,,22,14 March 2026
+SRS-23,4,,,Table Row,,,,23,14 March 2026
+SRS-24,5,,Ethernet (health),Table Cell,,,,24,14 March 2026
+SRS-25,5,,Status report,Table Cell,,,,25,14 March 2026
+SRS-26,5,,20,Table Cell,,,,26,14 March 2026
+SRS-27,2,Verification Cross Reference,,Heading,,,,27,14 March 2026
+SRS-28,3,,"Table 2 maps each requirement in section 3 to its verification method and the test procedure that satisfies it.",Information,,,,28,14 March 2026
+SRS-29,3,,,Table,,,,29,15 March 2026
+SRS-30,4,,,Table Row,,,,30,15 March 2026
+SRS-31,5,,Requirement,Table Cell,,,,31,15 March 2026
+SRS-32,5,,Method,Table Cell,,,,32,15 March 2026
+SRS-33,5,,Procedure,Table Cell,,,,33,15 March 2026
+SRS-34,4,,,Table Row,,,,34,15 March 2026
+SRS-35,5,,SRS-5,Table Cell,,,,35,15 March 2026
+SRS-36,5,,Test,Table Cell,,,,36,15 March 2026
+SRS-37,5,,ATP-7429-003,Table Cell,,,,37,15 March 2026
+SRS-38,4,,,Table Row,,,,38,15 March 2026
+SRS-39,5,,SRS-6,Table Cell,,,,39,15 March 2026
+SRS-40,5,,Analysis,Table Cell,,,,40,15 March 2026
+SRS-41,5,,ANA-7429-011,Table Cell,,,,41,15 March 2026
+SRS-42,1,Notes,,Heading,,,,42,15 March 2026
+SRS-43,2,,"Deleted at baseline 2.0. Retained for traceability.",Information,,,,43,15 March 2026
