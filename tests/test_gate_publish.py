@@ -22,6 +22,7 @@ sequencing and the decisions, NOT that the GitHub request shapes are accepted
 by GitHub — the first real run is what proves that, and the script's errors
 are written to be readable when it does not.
 """
+import base64
 import importlib.util
 import json
 import zlib
@@ -40,30 +41,85 @@ _SPEC.loader.exec_module(pub)
 class FakeGitHub:
     """A GitHub stand-in that records every call in order.
 
-    `trees` returns a sha derived from the request body, so an identical
-    report yields an identical tree sha — which is how the no-empty-commit
-    behaviour can be tested at all.
+    `trees` (the CREATE call, POST .../git/trees) returns a sha derived from
+    the request body's `tree` list only — not `base_tree` — so an identical
+    set of files yields an identical tree sha regardless of what it was
+    based on. That is how the no-op-vs-reparent distinction can be tested at
+    all: two runs whose files match but whose base differs still compare
+    equal on tree sha, and the test has to look at `branch_parent` to tell
+    them apart.
+
+    `base` (the ref named "main") and the publish branch are resolved
+    independently: `base_sha`/`base_tree` for the former,
+    `branch_sha`/`branch_tree` for the latter. `branch_parent` is the branch
+    head commit's own parent sha, defaulting to `base_sha` (i.e. "already
+    correctly parented") — set it to something else to model a stale branch.
+    `branch_dest_blobs`/`base_dest_blobs` are {path: text} maps of files that
+    exist under the report path on each tree, for the carry-forward checks.
     """
 
-    def __init__(self, branch_exists=True, open_pr=False, parent_tree="T_OLD"):
+    def __init__(self, branch_exists=True, open_pr=False,
+                 base_sha="BASE1", base_tree="T_BASE",
+                 branch_sha="HEAD1", branch_tree="T_OLD",
+                 branch_parent=None,
+                 branch_dest_blobs=None, base_dest_blobs=None,
+                 truncated=False):
         self.calls = []
+        self.truncated = truncated
         self.branch_exists = branch_exists
         self.open_pr = open_pr
-        self.parent_tree = parent_tree
+        self.base_sha = base_sha
+        self.base_tree = base_tree
+        self.branch_sha = branch_sha
+        self.branch_tree = branch_tree
+        self.branch_parent = base_sha if branch_parent is None else branch_parent
+        self.branch_dest_blobs = branch_dest_blobs or {}
+        self.base_dest_blobs = base_dest_blobs or {}
         self.ref_now = None
         self.last_tree = None
+        self._blob_content = {}
+
+    def _blob_sha(self, text):
+        sha = f"B_{zlib.crc32(text.encode())}"
+        self._blob_content[sha] = text
+        return sha
+
+    def _tree_entries(self, tree_sha):
+        if tree_sha == self.base_tree:
+            blobs = self.base_dest_blobs
+        elif tree_sha == self.branch_tree:
+            blobs = self.branch_dest_blobs
+        else:
+            blobs = {}
+        return [{"path": path, "type": "blob", "mode": "100644",
+                 "sha": self._blob_sha(text)} for path, text in blobs.items()]
 
     def __call__(self, method, url, token, body=None):
         self.calls.append((method, url.split("/repos/")[-1], body))
         if method == "GET" and "/git/ref/heads/" in url:
             branch = url.rsplit("/heads/", 1)[1]
-            if branch == "main" or self.branch_exists:
-                return {"object": {"sha": "HEAD1"}}
+            if branch == "main":
+                return {"object": {"sha": self.base_sha}}
+            if self.branch_exists:
+                return {"object": {"sha": self.branch_sha}}
             raise pub.PublishError(f"GET {url} -> HTTP 404: Not Found")
         if method == "POST" and url.endswith("/git/refs"):
             return {}
         if method == "GET" and "/git/commits/" in url:
-            return {"tree": {"sha": self.parent_tree}}
+            sha = url.rsplit("/", 1)[1]
+            if sha == self.base_sha:
+                return {"tree": {"sha": self.base_tree}, "parents": []}
+            return {"tree": {"sha": self.branch_tree},
+                    "parents": [{"sha": self.branch_parent}]}
+        if method == "GET" and "/git/trees/" in url:
+            tree_sha = url.rsplit("/git/trees/", 1)[1].split("?")[0]
+            return {"tree": self._tree_entries(tree_sha),
+                    "truncated": self.truncated}
+        if method == "GET" and "/git/blobs/" in url:
+            sha = url.rsplit("/", 1)[1]
+            return {"content": base64.b64encode(
+                self._blob_content[sha].encode()).decode(),
+                "encoding": "base64"}
         if method == "POST" and url.endswith("/git/trees"):
             payload = json.dumps(body["tree"], sort_keys=True)
             self.last_tree = f"T_{zlib.crc32(payload.encode())}"
@@ -72,6 +128,7 @@ class FakeGitHub:
             return {"sha": "c0ffee1234567890"}
         if method == "PATCH" and "/git/refs/heads/" in url:
             self.ref_now = body["sha"]
+            self.ref_force = body.get("force")
             return {}
         if method == "GET" and "/pulls?" in url:
             return [{"html_url": "https://pr/existing"}] if self.open_pr else []
@@ -212,6 +269,15 @@ def test_the_commit_moves_the_branch_ref(report_dir, fake):
     assert ("PATCH", "o/r/git/refs/heads/corpus-gate/nightly") in gh.method_urls()
 
 
+def test_the_ref_update_forces(report_dir, fake):
+    """Reparenting onto base's tip is not a fast-forward, so the PATCH must
+    carry force: True or GitHub rejects it."""
+    gh = fake(FakeGitHub())
+    pub.publish(report_dir(), "o/r", "t")
+    patch_body = gh.body_for("PATCH", "/git/refs/heads/corpus-gate/nightly")
+    assert patch_body["force"] is True
+
+
 def test_it_never_patches_the_base_branch(report_dir, fake):
     """The single most important property of this script. main in this repo has
     no required checks, so a push to it is an unreviewed final write."""
@@ -226,7 +292,31 @@ def test_the_commit_builds_on_the_existing_tree(report_dir, fake):
     from the branch."""
     gh = fake(FakeGitHub())
     pub.publish(report_dir(), "o/r", "t")
-    assert gh.body_for("POST", "/git/trees")["base_tree"] == "T_OLD"
+    assert gh.body_for("POST", "/git/trees")["base_tree"] == gh.base_tree
+
+
+def test_the_tree_is_built_on_bases_tree_not_the_stale_branch_tree(
+        report_dir, fake):
+    """The reparent fix: base_tree must be `base`'s tree, not whatever the
+    publish branch's own (possibly stale) tree happens to be."""
+    gh = fake(FakeGitHub(base_sha="BASE_NEW", base_tree="T_BASE_NEW",
+                          branch_sha="HEAD_STALE", branch_tree="T_STALE",
+                          branch_parent="BASE_OLD"))
+    pub.publish(report_dir(), "o/r", "t")
+    assert gh.body_for("POST", "/git/trees")["base_tree"] == "T_BASE_NEW"
+
+
+def test_the_commit_parents_on_bases_tip_not_the_stale_branch_head(
+        report_dir, fake):
+    """The whole point of the fix: a branch left behind for nights must still
+    produce a commit parented on base's CURRENT tip, not its own stale
+    head."""
+    gh = fake(FakeGitHub(base_sha="BASE_NEW", base_tree="T_BASE_NEW",
+                          branch_sha="HEAD_STALE", branch_tree="T_STALE",
+                          branch_parent="BASE_OLD"))
+    result = pub.publish(report_dir(), "o/r", "t")
+    assert result["committed"]
+    assert gh.body_for("POST", "/git/commits")["parents"] == ["BASE_NEW"]
 
 
 def test_the_commit_message_carries_the_verdict(report_dir, fake):
@@ -259,18 +349,33 @@ def test_an_unparseable_latest_json_is_still_published_as_unknown(
 
 def test_an_identical_report_does_not_create_a_commit(report_dir, fake):
     """A nightly job that commits whether or not anything changed teaches its
-    readers that its commits mean nothing."""
+    readers that its commits mean nothing. True no-op requires BOTH: the
+    branch already holds this exact tree, AND it is already parented on
+    base's tip (the default `branch_parent`)."""
     gh = FakeGitHub()
     fake(gh)
     assert pub.publish(report_dir(), "o/r", "t")["committed"]
-    # Replay against a branch whose head already carries that exact tree.
-    gh2 = fake(FakeGitHub(parent_tree=gh.last_tree))
+    # Replay against a branch whose head already carries that exact tree,
+    # correctly parented on base (branch_parent defaults to base_sha).
+    gh2 = fake(FakeGitHub(branch_tree=gh.last_tree))
     second = pub.publish(report_dir(), "o/r", "t")
     assert second["committed"] is False
-    assert "identical" in second["reason"]
+    assert "already" in second["reason"]
     assert not [u for m, u in gh2.method_urls()
                 if m == "POST" and u.endswith("/git/commits")]
     assert gh2.ref_now is None
+
+
+def test_a_pure_reparent_commits_even_with_an_unchanged_tree(report_dir, fake):
+    """Same content, but the branch's existing head is parented on a stale
+    commit, not base's current tip: that alone must still produce a commit,
+    because the reparent itself is what clears the conflicting PR."""
+    gh = fake(FakeGitHub())
+    assert pub.publish(report_dir(), "o/r", "t")["committed"]
+    gh2 = fake(FakeGitHub(branch_tree=gh.last_tree, branch_parent="OLD_BASE"))
+    second = pub.publish(report_dir(), "o/r", "t")
+    assert second["committed"] is True
+    assert gh2.body_for("POST", "/git/commits")["parents"] == [gh2.base_sha]
 
 
 def test_a_no_op_still_reports_the_pull_request(report_dir, fake, monkeypatch,
@@ -280,10 +385,58 @@ def test_a_no_op_still_reports_the_pull_request(report_dir, fake, monkeypatch,
     gh = FakeGitHub()
     fake(gh)
     pub.publish(report_dir(), "o/r", "t")
-    fake(FakeGitHub(parent_tree=gh.last_tree, open_pr=True))
+    fake(FakeGitHub(branch_tree=gh.last_tree, open_pr=True))
     result = pub.publish(report_dir(), "o/r", "t")
     assert result["committed"] is False
     assert result["pr"] == "https://pr/existing"
+
+
+# --- carry-forward ----------------------------------------------------------
+
+def test_a_branch_only_report_is_carried_forward(report_dir, fake):
+    """A previous night's report may be sitting on the branch, not yet merged
+    to base. Reparenting onto base's tree must not silently drop it."""
+    gh = fake(FakeGitHub(branch_dest_blobs={
+        "docs/corpus-gate/report-2026-09-28.md": "# old report\n",
+    }))
+    pub.publish(report_dir(), "o/r", "t")
+    tree = gh.body_for("POST", "/git/trees")["tree"]
+    carried = [e for e in tree
+               if e["path"] == "docs/corpus-gate/report-2026-09-28.md"]
+    assert len(carried) == 1
+    assert carried[0]["content"] == "# old report\n"
+    # today's own report is still there too
+    assert any(e["path"] == "docs/corpus-gate/report-2026-09-30.md"
+               for e in tree)
+
+
+def test_a_report_already_present_on_base_is_not_duplicated(report_dir, fake):
+    """If base already carries that dated report (it was merged since), the
+    branch's copy must not be carried forward a second time."""
+    gh = fake(FakeGitHub(
+        branch_dest_blobs={
+            "docs/corpus-gate/report-2026-09-28.md": "# old report\n"},
+        base_dest_blobs={
+            "docs/corpus-gate/report-2026-09-28.md": "# old report\n"},
+    ))
+    pub.publish(report_dir(), "o/r", "t")
+    tree = gh.body_for("POST", "/git/trees")["tree"]
+    assert [e["path"] for e in tree].count(
+        "docs/corpus-gate/report-2026-09-28.md") == 0
+
+
+def test_latest_json_is_never_carried_forward(report_dir, fake):
+    """latest.json is this run's measurement, always. An older copy sitting
+    on the branch must never be merged with or substituted for it."""
+    gh = fake(FakeGitHub(branch_dest_blobs={
+        "docs/corpus-gate/latest.json": json.dumps({"verdict": "FAIL"}),
+    }))
+    pub.publish(report_dir(verdict="PASS"), "o/r", "t")
+    tree = gh.body_for("POST", "/git/trees")["tree"]
+    latest_entries = [e for e in tree
+                       if e["path"] == "docs/corpus-gate/latest.json"]
+    assert len(latest_entries) == 1
+    assert json.loads(latest_entries[0]["content"])["verdict"] == "PASS"
 
 
 # --- branch and PR lifecycle ----------------------------------------------
@@ -292,8 +445,10 @@ def test_a_missing_branch_is_created_off_base(report_dir, fake):
     gh = fake(FakeGitHub(branch_exists=False))
     result = pub.publish(report_dir(), "o/r", "t")
     assert result["created_branch"]
+    assert result["committed"] is True
     created = gh.body_for("POST", "/git/refs")
-    assert created == {"ref": "refs/heads/corpus-gate/nightly", "sha": "HEAD1"}
+    assert created == {"ref": "refs/heads/corpus-gate/nightly",
+                        "sha": gh.base_sha}
 
 
 def test_an_existing_pull_request_is_reused(report_dir, fake):
@@ -411,3 +566,31 @@ def test_the_chart_default_does_not_publish():
 def test_the_chart_does_not_default_the_publish_branch_to_main():
     values = (CHART / "values.yaml").read_text(encoding="utf-8")
     assert "branch: corpus-gate/nightly" in values
+
+
+def test_a_truncated_tree_listing_refuses_instead_of_carrying_forward_partially(
+        report_dir, fake):
+    """A truncated listing must stop the publish dead.
+
+    The carry-forward is the only thing making the nightly force-reparent safe:
+    it reads back reports that are on the branch and not yet on main, so the
+    force cannot drop them. GitHub truncates a large recursive tree by OMITTING
+    ENTRIES, with a 200 and no error. If that were accepted, a report missing
+    from the listing would be missing from the new tree, and the force-update
+    would destroy it -- the precise loss the carry-forward exists to prevent.
+    So it raises, and crucially the ref must not move.
+    """
+    gh = fake(FakeGitHub(
+        truncated=True,
+        branch_tree="T_STALE",
+        branch_dest_blobs={"docs/corpus-gate/report-2026-01-01T000000Z.md": "older"},
+    ))
+
+
+    with pytest.raises(pub.PublishError) as exc:
+        pub.publish(report_dir(), "o/r", "tok")
+
+    assert "TRUNCATED" in str(exc.value)
+    assert gh.ref_now is None, "the branch ref moved despite a partial listing"
+    assert not any(m == "POST" and u.endswith("/git/commits")
+                   for m, u, _ in gh.calls), "it committed on a partial listing"
