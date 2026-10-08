@@ -407,6 +407,55 @@ image:
   # line is the one who meets it.
   #
   # ==================================================================
+  # PIN BUMPED 2026-10-08 to 61f74dc, main's tip -- the #89 merge commit.
+  #
+  # Three merges since cb2cf2d: #87 (the 2026-10-07 pin itself), #88 (chart
+  # anti-affinity, keeping doc-tools off the stateful-core's nodes), #89 (the
+  # generic `xml` content kind, declaring no domain).
+  #
+  # NOTHING HERE CHANGES LIVE BEHAVIOUR, and that is measured, not assumed.
+  # `git diff cb2cf2d..61f74dc -- doc_tools/ scripts/` is TWO files:
+  # `content_kind.py` (+77, one new row and its comment) and the generator
+  # (+7, a `newline=""` fix so a Windows run stops rewriting all nine registry
+  # files with CRLF churn). The rest of the range is a chart change, a registry
+  # projection, and tests.
+  #
+  # The new `xml` row is reachable but inert: nothing dispatches a pass by name
+  # at this pin, and the row declares NO DOMAIN, so `semantic_assets.py`
+  # short-circuits at "origin unresolved" before any pass would run. Its one
+  # declared pass is admitted UNBUILT on purpose. What the row does change is
+  # that an XML document which is not an S1000D data module stops halting at
+  # ADR-0021 section 3 -- a refusal becoming a routable drop, not a write.
+  #
+  # #88 IS A CHART CHANGE, so it goes live by this ROLL rather than by this
+  # image. Both are in the same `helm upgrade`; do not read a green pod as
+  # evidence the affinity took -- read the pod's node.
+  #
+  # IT CANNOT MOVE THE CORPUS SCORE. No geometry, no grid, no prompt, no
+  # parts path: the two touched files are a classification table and a
+  # generator's file-writing mode. The 2026-10-07 reads measured 898/898, so
+  # the next nightly on this pin is comparable to them rather than a new
+  # baseline.
+  #
+  # A green `build-and-push` is NOT evidence an image exists: the push step is
+  # gated on the event not being a pull_request, so PR runs build both
+  # architectures as a compile check and publish nothing. This digest comes from
+  # the `push`-event run on main (37782277098), which does publish, and whose
+  # `build-and-push` job concluded success after 34 min.
+  #
+  # INDEX VERIFIED BEFORE COMMITTING, children fetched BY THEIR OWN DIGEST
+  # (regenerated for this pin -- never carried forward from the block below):
+  #     linux/amd64  sha256:4ce6af569ceaa7a5643f9ccc63509a77b436ce2d5ccfea17393b8477d7a098a0
+  #     linux/arm64  sha256:941310ea79bd4e953eba14f7b937d9fbc7560d392ae5f44dd3dfc3833a831842
+  # Both return 200 as OCI image manifests on their own digest, and each one's
+  # CONFIG BLOB was read to confirm the architecture it was actually built for
+  # rather than trusting the index's platform claim. Two unknown/unknown entries
+  # are buildx provenance/SBOM attestations and satisfy no platform. The arm64
+  # child is the load-bearing one: sandbox schedules onto arm workers, so an
+  # index whose arm64 child is missing or stale pulls green here and fails
+  # there.
+  #
+  # ==================================================================
   # PIN BUMPED 2026-10-07 to cb2cf2d, main's tip -- the #86 merge commit.
   #
   # ORDERED, not routine. #84 adds `extraction_ref` to the `review` stage POST,
@@ -601,10 +650,10 @@ image:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
   # ^ THOSE TWO CHILDREN ARE THE SUPERSEDED 2026-10-06 PIN'S, kept as
-  # its record. The children of the digest below are in the 2026-10-07
+  # its record. The children of the digest below are in the 2026-10-08
   # block at the top of this comment chain.
   # ------------------------------------------------------------------
-  digest: "sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb"
+  digest: "sha256:0482fd73fdaf8d53bb378a75eb3bd3886c0e47e7e952ddd307365532701a836d"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
