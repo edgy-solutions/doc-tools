@@ -407,6 +407,64 @@ image:
   # line is the one who meets it.
   #
   # ==================================================================
+  # PIN BUMPED 2026-10-08 (SECOND bump of the day) to e656fa5, main's tip --
+  # the #93 merge commit. Dated the same as the block below; this one is newer.
+  #
+  # Five merges since 61f74dc: #91 (the first 2026-10-08 pin itself), #90 (the
+  # passes dispatcher), #82 (a nightly corpus-gate report), #92 (grid forwarding
+  # reaching MIXED notices), #93 (iagent-mesh v0.9.5 -> v0.9.8 and the retirement
+  # of the stage vocabulary bridge). #93 sits DIRECTLY on #92, so one pin serves
+  # both.
+  #
+  # THIS PIN CAN MOVE THE CORPUS SCORE, and that is the difference from the
+  # block below, which could not. #92 rewrites the parts path: `_extract_parts`
+  # is split and `_forward_declined_grids` extracted so the MIXED-notice
+  # dispatch can reach grid forwarding, which previously only tier-1-declined
+  # notices got. That is a live change to how part rows are emitted on real
+  # notices.
+  #
+  # SO THE NEXT NIGHTLY IS THE A/B, and it is not free of risk in the direction
+  # people expect. The corpus stands at 898/898 with 0 missing, so there is NO
+  # HEADROOM FOR AN IMPROVEMENT -- the only movement this change can produce in
+  # the score is a LOSS. The number that should move is `grid_forwarded_mixed`;
+  # the number that must not is the total. Do not read a bump in the former as
+  # a win, and do not report one.
+  #
+  # #93 IS A DEPENDENCY BUMP, so it reaches live ONLY through this image --
+  # `uv.lock` and `pyproject.toml` are baked at build time. It deletes the
+  # one-entry `_WIRE_STAGE` bridge in `dagster_resources.py`: v0.9.8's
+  # `INGEST_STAGES` spells the review stage `review`, as Lane 1's route always
+  # did, so there is nothing left to translate. A tripwire test asserts the dict
+  # is not reintroduced. If the stage POST starts 4xx-ing after this roll, that
+  # deletion is the first place to look, because it is the only thing in the
+  # range that changes what goes ON THE WIRE.
+  #
+  # THE DISPATCHER (#90) IS IN THIS IMAGE BUT INERT. `run_passes_for_kind` has
+  # no production caller at this commit; the route that calls it is PR #94,
+  # unmerged. Shipping it here costs nothing and proves nothing -- do not cite
+  # this roll as evidence the dispatcher ran.
+  #
+  # A green `build-and-push` is NOT evidence an image exists: the push step is
+  # gated on the event not being a pull_request, so PR runs build both
+  # architectures as a compile check and publish nothing. This digest comes from
+  # the `push`-event run on main (37809805923), which does publish, and whose
+  # run-level conclusion -- not a job's, not `gh pr checks` -- read success.
+  #
+  # INDEX VERIFIED BEFORE COMMITTING, children fetched BY THEIR OWN DIGEST
+  # (regenerated for this pin -- never carried forward from the block below):
+  #     linux/amd64  sha256:87f96d1470732a3ba2f54da551281d99ec37b1033081c64176d876787d1e8a18
+  #     linux/arm64  sha256:e3b2c69879a16436db159d919d707b5344e2060721d2a8caa946c74dca27708d
+  # Both return 200 as OCI image manifests on their own digest, and each one's
+  # CONFIG BLOB was read to confirm the architecture it was actually built for
+  # rather than trusting the index's platform claim. The index digest itself was
+  # computed from the response BODY, because ghcr did not send a
+  # Docker-Content-Digest header on this fetch -- a header is a claim about the
+  # body, and the body is the thing. Two unknown/unknown entries are buildx
+  # provenance/SBOM attestations and satisfy no platform. The arm64 child is the
+  # load-bearing one: sandbox schedules onto arm workers, so an index whose
+  # arm64 child is missing or stale pulls green here and fails there.
+  #
+  # ==================================================================
   # PIN BUMPED 2026-10-08 to 61f74dc, main's tip -- the #89 merge commit.
   #
   # Three merges since cb2cf2d: #87 (the 2026-10-07 pin itself), #88 (chart
@@ -653,7 +711,7 @@ image:
   # its record. The children of the digest below are in the 2026-10-08
   # block at the top of this comment chain.
   # ------------------------------------------------------------------
-  digest: "sha256:0482fd73fdaf8d53bb378a75eb3bd3886c0e47e7e952ddd307365532701a836d"
+  digest: "sha256:6dc19712fe2a366be9286ec410421f5c6b805c92822aecbade0ca535c446ce20"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
