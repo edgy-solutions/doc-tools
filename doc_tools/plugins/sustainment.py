@@ -621,42 +621,24 @@ class SustainmentPlugin(AugmentationPlugin):
             "text_layer_page_dims": p.get("page_dims"),
         } for p in parts]
         return out, stats
+    def _forward_declined_grids(self, tl_declines, tables, manifest, s3_client,
+                                grid_prompt) -> Tuple[List[dict], set, dict]:
+        """GRID FORWARDING, extracted so the mixed-notice dispatch can reach it.
 
-    @traced(name="extract parts vision (gemma)")
-    def _extract_parts(self, tables: List[dict], manifest: Optional[dict],
-                       s3_client, full_text: str,
-                       tl_declines: Optional[List[dict]] = None) -> Tuple[List[dict], dict]:
+        Labels the columns of each page's declined tier-1 grids with vision and emits
+        the part rows VERBATIM from the grid. Returns (parts, handled_pages, counters);
+        `counters` carries grid_forwarded / grid_label_failed / grid_rows_emitted /
+        grid_no_parts_col and `rows_by_page` (page -> rows emitted, the vision path's
+        row-short cross-check input). Degrade-never-fail: a page that fails falls out
+        of `handled_pages` and any partial rows it emitted are rolled back.
+        """
         from doc_tools.baml_client.sync_client import b
         from baml_py import Image
-        prompt = self._get_dynamic_prompt(
-            prompt_name="sustainment_parts_instructions",
-            fallback_file="prompts/sustainment_parts_instructions.md",
-        )
-        grid_prompt = self._get_dynamic_prompt(
-            prompt_name="sustainment_grid_columns_instructions",
-            fallback_file="prompts/sustainment_grid_columns_instructions.md",
-        )
         embedded = (manifest or {}).get("embedded_images", {}) or {}
         all_parts: List[dict] = []
-        n_crops, missing, failed, truncated, near_cap = 0, 0, 0, 0, 0
         grid_forwarded, grid_label_failed, grid_rows_emitted = 0, 0, 0
         grid_no_parts_col = 0
-        tl_repairs: List[dict] = []
-        # The row-short cross-check needs, PER PAGE, how many rows vision actually
-        # returned and whether that page's crop is already known-bad (failed/truncated).
-        # Keyed on the crop's page_number (from unstructured metadata) rather than on the
-        # crop itself, because tier 1's declines are also page-scoped — a table can span
-        # one crop and one pdfplumber grid on the same page, and that page number is the
-        # only key both sides share.
         rows_by_page: Dict[Any, int] = {}
-        failed_pages: set = set()
-
-        # ONE map, built ONCE: page_number -> this page's declined grids (tier 1 saw the
-        # table, exact cell text and all, but could not decide what the columns MEANT).
-        # The row-short cross-check further below used to rebuild an equivalent map from
-        # `tl_declines` AFTER this loop finished; it now reuses THIS one instead of
-        # rebuilding it, so the two paths cannot drift apart on what "this page's declines"
-        # means.
         declines_by_page: Dict[Any, List[dict]] = {}
         for d in (tl_declines or []):
             declines_by_page.setdefault(d.get("page_number"), []).append(d)
@@ -778,6 +760,62 @@ class SustainmentPlugin(AugmentationPlugin):
                 grid_label_failed += 1
                 if page_emitted:
                     del all_parts[-page_emitted:]
+
+        return all_parts, grid_handled_pages, {
+            "grid_forwarded": grid_forwarded, "grid_label_failed": grid_label_failed,
+            "grid_rows_emitted": grid_rows_emitted,
+            "grid_no_parts_col": grid_no_parts_col, "rows_by_page": rows_by_page}
+
+
+    @traced(name="extract parts vision (gemma)")
+    def _extract_parts(self, tables: List[dict], manifest: Optional[dict],
+                       s3_client, full_text: str,
+                       tl_declines: Optional[List[dict]] = None) -> Tuple[List[dict], dict]:
+        from doc_tools.baml_client.sync_client import b
+        from baml_py import Image
+        prompt = self._get_dynamic_prompt(
+            prompt_name="sustainment_parts_instructions",
+            fallback_file="prompts/sustainment_parts_instructions.md",
+        )
+        grid_prompt = self._get_dynamic_prompt(
+            prompt_name="sustainment_grid_columns_instructions",
+            fallback_file="prompts/sustainment_grid_columns_instructions.md",
+        )
+        embedded = (manifest or {}).get("embedded_images", {}) or {}
+        all_parts: List[dict] = []
+        n_crops, missing, failed, truncated, near_cap = 0, 0, 0, 0, 0
+        grid_forwarded, grid_label_failed, grid_rows_emitted = 0, 0, 0
+        grid_no_parts_col = 0
+        tl_repairs: List[dict] = []
+        # The row-short cross-check needs, PER PAGE, how many rows vision actually
+        # returned and whether that page's crop is already known-bad (failed/truncated).
+        # Keyed on the crop's page_number (from unstructured metadata) rather than on the
+        # crop itself, because tier 1's declines are also page-scoped — a table can span
+        # one crop and one pdfplumber grid on the same page, and that page number is the
+        # only key both sides share.
+        rows_by_page: Dict[Any, int] = {}
+        failed_pages: set = set()
+
+        # ONE map, built ONCE: page_number -> this page's declined grids (tier 1 saw the
+        # table, exact cell text and all, but could not decide what the columns MEANT).
+        # The row-short cross-check further below used to rebuild an equivalent map from
+        # `tl_declines` AFTER this loop finished; it now reuses THIS one instead of
+        # rebuilding it, so the two paths cannot drift apart on what "this page's declines"
+        # means.
+        declines_by_page: Dict[Any, List[dict]] = {}
+        for d in (tl_declines or []):
+            declines_by_page.setdefault(d.get("page_number"), []).append(d)
+
+        # GRID FORWARDING lives in _forward_declined_grids (shared with the mixed-notice
+        # dispatch). Runs BEFORE the per-crop loop so that loop can skip every page it
+        # handled (`grid_handled_pages`).
+        all_parts, grid_handled_pages, _gc = self._forward_declined_grids(
+            tl_declines, tables, manifest, s3_client, grid_prompt)
+        grid_forwarded = _gc["grid_forwarded"]
+        grid_label_failed = _gc["grid_label_failed"]
+        grid_rows_emitted = _gc["grid_rows_emitted"]
+        grid_no_parts_col = _gc["grid_no_parts_col"]
+        rows_by_page = _gc["rows_by_page"]
 
         # The page TEXT LAYER, tokenized once for the clipped-crop repair below. Built
         # from `full_text` and NOT from any `text_as_html`: on a cut crop the HTML carries
@@ -1496,6 +1534,36 @@ class SustainmentPlugin(AugmentationPlugin):
         ]
         if tl_parts:
             parts_d = tl_parts
+            # MIXED NOTICE: tier 1 emitted parts AND declined a grid on some other page.
+            # Forwarding reads every part string verbatim out of the grid (vision only
+            # labels which column index means what), so running it here cannot reintroduce
+            # a pixel misread. `tables` is deliberately NOT a condition: the grid rides on
+            # the decline, not on a crop.
+            if tl_declines_with_grid and vision_ok and s3_client is not None:
+                try:
+                    grid_prompt = self._get_dynamic_prompt(
+                        prompt_name="sustainment_grid_columns_instructions",
+                        fallback_file="prompts/sustainment_grid_columns_instructions.md",
+                    )
+                    fwd, _handled, fwd_counters = self._forward_declined_grids(
+                        tl_declines_with_grid, tables, manifest, s3_client, grid_prompt)
+                    if fwd:
+                        parts_d = tl_parts + fwd
+                    # PRE-dedup count: rows forwarded, NOT parts added -- dedup_parts runs
+                    # below and may collapse some of them.
+                    stats["grid_forwarded_mixed"] = len(fwd)
+                    # rows_by_page is the vision path's row-short input; meaningless here
+                    # (no crop was read), so it stays out of stats. _apply_vision_stats is
+                    # deliberately not called: its counters are per-crop and all zero here.
+                    stats.update({k: v for k, v in fwd_counters.items() if k != "rows_by_page"})
+                except PromptUnavailableError:
+                    # See the comment on the header pass's identical clause above.
+                    raise
+                except Exception as e:  # noqa: BLE001
+                    # Outcome is today's behaviour (a declined grid left unlabeled), so
+                    # this is recorded but deliberately does NOT set needs_review.
+                    reasons.append(f"mixed-notice grid forwarding failed: {e}")
+                    parts_d = tl_parts
         elif tables and vision_ok and s3_client is not None:
             try:
                 parts_d, ps = self._extract_parts(tables, manifest, s3_client, full_text,
