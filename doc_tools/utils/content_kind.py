@@ -117,7 +117,27 @@ class ContentKindEntry:
 #: here, AND requires everything listed here NOT to resolve. So a pass cannot
 #: be built while still declared unbuilt, and cannot be declared without being
 #: either built or listed.
-UNBUILT_PASSES: tuple[str, ...] = ()
+UNBUILT_PASSES: tuple[str, ...] = (
+    # ``xml.xml_document_identity`` -- the deterministic identity read for a
+    # generic XML drop. Declared by the ``xml`` row because it is what that row
+    # needs; listed here because it does not exist. Nothing resolves for
+    # namespace ``xml``: there is no ``xml*.py`` in any pass package, which is
+    # what ``test_nothing_listed_unbuilt_is_actually_built`` requires of every
+    # name in this tuple.
+    #
+    # What it must do when it is built: read document number, revision, CAGE
+    # and contract/program identifiers out of ELEMENTS AND ATTRIBUTES, with the
+    # XPath that produced each value as its source, and refuse rather than guess
+    # -- the same two invariants ``doc_tools/passes/identity.py`` enforces for
+    # title blocks, over a different locator. Qualify every XPath by ancestor;
+    # a bare ``//dmCode`` has already stolen a module's own ident in this repo.
+    #
+    # It is not urgent in the way an empty tuple would suggest it is: no
+    # dispatcher maps a pass name to a callable yet, and this kind declares no
+    # domain, so the write path short-circuits it at "origin unresolved" before
+    # any pass would run.
+    "xml.xml_document_identity",
+)
 
 #: Output classes with no ``owl:Class`` declaration in any TTL yet. ADR-0019 §6
 #: calls these phantoms: an output URI is a phantom until it resolves to a
@@ -129,7 +149,16 @@ UNBUILT_PASSES: tuple[str, ...] = ()
 #: engineering document is not a CAD artifact"); ``mesh:DoorsExportArtifact``
 #: is its sibling, requested in the same packet. Registering the rows now and
 #: letting them resolve when the TTL lands is the ordered sequence.
-PHANTOM_OUTPUTS = ("mesh:EngineeringDocumentArtifact", "mesh:DoorsExportArtifact")
+PHANTOM_OUTPUTS = (
+    "mesh:EngineeringDocumentArtifact",
+    "mesh:DoorsExportArtifact",
+    # The generic-XML leaf, owed in the same place as its two siblings.
+    # It is the FOURTH leaf of a tree whose comment says a third is "a
+    # future commit, not a wider enum here" -- so it is requested with a
+    # document behind it, which is what that comment asks for: the S1000D
+    # 3xx planning types, which no shipping row can classify.
+    "mesh:XMLArtifact",
+)
 
 
 # The mapping table. THE single source of truth for content kinds.
@@ -229,6 +258,50 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         domain_type=None,
         passes=("identity.document_identity",),
         outputs=("mesh:DoorsExportArtifact",),
+    ),
+    # ``xml`` is the generic XML drop: an XML document that is NOT an S1000D
+    # data module. It exists because without it such a drop HALTS. The S1000D
+    # 3xx planning types are the measured case -- they carry 320 types under
+    # the bare root, so the row that classifies a data module cannot classify
+    # them, and ADR-0021 §3 then (correctly) refuses the drop entirely.
+    #
+    # IT DOES NOT WEAKEN THE HALT for an undeclared drop. A kind is reached
+    # only by an explicit ``metadata.content_kind: xml`` or by a path whose
+    # segment after the domain IS ``xml`` (``_derive_from_path`` requires
+    # ``parts[0] == domain_type``). A file that declares nothing and sits at no
+    # such path still halts, which is the behaviour ADR-0021 is protecting.
+    #
+    # It also does not shadow ``s1000d-data-module``: precedence is metadata
+    # first, and a drop that declares ``s1000d-data-module`` gets that row. A
+    # data module DECLARED as ``xml`` would take the generic path -- that is a
+    # mis-declaration at the seam, not something this table can detect, and the
+    # resolver deliberately never second-guesses a declaration by sniffing the
+    # file.
+    #
+    # NO DOMAIN, under the same 2026-10-02 ruling as pdf/engineering-document/
+    # doors-export: a file format is not an origin. "XML" says even less about
+    # provenance than "PDF" does -- S1000D, DITA, IADS, MIL-STD-40051 and a
+    # DOORS export are all XML and belong to different systems of record. If
+    # the format-level kinds were ever going to assert a domain, this is the row
+    # that shows why they cannot.
+    "xml": ContentKindEntry(
+        kind_source_value="xml",
+        kind="xml",
+        extractor_config="",
+        baml_function="",
+        target_ontology_class="http://edgy-solutions.com/ontology/mesh#XMLArtifact",
+        domain_type=None,
+        # NOT ``identity.document_identity``, and the difference matters.
+        # That pass takes PAGE TEXTS and is anchored on title-block labels
+        # (``Document No.:`` and the aliases beside it). An XML document has
+        # neither pages nor title-block lines: its identity is in elements and
+        # attributes. Declaring the title-block pass here would not fail --
+        # it would run and find nothing, which is the failure mode this repo
+        # keeps re-learning (a stubbed call and a missing prompt file both read
+        # as a near-pass). So the row declares the pass it ACTUALLY needs,
+        # which is not built, and admits that in UNBUILT_PASSES.
+        passes=("xml.xml_document_identity",),
+        outputs=("mesh:XMLArtifact",),
     ),
 }
 

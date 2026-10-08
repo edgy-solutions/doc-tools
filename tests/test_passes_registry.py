@@ -248,6 +248,25 @@ def test_both_naming_schemes_are_present_and_both_resolve():
     assert baml, "no BAML-style pass references left; retire this test"
     assert python, "no Python-style pass references left; retire this test"
     for dotted in baml + python:
+        # An admitted-unbuilt name is not a broken reference, and asserting it
+        # resolves here would contradict the instruction the sibling test's own
+        # failure message gives ("add it to UNBUILT_PASSES"). This loop was
+        # written while that tuple was empty, so the contradiction was latent
+        # rather than intended. Nothing is lost by skipping: the unbuilt names
+        # are covered in the opposite direction by
+        # test_nothing_listed_unbuilt_is_actually_built, which requires each of
+        # them NOT to resolve -- so between the two tests every declared pass is
+        # still asserted on, in one direction or the other.
+        #
+        # What NO test can catch, here or anywhere: a TYPO in an unbuilt name.
+        # It resolves to nothing, which is exactly what the tuple promises, so
+        # it passes both directions. That hole is inherent to admitting a name
+        # before it exists -- it predates this skip and applies equally to the
+        # sibling test's own exemption. The only defence is that the tuple
+        # carries a comment saying what each name must do, so the mismatch is
+        # readable even though it is not assertable.
+        if dotted in UNBUILT_PASSES:
+            continue
         assert _resolve(dotted), dotted
 
 
@@ -261,7 +280,17 @@ def test_each_python_pass_resolves_to_exactly_one_symbol(dotted):
     ``s1000d_ingest`` and ``s1000d_rdf`` both exist and only one is wired, so a
     symbol appearing in both would resolve to whichever the search reached
     first -- which may not be the one the registry means.
+
+    UNBUILT IS NOT AMBIGUOUS. This test is about a name identifying ONE
+    implementation; a name that identifies none cannot identify two, so an
+    admitted-unbuilt pass has nothing here to violate. It stays parametrized
+    rather than filtered out of the list, so the exemption is visible as a
+    skip in the report instead of as a test that silently stopped existing.
+    The zero-resolution direction is asserted by
+    test_nothing_listed_unbuilt_is_actually_built.
     """
+    if dotted in UNBUILT_PASSES:
+        pytest.skip(f"{dotted} is admitted unbuilt; uniqueness is vacuous")
     hits = _resolve_python(dotted)
     assert hits, dotted
     assert len(hits) == 1, (
