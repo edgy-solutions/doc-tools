@@ -946,7 +946,23 @@ corpusGate:
   # the assertion ran afterwards and a mismatch would have been loud and would
   # have been fixed forward. If you have a second roll available, spend it and
   # follow the instruction above instead of copying this shortcut.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb"
+  #
+  # 2026-10-08, READ-THEN-WRITE (the strong form; the 2026-10-06 shortcut above
+  # is NOT what happened here). This line was found STALE BY TWO PINS: it still
+  # named `c39c4092` while the pods had run `0482fd73` since 09:32Z and then
+  # `6dc19712` after the e656fa5 roll. So the previous roll had already armed
+  # the failure the comment above warns about, and the next nightly would have
+  # been VOIDED by it rather than reporting on the corpus.
+  #
+  # The value below was READ OFF THE PODS after the roll
+  # (`kubectl ... jsonpath=.status.containerStatuses[*].imageID`, one distinct
+  # value across all pods) and written from that reading -- not copied from the
+  # digest typed into `image.digest` above. A second roll applies it.
+  #
+  # IF YOU BUMP image.digest AND STOP, YOU HAVE ARMED THE SAME FAILURE. The two
+  # lines are not kept in step by anything automatic; no test and no CI job
+  # compares them, because the Job that would is the one being checked.
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:6dc19712fe2a366be9286ec410421f5c6b805c92822aecbade0ca535c446ce20"
   publish:
     repo: edgy-solutions/doc-tools
 
