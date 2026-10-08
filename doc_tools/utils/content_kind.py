@@ -219,6 +219,13 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         baml_function="",
         target_ontology_class="http://edgy-solutions.com/ontology/mil#DataModule",
         domain_type="maintenance",
+        # STILL THE CLASS, deliberately, and the passes dispatcher REFUSES it
+        # for that reason: a class takes config only, so "call the declared
+        # pass" would construct an empty builder, parse nothing, and succeed.
+        # The conforming entry point now exists -- s1000d_rdf.data_module_graph
+        # -- but this kind is SHARED with the platform overlay and sealed by
+        # tests/test_overlay_kind_drift.py, so the declaration moves on both
+        # sides at once or not at all. Packet dated 2026-10-08 asks for that.
         passes=("s1000d.S1000dGraphBuilder",),
         outputs=("mil:DataModule",),
     ),
@@ -256,7 +263,13 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
             "http://edgy-solutions.com/ontology/mesh#DoorsExportArtifact"
         ),
         domain_type=None,
-        passes=("identity.document_identity",),
+        # NOT ``identity.document_identity``: that pass scans everything it is
+        # given for title-block labels, so a requirement whose OBJECT TEXT
+        # reads "Contract No: ..." would be read as the module's identity.
+        # ``identity_from_doors_text`` scopes the read to the preamble above
+        # the column-header row. Sealed by
+        # tests/test_passes_dispatch.py::test_doors_object_text_contract_line_is_not_the_identity
+        passes=("identity.identity_from_doors_text",),
         outputs=("mesh:DoorsExportArtifact",),
     ),
     # ``xml`` is the generic XML drop: an XML document that is NOT an S1000D
