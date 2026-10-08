@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "verdict": "fail",
+  "verdict": "pass",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-06T08:15:42Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be",
+  "generated_at": "2026-10-08T08:14:46Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb",
   "measured_pin_note": null,
   "image_identity": {
-    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be",
-    "measured_digest": "sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be",
+    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb",
+    "measured_digest": "sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb",
     "checked": true,
     "comparisons": [
       {
         "source": "pods",
-        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be",
-        "expected_digest": "sha256:1f1e16806118e7a213d14c681d830457b5a527f407f60b91ba682f64b26c48be",
+        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb",
+        "expected_digest": "sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb",
         "result": "match"
       }
     ],
@@ -23,9 +23,9 @@
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-10-06T07:00:18Z",
-      "ended_at": "2026-10-06T07:25:59Z",
-      "elapsed_s": 1540.7,
+      "started_at": "2026-10-08T07:00:34Z",
+      "ended_at": "2026-10-08T07:25:18Z",
+      "elapsed_s": 1484.2,
       "log": "fire1.log",
       "totals": {
         "gt": 898,
@@ -37,16 +37,16 @@
       },
       "defects": {},
       "seal_checked": true,
-      "log_bytes": 296551,
-      "log_echoed": true,
-      "log_echo_cap_bytes": 262144
+      "log_bytes": 296655,
+      "log_echoed": false,
+      "log_echo_cap_bytes": null
     },
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-10-06T07:25:59Z",
-      "ended_at": "2026-10-06T07:50:51Z",
-      "elapsed_s": 1492.9,
+      "started_at": "2026-10-08T07:25:18Z",
+      "ended_at": "2026-10-08T07:50:03Z",
+      "elapsed_s": 1484.8,
       "log": "fire2.log",
       "totals": {
         "gt": 898,
@@ -58,16 +58,16 @@
       },
       "defects": {},
       "seal_checked": true,
-      "log_bytes": 296758,
-      "log_echoed": true,
-      "log_echo_cap_bytes": 262144
+      "log_bytes": 296567,
+      "log_echoed": false,
+      "log_echo_cap_bytes": null
     },
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-10-06T07:50:51Z",
-      "ended_at": "2026-10-06T08:15:42Z",
-      "elapsed_s": 1490.7,
+      "started_at": "2026-10-08T07:50:03Z",
+      "ended_at": "2026-10-08T08:14:46Z",
+      "elapsed_s": 1483.2,
       "log": "fire3.log",
       "totals": {
         "gt": 898,
@@ -79,9 +79,9 @@
       },
       "defects": {},
       "seal_checked": true,
-      "log_bytes": 296307,
-      "log_echoed": true,
-      "log_echo_cap_bytes": 262144
+      "log_bytes": 296536,
+      "log_echoed": false,
+      "log_echo_cap_bytes": null
     }
   ],
   "rates_available": true,
@@ -222,7 +222,9 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "doc_level_ltb_date_source": "'-2024\\n[Unca' | '06-JUN-2024' | '-2024'"
+          "mfr": "'TE' | 'TE Connecvity' | 'TE'",
+          "mfr_source": "'TE' | 'TE Connecvity' | 'TE'",
+          "doc_level_ltb_date_source": "'-2024' | '-2024\\n[Unca' | '-2024'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
@@ -230,10 +232,8 @@
         "fields": {}
       },
       "Diodes_PCN_2683_FULLGREEN.pdf": {
-        "verdict": "DISAGREE",
-        "fields": {
-          "doc_id": "'PCN-2683' | 'PCN #: 2683' | 'PCN-2683'"
-        }
+        "verdict": "agree",
+        "fields": {}
       },
       "EOL-36_BYV34-400,-BYV34-500.pdf": {
         "verdict": "agree",
@@ -288,23 +288,16 @@
       "complete": true
     },
     "filenames": 9,
-    "distinct_notices": 8,
-    "collapses": [
-      {
-        "key": "diodes | pcn-2683 | r5",
-        "files": [
-          "Diodes_PCN_2683_FULLGREEN.pdf",
-          "Diodes_PCN_2683_Rev1_EOL.pdf"
-        ]
-      }
-    ],
+    "distinct_notices": 9,
+    "collapses": [],
     "incomplete_identity": [],
     "identity_half_unstable": [],
-    "revision_half_unstable": []
+    "revision_half_unstable": [
+      "Diodes_PCN_2683_FULLGREEN.pdf",
+      "Diodes_PCN_2683_Rev1_EOL.pdf"
+    ]
   },
-  "blocking": [
-    "Diodes_PCN_2683_FULLGREEN.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log"
-  ],
+  "blocking": [],
   "exempted": [
     "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires"
   ]
