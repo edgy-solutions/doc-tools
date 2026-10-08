@@ -121,7 +121,12 @@ def main() -> int:
 
     ROWS_DIR.mkdir(parents=True, exist_ok=True)
     for path, body in expected.items():
-        path.write_text(body, encoding="utf-8")
+        # newline="" so the LF the renderers emit is written verbatim. Without
+        # it a Windows run translates every "\n" to "\r\n" and leaves all nine
+        # files dirty with churn git then normalizes away -- which reads, in
+        # `git status`, exactly like a generator that rewrote rows nobody
+        # touched. Measured on 2026-10-07 while adding the `xml` row.
+        path.write_text(body, encoding="utf-8", newline="")
     for p in sorted(ROWS_DIR.glob("*.yaml")):
         if p not in expected:
             p.unlink()
