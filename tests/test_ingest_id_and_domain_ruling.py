@@ -519,7 +519,7 @@ def test_c2_the_emitted_log_carries_the_units_with_the_values(caplog):
 
     with caplog.at_level(logging.INFO, logger="doc_tools.utils.dagster_resources"):
         IngestStatusResource().update(
-            _CANON, "awaiting_disposition",
+            _CANON, "review",
             extracted_count=412, extracted_total=9,
         )
 

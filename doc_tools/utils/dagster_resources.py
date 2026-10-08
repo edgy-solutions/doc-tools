@@ -54,25 +54,17 @@ class LLMExtractorResource(ConfigurableResource):
             "host": self.langfuse_host
         }
 
-#: VOCABULARY DIVERGENCE BRIDGE (load-bearing — see `IngestStatusResource`'s
-#: class docstring). doc-tools validates `stage` against the SDK's real
-#: `iagent_mesh.ingest.INGEST_STAGES` (`iagent_mesh/ingest.py:77`, pinned
-#: v0.9.5+), which has `awaiting_disposition` and NO `review`. Lane 1's own
-#: stage route validates against `invincible-agent/src/iagent/
-#: ingest_status.py:63-66`'s `STAGES`, which has `review` and NO
-#: `awaiting_disposition`. No SDK release — checked through v0.9.6, the
-#: newest tag — contains `review`: the two sides name the same real-world
-#: stage differently and this dict is the ONLY place that bridges them.
-#: DELETE THIS the moment an SDK release adds `review` to `INGEST_STAGES`
-#: (`tests/test_ingest_stage_transport.py` carries a tripwire test that
-#: fails first, naming this dict).
-_WIRE_STAGE = {"awaiting_disposition": "review"}
+# Stage vocabularies converged at SDK v0.9.8: `iagent_mesh.ingest.
+# INGEST_STAGES` spells the review stage `review`, as Lane 1's route always
+# did, so nothing is translated here any more. The one-entry bridge dict that
+# used to do it is deleted; a tripwire in
+# `tests/test_ingest_stage_transport.py` asserts it is not reintroduced.
 
-#: What Lane 1's `POST /ingest/{id}/stage` route accepts after translation
-#: through `_WIRE_STAGE` (`gateway.py`'s `_stage_targets`) — forward
+#: What Lane 1's `POST /ingest/{id}/stage` route accepts
+#: (`gateway.py`'s `_stage_targets`) — forward
 #: transitions only. `received` is Lane 1's OWN stamp (it creates the row
 #: on `POST /ingest`), and `promoted`/`rejected` belong to the human
-#: disposition task, not this seam. A stage that maps outside this set is
+#: disposition task, not this seam. A stage outside this set is
 #: observed locally (logged) and never POSTed.
 _WIRE_POSTABLE = frozenset({"extracting", "review", "failed"})
 
@@ -99,11 +91,11 @@ class IngestStatusResource(ConfigurableResource):
     (`doc_tools/utils/mesh_identity.py`'s `stage_auth_headers()`) and 403s
     any caller whose `authz_id` is not `svc:doc-tools`.
 
-    VOCABULARY BRIDGE, load-bearing. `update()` validates `stage` against
-    the REAL imported `iagent_mesh.ingest.INGEST_STAGES` (never a mirrored
-    copy) — see `_WIRE_STAGE` / `_WIRE_POSTABLE` above for why that
-    vocabulary and Lane 1's route vocabulary disagree, and how the HTTP
-    boundary translates between them. `received` is observed locally only
+    VOCABULARY. `update()` validates `stage` against the REAL imported
+    `iagent_mesh.ingest.INGEST_STAGES` (never a mirrored copy). Since SDK
+    v0.9.8 that vocabulary and Lane 1's route vocabulary agree (`review`), so
+    nothing is translated; `_WIRE_POSTABLE` above is the set Lane 1's route
+    accepts. `received` is observed locally only
     (Lane 1 owns that stamp) and `promoted`/`rejected` are observed locally
     only (the human disposition task owns those) — neither is POSTed here.
 
@@ -132,8 +124,9 @@ class IngestStatusResource(ConfigurableResource):
     EXTRACTED_COUNT_UNIT: ClassVar[str] = "unstructured elements extracted from the document"
     EXTRACTED_TOTAL_UNIT: ClassVar[str] = "pages rasterized from the source PDF"
 
-    #: The wire stage whose POST Lane 1 turns into a `document_promotion`
-    #: task. A promote/reject on that task builds a decision record, and the
+    #: The stage whose POST Lane 1 turns into a `document_promotion` task —
+    #: canonical and wire spelling are the same string since SDK v0.9.8.
+    #: A promote/reject on that task builds a decision record, and the
     #: record must name what was reviewed — so this is the one stage where an
     #: absent `extraction_ref` is a defect rather than a missing nicety. See
     #: `update()`'s `extraction_ref` paragraph.
@@ -227,10 +220,9 @@ class IngestStatusResource(ConfigurableResource):
 
         logger = logging.getLogger(__name__)
 
-        # HTTP boundary bridge: translate doc-tools' (SDK) stage spelling to
-        # Lane 1's route spelling, THEN check what the route accepts. See
-        # `_WIRE_STAGE` / `_WIRE_POSTABLE` above.
-        wire_stage = _WIRE_STAGE.get(stage, stage)
+        # The SDK and Lane 1's route share one spelling since v0.9.8; check
+        # what the route accepts. See `_WIRE_POSTABLE` above.
+        wire_stage = stage
 
         if wire_stage not in _WIRE_POSTABLE:
             logger.info(

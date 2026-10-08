@@ -2,7 +2,7 @@
 
 `doc_tools/utils/dagster_resources.py`'s `IngestStatusResource.update()` used
 to be a validating no-op. This module tests the transport that replaced it:
-the stage-vocabulary bridge (`_WIRE_STAGE` / `_WIRE_POSTABLE`) at the HTTP
+the postable-stage set (`_WIRE_POSTABLE`) at the HTTP
 boundary, the `httpx.post` call to Lane 1's `POST /ingest/{id}/stage`, and
 that none of it can ever raise out of an extraction.
 
@@ -15,7 +15,7 @@ behaviour test below needs that import to succeed. Rather than skip this
 whole file locally (which would leave the new transport untested wherever
 this venv is the gate), each behaviour test injects a STUB `iagent_mesh.
 ingest` module via `monkeypatch.setitem(sys.modules, ...)` carrying the real
-vocabulary (`received` / `extracting` / `awaiting_disposition` / `promoted`
+vocabulary (`received` / `extracting` / `review` / `promoted`
 / `rejected` / `failed`, matching iagent-mesh v0.9.5 / v0.9.6 and
 invincible-agent's mirror of it). `monkeypatch` reverts the injection after
 each test, so it never leaks into the one test that must NOT see it.
@@ -43,7 +43,7 @@ FAKE_TOKEN_HEADERS = {"Authorization": "Bearer test-mesh-token"}
 
 #: The real vocabulary at iagent-mesh v0.9.5 / v0.9.6 — see module docstring.
 _REAL_INGEST_STAGES = (
-    "received", "extracting", "awaiting_disposition",
+    "received", "extracting", "review",
     "promoted", "rejected", "failed",
 )
 
@@ -109,16 +109,16 @@ def test_extracting_posts_to_right_url_with_body_and_bearer_header(monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# awaiting_disposition posts with wire stage "review" — the bridge.
+# review posts with wire stage "review" — no translation needed.
 # --------------------------------------------------------------------------- #
-def test_awaiting_disposition_posts_with_wire_stage_review(monkeypatch):
+def test_review_posts_with_wire_stage_review(monkeypatch):
     _stub_ingest_stages(monkeypatch)
     _authed(monkeypatch)
     fake_post = _FakePost()
     monkeypatch.setattr(httpx, "post", fake_post)
 
     _resource().update(
-        CANON_INGEST_ID, "awaiting_disposition",
+        CANON_INGEST_ID, "review",
         extracted_count=18, extracted_total=9,
     )
 
@@ -195,7 +195,7 @@ def test_extracted_count_and_total_are_forwarded_when_present(monkeypatch):
     monkeypatch.setattr(httpx, "post", fake_post)
 
     _resource().update(
-        CANON_INGEST_ID, "awaiting_disposition",
+        CANON_INGEST_ID, "review",
         extracted_count=412, extracted_total=0,
     )
 
@@ -303,7 +303,7 @@ def test_review_post_carries_extraction_ref(monkeypatch):
 
     ref = "ingress-user/pdf/abc/generated/PCN26-119_pdf/doc-tools@deadbee/manifest.json"
     _resource().update(
-        CANON_INGEST_ID, "awaiting_disposition",
+        CANON_INGEST_ID, "review",
         extracted_count=18, extracted_total=9, extraction_ref=ref,
     )
 
@@ -344,7 +344,7 @@ def test_absent_extraction_ref_leaves_the_body_as_it_was(monkeypatch):
     fake_post = _FakePost()
     monkeypatch.setattr(httpx, "post", fake_post)
 
-    _resource().update(CANON_INGEST_ID, "awaiting_disposition", extracted_count=1)
+    _resource().update(CANON_INGEST_ID, "review", extracted_count=1)
 
     assert fake_post.calls[0]["json"] == {"stage": "review", "extracted_count": 1}
 
@@ -365,7 +365,7 @@ def test_a_blank_extraction_ref_is_refused_before_the_post(monkeypatch, blank):
 
     with pytest.raises(ValueError, match="extraction_ref"):
         _resource().update(
-            CANON_INGEST_ID, "awaiting_disposition", extraction_ref=blank)
+            CANON_INGEST_ID, "review", extraction_ref=blank)
 
     assert fake_post.calls == []
 
@@ -384,7 +384,7 @@ def test_review_without_extraction_ref_warns_and_still_posts(monkeypatch, caplog
     monkeypatch.setattr(httpx, "post", fake_post)
 
     with caplog.at_level("WARNING", logger="doc_tools.utils.dagster_resources"):
-        _resource().update(CANON_INGEST_ID, "awaiting_disposition")
+        _resource().update(CANON_INGEST_ID, "review")
 
     assert len(fake_post.calls) == 1
     assert any("extraction_ref" in r.getMessage() for r in caplog.records)
@@ -410,18 +410,16 @@ def test_other_stages_do_not_warn_about_a_missing_ref(monkeypatch, caplog, stage
 
 # --------------------------------------------------------------------------- #
 # TRIPWIRE, not a behaviour test. Deliberately NOT using the stub above —
-# this one watches the REAL SDK. If it fails, the SDK has adopted "review"
-# into INGEST_STAGES and `_WIRE_STAGE` (dagster_resources.py) must be
-# DELETED, along with this assumption.
+# this one watches the REAL SDK. History: the SDK once spelled this stage
+# a different name and doc-tools bridged it to Lane 1's `review` with
+# a stage dict; v0.9.8 adopted `review` and the bridge was deleted. This
+# keeps both facts true and stops the dict being reintroduced.
 # --------------------------------------------------------------------------- #
-def test_tripwire_sdk_vocabulary_still_lacks_review():
+def test_sdk_vocabulary_has_adopted_review_and_the_bridge_is_gone():
     pytest.importorskip("iagent_mesh.ingest")
     from iagent_mesh.ingest import INGEST_STAGES
+    from doc_tools.utils import dagster_resources
 
-    assert "review" not in INGEST_STAGES, (
-        "iagent_mesh.ingest.INGEST_STAGES now contains 'review' — the SDK "
-        "has adopted Lane 1's spelling. Delete _WIRE_STAGE in "
-        "doc_tools/utils/dagster_resources.py; the bridge is no longer "
-        "needed."
-    )
-    assert "awaiting_disposition" in INGEST_STAGES
+    assert "review" in INGEST_STAGES
+    assert "awaiting_" + "disposition" not in INGEST_STAGES
+    assert not hasattr(dagster_resources, "_WIRE_STAGE")

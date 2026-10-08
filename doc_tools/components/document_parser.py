@@ -632,7 +632,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         ContentType="application/json",
                     )
 
-                # "awaiting_disposition" — success, with the element/page
+                # "review" — success, with the element/page
                 # counts this asset already computed above (`elements`,
                 # `pages_list`) rather than re-deriving a count elsewhere.
                 #
@@ -661,7 +661,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 # different extraction than the one that was reviewed.
                 if status_resource is not None:
                     status_resource.update(
-                        ingest_id, "awaiting_disposition",
+                        ingest_id, "review",
                         extracted_count=len(elements) if elements else 0,
                         extracted_total=len(pages_list) if pages_list else None,
                         extraction_ref=manifest_object_name,
