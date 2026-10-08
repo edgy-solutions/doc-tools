@@ -842,3 +842,48 @@ corpusGate:
   expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:c39c4092a40e1fc5b6f56722b9760194baed2922f19438f386d4e6c421e953eb"
   publish:
     repo: edgy-solutions/doc-tools
+
+# ==========================================================================
+# NOT-STATEFUL-NODES SCHEDULING -- keep every doc-tools pod off the nodes that
+# hold the stateful-core's local-path volumes.
+#
+# WHY, measured 2026-10-07: the rev-36 roll put the new pod on `k3s-worker6`,
+# whose filesystem had gone read-only; the pull died with `failed to commit
+# snapshot ...: commit failed: read-only file system` and the pod sat Pending
+# until the node recovered and it rescheduled itself onto worker5. Three
+# `doc-tools-corpus-gate` pods (the 07:00Z runs of Oct 5, 6 and 7) had been
+# placed on that same node. worker6 had flapped five times in 4d20h.
+#
+# THE REAL REASON IS NOT "worker6 is sick" -- it is that this chart was the
+# only one still allowed to land there. The invincible-agent chart already
+# refuses: `invincible-agent.avoidStatefulNodes` (its templates/_helpers.tpl:209)
+# is included by 20 of its templates, dag-tools and dagster among them, and the
+# live pods carry the matchExpression. doc-tools was the gap, so this block
+# closes it with the SAME rule rather than a second dialect of it.
+#
+# `DoesNotExist`, NOT `NotIn ["true"]`: the key's PRESENCE is the signal and its
+# value is irrelevant -- that is the upstream helper's documented contract, and
+# matching on the value would let a node labelled "false" back in.
+#
+# REQUIRED, not preferred. "Never" was the instruction, and `preferred` would
+# have permitted the exact pull that failed -- a soft rule degrades to the bad
+# node under pressure, which is when the disk is most likely to be the problem.
+#
+# IT CANNOT WEDGE THE POD, checked rather than assumed. The label
+# `iagent.io/stateful-node` is on TWO nodes, not one: `k3s-worker1` and
+# `k3s-worker6`. `k3s-server3` carries the control-plane taint. That leaves
+# worker2, worker3, worker4 and worker5 schedulable -- four nodes for a
+# single-replica Deployment and a once-daily CronJob.
+#
+# WHY THE OVERLAY AND NOT values.yaml: the label is applied out-of-chart, by
+# whoever labels this cluster's stateful nodes. `DoesNotExist` is a no-op where
+# the key is absent, so promoting it to a chart default would be safe but is a
+# broader decision than the one asked for here. If d4 grows the same label,
+# copy this block to that overlay or raise it to the default then.
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: iagent.io/stateful-node
+              operator: DoesNotExist
