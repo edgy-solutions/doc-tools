@@ -218,3 +218,16 @@ class S1000dGraphBuilder:
     def serialize(self, format: str = "turtle") -> str:
         """Serializes the current graph to a string."""
         return self.graph.serialize(format=format)
+
+
+def data_module_graph(raw_bytes: bytes, doc_id: str = "") -> str:
+    """Dispatcher entry point: parse one data module, return Turtle."""
+    # WHAT THIS DOES NOT PROVE. It makes this module REACHABLE from the passes
+    # dispatcher (doc_tools/passes/dispatch.py) and nothing more. This is the
+    # parser already recorded as scoring 0 content kinds on a real module, with
+    # a DMC that was not a DMC. So a green dispatcher test over this function
+    # proves the DISPATCHER, not the parser -- and the dispatcher is not wired
+    # into any asset yet. Reachability is not correctness.
+    builder = S1000dGraphBuilder(doc_id=doc_id)
+    builder.parse_data_module(raw_bytes)
+    return builder.serialize()

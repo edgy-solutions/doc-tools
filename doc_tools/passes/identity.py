@@ -300,7 +300,7 @@ def document_identity(
 
 
 def identity_from_doors_text(
-    export_text: str,
+    text: str,
     *,
     header_markers: Iterable[str] = (
         "Object Identifier", "Object Heading", "Object Text", "Absolute Number",
@@ -324,7 +324,7 @@ def identity_from_doors_text(
     in two modules with two messages is how a caller learns to catch both.
     """
     markers = tuple(header_markers)
-    lines = export_text.splitlines()
+    lines = text.splitlines()
     cut = len(lines)
     for i, line in enumerate(lines):
         if any(m in line for m in markers):

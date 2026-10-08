@@ -50,23 +50,22 @@ does not call the function.
 """
 from __future__ import annotations
 
-import importlib
 import re
 from pathlib import Path
 
 import pytest
 
+# ONE resolver: this test imports the dispatcher's, it does not carry a copy.
+# Two resolvers that agree today disagree later, and the failure is a pass that
+# tests as present and dispatches as missing.
+from doc_tools.passes.dispatch import (
+    PASS_PACKAGES,
+    resolve_python_pass as _resolve_python,
+)
 from doc_tools.utils.content_kind import KIND_MAPPING, UNBUILT_PASSES
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BAML_SRC = REPO_ROOT / "baml_src"
-
-#: Where a Python pass may live, as ``(import package, directory)``. Both are
-#: searched because the namespace segment of a pass name does not say which.
-PASS_PACKAGES: tuple[tuple[str, Path], ...] = (
-    ("doc_tools.passes", REPO_ROOT / "doc_tools" / "passes"),
-    ("doc_tools.parsers", REPO_ROOT / "doc_tools" / "parsers"),
-)
 
 #: The generated carriers a BAML function must appear in. Text-checked rather
 #: than imported: importing the client pulls in runtime configuration (model
@@ -75,47 +74,6 @@ GENERATED_CLIENTS = (
     REPO_ROOT / "doc_tools" / "baml_client" / "sync_client.py",
     REPO_ROOT / "doc_tools" / "baml_client" / "async_client.py",
 )
-
-
-def _candidate_modules(namespace: str) -> list[str]:
-    """Modules a pass named ``<namespace>.<symbol>`` could live in.
-
-    A module matches if its filename IS the namespace or begins with it plus an
-    underscore -- which is what admits ``s1000d_rdf`` for namespace ``s1000d``.
-    Derived from the filesystem, never from a hand-written map, so a renamed
-    module shows up as an unresolvable pass instead of a stale lookup table.
-    """
-    out: list[str] = []
-    for package, directory in PASS_PACKAGES:
-        if not directory.is_dir():
-            continue
-        for path in sorted(directory.glob("*.py")):
-            stem = path.stem
-            if stem == "__init__":
-                continue
-            if stem == namespace or stem.startswith(f"{namespace}_"):
-                out.append(f"{package}.{stem}")
-    return out
-
-
-def _resolve_python(dotted: str) -> list[tuple[str, object]] | None:
-    """Every ``(module, symbol)`` a Python pass name resolves to, or None.
-
-    ALL hits are returned rather than the first, so a caller can require
-    uniqueness. Import errors are deliberately NOT caught: every candidate here
-    came from a glob, so the file exists, and a module that fails to import is a
-    defect in code that DOES exist -- swallowing it would let a pass with a
-    syntax error or a missing dependency pass for one that was never built.
-    """
-    namespace, _, symbol = dotted.rpartition(".")
-    assert namespace and symbol, f"pass name {dotted!r} is not <namespace>.<symbol>"
-    hits: list[tuple[str, object]] = []
-    for modname in _candidate_modules(namespace):
-        module = importlib.import_module(modname)
-        target = getattr(module, symbol, None)
-        if target is not None:
-            hits.append((modname, target))
-    return hits or None
 
 
 def _baml_declares(baml_file: str, function_name: str) -> bool:
