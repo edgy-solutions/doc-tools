@@ -25,7 +25,7 @@ sidecar instead of deriving a semantic label from a file FORMAT or a HASH,
 carrying `ingest_id` as the join key, and the stage-status seam
 (`IngestStatusResource`). Any test that exercises the sidecar-enabled
 parser path transitively imports `iagent_mesh.ingest` (via
-`IngestStatusResource.update`'s "extracting"/"awaiting_disposition" calls),
+`IngestStatusResource.update`'s "extracting"/"review" calls),
 so those are ALSO gated with `pytest.importorskip("iagent_mesh.ingest")`,
 matching this file's existing SDK-gating style.
 """
@@ -729,7 +729,7 @@ class _RecordingStatusResource:
         type(self).calls.append({"ingest_id": ingest_id, "stage": stage, **kwargs})
 
 
-def test_f7_awaiting_disposition_names_the_versioned_manifest_it_wrote(monkeypatch):
+def test_f7_review_names_the_versioned_manifest_it_wrote(monkeypatch):
     import doc_tools.utils.dagster_resources as dr
 
     version = "doc-tools@f7seal"
@@ -744,7 +744,7 @@ def test_f7_awaiting_disposition_names_the_versioned_manifest_it_wrote(monkeypat
     manifest = _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
 
     posted = [c for c in _RecordingStatusResource.calls
-              if c["stage"] == "awaiting_disposition"]
+              if c["stage"] == "review"]
     assert len(posted) == 1
     ref = posted[0]["extraction_ref"]
 
