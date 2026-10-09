@@ -7,7 +7,7 @@ from doc_tools.components.oracle_extractor import OracleExtractorComponent
 from doc_tools.components.design_parser import DesignParserComponent
 from doc_tools.components.datahub_sensor import DataHubSensorComponent
 from doc_tools.components.aitool_sensor import AIToolSensorComponent
-from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion
+from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion, doors_ingestion
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions, design_files_partition, iads_files_partition, xml_files_partition
 import os
@@ -278,6 +278,26 @@ xml_sensor = S3SensorComponent(
 )
 _xml_sensor_defs = xml_sensor.build_defs(None)
 
+# DOORS flat-CSV export route. New sensor, deliberately NO default_status: it
+# stays stopped until an operator turns it on.
+doors_sensor = S3SensorComponent(
+    name="doors_sensor",
+    bucket="processing-artifacts",
+    prefix="doors/",
+    partition_name="doors_files",
+    target_job="doors_ingest_job",
+    target_op="ingest_doors_export",
+    s3_filter=r".*\.csv$",
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
+)
+_doors_sensor_defs = doors_sensor.build_defs(None)
+
 design_parser = DesignParserComponent(
     name="parse_design_metadata"
 )
@@ -329,7 +349,7 @@ _datahub_sensor_defs = datahub_sensor.build_defs(None)
 # _aitool_sensor_defs = aitool_sensor.build_defs(None)
 
 # 3. Assets & Jobs
-all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion])
+all_assets = load_assets_from_modules([semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion, doors_ingestion])
 
 sqlserver_extractor = SqlServerExtractorComponent(
     name="extract_sqlserver_metadata",
@@ -360,6 +380,8 @@ _oracle_extractor_defs = oracle_extractor.build_defs(None)
 xml_k8s_tags = resolve_k8s_resource_tags(prefix="XML_INGEST", default_cpu="2000m", default_mem="6Gi")
 ontology_k8s_tags = resolve_k8s_resource_tags(prefix="ONTOLOGY_INGEST", default_cpu="1000m", default_mem="2Gi")
 design_k8s_tags = resolve_k8s_resource_tags(prefix="DESIGN_PARSER", default_cpu="1000m", default_mem="2Gi")
+
+doors_ingest_job = define_asset_job(name="doors_ingest_job", selection=["ingest_doors_export"])
 
 xml_graph_sync_job = define_asset_job(
     name="xml_graph_sync_job",
@@ -435,8 +457,8 @@ defs = Definitions(
     # one-off manual syncs through the Dagster launchpad. The SENSOR
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
     assets=list(_document_parser_defs.assets) + list(_user_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
-    jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors),
+    jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job, doors_ingest_job],
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -471,6 +493,7 @@ defs = Definitions(
         **_design_sensor_defs.resources,
         **_iads_sensor_defs.resources,
         **_xml_sensor_defs.resources,
+        **_doors_sensor_defs.resources,
     },
 )
 
@@ -485,6 +508,7 @@ del _design_parser_defs
 del _datahub_sensor_defs
 del _iads_sensor_defs
 del _xml_sensor_defs
+del _doors_sensor_defs
 # del _aitool_sensor_defs  # RETIRED 2026-06-13 — gateway v0.2 is sole writer; see ADR-0006 §Addendum
 del _sqlserver_extractor_defs
 del _oracle_extractor_defs

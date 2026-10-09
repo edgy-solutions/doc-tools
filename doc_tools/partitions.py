@@ -19,3 +19,6 @@ design_files_partition = DynamicPartitionsDefinition(name="design_files")
 # xml_sensor triggers downstream of `extract_iads_bundle`.
 iads_files_partition = DynamicPartitionsDefinition(name="iads_files")
 xml_files_partition = DynamicPartitionsDefinition(name="xml_files")
+# DOORS flat-CSV exports; a separate set so the doors route never shares a
+# partition key space with the XML or PDF routes.
+doors_files_partition = DynamicPartitionsDefinition(name="doors_files")
