@@ -1,0 +1,83 @@
+{
+  "_what": "The three written_header values TYC-PCN-24-210412.pdf actually produced across the three fires of one corpus-gate run. Captured verbatim, not reconstructed: read out of corpus_f{1,2,3}.json in the pod that ran them.",
+  "_why": "mfr flipped WITHIN this run -- fire 1 WROTE 'TE', fires 2 and 3 WROTE 'TE Connectivity' -- and the gate called fire 1 a declared distractor, so the run's verdict was decided by which member of one accepted set came up. Ruled 2026-10-09: the flip is a TEST CASE, not a coin. CORRECTED the same day, by parsing the fire LOGS and not only the corpus JSON: the RAW extraction wrote mfr 'TE' in ALL THREE fires. The model did not sample. The flip is introduced AFTER extraction, by the header trust logic, so these three written values are a fixture for the comparator AND evidence that the instability lives in the supply path -- see `raw_header_per_fire`.",
+  "_provenance": {
+    "run": "manual three-fire gate run, --out-dir /tmp/pcn-gate-manual (nothing published)",
+    "pod": "doc-tools-55d655b547-5k8mn",
+    "namespace": "sandbox",
+    "measured_image_digest_prefix": "6dc19712",
+    "image_identity": "measured_image matched the pod imageID AND the CronJob pin",
+    "fired_at_utc": [
+      "2026-10-09T04:30Z",
+      "2026-10-09T05:01Z",
+      "2026-10-09T05:32Z"
+    ],
+    "source_artifacts": [
+      "/tmp/pcn-gate-manual/corpus_f1.json",
+      "/tmp/pcn-gate-manual/corpus_f2.json",
+      "/tmp/pcn-gate-manual/corpus_f3.json"
+    ],
+    "parts": "898/898 exact in all three fires, 0 spurious / 0 missing / 0 malformed. The parts side of this run is not what these fixtures are about, but it is recorded so a reader knows the mfr flip was the run's ONLY instability."
+  },
+  "_observed_note": "Every field other than mfr is IDENTICAL across all three fires, and every one of them is the page's value: doc_id, doc_type, pub_date 2024-06-07 (the PCN Date, not the portal's 2024-06-10 print stamp) and doc_level_ltb_date 2024-06-06 (the Last Order Date row, not the adjacent 2024-06-07 Last Ship row). Both of those fields have a declared distractor one row or one stamp away and neither fire took it. `revision` is null in all three, which is its established state for this notice.",
+  "notice": "TYC-PCN-24-210412.pdf",
+  "fires": [
+    {
+      "fire": 1,
+      "gate_verdict_before_the_ruling": "distractor (BLOCKING -- this single field is why the run read FAIL)",
+      "written_header": {
+        "doc_id": "PCN-24-210412",
+        "doc_level_ltb_date": "2024-06-06",
+        "doc_type": "PCN",
+        "mfr": "TE",
+        "pub_date": "2024-06-07",
+        "revision": null
+      }
+    },
+    {
+      "fire": 2,
+      "gate_verdict_before_the_ruling": "exact",
+      "written_header": {
+        "doc_id": "PCN-24-210412",
+        "doc_level_ltb_date": "2024-06-06",
+        "doc_type": "PCN",
+        "mfr": "TE Connectivity",
+        "pub_date": "2024-06-07",
+        "revision": null
+      }
+    },
+    {
+      "fire": 3,
+      "gate_verdict_before_the_ruling": "exact",
+      "written_header": {
+        "doc_id": "PCN-24-210412",
+        "doc_level_ltb_date": "2024-06-06",
+        "doc_type": "PCN",
+        "mfr": "TE Connectivity",
+        "pub_date": "2024-06-07",
+        "revision": null
+      }
+    }
+  ],
+  "_third_spelling": "'TE Connecvity' -- the degraded text layer's own reading, with the 'ti' ligature dropped -- is the third member of the accepted set and is NOT present in this run. It is the spelling earlier runs produced, it is in `accepted` in ground truth, and the test asserts it too, so the day a fire writes it the comparator already accounts for it rather than reding a fourth time on the same field.",
+  "raw_header_per_fire": {
+    "_what": "What the model actually returned, parsed out of fire{1,2,3}.log with pcn_header_agreement.headers_from_log -- the same parser the gate's agreement check uses. The corpus JSON above holds what was WRITTEN after the trust logic ran; this holds what came back from extraction. They differ, and the difference is the finding.",
+    "_identical_across_all_three": {
+      "mfr": "TE",
+      "mfr_source": "TE",
+      "doc_id": "PCN-24-210412",
+      "doc_type": "PCN",
+      "pub_date": "2024-06-10",
+      "pub_date_source": "10-Jun-2024",
+      "doc_level_ltb_date": "2024-06-06"
+    },
+    "_mfr_note": "Raw mfr is 'TE' three times out of three. The written values above are 'TE', 'TE Connectivity', 'TE Connectivity'. Two of the three written values were therefore PRODUCED by the trust logic from an identical input, which is where the nondeterminism is -- not in the model.",
+    "_pub_date_note": "Raw pub_date is the portal PRINT STAMP 2024-06-10 in all three fires, and ground truth declares that a distractor. The written value is the correct 2024-06-07 in all three. The supplier is doing its job on this field, and a previous finding that all three fires WROTE 2024-06-10 no longer holds at this pin.",
+    "doc_level_ltb_date_source": {
+      "fire1": "06-JUN-2024",
+      "fire2": "06-JUN-2024",
+      "fire3": "-2024\n[Unca",
+      "_note": "THE RUN'S ACTUAL AGREEMENT FAILURE, and it is not mfr. Fire 3's citation is truncated to 12 characters, starting mid-token, with a newline and the start of an element marker ('[Unca...', i.e. UncategorizedText) bled into it. The VALUE 2024-06-06 is correct in all three fires; only the citation string is damaged. header_agreement.log from the run reads DISAGREE on this one field and nothing else, across all nine notices. Mechanism NOT diagnosed -- recorded here so the next run has a before."
+    }
+  }
+}

@@ -181,6 +181,13 @@ _DATE_FIELD_SUFFIX = "_date"
 # pass (module docstring).
 HEADER_FAILURES = ("distractor", "wrong", "misformatted", "unreadable", "absent")
 
+# `alias` is a PASS and is deliberately absent from HEADER_FAILURES: the field
+# was answered with a spelling ground truth accepts as verbatim-correct, just
+# not the canonical one. It is counted apart from `exact` all the same, so a
+# report never has to explain why `exact` is short of `fields_scored` with no
+# failure beside it.
+HEADER_PASSES = ("exact", "alias")
+
 
 def normalize_date(v: Any) -> str | None:
     """`YYYY-MM-DD` for the date spellings these notices actually print, else None.
@@ -232,12 +239,74 @@ def is_date_field(name: str) -> bool:
     return name.endswith(_DATE_FIELD_SUFFIX)
 
 
+def accepted_forms(spec: Dict[str, Any]) -> tuple:
+    """Every spelling of this field ground truth accepts, CANONICAL FIRST.
+
+    A field with no `accepted` block has exactly one acceptable spelling -- its
+    `value` -- so this returns a one-element tuple and every caller downstream
+    can use the same comparator whether or not the field has aliases. Underscore
+    keys are prose, the convention everywhere in pcn_ground_truth.json.
+
+    WHY THIS EXISTS. A verbatim field can have more than one correct reading of
+    one page: TYC's heading is `TE Connectivity`, its damaged text layer hands
+    an extractor `TE Connecvity`, and its logo renders as `TE`. Comparing a
+    written string raw against `value` makes two of those three a failure and
+    the field's verdict a coin flip -- which is what three fires did on
+    2026-10-08. Comparison is canonical-after-alias: resolve what was written
+    to its canonical form first, then compare canonical forms.
+
+    A declared `accepted` block that omits its own `value` RAISES. A canonical
+    form outside its own accepted set is incoherent, and inserting it quietly
+    would hide a ground-truth defect behind a passing score.
+    """
+    expected = spec.get("value")
+    raw = spec.get("accepted")
+    if raw is None:
+        return (expected,) if expected is not None else ()
+    if isinstance(raw, dict):
+        forms = [k for k in raw if not str(k).startswith("_")]
+    elif isinstance(raw, (list, tuple)):
+        forms = list(raw)
+    else:
+        raise ValueError(
+            f"`accepted` must be a list or a dict, got {type(raw).__name__}")
+    if expected not in forms:
+        raise ValueError(
+            f"ground truth defect: `value` {expected!r} is not in its own `accepted` "
+            f"set {forms!r} -- the canonical form must be one of the accepted spellings")
+    return tuple([expected] + [f for f in forms if f != expected])
+
+
+def declared_distractors(name: str, spec: Dict[str, Any]) -> Dict[str, Any]:
+    """The `not` block, prose keys dropped, checked DISJOINT from `accepted`.
+
+    One spelling cannot be both verbatim-correct and a declared trap. If ground
+    truth says both, neither answer is right: letting `accepted` win would
+    credit a trap, letting `not` win would fail a correct reading -- so this
+    raises and names the field. The folded compare is included because `TE` in
+    one block and `te` in the other is the same contradiction.
+    """
+    declared = {k: v for k, v in (spec.get("not") or {}).items()
+                if not str(k).startswith("_")}
+    forms = accepted_forms(spec)
+    folded = {_fold_text(f) for f in forms} - {None}
+    clash = sorted(b for b in declared
+                   if b in forms or _fold_text(b) in folded)
+    if clash:
+        raise ValueError(
+            f"ground truth defect in field {name!r}: {clash!r} appears in BOTH "
+            f"`accepted` and `not` -- a spelling cannot be verbatim-correct and a "
+            f"declared distractor")
+    return declared
+
+
 def score_header_field(name: str, written: Any,
                        spec: Dict[str, Any]) -> Dict[str, Any]:
     """One header field: what was written, what the page says, and — when they
     differ — WHICH KIND of wrong it is."""
     expected = spec.get("value")
-    declared = spec.get("not") or {}
+    forms = accepted_forms(spec)
+    declared = declared_distractors(name, spec)
     out: Dict[str, Any] = {"field": name, "expected": expected, "got": written}
 
     if expected is None:
@@ -252,6 +321,20 @@ def score_header_field(name: str, written: Any,
         return out
     if written == expected:
         out["status"] = "exact"
+        return out
+
+    # CANONICAL-AFTER-ALIAS. An accepted non-canonical spelling is a correct
+    # answer, and it is resolved BEFORE the distractor scan so a value ground
+    # truth accepts can never be reported as a trap. The alias match is
+    # exact-string on purpose: a folded-only match falls through to the shape
+    # check below and is still reported `misformatted`, so this step cannot
+    # launder a mangled spelling into a pass.
+    if written in forms:
+        out["status"] = "alias"
+        out["canonical"] = expected
+        accepted_why = spec.get("accepted")
+        if isinstance(accepted_why, dict):
+            out["why"] = accepted_why.get(written)
         return out
 
     dated = is_date_field(name)
@@ -269,9 +352,14 @@ def score_header_field(name: str, written: Any,
             out["why"] = why
             return out
 
-    norm_e = normalize_date(expected) if dated else _fold_text(expected)
-    if norm_w is not None and norm_e is not None and norm_w == norm_e:
+    # Shape check against EVERY accepted form, not just the canonical one: a
+    # mangled spelling of an accepted alias carries the same content as the
+    # page, so it is misformatted rather than unaccounted-for.
+    norm_forms = {f: (normalize_date(f) if dated else _fold_text(f)) for f in forms}
+    if norm_w is not None and norm_w in {v for v in norm_forms.values()
+                                         if v is not None}:
         out["status"] = "misformatted"
+        out["canonical"] = expected
         return out
     if dated and norm_w is None:
         out["status"] = "unreadable"
@@ -312,6 +400,7 @@ def score_headers(written: Any, headers: Dict[str, Any] | None) -> Dict[str, Any
         "scored": sorted(scored),
         "by_status": {k: sorted(v) for k, v in by_status.items()},
         "exact": len(by_status.get("exact", [])),
+        "alias": len(by_status.get("alias", [])),
         "clean": not any(by_status.get(s) for s in HEADER_FAILURES),
     }
 
@@ -325,7 +414,7 @@ def header_totals(per: Dict[str, Any]) -> Dict[str, Any]:
     """
     t: Dict[str, Any] = {"notices_with_gt": 0, "notices_observed": 0,
                          "unobserved": [], "fields_scored": 0, "exact": 0,
-                         "pending": []}
+                         "aliases": [], "pending": []}
     for s in HEADER_FAILURES:
         t[s] = []
     for fn, p in sorted(per.items()):
@@ -339,6 +428,8 @@ def header_totals(per: Dict[str, Any]) -> Dict[str, Any]:
         t["notices_observed"] += 1
         t["fields_scored"] += len(h["scored"])
         t["exact"] += h["exact"]
+        for name in h["by_status"].get("alias", []):
+            t["aliases"].append(f"{fn}:{name}")
         for name in h["by_status"].get("pending", []):
             t["pending"].append(f"{fn}:{name}")
         for s in HEADER_FAILURES:
@@ -452,6 +543,10 @@ def render_headers(scored: Dict[str, Any]) -> str:
         out.append("      HEADERS NOT SCORED for " + ", ".join(t["unobserved"])
                    + " — the run recorded no written_header. NOT a pass: nothing "
                      "was measured.")
+    if t.get("aliases"):
+        out.append("      accepted alias, counted as correct but NOT as `exact` (the "
+                   "written spelling is in the field's `accepted` set; the canonical "
+                   "form is not what was written): " + ", ".join(t["aliases"]))
     if t["pending"]:
         out.append("      pending (ground truth not established, excluded from the "
                    "score): " + ", ".join(t["pending"]))
@@ -477,6 +572,11 @@ def render_headers(scored: Dict[str, Any]) -> str:
             elif f["status"] == "absent":
                 out.append(f"\n{fn} {name}: absent — nothing written, page says "
                            f"{f['expected']!r}")
+            elif f["status"] == "alias":
+                out.append(f"\n{fn} {name}: accepted alias — wrote {f['got']!r}, "
+                           f"canonical is {f['expected']!r}. Verbatim-correct, NOT "
+                           f"a failure."
+                           + (f"\n    {f['why']}" if f.get("why") else ""))
             elif f["status"] == "pending":
                 out.append(f"\n{fn} {name}: PENDING, not scored — {f['why']}"
                            + (f"\n    candidates: {', '.join(f['candidates'])}"

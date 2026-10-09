@@ -1486,6 +1486,18 @@ class SustainmentPlugin(AugmentationPlugin):
         reasons += header_trust.refuse_unsourced_header_values(
             header_d, index, witness_index=header_witness,
             text_layer_degraded=text_layer_assessment["text_layer_degraded"])
+        # AFTER the refusal, not before it. The refusal drops a value whose
+        # citation does not hold up and says "refused"; this asks the separate
+        # question of whether a value that SURVIVED the refusal is corroborated.
+        # Ordered the other way round it pre-empts the refusal on any degraded
+        # document -- mfr ends up withdrawn either way, so the outcome looks
+        # right, but the reason a reader is given is the wrong one and the
+        # refusal's own explanation never appears. Measured: that reordering
+        # alone broke three assertions in tests/test_second_witness_wiring.py,
+        # all three on the REASON and none on the value.
+        reasons += header_trust.require_mfr_witness_agreement(
+            header_d, header_witness,
+            text_layer_degraded=text_layer_assessment["text_layer_degraded"])
 
         # Level-2 dedupe identity (doc_tools/utils/notice_identity.py): a deterministic
         # (mfr, doc_id, revision) key computed HERE, at the header pass, because that is
