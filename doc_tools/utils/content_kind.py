@@ -94,6 +94,27 @@ class ContentKindEntry:
     #: against, as ``ContentKindRegistration.outputs``. Non-empty.
     outputs: tuple[str, ...] = ()
 
+    #: The path segment under ``ingress-user/`` a drop of this kind lands at.
+    #: ``None`` means THIS KIND IS NOT DROPPABLE AT THE USER SEAM.
+    #: This is a FORMAT-level property, which is why only the format-level rows
+    #: declare one: the seam's own ``kind`` column is the file format/arrival shape
+    #: (``ingest_status.KINDS``, whose comment says exactly that), while the
+    #: CONTENT kind rides separately in ``manifest.metadata.content_kind``. An
+    #: S1000D data module therefore arrives under the generic ``xml`` prefix and
+    #: declares ``s1000d-data-module`` in its manifest -- two channels, by design.
+    ingress_prefix: Optional[str] = None
+
+    #: Lowercase filename extensions, dot included, that the seam accepts for this
+    #: prefix. Empty when ``ingress_prefix`` is None.
+    file_suffixes: tuple[str, ...] = ()
+
+    #: ``ContentKindRegistration.identity_field`` -- the field whose value
+    #: identifies the artifact. Optional in the SDK model.
+    identity_field: Optional[str] = None
+
+    #: ``ContentKindRegistration.seeds_workflow`` -- the workflow this kind seeds.
+    seeds_workflow: Optional[str] = None
+
 
 #: Passes and output classes that are DECLARED HERE but not yet reachable —
 #: kept as data so the phantoms stay visible instead of being discovered by a
@@ -241,6 +262,8 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         domain_type=None,
         passes=("identity.document_identity",),
         outputs=("mesh:PDFArtifact",),
+        ingress_prefix="pdf",
+        file_suffixes=(".pdf",),
     ),
     "engineering-document": ContentKindEntry(
         kind_source_value="engineering-document",
@@ -315,6 +338,8 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         # which is not built, and admits that in UNBUILT_PASSES.
         passes=("xml.xml_document_identity",),
         outputs=("mesh:XMLArtifact",),
+        ingress_prefix="xml",
+        file_suffixes=(".xml",),
     ),
 }
 
@@ -408,3 +433,83 @@ def resolve_content_kind(
             f"{sorted(_BY_KIND)}."
         )
     return entry
+
+
+def ingress_user_key_pattern(entry: ContentKindEntry) -> str:
+    r"""The sensor gate for one format-level row, GENERATED rather than written.
+
+    ``^ingress-user/<prefix>/[0-9a-f]{64}/[^/]+\.(ext|ext)$`` -- a single
+    suffix is emitted without the group, so the pdf row reproduces the
+    previously hand-written literal byte for byte.
+
+    Raises ValueError if the row declares no ``ingress_prefix``.
+    """
+    import re
+
+    if not entry.ingress_prefix:
+        raise ValueError(
+            f"content kind {entry.kind!r} declares no ingress_prefix; it is not "
+            f"droppable at the ingress-user seam")
+    if not entry.file_suffixes:
+        raise ValueError(
+            f"content kind {entry.kind!r} declares ingress_prefix "
+            f"{entry.ingress_prefix!r} but no file_suffixes")
+    exts = [re.escape(s.lstrip(".")) for s in entry.file_suffixes]
+    group = exts[0] if len(exts) == 1 else "(" + "|".join(exts) + ")"
+    return (
+        rf"^ingress-user/{re.escape(entry.ingress_prefix)}/[0-9a-f]{{64}}/[^/]+\.{group}$"
+    )
+
+
+def ingress_user_prefixes() -> dict[str, str]:
+    """``ingress_prefix`` -> its generated pattern, for every row declaring one.
+    This is the "generic prefix per kind registration": the seam's legal shapes
+    come from the registry, not from literals in definitions.py."""
+    return {
+        e.ingress_prefix: ingress_user_key_pattern(e)
+        for e in KIND_MAPPING.values()
+        if e.ingress_prefix
+    }
+
+
+def processable_kinds() -> tuple[str, ...]:
+    """Registered kinds every declared pass of which this repo can actually run.
+
+    ADR-0041 section 4 is "classifier suggests, human confirms into
+    manifest.metadata.content_kind", and the picker's legal set is
+    ``registered_kinds()``. That set is WIDER than what the dispatcher can
+    execute, so a suggester built on it alone would offer a kind that fails at
+    dispatch. This is the narrower set: a kind qualifies only if none of its
+    declared passes is in ``UNBUILT_PASSES`` and none resolves to a class or a
+    non-callable (``dispatch.py`` raises ``PassContractError`` for both).
+    BAML passes (``<ns>.baml::<Fn>``) are dispatched by a different arm and
+    count as processable.
+
+    Measured at the time of writing: ``xml`` is excluded (its only pass is
+    unbuilt) and ``s1000d-data-module`` is excluded (``s1000d.S1000dGraphBuilder``
+    is a class, which dispatch refuses by contract). Both exclusions are
+    CORRECT, not gaps to paper over.
+    """
+    import inspect
+
+    # Lazy: dispatch imports this module.
+    from doc_tools.passes.dispatch import resolve_python_pass
+
+    def _runnable(dotted: str) -> bool:
+        if dotted in UNBUILT_PASSES:
+            return False
+        if "::" in dotted:
+            return True
+        hits = resolve_python_pass(dotted)
+        if not hits or len(hits) != 1:
+            return False
+        fn = hits[0][1]
+        return not inspect.isclass(fn) and callable(fn)
+
+    # SORTED, because iagent_mesh.ingest.registered_kinds() is sorted and this
+    # is documented as its narrower subset -- an unsorted subset of a sorted set
+    # reads as a different set to anyone diffing or displaying the two.
+    return tuple(sorted(
+        e.kind for e in KIND_MAPPING.values()
+        if e.passes and all(_runnable(p) for p in e.passes)
+    ))

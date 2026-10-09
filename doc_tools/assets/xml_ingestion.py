@@ -13,6 +13,7 @@ from doc_tools.parsers.dita_rdf import DitaGraphBuilder
 from doc_tools.parsers.iads_rdf import IadsGraphBuilder
 from doc_tools.parsers.mil_std_40051_rdf import MilStd40051GraphBuilder
 from doc_tools.partitions import xml_files_partition
+from doc_tools.utils.content_kind import resolve_content_kind
 from doc_tools.utils.dagster_resources import WeaviateResource
 from doc_tools.utils.xml_chunks import extract_chunks_from_graph
 
@@ -22,6 +23,63 @@ from doc_tools.utils.xml_chunks import extract_chunks_from_graph
 # tags Weaviate chunks identically so Engine W's domain-scoped hybrid
 # search finds them.
 _XML_INGEST_DOMAIN = "MAINTENANCE"
+
+
+_INGRESS_USER_SEGMENT = "ingress-user"
+
+#: Resolved content KIND -> parser, for user drops. Deliberately not derived
+#: from the registry: a kind whose declared passes are unbuilt (generic ``xml``)
+#: has no parser here, so it HALTS rather than guessing one.
+_INGRESS_USER_PARSERS = {"s1000d-data-module": S1000dGraphBuilder}
+
+
+def _resolve_ingress_user_parser(context, s3_client, bucket: str, s3_key: str):
+    """Parser class for ``ingress-user/<fmt>/<sha256>/<name>`` from the sibling
+    ``manifest.json``'s declared content kind. Halts loudly (never sniffs, never
+    defaults) when the manifest is missing, declares no kind, or the kind has no
+    parser. An unresolvable kind propagates ``UnclassifiableContentKindError``."""
+    import json as _j
+    manifest_key = f"{os.path.dirname(s3_key)}/manifest.json"
+    resp = None
+    try:
+        resp = s3_client.get_object(Bucket=bucket, Key=manifest_key)
+        manifest = _j.loads(resp["Body"].read())
+    except Exception as e:
+        raise ValueError(
+            f"Cannot route user drop {s3_key!r}: sibling manifest "
+            f"s3://{bucket}/{manifest_key} could not be read "
+            f"({type(e).__name__}: {e}). Its declared content_kind decides the "
+            f"parser and nothing is sniffed or defaulted."
+        ) from e
+    finally:
+        if resp:
+            try:
+                resp["Body"].close()
+            except Exception:
+                pass
+    if not isinstance(manifest, dict):
+        raise ValueError(f"Cannot route user drop {s3_key!r}: {manifest_key} is not a JSON object.")
+    metadata = manifest.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    declared = manifest.get("content_kind") or metadata.get("content_kind")
+    if not declared:
+        raise ValueError(
+            f"Cannot route user drop {s3_key!r}: {manifest_key} declares no "
+            f"content_kind (top level or metadata). No kind is defaulted."
+        )
+    entry = resolve_content_kind({"content_kind": declared}, s3_key)
+    parser_cls = _INGRESS_USER_PARSERS.get(entry.kind)
+    if parser_cls is None:
+        raise ValueError(
+            f"Cannot route user drop {s3_key!r}: content kind {entry.kind!r} "
+            f"resolved but this repo has no parser for it "
+            f"(parsable: {sorted(_INGRESS_USER_PARSERS)}). The registry itself "
+            f"says it cannot be processed (declared passes: {list(entry.passes)}). "
+            f"Halting rather than guessing."
+        )
+    context.log.info(f"User drop {s3_key} declares {entry.kind!r}; routing to {parser_cls.__name__}.")
+    return parser_cls
+
 
 
 def _is_missing_key(exc: Exception) -> bool:
@@ -127,12 +185,19 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
     # 2026-06-29 "support depths" ruling is honored here.
     doc_type = s3_key.split('/')[0].lower()
 
-    PARSERS = {
-        's1000d': S1000dGraphBuilder,
-        'iads': IadsGraphBuilder,
-        'dita': DitaGraphBuilder,
-        '40051': MilStd40051GraphBuilder
-    }
+    # A user drop (ingress-user/<fmt>/<sha256>/<name>) names the SEAM in its
+    # first segment, not a parser. Its parser comes from the content kind the
+    # sibling manifest.json DECLARES -- never sniffed, never defaulted (ADR-0021).
+    if doc_type == _INGRESS_USER_SEGMENT:
+        parser_cls = _resolve_ingress_user_parser(context, s3_client, s3_bucket, s3_key)
+        PARSERS = {doc_type: parser_cls}
+    else:
+        PARSERS = {
+            's1000d': S1000dGraphBuilder,
+            'iads': IadsGraphBuilder,
+            'dita': DitaGraphBuilder,
+            '40051': MilStd40051GraphBuilder
+        }
 
     if doc_type not in PARSERS:
         context.log.error(f"No parser registered for directory type: {doc_type}")
