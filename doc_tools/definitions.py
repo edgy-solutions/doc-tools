@@ -10,6 +10,7 @@ from doc_tools.components.aitool_sensor import AIToolSensorComponent
 from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion, doors_ingestion
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions, design_files_partition, iads_files_partition, xml_files_partition
+from doc_tools.utils.content_kind import ingress_user_prefixes
 import os
 from dag_tools.utils.k8s import resolve_k8s_resource_tags
 
@@ -145,7 +146,9 @@ ingress_user_sensor = S3SensorComponent(
     partition_name="user_pdf_files",
     target_job=f"{user_document_parser.name}_job",
     target_op=user_document_parser.name,
-    s3_filter=r"^ingress-user/pdf/[0-9a-f]{64}/[^/]+\.pdf$",
+    # Generated from the `pdf` kind-registry row (content_kind.ingress_user_prefixes),
+    # byte-identical to the literal this replaced; sealed by tests/test_ingress_prefix_registry.py.
+    s3_filter=ingress_user_prefixes()["pdf"],
     filter_patterns=["archive/", "metadata.json", "generated/", "manifest.json"],
     # THE USER-DROP SENSOR STARTS ITSELF. dag_tools' S3SensorComponent defaults
     # `default_status` to "STOPPED", so on a fresh install (or any instance with
@@ -169,6 +172,40 @@ ingress_user_sensor = S3SensorComponent(
     }
 )
 _ingress_user_sensor_defs = ingress_user_sensor.build_defs(None)
+
+# The XML sibling of ingress_user_sensor: a user-dropped XML under
+# ingress-user/xml/<sha256>/<name>.xml. Upstream already mints these (the seam
+# accepts the `xml` kind); the drops sit unprocessed in MinIO because this repo
+# had no sensor for them (the PDF sensor's regex rejects .xml) and the XML
+# router could not resolve a parser for an `ingress-user/` key.
+#
+# A SEPARATE SENSOR, NOT A WIDENED REGEX: a sensor has ONE target_job. Loosening
+# the PDF sensor's regex to accept .xml would route XML into the PDF parser --
+# the exact D2 defect that sensor's comment was written to prevent. The pattern
+# is generated from the `xml` kind-registry row. filter_patterns stay identical:
+# the manifest.json belt matters here too.
+#
+# default_status="RUNNING" for the same reason as the PDF seam: a user's own
+# upload depends on it. Not retroactive (a stored status wins) -- check the UI.
+ingress_user_xml_sensor = S3SensorComponent(
+    name="ingress_user_xml_sensor",
+    bucket="processing-artifacts",
+    prefix="ingress-user/xml/",
+    partition_name="xml_files",
+    target_job="xml_graph_sync_job",
+    target_op="extract_rdf_from_xml",
+    s3_filter=ingress_user_prefixes()["xml"],
+    filter_patterns=["archive/", "metadata.json", "generated/", "manifest.json"],
+    default_status="RUNNING",
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
+)
+_ingress_user_xml_sensor_defs = ingress_user_xml_sensor.build_defs(None)
 
 ontology_sensor = S3SensorComponent(
     name="ontology_sensor",
@@ -458,7 +495,7 @@ defs = Definitions(
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
     assets=list(_document_parser_defs.assets) + list(_user_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
     jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job, doors_ingest_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors),
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ingress_user_xml_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors),
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -489,6 +526,7 @@ defs = Definitions(
         **_pdf_sensor_defs.resources,
         **_sustainment_sensor_defs.resources,
         **_ingress_user_sensor_defs.resources,
+        **_ingress_user_xml_sensor_defs.resources,
         **_ontology_sensor_defs.resources,
         **_design_sensor_defs.resources,
         **_iads_sensor_defs.resources,
@@ -502,6 +540,7 @@ del _user_document_parser_defs
 del _pdf_sensor_defs
 del _sustainment_sensor_defs
 del _ingress_user_sensor_defs
+del _ingress_user_xml_sensor_defs
 del _ontology_sensor_defs
 del _design_sensor_defs
 del _design_parser_defs
