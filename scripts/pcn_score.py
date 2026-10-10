@@ -34,7 +34,7 @@ perfectly. That value is the portal's print stamp — the day the PDF was
 rendered — and the notice was published on the 7th. Agreement would report
 that as settled; only ground truth can report it as wrong.
 
-So a header field lands in one of seven states, and the ones that are not
+So a header field lands in one of nine states, and the ones that are not
 `exact` are kept apart because they are different defects with different fixes:
 
     exact        the written value is the page's value
@@ -57,6 +57,21 @@ So a header field lands in one of seven states, and the ones that are not
                  attributed to a distractor — see `normalize_date`.
     absent       ground truth says the page carries this value and nothing was
                  written. A miss.
+    correctly_absent
+                 ground truth declares `expect_absent: true` -- the document was
+                 read and states NO value for this field -- and nothing was
+                 written. A PASS, and the only state in which writing nothing is
+                 right. Counted apart from `exact` because there is no value to
+                 have matched.
+    hallucinated the counterpart failure: `expect_absent: true` and a value was
+                 written anyway. Invention rather than misattribution -- there is
+                 nothing on the page for the model to have mis-picked. TI's
+                 PCN#20210316000 carries no last-time-buy date at all while
+                 printing `Proposed 1st Ship Date: Jun 22, 2021` in the same
+                 block, so a run writing that date has answered a question the
+                 document does not ask. Before this status existed such a field
+                 could only be declared `value: null`, which reports `pending`
+                 and is excluded from the score -- so the fabrication passed.
     pending      ground truth records `value: null` — the field has NOT been
                  established (TYC's `doc_level_ltb_date`, where the text layer
                  and the witness disagree and the page has not been read
@@ -179,14 +194,15 @@ _DATE_FIELD_SUFFIX = "_date"
 # Statuses that mean the field was scored and did not pass. `pending` and the
 # unobserved case are absent BY DESIGN — neither is a failure, and neither is a
 # pass (module docstring).
-HEADER_FAILURES = ("distractor", "wrong", "misformatted", "unreadable", "absent")
+HEADER_FAILURES = ("distractor", "wrong", "misformatted", "unreadable", "absent",
+                   "hallucinated")
 
 # `alias` is a PASS and is deliberately absent from HEADER_FAILURES: the field
 # was answered with a spelling ground truth accepts as verbatim-correct, just
 # not the canonical one. It is counted apart from `exact` all the same, so a
 # report never has to explain why `exact` is short of `fields_scored` with no
 # failure beside it.
-HEADER_PASSES = ("exact", "alias")
+HEADER_PASSES = ("exact", "alias", "correctly_absent")
 
 
 def normalize_date(v: Any) -> str | None:
@@ -300,14 +316,73 @@ def declared_distractors(name: str, spec: Dict[str, Any]) -> Dict[str, Any]:
     return declared
 
 
+def _score_expect_absent(name: str, written: Any, spec: Dict[str, Any],
+                         out: Dict[str, Any]) -> Dict[str, Any]:
+    """A field the document does NOT answer: writing nothing is the only pass.
+
+    `expect_absent` IS NOT `value: null`. `pending` means ground truth has not
+    been established, and the field is excluded from the score in both
+    directions. `expect_absent` is an established finding in the other
+    direction -- the document was read and states no value -- so it IS scored.
+
+    The failure it catches is the one no other status can see. Every other
+    status compares a written value against a page value; with no page value
+    there is nothing to compare, and declaring such a field `value: null` was
+    the only option available before this existed -- which reports a fabricated
+    date as `pending` and leaves it out of the score entirely.
+
+    Declaring a `value` or an `accepted` set alongside it RAISES: both assert
+    that some written value is correct, which is the opposite claim.
+    """
+    if spec.get("value") is not None:
+        raise ValueError(
+            f"ground truth defect in field {name!r}: `expect_absent` is declared "
+            f"alongside a `value` of {spec['value']!r} -- a field cannot both carry "
+            f"a correct value and have none to carry")
+    if spec.get("accepted") is not None:
+        raise ValueError(
+            f"ground truth defect in field {name!r}: `expect_absent` is declared "
+            f"alongside an `accepted` set -- there is no accepted spelling of a "
+            f"value the document does not state")
+
+    out["why"] = (spec.get("_why") or "ground truth records that the document "
+                                      "states no value for this field")
+    if written in (None, ""):
+        out["status"] = "correctly_absent"
+        return out
+
+    out["status"] = "hallucinated"
+    # A declared distractor still carries the better diagnosis -- it names the
+    # value that IS on the page and that this field is being confused with,
+    # which is what tells a prompt fix where to aim. It does not soften the
+    # failure: picking up a neighbouring date is still answering a question the
+    # document does not ask.
+    dated = is_date_field(name)
+    norm_w = normalize_date(written) if dated else _fold_text(written)
+    for bad, why in declared_distractors(name, spec).items():
+        norm_b = normalize_date(bad) if dated else _fold_text(bad)
+        if written == bad or (norm_w is not None and norm_w == norm_b):
+            out["matched"] = bad
+            out["why"] = why
+            break
+    return out
+
+
 def score_header_field(name: str, written: Any,
                        spec: Dict[str, Any]) -> Dict[str, Any]:
     """One header field: what was written, what the page says, and — when they
     differ — WHICH KIND of wrong it is."""
     expected = spec.get("value")
+    out: Dict[str, Any] = {"field": name, "expected": expected, "got": written}
+
+    # BEFORE the `expected is None` branch, which would otherwise swallow this
+    # case as `pending`. The two are indistinguishable in the spec -- neither
+    # carries a `value` -- and they mean opposite things.
+    if spec.get("expect_absent"):
+        return _score_expect_absent(name, written, spec, out)
+
     forms = accepted_forms(spec)
     declared = declared_distractors(name, spec)
-    out: Dict[str, Any] = {"field": name, "expected": expected, "got": written}
 
     if expected is None:
         out["status"] = "pending"
@@ -401,6 +476,7 @@ def score_headers(written: Any, headers: Dict[str, Any] | None) -> Dict[str, Any
         "by_status": {k: sorted(v) for k, v in by_status.items()},
         "exact": len(by_status.get("exact", [])),
         "alias": len(by_status.get("alias", [])),
+        "correctly_absent": len(by_status.get("correctly_absent", [])),
         "clean": not any(by_status.get(s) for s in HEADER_FAILURES),
     }
 
@@ -414,7 +490,7 @@ def header_totals(per: Dict[str, Any]) -> Dict[str, Any]:
     """
     t: Dict[str, Any] = {"notices_with_gt": 0, "notices_observed": 0,
                          "unobserved": [], "fields_scored": 0, "exact": 0,
-                         "aliases": [], "pending": []}
+                         "aliases": [], "correctly_absent": [], "pending": []}
     for s in HEADER_FAILURES:
         t[s] = []
     for fn, p in sorted(per.items()):
@@ -430,6 +506,8 @@ def header_totals(per: Dict[str, Any]) -> Dict[str, Any]:
         t["exact"] += h["exact"]
         for name in h["by_status"].get("alias", []):
             t["aliases"].append(f"{fn}:{name}")
+        for name in h["by_status"].get("correctly_absent", []):
+            t["correctly_absent"].append(f"{fn}:{name}")
         for name in h["by_status"].get("pending", []):
             t["pending"].append(f"{fn}:{name}")
         for s in HEADER_FAILURES:
@@ -547,6 +625,11 @@ def render_headers(scored: Dict[str, Any]) -> str:
         out.append("      accepted alias, counted as correct but NOT as `exact` (the "
                    "written spelling is in the field's `accepted` set; the canonical "
                    "form is not what was written): " + ", ".join(t["aliases"]))
+    if t.get("correctly_absent"):
+        out.append("      correctly absent, counted as correct but NOT as `exact` "
+                   "(ground truth declares the document states no value for the "
+                   "field, and nothing was written): "
+                   + ", ".join(t["correctly_absent"]))
     if t["pending"]:
         out.append("      pending (ground truth not established, excluded from the "
                    "score): " + ", ".join(t["pending"]))
@@ -572,6 +655,17 @@ def render_headers(scored: Dict[str, Any]) -> str:
             elif f["status"] == "absent":
                 out.append(f"\n{fn} {name}: absent — nothing written, page says "
                            f"{f['expected']!r}")
+            elif f["status"] == "hallucinated":
+                out.append(f"\n{fn} {name}: HALLUCINATED {f['got']!r} \u2014 the "
+                           f"document states NO value for this field, so this is "
+                           f"invention and not a mis-picked value"
+                           + (f"\n    nearest declared distractor {f['matched']!r}: "
+                              f"{f['why']}" if f.get("matched")
+                              else f"\n    {f['why']}"))
+            elif f["status"] == "correctly_absent":
+                out.append(f"\n{fn} {name}: correctly absent \u2014 the document "
+                           f"states no value and none was written. A PASS, counted "
+                           f"apart from `exact`.\n    {f['why']}")
             elif f["status"] == "alias":
                 out.append(f"\n{fn} {name}: accepted alias — wrote {f['got']!r}, "
                            f"canonical is {f['expected']!r}. Verbatim-correct, NOT "
