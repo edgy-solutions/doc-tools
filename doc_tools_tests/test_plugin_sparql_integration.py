@@ -310,10 +310,23 @@ def test_negative_control_unescaped_sparql_fails_well_formed_check():
 # ---------------------------------------------------------------------------
 
 def _maybe_skip_no_jena():
-    if not os.environ.get("JENA_INTEGRATION_URL"):
-        pytest.skip(
-            "set JENA_INTEGRATION_URL (+ DS, USER, PASSWORD) to run the live-Jena tier"
+    if os.environ.get("JENA_INTEGRATION_URL"):
+        return
+    # REQUIRE_JENA=1 (set by the `tests` job in build-container.yml) means a
+    # live Fuseki is wired up and this tier MUST run. Without this branch a
+    # broken service container degrades the whole four-plugin live tier to
+    # "skipped", and a skipped check satisfies a required check -- the PR goes
+    # green having proven nothing. Mirrors test_default_graph_stays_empty.py.
+    if os.environ.get("REQUIRE_JENA") == "1":
+        pytest.fail(
+            "REQUIRE_JENA=1 but JENA_INTEGRATION_URL is unset. The live-Jena "
+            "tier would have silently skipped. Either the fuseki service "
+            "container or its env block in .github/workflows/build-container.yml "
+            "has regressed, or REQUIRE_JENA should not be set here."
         )
+    pytest.skip(
+        "set JENA_INTEGRATION_URL (+ DS, USER, PASSWORD) to run the live-Jena tier"
+    )
 
 
 def _build_maintenance_node():
@@ -532,9 +545,17 @@ def test_plugin_dirty_sparql_executes_against_live_jena(plugin_builder, name, di
     )
     assert sparql_batches, f"{name} plugin produced no SPARQL"
 
+    # The writer takes auth=(user, password) from the caller (SDK v0.9.8);
+    # a credential embedded in base_url is refused outright. The Fuseki in CI
+    # answers 401 to an unauthenticated write while the sandbox one accepts it,
+    # so a writer built without auth here passes every local run and fails only
+    # in CI -- which is exactly what it did.
+    username = os.environ.get("JENA_INTEGRATION_USER", "admin")
+    password = os.environ.get("JENA_INTEGRATION_PASSWORD", "")
     writer = JenaOntologyWriter(
         base_url=os.environ["JENA_INTEGRATION_URL"],
         dataset=os.environ.get("JENA_INTEGRATION_DS", "ds"),
+        auth=(username, password) if (username.strip() and password.strip()) else None,
     )
     initiator = Initiator(
         subject="test_plugin_sparql_integration", kind="delegate", on_behalf_of="doc-tools-tests"
