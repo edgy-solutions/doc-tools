@@ -82,7 +82,7 @@ def parent_write(manifest, *, neo4j=None):
         build_knowledge_graph(
             build_asset_context(), _config(), manifest,
             s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
-            llm=MagicMock(), jena=MagicMock(),
+            llm=MagicMock(), jena=MagicMock(url="http://jena:3030", dataset="ds", username="", password=""),
         )
     calls = neo4j.get_client.return_value.execute_query.call_args_list
     if not calls:
@@ -185,7 +185,7 @@ def test_a_failed_stamp_halts_while_a_failed_vetted_write_only_logs():
         return build_knowledge_graph(
             build_asset_context(), _config(), manifest,
             s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
-            llm=MagicMock(), jena=MagicMock(),
+            llm=MagicMock(), jena=MagicMock(url="http://jena:3030", dataset="ds", username="", password=""),
         )
 
     with pytest.raises(ProvenanceStampFailedError, match="doc-1"):

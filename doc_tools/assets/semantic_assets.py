@@ -10,6 +10,9 @@ from doc_tools.config import IngestionConfig
 from dagster_aws.s3 import S3Resource
 from doc_tools.partitions import pdf_files_partition, user_pdf_files_partition, xml_files_partition
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
+from doc_tools.utils.mesh_identity import client_id as mesh_client_id
+from iagent_mesh.writers.jena import JenaOntologyWriter
+from iagent_mesh.interfaces import Initiator
 from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
@@ -403,7 +406,23 @@ def _build_knowledge_graph_impl(
     neo4j_client = neo4j.get_client()
     weaviate_client = weaviate.get_client()
     llm_client = llm.get_client()
-    jena_client = jena.get_client()
+    # JenaOntologyWriter (iagent-mesh SDK v0.9.8) replaces the hand-rolled,
+    # now-deleted JenaClient SPARQL Update method: upsert() is DELETE-by-subject
+    # -then-INSERT, GRAPH-scoped on both halves, in one request.
+    # Credentials come from the Dagster JenaResource config (supplied by the caller,
+    # never hardcoded and never embedded in the URL, which the writer refuses). A blank
+    # pair means an unauthenticated Fuseki, which the writer expresses as auth=None.
+    jena_auth = (jena.username, jena.password) if (jena.username.strip() and jena.password.strip()) else None
+    jena_writer = JenaOntologyWriter(base_url=jena.url, dataset=jena.dataset, auth=jena_auth)
+    # A Dagster run is non-human, so kind="service" is not admitted — writers
+    # only accept a person or a delegate acting on behalf of one (see
+    # `Initiator.require_person_or_delegate` / `ServiceIdentityRefused`).
+    # `on_behalf_of` reuses svc:doc-tools' own registered identity
+    # (`doc_tools.utils.mesh_identity.client_id()`, default "iagent-doc-tools")
+    # rather than inventing a second identity string for this one write path.
+    jena_initiator = Initiator(
+        subject=context.run_id, kind="delegate", on_behalf_of=mesh_client_id()
+    )
     
     # 2. Load Text Data
     import tempfile
@@ -781,17 +800,29 @@ def _build_knowledge_graph_impl(
             context.log.error(f"Failed executing domain cypher query {idx}: {e}")
             
     if sparql_queries:
-        context.log.info(f"SPARQL Queries to emit to Jena: {len(sparql_queries)}")
-        for idx, s_query in enumerate(sparql_queries):
+        context.log.info(f"SPARQL batches to emit to Jena: {len(sparql_queries)}")
+        for idx, batch in enumerate(sparql_queries):
             try:
                 # Runtime instance triples go to the domain's INSTANCE graph, never the
                 # vocabulary graph (AGENTS.md "Domain Semantic Graph") — prime DROPs the
                 # latter on every re-ingest, so instance data would be wiped if it shared it.
-                jena_client.execute_update(
-                    s_query, graph_uri=f"http://internal/{plugin.domain_label}_INSTANCES"
+                # The batch dict (`doc_tools.plugins.base.sparql_batch`) already carries that
+                # graph IRI per-batch, so it is passed through rather than re-derived here.
+                result = jena_writer.upsert(
+                    jena_initiator,
+                    graph=batch["graph"],
+                    iri=batch["iri"],
+                    triples=batch["triples"],
                 )
+                # `.applied` is the safe truthiness check across MeshWriteResult's 5 states —
+                # `bool(result)` deliberately raises AmbiguousWriteResultTruth.
+                if not result.applied:
+                    context.log.error(
+                        f"Domain SPARQL batch {idx} not applied (iri={batch['iri']!r}): "
+                        f"outcome={result.outcome!r} detail={result.detail!r}"
+                    )
             except Exception as e:
-                context.log.error(f"Failed executing domain SPARQL query {idx}: {e}")
+                context.log.error(f"Failed executing domain SPARQL batch {idx}: {e}")
 
     # --- PASS 2: LINK & ROLL-UP ---
     try:

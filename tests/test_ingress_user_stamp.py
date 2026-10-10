@@ -293,7 +293,7 @@ def _first_write(manifest):
         build_knowledge_graph(
             build_asset_context(), _bkg_config(), manifest,
             s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
-            llm=MagicMock(), jena=MagicMock(),
+            llm=MagicMock(), jena=MagicMock(url="http://jena:3030", dataset="ds", username="", password=""),
         )
     calls = neo4j.get_client.return_value.execute_query.call_args_list
     return (calls[0].args[0], calls[0].args[1]) if calls else None
@@ -330,7 +330,7 @@ def test_sustainment_still_reaches_the_rest_of_the_pipeline():
             _bkg_config(),
             _manifest_with_provenance("sustainment"),
             s3=s3, neo4j=MagicMock(), weaviate=MagicMock(),
-            llm=MagicMock(), jena=MagicMock(),
+            llm=MagicMock(), jena=MagicMock(url="http://jena:3030", dataset="ds", username="", password=""),
         )
 
 
@@ -386,7 +386,7 @@ def test_a_declared_domain_is_not_a_fallback_for_a_format_level_kind():
     result = build_knowledge_graph(
         build_asset_context(), _bkg_config(), manifest,
         s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
-        llm=MagicMock(), jena=MagicMock(),
+        llm=MagicMock(), jena=MagicMock(url="http://jena:3030", dataset="ds", username="", password=""),
     )
     assert result["status"] == "origin_unresolved"
     assert not neo4j.get_client.called
@@ -425,7 +425,9 @@ def test_sustainment_rdf_persists_provenance_into_instances_graph_only():
     cypher, sparql = SustainmentPlugin(domain_type="sustainment").to_graph_queries(
         [node], config, provenance=provenance,
     )
-    sp = " ".join(sparql)
+    # sparql is now a list of upsert batches ({"graph","iri","triples"}); render
+    # each as the GRAPH-wrapped text the writer emits so the assertions read the same.
+    sp = " ".join(f"GRAPH <{b['graph']}> " + " ".join(b["triples"]) for b in sparql)
 
     # Lands in the INSTANCE graph for this domain...
     assert "GRAPH <http://internal/SUSTAINMENT_INSTANCES>" in sp
@@ -466,7 +468,9 @@ def test_sustainment_rdf_omits_provenance_entirely_when_absent():
 
     cypher, sparql = SustainmentPlugin(domain_type="sustainment").to_graph_queries([node], config)
     blob = "\n".join(q["query"] for q in cypher)
-    sp = " ".join(sparql)
+    # sparql is now a list of upsert batches ({"graph","iri","triples"}); render
+    # each as the GRAPH-wrapped text the writer emits so the assertions read the same.
+    sp = " ".join(f"GRAPH <{b['graph']}> " + " ".join(b["triples"]) for b in sparql)
     assert "provenance_obtained_via" not in blob
     assert "generatedAtTime" not in sp
     assert "wasDerivedFrom" not in sp

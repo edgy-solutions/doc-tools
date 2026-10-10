@@ -319,25 +319,54 @@ def render_object_blocks(fields: List[OverlayField], step: Any) -> tuple[list[st
     return blocks, params
 
 
+# Fully-qualified namespaces for the two prefixes this overlay module ever
+# emits (mfg: predicates, iof: relation targets). The JenaOntologyWriter
+# (iagent-mesh SDK v0.9.8) emits INSERT DATA with no PREFIX block, so a
+# leftover prefixed name reaching it is a SPARQL syntax error — everything
+# built here is expanded to a full <http://...> IRI before being returned.
+_PREFIX_MAP = {
+    "mfg:": "http://edgy-solutions.com/ontology/mfg#",
+    "iof:": "http://example.com/iof#",
+}
+
+
+def _expand(prefixed: str) -> str:
+    """Expand a 'prefix:local' string to a full '<http://...local>' IRI."""
+    for prefix, ns in _PREFIX_MAP.items():
+        if prefixed.startswith(prefix):
+            return f"<{ns}{prefixed[len(prefix):]}>"
+    raise ValueError(f"Unknown SPARQL prefix in overlay descriptor: {prefixed!r}")
+
+
 def render_sparql_lines(fields: List[OverlayField], step: Any, step_uri: str) -> list[str]:
-    """RDF triples for overlay fields (literals and derived-IRI relations)."""
+    """RDF triples for overlay fields (literals and derived-IRI relations).
+
+    ``step_uri`` must already be a full ``<http://...>`` IRI (the caller builds
+    it via ``safe_iri_local`` + the canonical mfg namespace) — every predicate
+    and relation target this function adds is expanded from its ``mfg:``/
+    ``iof:`` overlay-descriptor prefix to a matching full IRI before being
+    returned, so every emitted triple is prefix-free.
+    """
     lines: list[str] = []
     for f in fields:
         if f.scope == "document":
             continue
         value = _enum_value(getattr(step, f.name, None))
         if f.rdf_literal:
+            pred = _expand(f"mfg:{f.rdf_literal}")
             if f.kind == "list":
                 for v in (value or []):
-                    lines.append(f'{step_uri} mfg:{f.rdf_literal} "{_lit(v)}" .')
+                    lines.append(f'{step_uri} {pred} "{_lit(v)}" .')
             elif _present(value) or isinstance(value, bool):
-                lines.append(f'{step_uri} mfg:{f.rdf_literal} "{_lit(value)}" .')
+                lines.append(f'{step_uri} {pred} "{_lit(value)}" .')
         if f.rdf_relation and _present(value):
             rr = f.rdf_relation
             safe = str(value)
             for ch in rr.strip_chars:
                 safe = safe.replace(ch, "_" if ch == " " else "")
-            lines.append(f"{step_uri} mfg:{rr.predicate} {rr.target_prefix}{safe}{rr.target_suffix} .")
+            pred = _expand(f"mfg:{rr.predicate}")
+            target = _expand(f"{rr.target_prefix}{safe}{rr.target_suffix}")
+            lines.append(f"{step_uri} {pred} {target} .")
     return lines
 
 

@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, ConfigDict, Field
-from doc_tools.plugins.base import AugmentationPlugin
+from doc_tools.plugins.base import AugmentationPlugin, sparql_batch
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.plugins import manufacturing_overlay as overlay
 from doc_tools.utils.formatters import convert_element_to_markdown
@@ -276,7 +276,7 @@ class ManufacturingPlugin(AugmentationPlugin):
             domain_augmentation=None
         )
 
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[Dict[str, Any]]]:
         """Emit Cypher + SPARQL for each manufacturing node.
 
         Base fields (identity, instruction text, action, tooling, figures) are
@@ -402,11 +402,12 @@ class ManufacturingPlugin(AugmentationPlugin):
 
                 cypher_queries.append({"query": edge_cypher, "params": params})
 
-                # --- JENA SPARQL/RDF ---
+                # --- JENA RDF (batch dict for JenaOntologyWriter.upsert) ---
                 # Sanitize the IRI local part: step_node_id derives from the doc id
-                # (e.g. "inbound/22"), and a raw "/" is illegal in a prefixed name
-                # -> Fuseki 400 Bad Request on the whole Update.
-                step_uri = f"mfg:{safe_iri_local(step_node_id)}"
+                # (e.g. "inbound/22"). safe_iri_local kept for continuity with the
+                # legacy PN_LOCAL sanitization even though a full IRI's path segment
+                # would itself tolerate "/" — the writer emits INSERT DATA with no
+                # PREFIX block, so every term below is a fully-qualified <http://...>.
                 # ADR-0021 Step 4: canonical mfg namespace + general kind.
                 # Old placeholder ns http://example.com/manufacturing# was the
                 # pre-canonical direct-load shape (see STATE_GATEWAY_V02.md
@@ -416,28 +417,35 @@ class ManufacturingPlugin(AugmentationPlugin):
                 # general kind is mfg:WorkInstruction — sensors / electronics
                 # / munitions / mechanical-assemblies are what is described,
                 # not separate kinds (architect's ruling 2026-06-18).
-                sparql = f"""
-                PREFIX mfg: <http://edgy-solutions.com/ontology/mfg#>
-                PREFIX iof: <http://example.com/iof#>
+                MFG_NS = "http://edgy-solutions.com/ontology/mfg#"
+                step_full_iri = f"{MFG_NS}{safe_iri_local(step_node_id)}"
+                step_uri = f"<{step_full_iri}>"
 
-                INSERT DATA {{
-                    {step_uri} a mfg:WorkInstruction ;
-                        mfg:hasAction "{escape_sparql_string(step.action_verb)}" ;
-                        mfg:hasText "{escape_sparql_string(step.instruction_text)}" .
-                """
+                triples = [
+                    f'{step_uri} a <{MFG_NS}WorkInstruction> .',
+                    f'{step_uri} <{MFG_NS}hasAction> "{escape_sparql_string(step.action_verb)}" .',
+                    f'{step_uri} <{MFG_NS}hasText> "{escape_sparql_string(step.instruction_text)}" .',
+                ]
                 # Base tooling literals.
                 for t in (step.tooling or []):
-                    sparql += f'\n                    {step_uri} mfg:usesTool "{escape_sparql_string(t)}" .'
-                # Overlay literals/relations.
-                for line in overlay.render_sparql_lines(overlay_fields, step, step_uri):
-                    sparql += f"\n                    {line}"
+                    triples.append(f'{step_uri} <{MFG_NS}usesTool> "{escape_sparql_string(t)}" .')
+                # Overlay literals/relations — render_sparql_lines already expands
+                # mfg:/iof: to full IRIs given a full-IRI step_uri (see
+                # manufacturing_overlay.py).
+                triples.extend(overlay.render_sparql_lines(overlay_fields, step, step_uri))
                 # Base figure triples.
                 for fig in (step.figure_references or []):
                     safe_fig = safe_iri_local(fig)
-                    sparql += f"\n                    {step_uri} mfg:referencesFigure mfg:fig_{safe_fig} ."
-                    sparql += f"\n                    mfg:fig_{safe_fig} a mfg:Figure ."
-                sparql += "\n                }"
+                    triples.append(f'{step_uri} <{MFG_NS}referencesFigure> <{MFG_NS}fig_{safe_fig}> .')
+                    triples.append(f'<{MFG_NS}fig_{safe_fig}> a <{MFG_NS}Figure> .')
 
-                sparql_queries.append(sparql)
+                # Scope instance data to the domain's INSTANCE graph, NOT the vocabulary
+                # graph — see the "Domain Semantic Graph" invariant in AGENTS.md. This
+                # plugin previously emitted an unscoped INSERT DATA, which landed in
+                # Jena's default graph, invisible to the mesh resolver.
+                graph_uri = f"http://internal/{dom}_INSTANCES"
+                sparql_queries.append(
+                    sparql_batch(graph=graph_uri, iri=step_full_iri, triples=triples)
+                )
 
         return cypher_queries, sparql_queries

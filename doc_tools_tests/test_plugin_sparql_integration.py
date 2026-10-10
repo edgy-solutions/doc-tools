@@ -122,16 +122,17 @@ def test_maintenance_plugin_emits_well_formed_sparql(dirty_doc_id: str):
     node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
 
     plugin = MaintenancePlugin("maintenance")  # domain_label auto-derived
-    cypher_qs, sparql_qs = plugin.to_graph_queries(
+    cypher_qs, sparql_batches = plugin.to_graph_queries(
         [node], _FakeConfig(), doc_id=dirty_doc_id, image_prefix=""
     )
 
-    assert sparql_qs, "plugin produced no SPARQL — schema may have changed"
-    for i, sparql in enumerate(sparql_qs):
-        ok, reason = _all_literals_well_formed(sparql)
+    assert sparql_batches, "plugin produced no SPARQL — schema may have changed"
+    for i, batch in enumerate(sparql_batches):
+        body = " ".join(batch["triples"])
+        ok, reason = _all_literals_well_formed(body)
         assert ok, (
-            f"Maintenance plugin SPARQL #{i} is malformed: {reason}\n"
-            f"---\n{sparql}\n---"
+            f"Maintenance plugin SPARQL batch #{i} is malformed: {reason}\n"
+            f"---\n{body}\n---"
         )
 
 
@@ -169,16 +170,17 @@ def test_manufacturing_plugin_emits_well_formed_sparql(dirty_doc_id: str):
     node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
 
     plugin = ManufacturingPlugin("manufacturing")
-    cypher_qs, sparql_qs = plugin.to_graph_queries(
+    cypher_qs, sparql_batches = plugin.to_graph_queries(
         [node], _FakeConfig(), doc_id=dirty_doc_id, image_prefix=""
     )
 
-    assert sparql_qs, "plugin produced no SPARQL"
-    for i, sparql in enumerate(sparql_qs):
-        ok, reason = _all_literals_well_formed(sparql)
+    assert sparql_batches, "plugin produced no SPARQL"
+    for i, batch in enumerate(sparql_batches):
+        body = " ".join(batch["triples"])
+        ok, reason = _all_literals_well_formed(body)
         assert ok, (
-            f"Manufacturing plugin SPARQL #{i} is malformed: {reason}\n"
-            f"---\n{sparql}\n---"
+            f"Manufacturing plugin SPARQL batch #{i} is malformed: {reason}\n"
+            f"---\n{body}\n---"
         )
 
 
@@ -216,16 +218,17 @@ def test_sustainment_plugin_emits_well_formed_sparql(dirty_doc_id: str):
     node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
 
     plugin = SustainmentPlugin("sustainment")
-    cypher_qs, sparql_qs = plugin.to_graph_queries(
+    cypher_qs, sparql_batches = plugin.to_graph_queries(
         [node], _FakeConfig(), doc_id=dirty_doc_id, image_prefix=""
     )
 
-    assert sparql_qs, "sustainment plugin produced no SPARQL"
-    for i, sparql in enumerate(sparql_qs):
-        ok, reason = _all_literals_well_formed(sparql)
+    assert sparql_batches, "sustainment plugin produced no SPARQL"
+    for i, batch in enumerate(sparql_batches):
+        body = " ".join(batch["triples"])
+        ok, reason = _all_literals_well_formed(body)
         assert ok, (
-            f"Sustainment plugin SPARQL #{i} is malformed: {reason}\n"
-            f"---\n{sparql}\n---"
+            f"Sustainment plugin SPARQL batch #{i} is malformed: {reason}\n"
+            f"---\n{body}\n---"
         )
 
 
@@ -255,16 +258,17 @@ def test_compliance_plugin_emits_well_formed_sparql(dirty_doc_id: str):
     node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
 
     plugin = CompliancePlugin("compliance")
-    cypher_qs, sparql_qs = plugin.to_graph_queries(
+    cypher_qs, sparql_batches = plugin.to_graph_queries(
         [node], _FakeConfig(), doc_id=dirty_doc_id, image_prefix=""
     )
 
-    assert sparql_qs, "plugin produced no SPARQL"
-    for i, sparql in enumerate(sparql_qs):
-        ok, reason = _all_literals_well_formed(sparql)
+    assert sparql_batches, "plugin produced no SPARQL"
+    for i, batch in enumerate(sparql_batches):
+        body = " ".join(batch["triples"])
+        ok, reason = _all_literals_well_formed(body)
         assert ok, (
-            f"Compliance plugin SPARQL #{i} is malformed: {reason}\n"
-            f"---\n{sparql}\n---"
+            f"Compliance plugin SPARQL batch #{i} is malformed: {reason}\n"
+            f"---\n{body}\n---"
         )
 
 
@@ -301,7 +305,8 @@ def test_negative_control_unescaped_sparql_fails_well_formed_check():
 
 
 # ---------------------------------------------------------------------------
-# Live Jena tier — runs only when JENA_INTEGRATION_URL is set
+# Fixture builders — shared by the no-live-Jena-required guards below AND
+# the live Jena tier at the bottom of this file.
 # ---------------------------------------------------------------------------
 
 def _maybe_skip_no_jena():
@@ -401,6 +406,106 @@ class _FakeConfig:
     graph_node_label = "LiveDocument"  # sustainment uses this for root node
 
 
+# ---------------------------------------------------------------------------
+# New guarantees from the JenaOntologyWriter migration (iagent-mesh SDK
+# v0.9.8) — no live Jena required for either of these.
+# ---------------------------------------------------------------------------
+
+# Matches a full <...> IRI reference or a "..." string literal (with escapes).
+# Stripping every match of THIS out of a triple body should leave nothing but
+# whitespace and the keyword `a` — any leftover `word:word` is a bare
+# prefixed name, which JenaOntologyWriter.upsert() cannot render (fact 3:
+# it emits INSERT DATA with NO PREFIX block, so Fuseki 400s on one).
+_IRI_OR_LITERAL = re.compile(r'<[^<>]*>|"(?:[^"\\]|\\.)*"(?:\^\^<[^<>]*>)?')
+_BARE_PREFIXED_NAME = re.compile(r'\b[A-Za-z][\w-]*:[A-Za-z_][\w.-]*\b')
+
+
+def _find_bare_prefixed_names(body: str) -> list[str]:
+    stripped = _IRI_OR_LITERAL.sub(" ", body)
+    return _BARE_PREFIXED_NAME.findall(stripped)
+
+
+@pytest.mark.parametrize("plugin_builder,name", [
+    (_build_maintenance_node, "maintenance"),
+    (_build_manufacturing_node, "manufacturing"),
+    (_build_compliance_node, "compliance"),
+    (_build_sustainment_node, "sustainment"),
+], ids=["maintenance", "manufacturing", "compliance", "sustainment"])
+def test_plugin_emits_no_bare_prefixed_names(plugin_builder, name):
+    """Fact 3 (spec_jena_writer.md): JenaOntologyWriter.upsert() emits
+    ``INSERT DATA { GRAPH <g> { ...triples... } }`` with NO ``PREFIX`` block.
+    A bare prefixed name (``mro:``, ``iof:``, ``mfg:``, ``pcn:``) was legal
+    under the old ``JenaClient.execute_update`` path (which prepended a
+    PREFIX block by hand) but is a silent SPARQL syntax error under the new
+    writer. This is the single most likely way to regress this migration,
+    per the spec — so it gets its own guard that needs no live Fuseki.
+    """
+    plugin, node = plugin_builder()
+    _, sparql_batches = plugin.to_graph_queries(
+        [node], _FakeConfig(), doc_id="TEST-NO-PREFIX-001", image_prefix=""
+    )
+    assert sparql_batches, f"{name} plugin produced no SPARQL batches"
+    for i, batch in enumerate(sparql_batches):
+        for key in ("graph", "iri"):
+            assert not _find_bare_prefixed_names(batch[key]), (
+                f"{name} batch #{i}: {key}={batch[key]!r} is not a full IRI"
+            )
+        body = " ".join(batch["triples"])
+        bad = _find_bare_prefixed_names(body)
+        assert not bad, (
+            f"{name} batch #{i} contains bare prefixed name(s) {bad!r} — "
+            f"JenaOntologyWriter emits no PREFIX block, so this is a SPARQL "
+            f"syntax error at Fuseki:\n---\n{body}\n---"
+        )
+
+
+def test_sustainment_batch_iri_is_the_document_not_a_component():
+    """Fact 2 (spec_jena_writer.md): ``upsert()`` is DELETE-by-subject then
+    INSERT in one request — it deletes every triple previously written for
+    ``iri`` within ``graph`` before inserting the new ones. Measured live in
+    ``<http://internal/SUSTAINMENT_INSTANCES>``: 468 distinct
+    ``http://internal/components/{mpn}`` subjects across only 7 notices, many
+    carrying 3 ``pcn:subjectToNotice`` edges apiece — keying the upsert on a
+    component IRI would delete OTHER notices' edges on every re-extraction.
+    So the sustainment batch's ``iri`` must be the notice document IRI
+    (``http://internal/sustainment/doc/{safe_notice_id}``), never one of the
+    ``http://internal/components/{mpn}`` subjects that also appear inside its
+    own ``triples``.
+    """
+    plugin, node = _build_sustainment_node()
+    _, sparql_batches = plugin.to_graph_queries(
+        [node], _FakeConfig(), doc_id="LIVE-SUS-001", image_prefix=""
+    )
+    assert sparql_batches, "sustainment plugin produced no SPARQL batches"
+    for i, batch in enumerate(sparql_batches):
+        assert batch["iri"].startswith("http://internal/sustainment/doc/"), (
+            f"sustainment batch #{i}: iri={batch['iri']!r} is not a notice "
+            f"document IRI"
+        )
+        assert not batch["iri"].startswith("http://internal/components/"), (
+            f"sustainment batch #{i}: iri={batch['iri']!r} is a component "
+            f"IRI — an upsert keyed on it would delete OTHER notices' "
+            f"edges to that shared component (fact 2)"
+        )
+        # The component IRIs referenced INSIDE this batch's triples are a
+        # different, shared subject — they must be inserted, never chosen
+        # as the delete-by-subject key.
+        component_iris_in_triples = {
+            term.strip("<>")
+            for triple in batch["triples"]
+            for term in triple.split()
+            if term.startswith("<http://internal/components/")
+        }
+        assert batch["iri"] not in component_iris_in_triples, (
+            f"sustainment batch #{i}: iri equals a component IRI that also "
+            f"appears inside its own triples ({batch['iri']!r})"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Live Jena tier — runs only when JENA_INTEGRATION_URL is set
+# ---------------------------------------------------------------------------
+
 @pytest.mark.parametrize("plugin_builder,name", [
     (_build_maintenance_node, "maintenance"),
     (_build_manufacturing_node, "manufacturing"),
@@ -408,41 +513,43 @@ class _FakeConfig:
     (_build_sustainment_node, "sustainment"),
 ], ids=["maintenance", "manufacturing", "compliance", "sustainment"])
 def test_plugin_dirty_sparql_executes_against_live_jena(plugin_builder, name, dirty_doc_id):
-    """End-to-end across all plugins: plugin → SPARQL → live Fuseki → HTTP 204.
+    """End-to-end across all plugins: plugin → SPARQL batch → live Fuseki → applied.
 
-    Each parametrize case constructs that plugin's dirty-input
-    DocumentNode, gets the generated SPARQL list, and POSTs every
-    query to live Fuseki via JenaClient. If anything regresses
-    (escape helper deleted, a plugin field bypasses it, a new
-    plugin schema adds an unescaped literal), the failing case
+    Each parametrize case constructs that plugin's dirty-input DocumentNode,
+    gets the generated SPARQL batches, and upserts every one to live Fuseki
+    via JenaOntologyWriter (iagent-mesh SDK v0.9.8). If anything regresses
+    (escape helper deleted, a plugin field bypasses it, a new plugin schema
+    adds an unescaped literal or a bare prefixed name), the failing case
     pinpoints the offending plugin.
     """
     _maybe_skip_no_jena()
-    from doc_tools.utils.jena_client import JenaClient
+    from iagent_mesh.interfaces import Initiator
+    from iagent_mesh.writers.jena import JenaOntologyWriter
 
     plugin, node = plugin_builder()
-    _, sparql_qs = plugin.to_graph_queries(
+    _, sparql_batches = plugin.to_graph_queries(
         [node], _FakeConfig(), doc_id=dirty_doc_id, image_prefix=""
     )
-    assert sparql_qs, f"{name} plugin produced no SPARQL"
+    assert sparql_batches, f"{name} plugin produced no SPARQL"
 
-    client = JenaClient(
-        url=os.environ["JENA_INTEGRATION_URL"],
+    writer = JenaOntologyWriter(
+        base_url=os.environ["JENA_INTEGRATION_URL"],
         dataset=os.environ.get("JENA_INTEGRATION_DS", "ds"),
-        username=os.environ.get("JENA_INTEGRATION_USER", "admin"),
-        password=os.environ.get("JENA_INTEGRATION_PASSWORD", ""),
+    )
+    initiator = Initiator(
+        subject="test_plugin_sparql_integration", kind="delegate", on_behalf_of="doc-tools-tests"
     )
     failures = []
-    for i, sparql in enumerate(sparql_qs):
+    for i, batch in enumerate(sparql_batches):
         try:
-            r = client.execute_update(
-                sparql, graph_uri=f"http://internal/{plugin.domain_label}_INSTANCES"
+            result = writer.upsert(
+                initiator, graph=batch["graph"], iri=batch["iri"], triples=batch["triples"]
             )
-            if r.status_code != 204:
-                failures.append((i, f"unexpected status {r.status_code}", sparql))
+            if not result.applied:
+                failures.append((i, f"outcome={result.outcome!r} detail={result.detail!r}", batch))
         except Exception as e:
-            failures.append((i, f"{type(e).__name__}: {str(e)[:150]}", sparql))
+            failures.append((i, f"{type(e).__name__}: {str(e)[:150]}", batch))
     assert not failures, (
-        f"{name}: {len(failures)} of {len(sparql_qs)} SPARQL queries failed:\n"
-        + "\n".join(f"  #{i}: {reason}\n     {sp[:200]}" for i, reason, sp in failures)
+        f"{name}: {len(failures)} of {len(sparql_batches)} SPARQL batches failed:\n"
+        + "\n".join(f"  #{i}: {reason}\n     {b}" for i, reason, b in failures)
     )
