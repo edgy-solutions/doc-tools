@@ -1,0 +1,10 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('Synthetic test part'),'2;1');
+FILE_NAME('synthetic_bracket.stp','2026-01-15T10:30:00',('A. Tester'),('Example Org'),'PreProc 1.0','TestCAD 1.0','');
+FILE_SCHEMA(('AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF { 1 0 10303 442 1 1 4 }'));
+ENDSEC;
+DATA;
+#10=APPLICATION_CONTEXT('managed model based 3d engineering');
+ENDSEC;
+END-ISO-10303-21;
