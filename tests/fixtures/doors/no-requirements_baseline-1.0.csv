@@ -1,0 +1,23 @@
+Module: /Widget Program/Requirements/SYN-NOREQ-003
+Module Name: SYN-NOREQ-003 Widget Concept Notes
+Prefix: NRQ
+Baseline: 1.0
+Project: Widget Program
+CAGE Code: 9ZZ99
+Contract Number: SYN-24-C-0002
+Document Number: SYN-NOREQ-003
+Revision: A
+Exported On: 01 January 2026 09:00:00
+
+Object Identifier,Object Level,Object Heading,Object Text,Object Type,Absolute Number
+NRQ-1,1,Introduction,,Heading,1
+NRQ-2,2,,This note describes the widget concept and carries no requirements.,Information,2
+NRQ-3,1,Interfaces,,Heading,3
+NRQ-4,2,,The widget exposes two discrete channels.,Information,4
+NRQ-5,2,,,Table,5
+NRQ-6,3,,,Table Row,6
+NRQ-7,4,,Channel,Table Cell,7
+NRQ-8,4,,Rate (Hz),Table Cell,8
+NRQ-9,3,,,Table Row,9
+NRQ-10,4,,A,Table Cell,10
+NRQ-11,4,,10,Table Cell,11

@@ -64,7 +64,8 @@ from __future__ import annotations
 import csv
 import io
 import json
-from dataclasses import dataclass, field
+from collections import Counter
+from dataclasses import asdict, dataclass, field
 from typing import Iterable, Mapping, Sequence
 
 
@@ -395,4 +396,144 @@ def parse_doors_export(text: str) -> DoorsExport:
         module_attributes=module_attributes,
         objects=tuple(objects),
         tables=tuple(tables),
+    )
+
+
+# ---------------------------------------------------------------------------
+# doors.requirements_rows -- requirements are outline OBJECTS, not table rows
+# ---------------------------------------------------------------------------
+#
+# PLACEMENT IS LOAD-BEARING. ``candidate_modules("doors")`` matches every module
+# whose stem is ``doors`` or starts with ``doors_``, and ``run_pass`` refuses a
+# name that resolves in more than one. This is the only ``doors*`` module, so a
+# collision is impossible; a second one -- even one that merely IMPORTS this
+# symbol -- would manufacture a second hit through ``getattr``.
+#
+# Measured on tests/fixtures/doors/SRS-MRAD-001_baseline-2.1.csv: the
+# requirements are the outline objects whose ``Object Type`` is "Requirement"
+# (SRS-5, SRS-6, SRS-7, SRS-9). The two tables in that module are an interface
+# latency budget and a Verification Cross Reference matrix; neither holds
+# requirement text. An earlier design scanned tables for "Requirement ID" /
+# "Requirement Text" headers; that shape does not occur in a DOORS export.
+
+#: The matched ``Object Type``, compared ``.strip().casefold()``. The refusal
+#: names the types actually seen, so a site that calls them something else is
+#: diagnosable from the error alone.
+REQUIREMENT_OBJECT_TYPE = "requirement"
+
+
+def _is_requirement(o: DoorsObject) -> bool:
+    return o.object_type.strip().casefold() == REQUIREMENT_OBJECT_TYPE
+
+
+@dataclass(frozen=True)
+class RequirementRow:
+    """One requirement object, with the module identity on every row."""
+
+    identifier: str
+    text: str
+    section_path: tuple[str, ...]
+    object_type: str
+    attributes: Mapping[str, str]
+    identity: DoorsIdentity
+
+    def as_dict(self) -> dict:
+        """Plain JSON-safe data (the Dagster IO manager needs it)."""
+        return {
+            "identifier": self.identifier,
+            "text": self.text,
+            "section_path": list(self.section_path),
+            "object_type": self.object_type,
+            "attributes": dict(self.attributes),
+            "identity": asdict(self.identity),
+        }
+
+
+@dataclass(frozen=True)
+class RequirementsRows:
+    """Requirement rows in document order.
+
+    ``supporting_table_anchor_ids`` are tier-1 table anchors, REFERENCE ONLY.
+    They are NOT requirement content: they are the tables requirement text
+    refers to (SRS-9 names "Table 1"), reachable through
+    ``DoorsExport.artifacts()``.
+    """
+
+    identity: DoorsIdentity
+    rows: tuple[RequirementRow, ...]
+    supporting_table_anchor_ids: tuple[str, ...]
+
+    def as_dict(self) -> dict:
+        """Plain data. The ingest asset flattens a pass value through ``as_dict``
+        and passes anything without one through RAW, which would put a
+        dataclass into an IO manager and Dagster metadata."""
+        return {
+            "identity": asdict(self.identity),
+            "rows": [r.as_dict() for r in self.rows],
+            "supporting_table_anchor_ids": list(self.supporting_table_anchor_ids),
+        }
+
+
+def _section_path(objects: Sequence[DoorsObject], index: int) -> tuple[str, ...]:
+    """Enclosing Heading titles, outermost first: walk back from ``index`` taking
+    the nearest preceding heading with a strictly smaller level, repeatedly."""
+    path: list[str] = []
+    bound = objects[index].level
+    for o in reversed(objects[:index]):
+        if o.is_heading and o.level < bound:
+            path.append(o.heading or "")
+            bound = o.level
+            if bound <= 1:
+                break
+    path.reverse()
+    return tuple(path)
+
+
+def requirements_rows(text: str) -> RequirementsRows:
+    """Requirement rows read from the OBJECTS of a DOORS export.
+
+    Deterministic; no LLM. Refuses (``DoorsParseError``) when: no object has the
+    requirement type (the message carries a Counter of the types present); a
+    matched object has empty or missing text; or two matched objects share an
+    identifier.
+    """
+    export = parse_doors_export(text)
+    matched = [(i, o) for i, o in enumerate(export.objects) if _is_requirement(o)]
+
+    if not matched:
+        seen = Counter(o.object_type for o in export.objects)
+        raise DoorsParseError(
+            f"no object has Object Type {REQUIREMENT_OBJECT_TYPE!r} "
+            f"(compared strip().casefold()). Object types present: "
+            f"{dict(seen)}. Requirements in a DOORS export are outline objects, "
+            f"not table rows; scanning tables for them was the previous, wrong, "
+            f"design. If this site names the type differently change "
+            f"REQUIREMENT_OBJECT_TYPE; if the counts show none, the module has "
+            f"no requirements.")
+
+    rows: list[RequirementRow] = []
+    seen_ids: set[str] = set()
+    for i, o in matched:
+        if o.text is None or not o.text.strip():
+            raise DoorsParseError(
+                f"requirement {o.identifier!r} has empty or missing Object Text; "
+                f"a requirement with no text is not a row.")
+        if o.identifier in seen_ids:
+            raise DoorsParseError(
+                f"two requirement objects share identifier {o.identifier!r}; "
+                f"keying by identifier would collide silently.")
+        seen_ids.add(o.identifier)
+        rows.append(RequirementRow(
+            identifier=o.identifier,
+            text=o.text,
+            section_path=_section_path(export.objects, i),
+            object_type=o.object_type,
+            attributes=dict(o.attributes),
+            identity=export.identity,
+        ))
+
+    return RequirementsRows(
+        identity=export.identity,
+        rows=tuple(rows),
+        supporting_table_anchor_ids=tuple(t.anchor_id for t in export.tier1_tables),
     )

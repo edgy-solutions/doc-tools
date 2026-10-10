@@ -6,5 +6,6 @@
 kind: doors-export
 passes:
   - identity.identity_from_doors_text
+  - doors.requirements_rows
 outputs:
   - mesh:DoorsExportArtifact
