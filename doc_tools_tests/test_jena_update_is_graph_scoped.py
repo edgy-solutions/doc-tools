@@ -1,47 +1,46 @@
-"""Seal for the Jena-writer graph-scoping fix.
+"""Seal for the Jena-writer graph-scoping guarantee.
 
-The defect: of the four SPARQL-emitting plugins, only ``sustainment.py``
-wrapped its triples in a ``GRAPH <...>`` clause. The other three
-(``compliance``, ``maintenance``, ``manufacturing``) emitted a bare
-``INSERT DATA``, which lands in Jena's default graph — invisible to the
+The defect this file originally sealed: of the four SPARQL-emitting plugins,
+only ``sustainment.py`` wrapped its triples in a ``GRAPH <...>`` clause. The
+other three (``compliance``, ``maintenance``, ``manufacturing``) emitted a
+bare ``INSERT DATA``, which lands in Jena's default graph — invisible to the
 mesh resolver, which scopes every read to
-``<http://internal/{DOMAIN}>`` union ``<http://internal/{DOMAIN}_INSTANCES>``.
+``<http://internal/{DOMAIN}>`` union ``<http://internal/{DOMAIN}_INSTANCES>``
+(see the "Domain Semantic Graph" invariant in AGENTS.md).
 
-The fix moves scoping into the single writer, ``JenaClient.execute_update``,
-so a plugin cannot emit an unscoped insert: an already-scoped body passes
-through unchanged, an unscoped body gets wrapped in
-``GRAPH <http://internal/{DOMAIN}_INSTANCES>``, and a body that cannot be
-scoped (no ``INSERT DATA``, unbalanced braces, unsafe graph_uri) is refused
-via ``UnscopedUpdateError`` rather than silently sent to the default graph.
+THE MECHANISM CHANGED (iagent-mesh SDK v0.9.8,
+``iagent_mesh.writers.jena.JenaOntologyWriter``), but the invariant it
+protects did not. A plugin no longer emits a raw SPARQL Update string that a
+downstream writer might have to detect and wrap; it emits a
+``{"graph": ..., "iri": ..., "triples": [...]}`` batch (built by
+``doc_tools.plugins.base.sparql_batch``), and ``graph`` is a REQUIRED keyword
+argument to ``JenaOntologyWriter.upsert()`` — there is no optional-graph
+overload and no raw-SPARQL passthrough, so an unscoped write is not a call a
+plugin can make anymore. ``upsert()`` additionally REFUSES (rather than
+silently defaulting) any ``graph`` that is empty or contains a character that
+could break out of the ``GRAPH <...>`` IRI reference it builds internally
+(``<``, ``>``, or whitespace) — the same injection concern the old
+``scope_update_to_graph`` used to guard by hand.
 
 This file has two parts:
 
-1. Per-plugin outcome tests (parametrized over all four real plugins, using
-   the fixture builders from ``test_plugin_sparql_integration.py``): whatever
-   ``execute_update`` would decide to do to each plugin's real SPARQL output,
-   the final body must end up with exactly one GRAPH clause naming the
-   correct INSTANCES graph, with balanced braces. This is deliberately an
-   outcome assertion, not a "which side scoped it" assertion, so it does not
-   break if a plugin is later fixed to self-scope.
-2. Writer-level unit tests of ``update_is_graph_scoped`` /
-   ``scope_update_to_graph`` / ``execute_update`` in isolation, with
-   ``httpx.Client`` patched so nothing touches the network.
+1. Per-plugin outcome seal (parametrized over all four real plugins, using
+   the fixture builders from ``test_plugin_sparql_integration.py``): every
+   batch a real plugin emits carries a well-formed ``graph`` naming its own
+   domain's INSTANCES graph, and the writer accepts it (a mocked 200 from
+   Fuseki resolves to ``result.applied``).
+2. Writer-level unit tests: ``JenaOntologyWriter.upsert()`` refuses an empty
+   or malformed ``graph`` — ``result.applied`` is ``False`` and, crucially,
+   no HTTP request is made at all (``httpx.post`` is asserted not called).
 """
 from __future__ import annotations
 
-import re
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from doc_tools.utils.jena_client import (
-    JenaClient,
-    UnscopedUpdateError,
-    _ordinary_mask,
-    escape_sparql_string,
-    scope_update_to_graph,
-    update_is_graph_scoped,
-)
+from iagent_mesh.interfaces import Initiator
+from iagent_mesh.writers.jena import JenaOntologyWriter
 
 # Reuse the existing per-plugin fixture builders rather than duplicating them.
 # There's no conftest.py / __init__.py in doc_tools_tests/, so pytest's default
@@ -56,29 +55,11 @@ from test_plugin_sparql_integration import (  # noqa: E402
 )
 
 
-def _count_graph_clauses(body: str) -> int:
-    """Count GRAPH occurrences at ordinary (non-literal/IRI/comment)
-    positions — the same rule execute_update uses to decide scoping."""
-    mask = _ordinary_mask(body)
-    count = 0
-    for m in re.finditer(r"\bGRAPH\b", body, re.IGNORECASE):
-        if mask[m.start()]:
-            count += 1
-    return count
-
-
-def _braces_balanced(body: str) -> bool:
-    mask = _ordinary_mask(body)
-    depth = 0
-    for i, ch in enumerate(body):
-        if mask[i]:
-            if ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth < 0:
-                    return False
-    return depth == 0
+def _initiator() -> Initiator:
+    # A Dagster run is non-human: kind="delegate" is the admitted non-person
+    # kind for a write (kind="service" is refused — see Initiator.require_
+    # person_or_delegate in the pinned SDK source).
+    return Initiator(subject="test-run", kind="delegate", on_behalf_of="doc-tools-tests")
 
 
 # ---------------------------------------------------------------------------
@@ -91,111 +72,66 @@ def _braces_balanced(body: str) -> bool:
     (_build_compliance_node, "compliance"),
     (_build_sustainment_node, "sustainment"),
 ], ids=["maintenance", "manufacturing", "compliance", "sustainment"])
-def test_plugin_sparql_ends_up_scoped_to_instances_graph(plugin_builder, name):
-    """Whatever execute_update's decision logic would do to each plugin's
-    real SPARQL output, the final body must contain exactly one GRAPH
-    clause naming <http://internal/{DOMAIN}_INSTANCES>, with balanced
-    braces — regardless of whether the plugin or the writer did the
-    scoping."""
+def test_plugin_batches_carry_well_formed_instances_graph(plugin_builder, name):
+    """Every batch a real plugin emits names its own domain's INSTANCES graph,
+    and JenaOntologyWriter accepts it (does not refuse for a graph reason)."""
     plugin, node = plugin_builder()
-    _, sparql_qs = plugin.to_graph_queries(
+    _, sparql_batches = plugin.to_graph_queries(
         [node], _FakeConfig(), doc_id="TEST-DOC-001", image_prefix=""
     )
-    assert sparql_qs, f"{name} plugin produced no SPARQL"
+    assert sparql_batches, f"{name} plugin produced no SPARQL batches"
 
-    graph_uri = f"http://internal/{plugin.domain_label}_INSTANCES"
-    for i, body in enumerate(sparql_qs):
-        if update_is_graph_scoped(body):
-            final = body
-        else:
-            final = scope_update_to_graph(body, graph_uri)
+    expected_graph = f"http://internal/{plugin.domain_label}_INSTANCES"
+    writer = JenaOntologyWriter(base_url="http://jena:3030", dataset="ds")
+    initiator = _initiator()
 
-        assert _count_graph_clauses(final) == 1, (
-            f"{name} query #{i}: expected exactly one GRAPH clause, got "
-            f"{_count_graph_clauses(final)}\n---\n{final}\n---"
+    for i, batch in enumerate(sparql_batches):
+        assert batch["graph"] == expected_graph, (
+            f"{name} batch #{i}: expected graph={expected_graph!r}, got "
+            f"{batch['graph']!r}"
         )
-        assert f"GRAPH <{graph_uri}>" in final, (
-            f"{name} query #{i}: expected GRAPH <{graph_uri}> in body\n"
-            f"---\n{final}\n---"
-        )
-        assert _braces_balanced(final), (
-            f"{name} query #{i}: unbalanced braces after scoping\n---\n{final}\n---"
+        with patch("iagent_mesh.writers.jena.httpx.post") as mock_post:
+            mock_post.return_value = MagicMock(status_code=200)
+            result = writer.upsert(
+                initiator, graph=batch["graph"], iri=batch["iri"], triples=batch["triples"]
+            )
+        assert result.applied, (
+            f"{name} batch #{i}: writer refused a real plugin-emitted graph "
+            f"({batch['graph']!r}): outcome={result.outcome!r} detail={result.detail!r}"
         )
 
 
 # ---------------------------------------------------------------------------
-# Part 2 — writer-level unit tests
+# Part 2 — writer-level refusal seal
 # ---------------------------------------------------------------------------
 
-@patch("doc_tools.utils.jena_client.httpx.Client")
-def test_unscoped_body_with_no_graph_uri_raises_and_makes_no_request(mock_client_cls):
-    client = JenaClient(url="http://jena:3030", dataset="ds", username="u", password="p")
-    with pytest.raises(UnscopedUpdateError):
-        client.execute_update("INSERT DATA { <a> <b> <c> }")
-    mock_client_cls.assert_not_called()
-
-
-@patch("doc_tools.utils.jena_client.httpx.Client")
-def test_already_scoped_body_is_sent_byte_identical(mock_client_cls):
-    inner_client = MagicMock()
-    mock_client_cls.return_value.__enter__.return_value = inner_client
-    inner_client.post.return_value = MagicMock(raise_for_status=lambda: None)
-
-    body = "INSERT DATA { GRAPH <http://internal/FOO_INSTANCES> { <a> <b> <c> } }"
-    JenaClient(url="http://jena:3030", dataset="ds", username="u", password="p").execute_update(
-        body, graph_uri="http://internal/FOO_INSTANCES"
-    )
-
-    sent = inner_client.post.call_args.kwargs["content"].decode("utf-8")
-    assert sent == body
-    assert _count_graph_clauses(sent) == 1
-
-
-def test_literal_containing_braces_is_wrapped_without_breaking_on_inner_braces():
-    dirty = escape_sparql_string('summary with { and } inside it')
-    body = (
-        'PREFIX ex: <http://example.com/>\n'
-        'INSERT DATA {\n'
-        f'  ex:s ex:hasSummary "{dirty}" .\n'
-        '  ex:s ex:hasTrailer "after-literal" .\n'
-        '}'
-    )
-    assert not update_is_graph_scoped(body)
-    wrapped = scope_update_to_graph(body, "http://internal/FOO_INSTANCES")
-
-    assert _count_graph_clauses(wrapped) == 1
-    assert _braces_balanced(wrapped)
-    assert 'ex:hasTrailer "after-literal"' in wrapped
-    # The trailing triple (emitted after the brace-laden literal) must be
-    # INSIDE the GRAPH clause, i.e. before the final closing braces.
-    graph_pos = wrapped.index("GRAPH <http://internal/FOO_INSTANCES>")
-    trailer_pos = wrapped.index('ex:hasTrailer "after-literal"')
-    assert graph_pos < trailer_pos
-
-
-def test_literal_containing_the_word_graph_is_not_treated_as_scoped():
-    dirty = escape_sparql_string('mentions GRAPH inside text')
-    body = (
-        'PREFIX ex: <http://example.com/>\n'
-        'INSERT DATA {\n'
-        f'  ex:s ex:hasNote "{dirty}" .\n'
-        '}'
-    )
-    assert not update_is_graph_scoped(body)
-    wrapped = scope_update_to_graph(body, "http://internal/FOO_INSTANCES")
-    assert _count_graph_clauses(wrapped) == 1
-    assert _braces_balanced(wrapped)
-
-
-@pytest.mark.parametrize("bad_uri", [
+@pytest.mark.parametrize("bad_graph", [
+    "",
+    "   ",
     "http://internal/FOO>",
     "http://internal/FOO BAR",
+    "<http://internal/FOO>",
 ])
-def test_unsafe_graph_uri_raises(bad_uri):
-    with pytest.raises(UnscopedUpdateError):
-        scope_update_to_graph("INSERT DATA { <a> <b> <c> }", bad_uri)
+def test_upsert_refuses_empty_or_malformed_graph_and_makes_no_request(bad_graph):
+    writer = JenaOntologyWriter(base_url="http://jena:3030", dataset="ds")
+    with patch("iagent_mesh.writers.jena.httpx.post") as mock_post:
+        result = writer.upsert(
+            _initiator(), graph=bad_graph, iri="http://internal/x", triples=["<a> <b> <c> ."]
+        )
+    assert not result.applied
+    assert result.outcome == "refused"
+    mock_post.assert_not_called()
 
 
-def test_body_with_no_insert_data_raises_rather_than_sending_unscoped():
-    with pytest.raises(UnscopedUpdateError):
-        scope_update_to_graph("DELETE WHERE { ?s ?p ?o }", "http://internal/FOO_INSTANCES")
+def test_upsert_accepts_a_well_formed_graph_and_posts_once():
+    writer = JenaOntologyWriter(base_url="http://jena:3030", dataset="ds")
+    with patch("iagent_mesh.writers.jena.httpx.post") as mock_post:
+        mock_post.return_value = MagicMock(status_code=200)
+        result = writer.upsert(
+            _initiator(),
+            graph="http://internal/TEST_INSTANCES",
+            iri="http://internal/x",
+            triples=["<a> <b> <c> ."],
+        )
+    assert result.applied
+    mock_post.assert_called_once()

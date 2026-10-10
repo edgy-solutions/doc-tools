@@ -31,7 +31,7 @@ from typing import List, Optional, Tuple, Any, Dict
 
 from pydantic import BaseModel, Field
 
-from doc_tools.plugins.base import AugmentationPlugin, PromptUnavailableError
+from doc_tools.plugins.base import AugmentationPlugin, PromptUnavailableError, sparql_batch
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.jena_client import escape_sparql_string
 from doc_tools.utils import provenance
@@ -1844,7 +1844,7 @@ class SustainmentPlugin(AugmentationPlugin):
 
     def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "",
                          image_prefix: str = "",
-                         provenance: Optional[Dict[str, Any]] = None) -> Tuple[List[str], List[str]]:
+                         provenance: Optional[Dict[str, Any]] = None) -> Tuple[List[str], List[Dict[str, Any]]]:
         """`provenance` is the ADR-0041 block (doc_tools/utils/ingest_provenance.py's
         `as_dict()` output) off the manifest — present only for documents that
         arrived via a non-vetted path (e.g. the ingress-user sensor). When absent
@@ -1855,7 +1855,7 @@ class SustainmentPlugin(AugmentationPlugin):
         manifest at all.
         """
         cypher_queries: List[dict] = []
-        sparql_queries: List[str] = []
+        sparql_queries: List[Dict[str, Any]] = []
 
         for node in nodes:
             sec = node.base_extraction
@@ -1949,20 +1949,22 @@ class SustainmentPlugin(AugmentationPlugin):
                     },
                 })
 
-            # --- JENA SPARQL/RDF ---
+            # --- JENA RDF (batch dict for JenaOntologyWriter.upsert) ---
             # notice.doc_id is already normalized at finalization; normalize again
             # here (idempotent) so the graph IRI keys on the SAME canonical slug as
             # review.json / the workflow id. (safe_mpn below stays a bare space->_
             # replace — MPNs keep '#' reel codes verbatim as provenance join keys.)
             safe_notice_id = norm.normalize_doc_id(notice.doc_id)
+            PCN_NS = "http://internal/sustainment/pcn#"
+            XSD_NS = "http://www.w3.org/2001/XMLSchema#"
             if str(notice.doc_type).upper() == "PDN":
-                notice_class = "pcn:ProductDiscontinuationNotice"
+                notice_class = f"<{PCN_NS}ProductDiscontinuationNotice>"
             else:
-                notice_class = "pcn:ProcessChangeNotification"
+                notice_class = f"<{PCN_NS}ProcessChangeNotification>"
 
             # Scope instance data to the domain's INSTANCE graph, NOT the vocabulary graph.
-            # Two reasons, one invariant: (1) an unscoped INSERT DATA lands in Jena's DEFAULT
-            # graph where the mesh can't see it (the graph-name/semantic-domain seam); (2) the
+            # Two reasons, one invariant: (1) an unscoped write lands in Jena's DEFAULT graph
+            # where the mesh can't see it (the graph-name/semantic-domain seam); (2) the
             # vocabulary graph <http://internal/{DOMAIN}> is MANIFEST-reproducible and gets
             # DROP-first wiped on every prime re-ingest — runtime INSTANCE data is NOT
             # reproducible, so it must live in a graph prime never touches. Producers with
@@ -1970,33 +1972,40 @@ class SustainmentPlugin(AugmentationPlugin):
             # 'SUSTAINMENT' -> instances land in <http://internal/SUSTAINMENT_INSTANCES>, which
             # the pcn resolveInstance provider queries and clear_ontology_graphs never drops.
             graph_uri = f"http://internal/{self.domain_label}_INSTANCES"
-            sparql = f"""
-            PREFIX pcn: <http://internal/sustainment/pcn#>
-            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+            doc_iri = f"http://internal/sustainment/doc/{safe_notice_id}"
 
-            INSERT DATA {{
-              GRAPH <{graph_uri}> {{
-                <http://internal/sustainment/doc/{safe_notice_id}> a {notice_class} .
-            """
+            # `iri` for the upsert MUST be the notice document IRI, never a component
+            # IRI: upsert() deletes every triple it previously wrote for `iri` before
+            # inserting the new ones. Measured live in SUSTAINMENT_INSTANCES: 468
+            # distinct http://internal/components/{mpn} subjects across only 7
+            # notices, several carrying 3 pcn:subjectToNotice edges apiece -- keying
+            # the upsert on a component IRI would delete two OTHER notices' edges.
+            # The component triples below still name a component as their subject;
+            # they are only ever INSERTED here, never the delete key, because the
+            # upsert's `iri` is doc_iri.
+            triples = [f"<{doc_iri}> a {notice_class} ."]
             for cat in notice.categories:
                 safe_cat = str(cat).replace(' ', '_')
-                sparql += f"""
-                <http://internal/sustainment/doc/{safe_notice_id}> pcn:hasChangeCategory pcn:{safe_cat} .
-                """
+                triples.append(
+                    f"<{doc_iri}> <{PCN_NS}hasChangeCategory> <{PCN_NS}{safe_cat}> ."
+                )
             for part in notice.impacted_parts:
                 safe_mpn = part.affected_mpn.replace(' ', '_')
-                sparql += f"""
-                <http://internal/components/{safe_mpn}> pcn:subjectToNotice <http://internal/sustainment/doc/{safe_notice_id}> .
-                """
+                component_iri = f"http://internal/components/{safe_mpn}"
+                triples.append(
+                    f"<{component_iri}> <{PCN_NS}subjectToNotice> <{doc_iri}> ."
+                )
                 if part.ltb_date:
-                    sparql += f"""
-                    <http://internal/components/{safe_mpn}> pcn:hasLastTimeBuyDate "{escape_sparql_string(part.ltb_date)}"^^xsd:date .
-                    """
+                    triples.append(
+                        f'<{component_iri}> <{PCN_NS}hasLastTimeBuyDate> '
+                        f'"{escape_sparql_string(part.ltb_date)}"^^<{XSD_NS}date> .'
+                    )
                 if part.replacement_mpn:
                     safe_rep = part.replacement_mpn.replace(' ', '_')
-                    sparql += f"""
-                    <http://internal/components/{safe_mpn}> pcn:hasReplacement <http://internal/components/{safe_rep}> .
-                    """
+                    replacement_iri = f"http://internal/components/{safe_rep}"
+                    triples.append(
+                        f"<{component_iri}> <{PCN_NS}hasReplacement> <{replacement_iri}> ."
+                    )
             # ADR-0041 — the two provenance fields the SDK maps onto PROV terms,
             # written into the SAME GRAPH <..._INSTANCES> block above (never the
             # default graph — invisible to the mesh resolver — and never the
@@ -2010,16 +2019,14 @@ class SustainmentPlugin(AugmentationPlugin):
 
                 ingested_at = provenance.get("ingested_at")
                 if ingested_at:
-                    sparql += f"""
-                <http://internal/sustainment/doc/{safe_notice_id}> <{PROV_GENERATED_AT}> "{escape_sparql_string(ingested_at)}"^^xsd:dateTime .
-                """
+                    triples.append(
+                        f'<{doc_iri}> <{PROV_GENERATED_AT}> '
+                        f'"{escape_sparql_string(ingested_at)}"^^<{XSD_NS}dateTime> .'
+                    )
                 derived_from = provenance.get("derived_from")
                 if derived_from:
-                    sparql += f"""
-                <http://internal/sustainment/doc/{safe_notice_id}> <{PROV_DERIVED_FROM}> <{derived_from}> .
-                """
+                    triples.append(f"<{doc_iri}> <{PROV_DERIVED_FROM}> <{derived_from}> .")
 
-            sparql += "  }\n}"  # close GRAPH, then INSERT DATA
-            sparql_queries.append(sparql)
+            sparql_queries.append(sparql_batch(graph=graph_uri, iri=doc_iri, triples=triples))
 
         return cypher_queries, sparql_queries

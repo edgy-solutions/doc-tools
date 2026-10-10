@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
-from doc_tools.plugins.base import AugmentationPlugin
+from doc_tools.plugins.base import AugmentationPlugin, sparql_batch
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
 from doc_tools.utils.jena_client import escape_sparql_string
@@ -200,10 +200,16 @@ class MaintenancePlugin(AugmentationPlugin):
             domain_augmentation=None
         )
 
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[Dict[str, Any]]]:
         cypher_queries = []
         sparql_queries = []
-        
+        # Scope instance data to the domain's INSTANCE graph, NOT the vocabulary graph —
+        # see the "Domain Semantic Graph" invariant in AGENTS.md. This plugin previously
+        # emitted an unscoped INSERT DATA, which landed in Jena's default graph, invisible
+        # to the mesh resolver.
+        graph_uri = f"http://internal/{self.domain_label}_INSTANCES"
+        MRO_NS = "http://example.com/maintenance#"
+
         for node in nodes:
             sec = node.base_extraction
             aug = node.domain_augmentation
@@ -323,44 +329,44 @@ class MaintenancePlugin(AugmentationPlugin):
                     }
                 })
                 
-                # --- JENA SPARQL/RDF ---
-                sparql = f"""
-                PREFIX mro: <http://example.com/maintenance#>
-                
-                INSERT DATA {{
-                    mro:{step_node_id} a mro:MaintenanceStep ;
-                        mro:hasAction "{escape_sparql_string(step.action_verb)}" ;
-                        mro:hasText "{escape_sparql_string(step.instruction_text)}" .
-                """
+                # --- JENA RDF (batch dict for JenaOntologyWriter.upsert) ---
+                step_iri = f"{MRO_NS}{step_node_id}"
+                triples = [
+                    f'<{step_iri}> a <{MRO_NS}MaintenanceStep> .',
+                    f'<{step_iri}> <{MRO_NS}hasAction> "{escape_sparql_string(step.action_verb)}" .',
+                    f'<{step_iri}> <{MRO_NS}hasText> "{escape_sparql_string(step.instruction_text)}" .',
+                ]
 
                 if step.standard_ref:
                     safe_std = step.standard_ref.replace("-", "").replace(" ", "_")
-                    sparql += f"""
-                        mro:{step_node_id} mro:governedBy mro:{safe_std}_Standard .
-                    """
+                    triples.append(
+                        f"<{step_iri}> <{MRO_NS}governedBy> <{MRO_NS}{safe_std}_Standard> ."
+                    )
 
                 if step.tooling:
                     for t in step.tooling:
-                        sparql += f"""
-                            mro:{step_node_id} mro:usesTool "{escape_sparql_string(t)}" .
-                        """
+                        triples.append(
+                            f'<{step_iri}> <{MRO_NS}usesTool> "{escape_sparql_string(t)}" .'
+                        )
 
                 if step.consumables:
                     for c in step.consumables:
-                        sparql += f"""
-                            mro:{step_node_id} mro:consumesMaterial "{escape_sparql_string(c)}" .
-                        """
+                        triples.append(
+                            f'<{step_iri}> <{MRO_NS}consumesMaterial> "{escape_sparql_string(c)}" .'
+                        )
 
                 if step.figure_references:
                     for fig in step.figure_references:
                         safe_fig = fig.replace(" ", "_").replace('"', '')
-                        sparql += f"""
-                            mro:{step_node_id} mro:referencesFigure mro:fig_{safe_fig} .
-                            mro:fig_{safe_fig} a mro:Figure .
-                        """
-                        
-                sparql += "}"
-                
-                sparql_queries.append(sparql)
-                
+                        # mro:fig_{safe_fig} names a DIFFERENT, shared subject — it stays
+                        # in `triples` (inserted, never deleted), it must not become `iri`.
+                        triples.append(
+                            f"<{step_iri}> <{MRO_NS}referencesFigure> <{MRO_NS}fig_{safe_fig}> ."
+                        )
+                        triples.append(f"<{MRO_NS}fig_{safe_fig}> a <{MRO_NS}Figure> .")
+
+                sparql_queries.append(
+                    sparql_batch(graph=graph_uri, iri=step_iri, triples=triples)
+                )
+
         return cypher_queries, sparql_queries
