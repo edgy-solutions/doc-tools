@@ -59,9 +59,14 @@
         "mfr": {
           "value": "TE Connectivity",
           "source": "Page 1, centred heading directly under the TE logo: 'TE Connectivity'.",
+          "accepted": {
+            "_rule": "ACCEPTED-VERBATIM SET, ruled 2026-10-09. `value` above stays the CANONICAL form; every non-underscore key here is a verbatim-correct reading of THIS notice, and comparison is canonical-after-alias -- a written string is mapped to its canonical form FIRST, and only canonical forms are compared. A raw-string compare against `value` is the wrong comparator for a verbatim field, and it is what made the witness supplier score 0/3 with every answer correct: the witness read the logo, the text layer read its own damaged heading, and the comparator called two correct readings a disagreement. The set is CLOSED -- a spelling not listed here is not accounted for, which is what `wrong` reports. Keys here may not also appear in `not`; the scorer raises on an overlap rather than letting one block win.",
+            "TE Connectivity": "The heading as the page prints it, and the canonical form.",
+            "TE Connecvity": "The text layer's reading, with the 'ti' ligature dropped -- the same damage that classifies this notice as degraded. Under the mfr-verbatim rule this IS the string the source hands an extractor, so it is verbatim-correct and may not be scored as a miss. It is still not the canonical form and must never be written as one.",
+            "TE": "The logo wordmark, which renders as 'TE' over 'connectivity'. This is what the vision witness reads off the page image, and it is a correct reading of what it was shown."
+          },
           "not": {
-            "TE Connecvity": "The text layer's reading. This is the dropped 'ti' ligature, the same damage that classifies this notice as degraded. It is a corruption of the correct value, not a variant, and must never be written.",
-            "TE": "The second witness's reading -- vision transcribing the logo image, which renders the wordmark as 'TE' over 'connectivity'. The witness was right to reach for this field; it simply read the logo rather than the heading."
+            "_was": "'TE Connecvity' and 'TE' were carried HERE, as declared distractors, until 2026-10-09. That was wrong on its face for a verbatim field: each is a faithful reading of a real part of the page, so three fires picked three members of one accepted set and the gate called one of them a failure -- a verdict decided by which member came up, not by whether the extraction was right. Ruled: they are ALIASES, not distractors. This block is kept and left otherwise EMPTY rather than deleted, because an mfr distractor remains possible -- a manufacturer named nowhere on the page would be one -- and an empty block records that the question was asked."
           }
         },
         "pub_date": {

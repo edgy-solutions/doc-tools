@@ -72,6 +72,12 @@ NOTICE_ABSENT_RE = re.compile(r"^(?P<notice>\S.*?)\s{2,}ABSENT\s*$")
 NOTICE_NOT_MEASURED_RE = re.compile(r"^(?P<notice>\S.*?)\s{2,}NOT MEASURED\s*$")
 FIELD_LINE_RE = re.compile(r"^ {6}(?P<field>\S+) +(?P<vals>.+)$")
 
+# A literal backslash-pipe, for escaping a value into a markdown table cell.
+# Spelled as a concatenation because the raw two-character sequence is an invalid
+# escape in a string literal: it works today but warns on every run of a gate
+# whose log people read.
+BAR_ESCAPE = "\\" + "|"
+
 
 def _utcnow_iso():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -581,7 +587,11 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
             "unobserved": t.get("unobserved", []),
             "pending": t.get("pending", []),
         }
-        for status in ("distractor", "wrong", "misformatted", "unreadable", "absent"):
+        # From the scorer, not a second copy: this was a hardcoded tuple of the
+        # same five statuses, so a failure class added to pcn_score would have
+        # been scored there and silently ignored HERE -- a new way to fail that
+        # blocks nothing. `alias` is correctly absent, being a pass.
+        for status in pcn_score.HEADER_FAILURES:
             for located in t.get(status, []):
                 notice, _, field = located.partition(":")
                 failures.setdefault(notice, {}).setdefault(n, []).append(
@@ -1494,7 +1504,15 @@ def render_markdown(report, gate_dir, command_str, log_paths):
         lines.append("| notice | verdict | disagreeing fields |")
         lines.append("|---|---|---|")
         for notice, info in sorted(report["header_agreement"]["notices"].items()):
-            fields = ", ".join(f"`{k}`: {v}" for k, v in info["fields"].items()) or "—"
+            # `v` holds the raw printed values, which the instrument separates
+            # with " | " -- unescaped, that ends the markdown cell early and
+            # shifts every column after it. Not hypothetical: the 2026-10-09 run
+            # disagreed on exactly one field, and its printed line holds two bar
+            # separators plus a literal newline escape inside the third value, so
+            # the row describing the only red in that run is the row that breaks.
+            cells = [f"`{k}`: " + v.replace("|", BAR_ESCAPE)
+                     for k, v in info["fields"].items()]
+            fields = ", ".join(cells) or "—"
             lines.append(f"| {notice} | {info['verdict']} | {fields} |")
         lines.append("")
     if report["header_agreement"]["absent"]:

@@ -1480,12 +1480,41 @@ class SustainmentPlugin(AugmentationPlugin):
         # correctly. Writing it first means the refusal then runs over the SUPPLIED
         # values like any others, so nothing here is exempt from corroboration — the
         # supplier only changes where the candidate came from.
-        reasons += header_trust.supply_header_from_regions(
+        trust_reasons: List[str] = []
+        trust_reasons += header_trust.supply_header_from_regions(
             header_d, header_witness,
             text_layer_degraded=text_layer_assessment["text_layer_degraded"])
-        reasons += header_trust.refuse_unsourced_header_values(
+        trust_reasons += header_trust.refuse_unsourced_header_values(
             header_d, index, witness_index=header_witness,
             text_layer_degraded=text_layer_assessment["text_layer_degraded"])
+        # AFTER the refusal, not before it. The refusal drops a value whose
+        # citation does not hold up and says "refused"; this asks the separate
+        # question of whether a value that SURVIVED the refusal is corroborated.
+        # Ordered the other way round it pre-empts the refusal on any degraded
+        # document -- mfr ends up withdrawn either way, so the outcome looks
+        # right, but the reason a reader is given is the wrong one and the
+        # refusal's own explanation never appears. Measured: that reordering
+        # alone broke three assertions in tests/test_second_witness_wiring.py,
+        # all three on the REASON and none on the value.
+        trust_reasons += header_trust.require_mfr_witness_agreement(
+            header_d, header_witness,
+            text_layer_degraded=text_layer_assessment["text_layer_degraded"])
+        # THE WITNESS LINE IN THE FIRE LOG, which is an ordered requirement and not a
+        # nicety. These reasons used to reach review.json ONLY, and the corpus gate
+        # reads two artifacts per fire -- the fire's stdout and corpus_f{N}.json, which
+        # holds post-trust WRITTEN values. Measured at pin 6dc19712 on 2026-10-09:
+        # `grep -a` for `region witness` and for `header.mfr` across all three fire
+        # logs returned nothing, so whether fire 1's `mfr` was corroborated or merely
+        # unchallenged was NOT IN EVIDENCE in anything that run produced. `print`, not
+        # a logger, because stdout is what `pcn_corpus_gate.run_fires` captures
+        # (stdout=logf, stderr=STDOUT) and what the two region-witness failure notices
+        # above already use.
+        print("[SustainmentPlugin] " + header_trust.header_witness_summary(
+            header_d, header_witness,
+            text_layer_degraded=text_layer_assessment["text_layer_degraded"]))
+        for _r in trust_reasons:
+            print(f"[SustainmentPlugin] header trust: {_r}")
+        reasons += trust_reasons
 
         # Level-2 dedupe identity (doc_tools/utils/notice_identity.py): a deterministic
         # (mfr, doc_id, revision) key computed HERE, at the header pass, because that is

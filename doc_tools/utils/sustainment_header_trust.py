@@ -19,13 +19,14 @@ OCR-verbatim check). A value that fails is REFUSED (dropped, not flagged) — se
 `refuse_unsourced_header_values`.
 
 Pure module — importable without Dagster/BAML, same rule as `sustainment_merge.py`:
-imports only `re`, `unicodedata`, `typing`, `doc_tools.utils.provenance`, and
-`doc_tools.utils.sustainment_normalize`.
+imports only `re`, `unicodedata`, `typing`, `doc_tools.utils.provenance`,
+`doc_tools.utils.sustainment_normalize`, and `doc_tools.utils.mfr_agreement`.
 """
 import re
 import unicodedata
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from doc_tools.utils import mfr_agreement
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
 
@@ -605,7 +606,49 @@ def supply_header_from_regions(header_d: dict, region_witness,
         value, source = values[field]
         source_field = f"{field}_source"
         was = header_d.get(field)
-        if str(was or "") == str(value):
+        # `mfr` ONLY compares by agreement of READINGS, not by raw string. TYC's
+        # manufacturer is `TE Connectivity` (heading), `TE Connecvity` (damaged text
+        # layer) and `TE` (logo wordmark) -- all correct readings of the page -- and a
+        # raw compare calls any two of them different answers.
+        #
+        # MEASURED on the 2026-10-09 three-fire run, by parsing the fire logs rather
+        # than the corpus JSON: the raw header pass read `TE` in ALL THREE fires, and
+        # the values WRITTEN were `TE`, `TE Connectivity`, `TE Connectivity`. So the
+        # text layer was the short reading every time and the crop supplied the fuller
+        # name in two fires out of three -- the nondeterminism is in what the crop
+        # read, not in the header pass. Under a raw compare those two outcomes are a
+        # supply and a non-supply; under this one they are one name, and the fuller
+        # reading is kept either way.
+        #
+        # Every other field keeps the exact compare (dates are normalized elsewhere
+        # and are out of scope here).
+        if field == "mfr":
+            agrees = mfr_agreement.readings_agree(was, value)
+        else:
+            agrees = str(was or "") == str(value)
+        if agrees:
+            if field == "mfr":
+                # The fullest reading wins: the crop's `TE` cannot overwrite the text
+                # layer's `TE Connectivity`, and the crop's `TE Connectivity` DOES
+                # upgrade the text layer's `TE Connecvity`.
+                kept = mfr_agreement.canonical_reading(was, value)
+                header_d[field] = kept
+                # An UPGRADE (the crop's reading is the fuller one and differs from
+                # the text layer's) is a supply in every sense that matters, and is
+                # worded as one so a reader counting supplied fields sees it.
+                verb = ("supplied from the region witness"
+                        if str(kept) == str(value) and str(was or "") != str(value)
+                        else "readings agree")
+                reasons.append(
+                    f"header.mfr {verb}: text layer '{_clip(str(was))}' and "
+                    f"region witness '{_clip(str(value))}' are one printed name; kept "
+                    f"'{_clip(str(kept))}', the fuller reading"
+                )
+                if str(kept) != str(value):
+                    # The text layer's fuller reading was kept, so the crop's source
+                    # (a fragment, e.g. `TE`) is NOT a citation for it; leave the
+                    # existing citation alone rather than replace it with a worse one.
+                    continue
             # THE VALUE AGREES -- BUT THE CITATION MAY STILL BE THE ONE THAT KILLS IT.
             # Measured on TYC: the header pass read `doc_level_ltb_date` CORRECTLY as
             # 2024-06-06 and cited it as `-2024`, a truncated snippet naming no date, so
@@ -636,6 +679,110 @@ def supply_header_from_regions(header_d: dict, region_witness,
         )
     reasons.extend(notes)
     return reasons
+
+
+def require_mfr_witness_agreement(header_d: dict, region_witness,
+                                  text_layer_degraded: bool = False) -> List[str]:
+    """On a degraded document, an `mfr` the region witness does not corroborate is
+    WITHDRAWN (null + review), never written.
+
+    MUTATES `header_d` IN PLACE. Returns one reason string per action taken, never
+    raises. The 2026-10-09 ruling: compare canonical-after-alias; mfr requires
+    corroboration from the witness; an uncorroborated mfr is null, NEVER the
+    uncorroborated value.
+
+    DELIBERATE SCOPE LIMIT: when `text_layer_degraded` is false this returns [] and
+    touches nothing. On a healthy document the text layer is exact and corroborates
+    itself, and the existing refusal filter governs.
+
+    Cases, with `written` the current mfr and `reading` the witness's:
+      - `written` empty: nothing to corroborate; an absent mfr is already a legal answer.
+      - no witness reading: withdrawn. The reason says NOT CORROBORATED IS NOT THE SAME
+        AS DISPROVED -- the witness said nothing, so the value was not shown wrong.
+      - reading agrees (`mfr_agreement.readings_agree`): kept, as the fullest form.
+      - reading disagrees: withdrawn, both readings named verbatim.
+    """
+    reasons: List[str] = []
+    if not text_layer_degraded:
+        return reasons
+    try:
+        from doc_tools.utils import witness_regions
+        values, _notes = witness_regions.header_values_from_regions(region_witness)
+    except Exception as e:  # noqa: BLE001 -- a parse failure must not lose the document
+        return [f"region witness readings could not be parsed ({e}); header.mfr is "
+                f"left as it was"]
+
+    written = header_d.get("mfr")
+    if not written:
+        return reasons
+
+    reading = (values.get("mfr") or (None, None))[0]
+    if not reading:
+        header_d["mfr"] = None
+        header_d["mfr_source"] = None
+        reasons.append(
+            f"header.mfr '{_clip(str(written))}' withdrawn: the text layer is degraded "
+            f"and the region witness supplied no manufacturer reading to corroborate "
+            f"it. Not corroborated is not the same as disproved -- the value was NOT "
+            f"found wrong; it is withdrawn for review"
+        )
+        return reasons
+    if mfr_agreement.readings_agree(written, reading):
+        kept = mfr_agreement.canonical_reading(written, reading)
+        header_d["mfr"] = kept
+        reasons.append(
+            f"header.mfr corroborated by the region witness: text layer "
+            f"'{_clip(str(written))}', witness '{_clip(str(reading))}'; kept "
+            f"'{_clip(str(kept))}'"
+        )
+        return reasons
+    header_d["mfr"] = None
+    header_d["mfr_source"] = None
+    reasons.append(
+        f"header.mfr withdrawn: text layer '{_clip(str(written))}' and region witness "
+        f"'{_clip(str(reading))}' do not agree; an uncorroborated manufacturer is "
+        f"withdrawn rather than written"
+    )
+    return reasons
+
+
+def header_witness_summary(header_d: dict, region_witness,
+                           text_layer_degraded: bool = False) -> str:
+    """ONE greppable line naming what the region witness read for `mfr` and what was
+    finally written. Read-only: it decides nothing and mutates nothing.
+
+    This exists because of a measured instrumentation gap, not for tidiness. The
+    corpus gate's artifacts are `fire{N}.log` (the fire's stdout) and
+    `corpus_f{N}.json` (post-trust WRITTEN values). The trust reasons reached
+    neither -- they went to `review_reasons` in review.json only -- so at the
+    three-fire run of pin `6dc19712` on 2026-10-09, `grep -a` for `region witness`
+    and for `header.mfr` across all three fire logs returned NOTHING, and the gate's
+    verdict on `mfr` could not be explained from the gate's own output. A verdict
+    nobody can explain is the thing this line fixes.
+
+    Every field is printed unconditionally, including on the paths where
+    corroboration does not run, because the absence of a line is exactly what was
+    unreadable before: `degraded=False` is a fact about the document, not a missing
+    measurement, and it has to say so rather than be silent.
+    """
+    reading = source = None
+    note = ""
+    try:
+        from doc_tools.utils import witness_regions
+        values, _notes = witness_regions.header_values_from_regions(region_witness)
+        reading, source = (values.get("mfr") or (None, None))[:2]
+    except Exception as e:  # noqa: BLE001 -- a log line must never lose a document
+        note = f" parse_error={e!r}"
+    return (
+        "header trust witness: "
+        f"degraded={bool(text_layer_degraded)} "
+        f"witness_regions={len(region_witness) if region_witness else 0} "
+        f"witness_mfr={_clip(str(reading)) if reading else None!r} "
+        f"witness_mfr_cited={bool(source)} "
+        f"written_mfr={_clip(str(header_d.get('mfr'))) if header_d.get('mfr') else None!r} "
+        f"written_mfr_source_present={bool(header_d.get('mfr_source'))}"
+        + note
+    )
 
 
 # --------------------------------------------------------------------------- #

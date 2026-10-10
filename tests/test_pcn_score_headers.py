@@ -312,14 +312,23 @@ def test_real_three_fire_pub_date_is_the_declared_distractor():
     """All three fires agree on `2024-06-10`, so the cross-fire agreement check
     reports pub_date as AGREE; ground truth reports it as the portal print
     stamp. This is the case the header scorer exists for — a stable wrong value
-    is invisible to a check that only compares fires to each other."""
+    is invisible to a check that only compares fires to each other.
+
+    These three fires also wrote `TE Connecvity`, `TE` and `TE Connecvity` for
+    `mfr`, and this test asserted all three were distractors until 2026-10-09.
+    Ruled that day: they are the damaged text layer's reading and the logo
+    wordmark, both verbatim-correct readings of the same printed name, so they
+    are ACCEPTED and `mfr` is a pass here. The assertion is kept rather than
+    deleted, inverted to the ruling, because `pub_date` and `mfr` differ in
+    exactly the way that matters: one is a value printed somewhere else on the
+    page (a real trap), the other is the same value spelled differently."""
     gt = pcn_score.load_ground_truth()
     spec = gt[TYC]["headers"]
     for fire in _REAL_FIRES:
         h = pcn_score.score_headers(fire, spec)
         assert h["clean"] is False
         assert h["fields"]["pub_date"]["status"] == "distractor"
-        assert h["fields"]["mfr"]["status"] == "distractor"
+        assert h["fields"]["mfr"]["status"] in pcn_score.HEADER_PASSES
 
 
 def test_real_fires_got_the_ltb_date_right_where_they_wrote_it_at_all():
