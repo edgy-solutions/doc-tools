@@ -708,10 +708,54 @@ image:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
   # ^ THOSE TWO CHILDREN ARE THE SUPERSEDED 2026-10-06 PIN'S, kept as
-  # its record. The children of the digest below are in the 2026-10-08
-  # block at the top of this comment chain.
+  # its record. The 2026-10-08 block at the top of this comment chain
+  # records the children of sha256:6dc19712..., which THIS EDIT SUPERSEDES --
+  # that block is now a record too, not a description of the line below.
+  #
+  # 2026-10-10 -- sha256:c8dce84a... (f56df3a). Children fetched by their own
+  # digest, not merely read out of the index:
+  #     linux/amd64  sha256:aca96b95...
+  #     linux/arm64  sha256:bdc46160...
+  # The arm64 child was fetched and is a real OCI image manifest with config and
+  # layers, per the rule at the top of this file: sandbox schedules onto arm
+  # workers, so an index whose arm64 child does not pull is a pin that fails only
+  # at roll time. The index also carries two unknown/unknown entries, which are
+  # buildx attestation manifests (provenance and SBOM), not platforms. Expected.
+  # The digest comes from the `workflow_dispatch` run for f56df3a, where it
+  # appears 12 times; a `pull_request` run builds both architectures as a compile
+  # check and pushes nothing, so a green `build-and-push` on a PR is not evidence
+  # the image exists.
+  #
+  # What it carries beyond the superseded pin: #98 (an accepted-verbatim set for
+  # `mfr`, compared canonical-after-alias) and everything merged to main before
+  # c5dbc63.
+  #
+  # Measured on this exact digest by a hand-launched Job, three fires:
+  #   - parts 898/898 exact in ALL THREE fires, 0 spurious / 0 missing /
+  #     0 malformed. The first run in which all three fires are clean.
+  #   - header correctness 3/3 exact and `clean: true` in all three fires. TYC's
+  #     `mfr` scored against the CANONICAL `TE Connectivity` with the alias list
+  #     unspent (`aliases: []`), so #98 is a backstop here, not the thing that
+  #     carried the pass.
+  #   - ONE DISAGREEMENT, EXEMPTED, AND IT IS A CITATION NOT A VALUE:
+  #     `doc_level_ltb_date_source` on TYC read '06-JUN-2024' | '-2024' |
+  #     '-2024\n[Unca' across fires 1/2/3. The VALUE `doc_level_ltb_date` is
+  #     correct in every fire; the citation meant to anchor it is truncated in
+  #     two of three, and '-2024' does not name the calendar date it cites. The
+  #     gate's verdict is PASS only through the needs_review declaration
+  #     exemption -- its own strict verdict (no exemptions) is FAIL.
+  #
+  # THE GATE'S `image_identity` MATCH WAS CIRCULAR ON THIS RUN, SO IT IS NOT
+  # EVIDENCE FOR THIS PIN. The report printed `expected by pods | c8dce84a |
+  # match`, but the only pod on c8dce84a was the gate's own Job pod: the
+  # deployment was still on the superseded sha256:6dc19712... A hand-launched
+  # Job gets its image from an explicit DOC_TOOLS_IMAGE, so the check compared
+  # that value against the imageID of the pod it had just set it on -- a value
+  # compared with itself. It reads `match` whatever the deployment is running.
+  # The digest above was verified against ghcr directly instead, which is why
+  # that verification is written out in full rather than cited.
   # ------------------------------------------------------------------
-  digest: "sha256:6dc19712fe2a366be9286ec410421f5c6b805c92822aecbade0ca535c446ce20"
+  digest: "sha256:c8dce84a4202ec6ce3b1a970d8c3e1d0e526a72b0a8b74d5704eb62bb3f5b203"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -962,7 +1006,7 @@ corpusGate:
   # IF YOU BUMP image.digest AND STOP, YOU HAVE ARMED THE SAME FAILURE. The two
   # lines are not kept in step by anything automatic; no test and no CI job
   # compares them, because the Job that would is the one being checked.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:6dc19712fe2a366be9286ec410421f5c6b805c92822aecbade0ca535c446ce20"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:c8dce84a4202ec6ce3b1a970d8c3e1d0e526a72b0a8b74d5704eb62bb3f5b203"
   publish:
     repo: edgy-solutions/doc-tools
 
