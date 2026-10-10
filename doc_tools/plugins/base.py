@@ -7,6 +7,27 @@ import logging
 from langfuse import Langfuse
 
 
+def sparql_batch(*, graph: str, iri: str, triples: List[str]) -> Dict[str, Any]:
+    """One ``JenaOntologyWriter.upsert()`` call — the shape every plugin's
+    ``to_graph_queries`` now returns instead of a raw SPARQL Update string
+    (iagent-mesh SDK v0.9.8, ``iagent_mesh.writers.jena.JenaOntologyWriter``).
+
+    ``upsert()`` is DELETE-by-subject-then-INSERT in one request: it deletes
+    every triple it previously wrote for ``iri`` within ``graph`` before
+    inserting ``triples``. So ``iri`` MUST be a subject this document
+    exclusively owns (e.g. the document/step/rule node) — NEVER a subject
+    another document's run also writes (e.g. a shared component MPN), or the
+    delete half removes that other document's edges. Component/related
+    subjects still appear as subjects *inside* ``triples`` — they are only
+    ever inserted, never the upsert key.
+
+    ``triples`` must be fully-qualified ``<http://...>`` IRIs throughout: the
+    writer emits ``INSERT DATA`` with no ``PREFIX`` block, so a prefixed name
+    (``mro:``, ``iof:``, ``mfg:``, ``pcn:``) is a SPARQL syntax error.
+    """
+    return {"graph": graph, "iri": iri, "triples": list(triples)}
+
+
 class PromptUnavailableError(RuntimeError):
     """The prompt could not be resolved AT ALL — a configuration/deployment defect,
     not a per-document extraction failure.
@@ -188,10 +209,12 @@ class AugmentationPlugin(ABC):
         pass
 
     @abstractmethod
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> tuple[List[str], List[Dict[str, Any]]]:
         """
         Generates the database insertion statements.
-        Returns a tuple of (List[Cypher Queries], List[SPARQL Queries]).
+        Returns a tuple of (List[Cypher Queries], List[SPARQL batch dicts] —
+        one per ``JenaOntologyWriter.upsert()`` call, built with
+        ``sparql_batch()``).
         If a database is unused by the domain, return an empty list.
         """
         pass

@@ -77,7 +77,42 @@
     }
   ],
   "sparql": [
-    "PREFIX mfg: <http://edgy-solutions.com/ontology/mfg#> PREFIX iof: <http://example.com/iof#> INSERT DATA { mfg:step_part_42_1.1 a mfg:WorkInstruction ; mfg:hasAction \"Apply sealant\" ; mfg:hasText \"Apply sealant \\\"MIL-S-81733\\\" to the seam.\" . mfg:step_part_42_1.1 mfg:usesTool \"Torque Wrench\" . mfg:step_part_42_1.1 mfg:usesTool \"Brush\" . mfg:step_part_42_1.1 mfg:isValueAdded \"True\" . mfg:step_part_42_1.1 mfg:isSafetyCritical \"True\" . mfg:step_part_42_1.1 mfg:hasProcessCategory \"Transformation\" . mfg:step_part_42_1.1 mfg:hasJustification \"Physically transforms the product.\" . mfg:step_part_42_1.1 mfg:estimatedDurationMinutes \"30\" . mfg:step_part_42_1.1 mfg:consumesMaterial \"Sealant MIL-S-81733\" . mfg:step_part_42_1.1 mfg:governedBy iof:ISO9001_Standard . mfg:step_part_42_1.1 mfg:hasHazardClass \"1.1D\" . mfg:step_part_42_1.1 mfg:requiresCertification \"QC Inspector\" . mfg:step_part_42_1.1 mfg:referencesFigure mfg:fig_3 . mfg:fig_3 a mfg:Figure . mfg:step_part_42_1.1 mfg:referencesFigure mfg:fig_12A . mfg:fig_12A a mfg:Figure . }",
-    "PREFIX mfg: <http://edgy-solutions.com/ontology/mfg#> PREFIX iof: <http://example.com/iof#> INSERT DATA { mfg:step_part_42_2.1 a mfg:WorkInstruction ; mfg:hasAction \"Inspect\" ; mfg:hasText \"Inspect the weld.\" . mfg:step_part_42_2.1 mfg:isValueAdded \"False\" . mfg:step_part_42_2.1 mfg:isSafetyCritical \"False\" . mfg:step_part_42_2.1 mfg:hasProcessCategory \"Inspection\" . mfg:step_part_42_2.1 mfg:hasJustification \"Inspection only; no transformation.\" . }"
+    {
+      "graph": "http://internal/MANUFACTURING_INSTANCES",
+      "iri": "http://edgy-solutions.com/ontology/mfg#step_part_42_1.1",
+      "triples": [
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> a <http://edgy-solutions.com/ontology/mfg#WorkInstruction> .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#hasAction> \"Apply sealant\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#hasText> \"Apply sealant \\\"MIL-S-81733\\\" to the seam.\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#usesTool> \"Torque Wrench\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#usesTool> \"Brush\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#isValueAdded> \"True\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#isSafetyCritical> \"True\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#hasProcessCategory> \"Transformation\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#hasJustification> \"Physically transforms the product.\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#estimatedDurationMinutes> \"30\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#consumesMaterial> \"Sealant MIL-S-81733\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#governedBy> <http://example.com/iof#ISO9001_Standard> .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#hasHazardClass> \"1.1D\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#requiresCertification> \"QC Inspector\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#referencesFigure> <http://edgy-solutions.com/ontology/mfg#fig_3> .",
+        "<http://edgy-solutions.com/ontology/mfg#fig_3> a <http://edgy-solutions.com/ontology/mfg#Figure> .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_1.1> <http://edgy-solutions.com/ontology/mfg#referencesFigure> <http://edgy-solutions.com/ontology/mfg#fig_12A> .",
+        "<http://edgy-solutions.com/ontology/mfg#fig_12A> a <http://edgy-solutions.com/ontology/mfg#Figure> ."
+      ]
+    },
+    {
+      "graph": "http://internal/MANUFACTURING_INSTANCES",
+      "iri": "http://edgy-solutions.com/ontology/mfg#step_part_42_2.1",
+      "triples": [
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_2.1> a <http://edgy-solutions.com/ontology/mfg#WorkInstruction> .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_2.1> <http://edgy-solutions.com/ontology/mfg#hasAction> \"Inspect\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_2.1> <http://edgy-solutions.com/ontology/mfg#hasText> \"Inspect the weld.\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_2.1> <http://edgy-solutions.com/ontology/mfg#isValueAdded> \"False\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_2.1> <http://edgy-solutions.com/ontology/mfg#isSafetyCritical> \"False\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_2.1> <http://edgy-solutions.com/ontology/mfg#hasProcessCategory> \"Inspection\" .",
+        "<http://edgy-solutions.com/ontology/mfg#step_part_42_2.1> <http://edgy-solutions.com/ontology/mfg#hasJustification> \"Inspection only; no transformation.\" ."
+      ]
+    }
   ]
 }

@@ -351,7 +351,7 @@ def _invoke(manifest, s3=None):
         _bkg_config(),
         manifest,
         s3=s3 or MagicMock(), neo4j=MagicMock(), weaviate=MagicMock(),
-        llm=MagicMock(), jena=MagicMock(),
+        llm=MagicMock(), jena=MagicMock(url="http://jena:3030", dataset="ds", username="", password=""),
     )
 
 
@@ -365,7 +365,7 @@ def _parent_label(manifest):
         build_knowledge_graph(
             build_asset_context(), _bkg_config(), manifest,
             s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
-            llm=MagicMock(), jena=MagicMock(),
+            llm=MagicMock(), jena=MagicMock(url="http://jena:3030", dataset="ds", username="", password=""),
         )
     calls = neo4j.get_client.return_value.execute_query.call_args_list
     assert calls, "no Cypher write was recorded"

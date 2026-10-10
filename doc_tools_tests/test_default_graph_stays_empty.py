@@ -1,12 +1,13 @@
 """Seal: the Jena default graph is empty after an ingest.
 
-``JenaClient.execute_update`` (this branch) now scopes every SPARQL Update
-to a named graph or refuses outright (see ``doc_tools/utils/jena_client.py``,
-``UnscopedUpdateError``). That closes the write side. This file proves the
-*outcome* against a real Fuseki: after driving the real ingest shape for all
-four SPARQL-emitting plugins, nothing lands in Jena's true default graph,
-where the mesh resolver (engine-o, which scopes every read to the per-domain
-named graphs) cannot see it.
+``JenaOntologyWriter.upsert()`` (iagent-mesh SDK v0.9.8) takes
+``graph`` as a required keyword argument and wraps BOTH the delete and the
+insert half of its update in ``GRAPH <graph>`` — there is no code path that
+skips it. That closes the write side. This file proves the *outcome* against
+a real Fuseki: after driving the real ingest shape for all four
+SPARQL-emitting plugins through the writer, nothing lands in Jena's true
+default graph, where the mesh resolver (engine-o, which scopes every read to
+the per-domain named graphs) cannot see it.
 
 THE TRAP THIS FILE IS WRITTEN AROUND. No CI job has ever had a live Fuseki,
 and every test in ``test_plugin_sparql_integration.py`` past line 307 skips
@@ -97,13 +98,26 @@ def test_default_graph_has_zero_triples_after_an_ingest():
     """
     _require_or_skip_jena()
     from doc_tools.utils.jena_client import JenaClient
+    from iagent_mesh.interfaces import Initiator
+    from iagent_mesh.writers.jena import JenaOntologyWriter
 
     url = os.environ["JENA_INTEGRATION_URL"]
     dataset = os.environ.get("JENA_INTEGRATION_DS", "ds")
     username = os.environ.get("JENA_INTEGRATION_USER", "admin")
     password = os.environ.get("JENA_INTEGRATION_PASSWORD", "")
 
+    # Reads still go through JenaClient (execute_query, unaffected by this
+    # migration). Writes go through JenaOntologyWriter — see the module
+    # docstring. The writer takes auth=(user, password) from the caller (SDK
+    # v0.9.8); CI Fuseki answers 401 to an unauthenticated write, sandbox does not.
     client = JenaClient(url=url, dataset=dataset, username=username, password=password)
+    writer = JenaOntologyWriter(
+        base_url=url, dataset=dataset,
+        auth=(username, password) if (username.strip() and password.strip()) else None,
+    )
+    initiator = Initiator(
+        subject="test_default_graph_stays_empty", kind="delegate", on_behalf_of="doc-tools-tests"
+    )
 
     # Unique per run so repeat runs (and parallel CI runs) don't collide.
     doc_id = f"SEAL-DEFAULT-GRAPH-{uuid.uuid4()}"
@@ -121,17 +135,18 @@ def test_default_graph_has_zero_triples_after_an_ingest():
         # ------------------------------------------------------------
         for builder in builders:
             plugin, node = builder()
-            _, sparql_qs = plugin.to_graph_queries(
+            _, sparql_batches = plugin.to_graph_queries(
                 [node], _FakeConfig(), doc_id=doc_id, image_prefix=""
             )
-            assert sparql_qs, f"{plugin.domain_label} plugin produced no SPARQL"
-            graph_uri = f"http://internal/{plugin.domain_label}_INSTANCES"
-            written_graphs.add(graph_uri)
-            for i, sparql in enumerate(sparql_qs):
-                r = client.execute_update(sparql, graph_uri=graph_uri)
-                assert r.status_code == 204, (
-                    f"{plugin.domain_label} update #{i} against live Fuseki "
-                    f"returned {r.status_code}, expected 204"
+            assert sparql_batches, f"{plugin.domain_label} plugin produced no SPARQL"
+            for i, batch in enumerate(sparql_batches):
+                written_graphs.add(batch["graph"])
+                result = writer.upsert(
+                    initiator, graph=batch["graph"], iri=batch["iri"], triples=batch["triples"]
+                )
+                assert result.applied, (
+                    f"{plugin.domain_label} upsert #{i} against live Fuseki did not "
+                    f"apply: outcome={result.outcome!r} detail={result.detail!r}"
                 )
 
         # ------------------------------------------------------------
@@ -161,7 +176,7 @@ def test_default_graph_has_zero_triples_after_an_ingest():
         assert _count(client, _SEAL_QUERY) == 0, (
             "the Jena default graph is NOT empty after driving all four "
             "plugins' real to_graph_queries() output through "
-            "JenaClient.execute_update — something landed unscoped, where "
+            "JenaOntologyWriter.upsert() — something landed unscoped, where "
             "the mesh resolver cannot see it"
         )
 
@@ -209,10 +224,22 @@ def test_default_graph_has_zero_triples_after_an_ingest():
     finally:
         # ------------------------------------------------------------
         # 5. Clean up only the _INSTANCES graphs THIS test created, so
-        #    repeat runs don't accumulate.
+        #    repeat runs don't accumulate. JenaClient.execute_update no
+        #    longer exists (deleted with the old write path) — drop via
+        #    direct httpx, exactly like the negative control's probe
+        #    insert/delete above.
         # ------------------------------------------------------------
+        update_url = f"{url.rstrip('/')}/{dataset}/update"
+        auth = (username, password) if (username and password) else None
         for graph_uri in written_graphs:
             try:
-                client.execute_update(f"DROP GRAPH <{graph_uri}>")
+                resp = httpx.post(
+                    update_url,
+                    content=f"DROP GRAPH <{graph_uri}>".encode("utf-8"),
+                    headers={"Content-Type": "application/sparql-update"},
+                    auth=auth,
+                    verify=False,
+                )
+                resp.raise_for_status()
             except Exception:
                 pass
