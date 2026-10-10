@@ -128,7 +128,18 @@ _MDY_NAME_RE = re.compile(
 _DMY_DASH_RE = re.compile(
     r"\b(?P<day>\d{1,2})-(?P<month>[A-Za-z]{3,9})-(?P<year>\d{2,4})\b"
 )
-# US numeric, month first: "12/22/2024"
+# US numeric, month FIRST: "12/22/2024".
+#
+# This ordering is an assumption, and fixing `_month_num` is what made it load-bearing:
+# until then this pattern never produced a candidate at all, so the assumption was
+# dormant. "07/06/2024" is 7 June to a European typesetter and 6 July here, and nothing
+# in the string distinguishes them -- so where both numbers are <= 12 this module can
+# hand the model a WRONG `iso` beside a correct verbatim `source`. Accepted because
+# every manufacturer in the corpus is US (TI, ADI, onsemi, Diodes, IDT) and because the
+# alternative is to keep the pattern inert and find no numeric date at all. Where the
+# first number is > 12 the ambiguity resolves itself: `date()` refuses month 22 and the
+# candidate is dropped rather than silently reordered. Pinned by
+# test_slash_date_is_read_month_first_and_the_assumption_is_on_record.
 _MDY_SLASH_RE = re.compile(
     r"\b(?P<month>\d{1,2})/(?P<day>\d{1,2})/(?P<year>\d{4})\b"
 )
@@ -143,6 +154,28 @@ _ISO_SLASH_RE = re.compile(
 
 
 def _month_num(token: str) -> Optional[int]:
+    """Month number from a NAME ("Jun", "June") or from a NUMERIC string ("06", "6").
+
+    The numeric form was missing, and its absence was invisible. Every date regex in
+    this module captures `month` through a regex group, so `month` is ALWAYS a `str` at
+    the call site -- no caller has ever passed an int, which makes the `isinstance`
+    else-branch in `_try_date` dead code. A name-only lookup therefore returned None for
+    "06", and that silently made all three all-numeric patterns inert: _MDY_SLASH_RE,
+    _ISO_DASH_RE and _ISO_SLASH_RE matched their text, failed to build a date, and were
+    dropped. Half the formats this module declares support for found nothing at all.
+
+    Out-of-range numbers are deliberately NOT rejected here. `date()` in `_try_date` is
+    the single validator, as that function's docstring promises, so "13" returns 13 and
+    is refused one frame up rather than being swallowed as an unparseable token.
+    """
+    token = token.strip()
+    if token.isdigit():
+        try:
+            return int(token)
+        except ValueError:
+            # str.isdigit() is True for superscripts and other numeric forms that
+            # int() refuses ("²"). Neither occurs in the corpus; not assuming it.
+            return None
     return _MONTHS.get(token.lower())
 
 
@@ -171,27 +204,29 @@ def _find_dates(folded_text: str) -> List[Tuple[int, int, str]]:
     def _overlaps(a_start, a_end):
         return any(a_start < c_end and c_start < a_end for c_start, c_end in claimed)
 
-    for regex, kind in (
-        (_DMY_NAME_RE, "dmy_name"),
-        (_MDY_NAME_RE, "mdy_name"),
-        (_DMY_DASH_RE, "dmy_name"),
-        (_MDY_SLASH_RE, "mdy_num"),
-        (_ISO_DASH_RE, "iso"),
-        (_ISO_SLASH_RE, "iso"),
+    # Order matters: the first pattern to claim a span wins, and `_overlaps` keeps a
+    # later pattern from re-reading the same characters differently.
+    #
+    # Each pattern names its own `year`/`month`/`day` groups, so every format is built
+    # the same way and there is nothing to dispatch on. This loop previously carried a
+    # per-format `kind` tag and a four-branch if/elif chain whose branches were all the
+    # identical `_try_date(gd["year"], gd["month"], gd["day"])` call -- which read as
+    # though each format were handled bespokely and was part of why three formats could
+    # be wholly inert unremarked. Dropping it is behaviour-identical.
+    for regex in (
+        _DMY_NAME_RE,
+        _MDY_NAME_RE,
+        _DMY_DASH_RE,
+        _MDY_SLASH_RE,
+        _ISO_DASH_RE,
+        _ISO_SLASH_RE,
     ):
         for m in regex.finditer(folded_text):
             start, end = m.start(), m.end()
             if _overlaps(start, end):
                 continue
             gd = m.groupdict()
-            if kind in ("dmy_name",):
-                d = _try_date(gd["year"], gd["month"], gd["day"])
-            elif kind == "mdy_name":
-                d = _try_date(gd["year"], gd["month"], gd["day"])
-            elif kind == "mdy_num":
-                d = _try_date(gd["year"], gd["month"], gd["day"])
-            else:  # iso
-                d = _try_date(gd["year"], gd["month"], gd["day"])
+            d = _try_date(gd["year"], gd["month"], gd["day"])
             if d is None:
                 continue
             claimed.append((start, end))
