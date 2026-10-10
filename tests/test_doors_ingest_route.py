@@ -49,7 +49,8 @@ def test_declared_pass_runs_over_real_fixture_and_returns_a_value():
     assert out["doc_id"] == "SRS-MRAD-001_baseline-2.1"
     assert out["source_object_key"] == KEY
     assert out["object_count"] > 0
-    assert len(out["passes"]) == 1
+    assert [x["name"] for x in out["passes"]] == [
+        "identity.identity_from_doors_text", "doors.requirements_rows"]
     p = out["passes"][0]
     assert p["name"] == "identity.identity_from_doors_text"
     assert p["status"] == "ok"

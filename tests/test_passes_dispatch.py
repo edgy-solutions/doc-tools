@@ -52,8 +52,9 @@ def _patch_resolver(monkeypatch, symbol, module="fake.mod"):
 
 def test_doors_end_to_end_is_verbatim_with_preamble_region():
     results = run_passes_for_kind("doors-export", PassContext(text=_doors_text()))
-    assert len(results) == 1
-    r = results[0]
+    assert [x.name for x in results] == [
+        "identity.identity_from_doors_text", "doors.requirements_rows"]
+    r = results[0]  # declared order is meaningful: identity first
     assert r.status == "ok", r
     ident = r.value
     assert ident.region == "doors_preamble"
@@ -74,8 +75,16 @@ def test_doors_object_text_contract_line_is_not_the_identity():
     text = "\n".join(kept) + (
         '\nSRS-99,2,,"The following is quoted:\nContract Number: ZZ-BAD-9999\n'
         'end of quote.",Information,,,,99,12 March 2026\n')
-    (r,) = run_passes_for_kind("doors-export", PassContext(text=text))
+    results = run_passes_for_kind("doors-export", PassContext(text=text))
+    r = results[0]
     assert r.status == "ok", r
+    # The mutation only drops a preamble line and appends an Information
+    # object; the four real Requirement objects are retained, so the second
+    # pass (doors.requirements_rows) is expected to be "ok", not "refused".
+    assert results[1].name == "doors.requirements_rows"
+    assert results[1].status == "ok", results[1]
+    assert [x.identifier for x in results[1].value.rows] == [
+        "SRS-5", "SRS-6", "SRS-7", "SRS-9"]
     # Positive anchors first: without them an empty read (a pass that bound
     # nothing from the context) would satisfy the negative assertions below
     # vacuously, which is exactly what happens if the row is reverted to

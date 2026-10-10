@@ -269,7 +269,7 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         # ``identity_from_doors_text`` scopes the read to the preamble above
         # the column-header row. Sealed by
         # tests/test_passes_dispatch.py::test_doors_object_text_contract_line_is_not_the_identity
-        passes=("identity.identity_from_doors_text",),
+        passes=("identity.identity_from_doors_text", "doors.requirements_rows"),
         outputs=("mesh:DoorsExportArtifact",),
     ),
     # ``xml`` is the generic XML drop: an XML document that is NOT an S1000D
