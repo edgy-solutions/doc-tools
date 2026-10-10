@@ -746,6 +746,45 @@ def require_mfr_witness_agreement(header_d: dict, region_witness,
     return reasons
 
 
+def header_witness_summary(header_d: dict, region_witness,
+                           text_layer_degraded: bool = False) -> str:
+    """ONE greppable line naming what the region witness read for `mfr` and what was
+    finally written. Read-only: it decides nothing and mutates nothing.
+
+    This exists because of a measured instrumentation gap, not for tidiness. The
+    corpus gate's artifacts are `fire{N}.log` (the fire's stdout) and
+    `corpus_f{N}.json` (post-trust WRITTEN values). The trust reasons reached
+    neither -- they went to `review_reasons` in review.json only -- so at the
+    three-fire run of pin `6dc19712` on 2026-10-09, `grep -a` for `region witness`
+    and for `header.mfr` across all three fire logs returned NOTHING, and the gate's
+    verdict on `mfr` could not be explained from the gate's own output. A verdict
+    nobody can explain is the thing this line fixes.
+
+    Every field is printed unconditionally, including on the paths where
+    corroboration does not run, because the absence of a line is exactly what was
+    unreadable before: `degraded=False` is a fact about the document, not a missing
+    measurement, and it has to say so rather than be silent.
+    """
+    reading = source = None
+    note = ""
+    try:
+        from doc_tools.utils import witness_regions
+        values, _notes = witness_regions.header_values_from_regions(region_witness)
+        reading, source = (values.get("mfr") or (None, None))[:2]
+    except Exception as e:  # noqa: BLE001 -- a log line must never lose a document
+        note = f" parse_error={e!r}"
+    return (
+        "header trust witness: "
+        f"degraded={bool(text_layer_degraded)} "
+        f"witness_regions={len(region_witness) if region_witness else 0} "
+        f"witness_mfr={_clip(str(reading)) if reading else None!r} "
+        f"witness_mfr_cited={bool(source)} "
+        f"written_mfr={_clip(str(header_d.get('mfr'))) if header_d.get('mfr') else None!r} "
+        f"written_mfr_source_present={bool(header_d.get('mfr_source'))}"
+        + note
+    )
+
+
 # --------------------------------------------------------------------------- #
 # 2c. The refusal
 # --------------------------------------------------------------------------- #
