@@ -4,11 +4,13 @@
     "cad": null,
     "course": "training",
     "doors-export": null,
+    "dxf": null,
     "engineering-document": null,
     "pcn": "sustainment",
     "pdf": null,
     "pdn": "sustainment",
     "s1000d-data-module": "maintenance",
+    "step-ap242": null,
     "work-instruction": "manufacturing",
     "xml": null
   }
