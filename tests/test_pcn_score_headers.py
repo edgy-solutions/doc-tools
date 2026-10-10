@@ -282,6 +282,21 @@ def test_shipped_header_ground_truth_is_internally_consistent():
             if name.startswith("_"):
                 continue
             where = f"{fn}:{name}"
+            if spec.get("expect_absent"):
+                # Carries no `value` like a pending field, and means the
+                # opposite: established as having nothing to establish.
+                assert spec.get("_why"), (
+                    f"{where}: expect_absent with no _why -- a claim that the "
+                    f"document states no value has to say how that was read")
+                assert spec.get("value") is None, f"{where}: expect_absent with a value"
+                assert spec.get("accepted") is None, (
+                    f"{where}: expect_absent with an accepted set")
+                assert not spec.get("candidates"), (
+                    f"{where}: expect_absent with candidates -- candidates belong to "
+                    f"a pending field, where the value is unknown rather than absent")
+                for bad, why in (spec.get("not") or {}).items():
+                    assert why, f"{where}: declares {bad!r} wrong without saying why"
+                continue
             if spec.get("value") is None:
                 assert spec.get("status"), f"{where}: pending with no status"
                 assert spec.get("candidates"), f"{where}: pending with no candidates"
@@ -382,3 +397,184 @@ def test_tyc_is_scored_on_all_three_header_fields():
          "doc_level_ltb_date": "2024-06-06"}, spec)
     assert h["scored"] == ["doc_level_ltb_date", "mfr", "pub_date"]
     assert h["clean"] is True
+
+
+# --------------------------------------------------------------------------
+# expect_absent: the field the document does not answer.
+#
+# WHY THIS EXISTS. Three statuses could describe a field with no page value and
+# none of them scored it. `absent` means ground truth says there IS a value and
+# none was written -- a miss. `pending` means ground truth has not established
+# the value, and is excluded from the score in both directions. Declaring such
+# a field `value: null` was the only option available, so it reported `pending`
+# -- which means a run that INVENTED a last-time-buy date for a notice that has
+# none scored exactly as well as a run that correctly wrote nothing.
+#
+# TI's PCN#20210316000 is the real case: a die-coat qualification change with no
+# last-time-buy at all, printing `Proposed 1st Ship Date: Jun 22, 2021` in the
+# same block as the dates it DOES state. The bait is adjacent to where the
+# answer would go, which is the shape that produces a confident wrong date.
+
+ABSENT_SPEC = {
+    "doc_level_ltb_date": {
+        "expect_absent": True,
+        "_why": ("a die-coat qualification change: the notice announces no "
+                 "discontinuation and states no last-time-buy date anywhere"),
+        "not": {
+            "2021-06-22": ("Proposed 1st Ship Date -- the date the CHANGED part "
+                           "starts shipping, not a last-time-buy for the old one"),
+        },
+    },
+}
+
+
+def _absent(**written):
+    return pcn_score.score_headers(written, ABSENT_SPEC)["fields"]
+
+
+def test_writing_nothing_is_the_pass_when_the_document_states_nothing():
+    f = _absent(doc_level_ltb_date=None)["doc_level_ltb_date"]
+    assert f["status"] == "correctly_absent"
+    assert f["status"] in pcn_score.HEADER_PASSES
+    assert "die-coat" in f["why"]
+
+
+def test_an_empty_string_is_also_correctly_absent():
+    assert (_absent(doc_level_ltb_date="")["doc_level_ltb_date"]["status"]
+            == "correctly_absent")
+
+
+def test_a_missing_key_is_correctly_absent_not_unscored():
+    """`written.get(name)` yields None for a key the run never wrote, and that
+    is the same answer as writing null: the field was not answered."""
+    assert (_absent()["doc_level_ltb_date"]["status"] == "correctly_absent")
+
+
+def test_any_value_at_all_is_hallucinated():
+    f = _absent(doc_level_ltb_date="2020-01-15")["doc_level_ltb_date"]
+    assert f["status"] == "hallucinated"
+    assert f["status"] in pcn_score.HEADER_FAILURES
+
+
+def test_the_adjacent_ship_date_is_reported_as_the_distractor_it_matched():
+    """The failure is `hallucinated` either way -- the document states no value,
+    so there was nothing to mis-pick. But WHICH value was picked up is the whole
+    diagnostic: `Proposed 1st Ship Date` two lines from where an LTB would go
+    names the fix as a field-attribution one."""
+    f = _absent(doc_level_ltb_date="2021-06-22")["doc_level_ltb_date"]
+    assert f["status"] == "hallucinated"
+    assert f["matched"] == "2021-06-22"
+    assert "1st Ship Date" in f["why"]
+
+
+def test_the_distractor_is_matched_through_its_page_spelling():
+    f = _absent(doc_level_ltb_date="22-Jun-2021")["doc_level_ltb_date"]
+    assert f["status"] == "hallucinated"
+    assert f["matched"] == "2021-06-22"
+
+
+# --------------------------------------------------------------------------
+# The regression this status exists for.
+
+def test_a_fabricated_date_is_SCORED_here_where_value_null_excluded_it():
+    """THE POINT OF THE WHOLE STATUS. The same written value against the two
+    specs that both carry no `value`: pending leaves it out of the score, and
+    expect_absent fails it. Before this existed only the first was expressible,
+    so an invented date could not be failed by this instrument at all."""
+    pending_spec = {"doc_level_ltb_date": {
+        "value": None,
+        "status": "PENDING -- not established",
+        "candidates": {"2024-06-06": "text layer"},
+    }}
+    invented = {"doc_level_ltb_date": "2021-06-22"}
+
+    as_pending = pcn_score.score_headers(invented, pending_spec)
+    assert as_pending["fields"]["doc_level_ltb_date"]["status"] == "pending"
+    assert as_pending["scored"] == [], "a pending field must stay out of the score"
+    assert as_pending["clean"] is True, "and cannot be failed"
+
+    as_absent = pcn_score.score_headers(invented, ABSENT_SPEC)
+    assert as_absent["fields"]["doc_level_ltb_date"]["status"] == "hallucinated"
+    assert as_absent["scored"] == ["doc_level_ltb_date"]
+    assert as_absent["clean"] is False
+
+
+def test_correctly_absent_is_scored_and_is_not_counted_as_exact():
+    """A pass, but there was no value to match, so crediting it as `exact` would
+    overstate what the run got right. Same treatment as `alias`."""
+    h = pcn_score.score_headers({"doc_level_ltb_date": None}, ABSENT_SPEC)
+    assert h["scored"] == ["doc_level_ltb_date"]
+    assert h["clean"] is True
+    assert h["exact"] == 0
+    assert h["correctly_absent"] == 1
+
+
+def test_a_hallucinated_field_reaches_the_totals_located_by_notice_and_field():
+    per = {TYC: {"headers": pcn_score.score_headers(
+        {"doc_level_ltb_date": "2021-06-22"}, ABSENT_SPEC)}}
+    t = pcn_score.header_totals(per)
+    assert t["hallucinated"] == [f"{TYC}:doc_level_ltb_date"]
+    assert t["clean"] is False
+    assert t["fields_scored"] == 1
+
+
+def test_a_correctly_absent_field_is_located_in_the_totals_too():
+    """Not a failure, so it needs its own list for the same reason `aliases`
+    does: `exact` short of `fields_scored` with no failure beside it is a report
+    a reader cannot account for."""
+    per = {TYC: {"headers": pcn_score.score_headers(
+        {"doc_level_ltb_date": None}, ABSENT_SPEC)}}
+    t = pcn_score.header_totals(per)
+    assert t["correctly_absent"] == [f"{TYC}:doc_level_ltb_date"]
+    assert t["clean"] is True
+    assert t["fields_scored"] == 1
+    assert t["exact"] == 0
+
+
+def test_the_gate_blocks_on_hallucinated_without_naming_it():
+    """The gate iterates pcn_score.HEADER_FAILURES rather than its own copy, so
+    adding a status to the scorer must make the gate block on it with no edit
+    there. That is the property; this asserts the membership it rests on."""
+    assert "hallucinated" in pcn_score.HEADER_FAILURES
+    assert "correctly_absent" not in pcn_score.HEADER_FAILURES
+    assert "correctly_absent" in pcn_score.HEADER_PASSES
+
+
+# --------------------------------------------------------------------------
+# Incoherent ground truth raises rather than scoring.
+
+def test_expect_absent_beside_a_value_raises():
+    spec = {"doc_level_ltb_date": {"expect_absent": True, "_why": "x",
+                                   "value": "2021-06-22", "source": "p1"}}
+    with pytest.raises(ValueError, match="cannot both carry"):
+        pcn_score.score_headers({"doc_level_ltb_date": None}, spec)
+
+
+def test_expect_absent_beside_an_accepted_set_raises():
+    spec = {"doc_level_ltb_date": {"expect_absent": True, "_why": "x",
+                                   "accepted": ["2021-06-22"]}}
+    with pytest.raises(ValueError, match="no accepted spelling"):
+        pcn_score.score_headers({"doc_level_ltb_date": None}, spec)
+
+
+# --------------------------------------------------------------------------
+# The report says which of the two it is.
+
+def test_the_report_names_a_hallucination_as_invention_not_as_wrong():
+    per = {TYC: {"headers": pcn_score.score_headers(
+        {"doc_level_ltb_date": "2021-06-22"}, ABSENT_SPEC)}}
+    text = pcn_score.render_headers({"per_notice": per,
+                                     "header_totals": pcn_score.header_totals(per)})
+    assert "HALLUCINATED" in text
+    assert "states NO value" in text
+    assert "1st Ship Date" in text
+
+
+def test_the_report_distinguishes_correctly_absent_from_a_miss():
+    per = {TYC: {"headers": pcn_score.score_headers(
+        {"doc_level_ltb_date": None}, ABSENT_SPEC)}}
+    text = pcn_score.render_headers({"per_notice": per,
+                                     "header_totals": pcn_score.header_totals(per)})
+    assert "correctly absent" in text
+    assert "A PASS" in text
+    assert "absent — nothing written" not in text
