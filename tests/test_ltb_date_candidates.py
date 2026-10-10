@@ -193,7 +193,65 @@ def test_none_and_empty_input_yield_nothing():
 
 
 # --------------------------------------------------------------------------- #
-# 10. Wiring -- `_extract_header` appends the candidate block only when there is one.
+# 10. All-numeric dates. Three of the six declared formats were wholly inert.
+#
+# `_month_num` looked names up only, and every regex in the module captures `month`
+# through a regex group -- so `month` is always a `str` and "06" was looked up in a
+# month-NAME dict, returning None. _MDY_SLASH_RE, _ISO_DASH_RE and _ISO_SLASH_RE
+# matched their text, failed to build a date and were silently dropped. The two tests
+# below that already existed (sections 6 and 8) PASSED throughout, because an inert
+# pattern and a correctly-rejected date are indistinguishable from the outside -- which
+# is why this needed a test that asserts a numeric date IS found, not one that asserts
+# a bad one is not.
+# --------------------------------------------------------------------------- #
+
+@pytest.mark.parametrize(
+    "printed, expected_iso",
+    [
+        # name-month forms, which worked all along -- kept here so this test is a
+        # statement about all six declared formats rather than only the repaired three
+        ("14 October, 2019", "2019-10-14"),
+        ("October 14, 2019", "2019-10-14"),
+        ("06-Jun-2024", "2024-06-06"),
+        # the three that found nothing at all before the `_month_num` repair
+        ("12/22/2024", "2024-12-22"),
+        ("2024-06-07", "2024-06-07"),
+        ("2024/06/07", "2024-06-07"),
+    ],
+)
+def test_every_declared_date_format_yields_a_candidate(printed, expected_iso):
+    cands = ltb_candidates(f"Last Buy Deadline for Submission of Order: {printed}")
+    assert [c.iso for c in cands] == [expected_iso]
+    # `source` stays verbatim: the model is told to echo the printed text, so a folded
+    # or re-rendered copy here would make `doc_level_ltb_date_source` unverifiable.
+    assert cands[0].source == printed
+
+
+def test_numeric_month_out_of_range_is_still_refused_by_date():
+    # Section 8 asserted this and passed vacuously -- _ISO_DASH_RE never built a date
+    # at all. Now the pattern is live, so this finally tests what it claims: `date()`
+    # is the validator and month 13 / day 45 is refused there.
+    assert ltb_candidates("last order date 2024-13-45") == []
+    assert ltb_candidates("last order date 2024-02-30") == []
+
+
+def test_slash_date_is_read_month_first_and_the_assumption_is_on_record():
+    # "07/06/2024" is 6 July month-first and 7 June day-first, and nothing in the
+    # string decides it. Month-first is the declared assumption at _MDY_SLASH_RE and
+    # every manufacturer in the corpus is US, so this pins the choice as a decision on
+    # record rather than an accident -- a future European notice is a known hazard,
+    # not a surprise.
+    cands = ltb_candidates("Last Buy Deadline: 07/06/2024")
+    assert [c.iso for c in cands] == ["2024-07-06"]
+
+    # Where the first number cannot be a month the ambiguity resolves itself: `date()`
+    # refuses month 22, so the candidate is DROPPED rather than silently reordered into
+    # a date the document does not state.
+    assert ltb_candidates("Last Buy Deadline: 22/12/2024") == []
+
+
+# --------------------------------------------------------------------------- #
+# 11. Wiring -- `_extract_header` appends the candidate block only when there is one.
 # --------------------------------------------------------------------------- #
 
 @pytest.fixture(autouse=True)
