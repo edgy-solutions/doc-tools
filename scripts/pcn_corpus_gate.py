@@ -1245,8 +1245,13 @@ def _render_corpus_block(corpus):
         "",
         corpus.get("statement", ""),
     ]
-    if corpus.get("nine_vs_eight"):
-        out += ["", corpus["nine_vs_eight"]]
+    # Read by name, so renaming the key in the ground-truth file silently drops
+    # this paragraph from every published report. It was `nine_vs_eight` until the
+    # 2026-10-10 widening made that name state the wrong numbers; the new name
+    # carries none, so it does not need renaming again.
+    note = corpus.get("duplicate_pair_note") or corpus.get("nine_vs_eight")
+    if note:
+        out += ["", note]
     return "\n".join(out)
 
 

@@ -1,13 +1,13 @@
 {
   "_construction": "Build scripts/pcn_ground_truth.json from evidence, not from a run's say-so.\n\nCONSTRUCTION, stated so it can be audited:\n\n  An MPN enters ground truth only if it is VERBATIM PRESENT in the source PDF's\n  text layer. That is an independent check \u2014 the string is on the page or it is\n  not \u2014 and it is what separates a real extraction from a misread. 893 of the\n  896 MPNs the 2026-09-23 run emitted pass it.\n\n  The three that do not are handled explicitly, never silently:\n\n  - SYTYD-122HP-1+ (PCN23-002) is a MISREAD of a crop clipped 47% through its\n    glyphs. It is excluded, and the part it misreads, SYTX9-122HP-1+, is added\n    by hand: it IS verbatim in the source, it is the documented eighteenth part,\n    and no run has yet emitted it.\n  - TYC's two composite cells hold two customer part numbers each in one string\n    (\"TYC1056344-1,\\n9501815SP-1\"). Their CONTENT is real \u2014 both halves are on\n    the page \u2014 but their SHAPE is wrong.\n\n    THEY WERE CARRIED GLUED UNTIL 2026-09-24, flagged `malformed`, so that TYC's\n    total read as the documented 24. THAT WAS A DEFECT IN THIS FILE, not a\n    labelling choice: a tier-1 cell holding two part-shaped strings joined by\n    comma+newline IS TWO PARTS, and ground truth that says otherwise asserts a\n    wrong fact about the notice. Each is now SPLIT, so TYC's count is 26 and the\n    corpus denominator is 898. The `malformed` list for TYC is consequently\n    empty.\n\n    This was found by the harness itself: the 2026-09-24 run scored TYC\n    exact=24 AND malf=2, a combination that can only mean the malformed strings\n    were in ground truth. Until the extractor learns the same split rule, TYC\n    will score 24 exact + 2 spurious + 4 missing, i.e. the corpus reads 893/898.\n    That shortfall is REAL and must not be closed by re-gluing this file. Prior\n    reports citing a denominator of 896 stand as written; see\n    docs/pcn-roll-c460ac6-2026-09-24.md.\n\n  Every resulting per-notice count is then checked against the counts in\n  docs/pcn-corpus-validation-2026-09-21.md. A disagreement aborts.\n",
   "_corpus": {
-    "statement": "EIGHT DOCUMENTS IS THE CORPUS, and it stays eight until production traffic adds to it. This is an enumeration, not an estimate: on 2026-09-30 all six sandbox MinIO buckets were listed in full (4061 objects), every PDF under every sustainment prefix was fetched and hashed, and the result was 8 distinct document contents -- every one of which is already a TARGETS row, and every TARGETS row of which has a PDF. There is no unseen notice sitting in the bucket. The corpus therefore does not widen by looking harder; it widens when new notices are ingested. Enumerated in docs/pcn-corpus-widening-2026-09-30.md, which also lists the extensions present and absent corpus-wide.",
+    "statement": "TEN DOCUMENTS IS THE CORPUS, and it stays ten until more notices are ingested. This is an enumeration, not an estimate. It was 8 until 2026-10-10: on 2026-09-30 all six sandbox MinIO buckets were listed in full (4061 objects), every PDF under every sustainment prefix was fetched and hashed, and the result was 8 distinct document contents with no unseen notice sitting in the bucket -- enumerated in docs/pcn-corpus-widening-2026-09-30.md. The corpus therefore does not widen by looking harder; it widens when new notices are ingested, which is exactly how it reached 10. TI PCN#20210316000.1 and IDT/Renesas PDN OV-19-05 were ingested into sustainment/inbound/ on 2026-10-10, the sustainment_sensor fired on both unaided, and both produced manifests under the versioned artifact layout.",
     "why_it_is_here": "This block exists so the denominator lives where the GATE READS IT rather than only in prose. pcn_corpus_run.check_ground_truth() asserts TARGETS against it at startup and aborts on a disagreement, and pcn_corpus_gate.py copies it into docs/corpus-gate/latest.json so a committed report states the corpus it was measured against. A denominator that only a human can check is a denominator that drifts.",
-    "scored_entries": 9,
-    "distinct_documents": 8,
-    "gt_parts": 898,
-    "distinct_parts": 496,
-    "nine_vs_eight": "Both numbers are correct and neither is a defect to fix. The harness scores 9 FILENAMES; two of them -- Diodes_PCN_2683_FULLGREEN.pdf and Diodes_PCN_2683_Rev1_EOL.pdf -- are ONE document content (md5 abe083fe...) ingested under two names, so that document is scored twice at 402 parts. Hence 898 harness parts over 496 distinct ones: 402 of the 898 is the same notice counted a second time. Keep the 9 rows -- the duplicate pair is how the two-ingest case is exercised -- and never quote 898 as a count of distinct parts.",
+    "scored_entries": 11,
+    "distinct_documents": 10,
+    "gt_parts": 924,
+    "distinct_parts": 522,
+    "duplicate_pair_note": "ELEVEN SCORED ENTRIES OVER TEN DOCUMENTS. Both numbers are correct and neither is a defect to fix. The harness scores 11 FILENAMES; two of them -- Diodes_PCN_2683_FULLGREEN.pdf and Diodes_PCN_2683_Rev1_EOL.pdf -- are ONE document content (md5 abe083fe...) ingested under two names, so that document is scored twice at 402 parts. Hence 924 harness parts over 522 distinct ones: 402 of the 924 is the same notice counted a second time. Keep the duplicate pair -- it is how the two-ingest case is exercised -- and never quote 924 as a count of distinct parts.",
     "documents": [
       {"md5": "c9674b3893e657e59fde3c78aad424ce", "bytes": 417830, "filenames": ["onsemi_Generic_IPCN25300X.pdf"], "inbound_copies": 7},
       {"md5": "abe083fe8bab0e963874777280e8e293", "bytes": 181899, "filenames": ["Diodes_PCN_2683_FULLGREEN.pdf", "Diodes_PCN_2683_Rev1_EOL.pdf"], "inbound_copies": 3},
@@ -16,7 +16,9 @@
       {"md5": "7593ca5333b7a6207d46e1118c7a58fa", "bytes": 108301, "filenames": ["PCN23-002.pdf"], "inbound_copies": 1},
       {"md5": "cc3e45064219561ff48f87febeb0cd80", "bytes": 48750, "filenames": ["PCN24-029.pdf"], "inbound_copies": 1},
       {"md5": "30954fcb867feb9355b762750860fed5", "bytes": 145603, "filenames": ["TYC-PCN-24-210412.pdf"], "inbound_copies": 1},
-      {"md5": "40d244f23763eb4887d80405e6ff0bbe", "bytes": 206441, "filenames": ["onsemi_Generic_PD26044X1.pdf"], "inbound_copies": 1}
+      {"md5": "40d244f23763eb4887d80405e6ff0bbe", "bytes": 206441, "filenames": ["onsemi_Generic_PD26044X1.pdf"], "inbound_copies": 1},
+      {"md5": "714b8cec741ffdf264abc63b30621c5c", "bytes": 480972, "filenames": ["TI_PCN_20210316000.pdf"], "inbound_copies": 1},
+      {"md5": "5cf37ab1c42d905c159e519645a57e71", "bytes": 129620, "filenames": ["IDT_PDN_OV-19-05.pdf"], "inbound_copies": 1}
     ],
     "widens_when": "A new notice is ingested into processing-artifacts/sustainment/inbound/**. Then: add its TARGETS row, add its part numbers to notices{} under the same verbatim-presence rule as every other entry, and raise scored_entries / distinct_documents / gt_parts / distinct_parts here. Re-enumerating the bucket does NOT widen it -- that was done, and found nothing new."
   },
@@ -988,6 +990,99 @@
       "malformed": [],
       "source": "every emitted MPN verbatim-confirmed in the source PDF text layer",
       "manifest": "sustainment/inbound/onsemi_truthkey/generated/onsemi_Generic_IPCN25300X_pdf/manifest.json"
+    },
+    "TI_PCN_20210316000.pdf": {
+      "count": 9,
+      "mpns": [
+        "TPS54340DDA",
+        "TPS54360DDA",
+        "TPS54540DDA",
+        "TPS54560DDA",
+        "TPS54340DDAR",
+        "TPS54360DDAR",
+        "TPS54540DDAR",
+        "TPS54560DDAR",
+        "TPS54340DDAR-P"
+      ],
+      "malformed": [],
+      "source": "The 9 TI device numbers in the affected-product table on page 3 ('DEVICE' column of the qualification table). All 9 verbatim-confirmed in the source PDF text layer. DEVICES ONLY, ruled 2026-10-10: page 2 carries a SECOND table of 15 DEVICE + CUSTOMER PART NUMBER rows (11 distinct customer part numbers, 3 literal 'null' cells, 1 duplicate), and those customer part numbers are the CUSTOMERS' OWN designations for the same devices, not additional affected parts. TYC counts its Customer Part Number column as genuine affected parts; that was ruled for TYC specifically and docs/pcn-corpus-validation-2026-09-21.md s69-72 explicitly left the general question open ('worth a decision at some point'). It is now decided for TI in the other direction, and the TYC ruling is unchanged -- the two notices use that column to mean different things.",
+      "manifest": "sustainment/inbound/generated/TI_PCN_20210316000_pdf/current.json -> .../doc-tools@f56df3a5130533f5e92e981597053d9597318e98/manifest.json (VERSIONED layout, unlike the 9 pre-versioning notices which carry a flat manifest.json; find_manifests() resolves either)",
+      "headers": {
+        "_note": "Every value here was read off the source PDF's text layer directly, not off a run. The whole date surface of the document is three strings and all three are adjudicated below, so both `not` blocks are CLOSED rather than sampled.",
+        "mfr": {
+          "value": "Texas Instruments Incorporated",
+          "source": "Footer band, repeated on all 5 pages: 'Texas Instruments Incorporated PCN#20210316000.1'. The fullest form of the name printed anywhere in the document.",
+          "accepted": {
+            "Texas Instruments Incorporated": "the canonical form, as printed in the footer band beside the PCN number",
+            "Texas Instruments": "also verbatim on page 1 ('Texas Instruments requires acknowledgement of receipt of this notification...') and the company's own common name. Accepted for the reason 'TE' is accepted for TYC: it is a correct reading of a name the page prints, just not the fullest form on it. A run writing it has not picked up a neighbouring value."
+          }
+        },
+        "pub_date": {
+          "value": "2021-03-25",
+          "source": "Page 1, 'Date: March 25, 2021', and page 3, 'PCN Date: Mar 25, 2021'. The two AGREE, in two spellings of the same day -- unlike TYC, where the portal print stamp and the PCN date differ and only one of them is the publication date.",
+          "not": {
+            "2021-06-22": "'Proposed 1st Ship Date: Jun 22, 2021' (page 3) -- the only other date anywhere in the document, and a future ship date rather than an issue date."
+          }
+        },
+        "doc_level_ltb_date": {
+          "expect_absent": true,
+          "_why": "This notice has NO last-time-buy date, because it announces no discontinuation: it is a die-coat qualification change to parts that stay in production. CLOSED rather than sampled -- the ENTIRE date surface of the text layer is three strings, and the other two are the publication date adjudicated under pub_date ('March 25, 2021' / 'Mar 25, 2021'). There is no fourth date available to be a last-time-buy. The page-1 boilerplate 'this notification does not ... change the life time buy offering/discontinuance plan' refers to a PREVIOUSLY issued product withdrawal notice and carries no date beside it; it is prose, not a field. Writing any date here is therefore invention, which is what `expect_absent` scores -- see the `hallucinated` status in scripts/pcn_score.py.",
+          "not": {
+            "2021-06-22": "'Proposed 1st Ship Date: Jun 22, 2021' -- the date the CHANGED part starts shipping, printed in the same page-3 block where a last-time-buy would go if there were one. This is the bait: a date adjacent to the empty field, which is the shape that produces a confident wrong answer rather than a null."
+          }
+        }
+      }
+    },
+    "IDT_PDN_OV-19-05.pdf": {
+      "count": 17,
+      "mpns": [
+        "DX0783-ULG2B00-A4",
+        "DX0783-ULG2B01-A4",
+        "DX0793-ELG2B00-A4",
+        "DX7753-ULG2B00-A4",
+        "DX8213-CHG-A3",
+        "DX8243-CHG-A3",
+        "DX8313-CBG-A3",
+        "DX8313-NBG-A3",
+        "DX8342-NBG-A3",
+        "DX8353-CBG-A3",
+        "DX8773-ELG2A00-A4",
+        "DX8773-ELG2A01-A4",
+        "DX9353-CBG-A3",
+        "DX9773-DLG2A00-A4",
+        "DX9773-DLG2A01-A4",
+        "MX10200-ELG2A01-A4",
+        "MX11300-ELG2A01-A4"
+      ],
+      "malformed": [],
+      "source": "All 17 part numbers from the affected-products grid on the single page, which is laid out in THREE COLUMNS read column-major (6 + 6 + 5). All 17 verbatim-confirmed in the source PDF text layer. A column-major grid is a different extraction shape from the row-wise tables the rest of the corpus uses, which is part of why this notice was added.",
+      "manifest": "sustainment/inbound/generated/IDT_PDN_OV-19-05_pdf/current.json -> .../doc-tools@f56df3a5130533f5e92e981597053d9597318e98/manifest.json (VERSIONED layout)",
+      "headers": {
+        "_note": "Read off the source PDF's text layer directly. The document's whole date surface is three strings and all three are adjudicated below, so these `not` blocks are CLOSED.",
+        "mfr": {
+          "value": "Integrated Device Technology, Inc.",
+          "source": "Line 1 of the page, the letterhead: 'Integrated Device Technology, Inc.'. Appears exactly once in the document.",
+          "not": {
+            "Renesas": "the company that acquired IDT. It appears in this document ONLY inside the contact email address David.Ko.xw@renesas.com, and never as a manufacturer name -- so writing it is an inference from an email domain, not a reading of the page. Declared because it is the plausible wrong answer here and a run that produces it is doing something other than extracting."
+          }
+        },
+        "pub_date": {
+          "value": "2019-10-14",
+          "source": "Page 1, 'Issue Date: October 14, 2019'.",
+          "not": {
+            "2020-01-15": "the Last Buy Deadline -- a future deadline this notice SETS, not the date it was issued.",
+            "2020-06-30": "the Last Eligible Ship Date -- likewise a future date."
+          }
+        },
+        "doc_level_ltb_date": {
+          "value": "2020-01-15",
+          "source": "Page 1, 'Last Buy Deadline for Submission of Order: January 15, 2020'.",
+          "not": {
+            "2020-06-30": "'Last Eligible Ship Date:June 30, 2020' -- the last date IDT will SHIP, not the last date an order may be PLACED. Note the missing space after the colon, which is how it reaches the text layer glued to its label.",
+            "2019-10-14": "the Issue Date."
+          }
+        }
+      }
     },
     "onsemi_Generic_PD26044X1.pdf": {
       "count": 25,

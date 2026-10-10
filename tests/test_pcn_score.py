@@ -108,19 +108,30 @@ def test_absent_notice_is_not_silently_skipped():
 
 def test_shipped_ground_truth_is_self_consistent():
     gt = pcn_score.load_ground_truth()
-    assert len(gt) == 9
+    assert len(gt) == 11
     for fn, e in gt.items():
         assert len(e["mpns"]) == e["count"], fn
         assert len(set(e["mpns"])) == e["count"], f"{fn} has duplicate MPNs"
         assert all(m and m.strip() for m in e["mpns"]), fn
-    # 898, not 896. Two tier-1 cells in TYC-PCN-24-210412.pdf each held two real
-    # MPNs glued by comma+newline and were carried in this file as one string apiece;
-    # splitting them into their four parts on 2026-09-24 raised TYC's count 24 -> 26.
-    # Reports dated before that keep their 896. Changing this number is only ever
-    # legitimate when a count in the JSON was WRONG — and note the direction it moved
-    # the score: 895/896 became 893/898. A correction lowers the score; a tune raises
-    # it. If you are here because this assert went red, confirm which one you did.
-    assert sum(e["count"] for e in gt.values()) == 898
+    # 924, and there are exactly TWO legitimate reasons for this number to move.
+    #
+    # A CORRECTION, where a count in the JSON was wrong. 898 is the standing example:
+    # two tier-1 cells in TYC-PCN-24-210412.pdf each held two real MPNs glued by
+    # comma+newline and were carried here as one string apiece, so splitting them into
+    # their four parts on 2026-09-24 raised TYC's count 24 -> 26 and took the corpus
+    # 896 -> 898. Reports dated before that keep their 896. Note the direction a
+    # correction moves the score: 895/896 became 893/898. A correction lowers it; a
+    # tune raises it, which is the thing this assert exists to catch.
+    #
+    # A WIDENING, where documents are ADDED. 898 -> 924 on 2026-10-10 is that case:
+    # TI_PCN_20210316000.pdf (9) and IDT_PDN_OV-19-05.pdf (17). A widening raises the
+    # denominator by exactly the new entries' counts and says nothing whatever about
+    # the numerator, so a score measured at 924 is NOT comparable to one measured at
+    # 898 -- cite the denominator with every figure.
+    #
+    # If you are here because this assert went red, say which of the two you did. An
+    # edit that is neither is a tune, and the number was right before you touched it.
+    assert sum(e["count"] for e in gt.values()) == 924
 
 
 def test_shipped_ground_truth_declares_its_provenance():

@@ -487,13 +487,19 @@ def test_the_renderer_states_not_scored_rather_than_zero_failures():
 
 def test_the_gate_copies_the_corpus_enumeration_into_its_report():
     corpus = gate.pcn_score.load_corpus()
-    assert corpus["distinct_documents"] == 8
-    assert corpus["scored_entries"] == 9
-    assert corpus["gt_parts"] == 898
-    assert corpus["distinct_parts"] == 496
+    assert corpus["distinct_documents"] == 10
+    assert corpus["scored_entries"] == 11
+    assert corpus["gt_parts"] == 924
+    assert corpus["distinct_parts"] == 522
     rendered = gate._render_corpus_block(corpus)
-    assert "distinct documents: **8**" in rendered
-    assert "until production traffic adds to it" in rendered
+    assert "distinct documents: **10**" in rendered
+    # The WHOLE statement, not a phrase out of it: the point is that the gate
+    # copies the enumeration's own words into the report rather than summarising
+    # them, and a fragment assert goes red when the prose is CORRECTED. It was
+    # one -- "it stays eight until production traffic adds to it" named the wrong
+    # mechanism, since the 2026-10-10 notices were ingested deliberately.
+    assert corpus["statement"] in rendered
+    assert "an enumeration, not an estimate" in rendered
 
 
 def test_a_report_with_no_corpus_block_says_so_instead_of_printing_a_number():
@@ -509,11 +515,14 @@ def test_targets_and_the_enumeration_must_agree_or_the_run_aborts():
 
     real = run.pcn_score.load_corpus
     try:
+        # Each of these is wrong in ONE place, so the numbers around the defect are
+        # the shipped ones -- otherwise a case passes for the wrong reason and would
+        # keep passing after the real check was removed.
         for bad in ({"documents": [], "distinct_documents": 0,
-                     "scored_entries": 9, "gt_parts": 898, "distinct_parts": 496},
-                    dict(real(), gt_parts=899),
-                    dict(real(), distinct_parts=898),
-                    dict(real(), scored_entries=8),
+                     "scored_entries": 11, "gt_parts": 924, "distinct_parts": 522},
+                    dict(real(), gt_parts=925),
+                    dict(real(), distinct_parts=924),
+                    dict(real(), scored_entries=10),
                     {}):
             run.pcn_score.load_corpus = lambda *a, _b=bad, **k: _b
             try:
@@ -526,9 +535,10 @@ def test_targets_and_the_enumeration_must_agree_or_the_run_aborts():
 
 
 def test_the_distinct_parts_arithmetic_is_recomputed_not_restated():
-    """496 is 898 minus the Diodes document's 402, because that one content is
+    """522 is 924 minus the Diodes document's 402, because that one content is
     scored under two filenames. The check must be that arithmetic over the
-    notices block, not a second copy of the number."""
+    notices block, not a second copy of the number -- which is why the widening
+    moved both numbers and left the 402 gap untouched."""
     gt = run.pcn_score.load_ground_truth()
     corpus = run.pcn_score.load_corpus()
     reps = [d["filenames"][0] for d in corpus["documents"]]
