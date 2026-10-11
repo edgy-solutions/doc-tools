@@ -158,3 +158,44 @@ def test_titles_from_elements_preserves_order_across_pages():
 def test_titles_from_elements_handles_missing_or_non_dict_elements():
     assert titles_from_elements(None) == []
     assert titles_from_elements([_el("Title", ""), "not-a-dict", {"type": "Title"}]) == []
+
+
+# --------------------------------------------------------------------------- #
+# headline_candidates
+# --------------------------------------------------------------------------- #
+
+def test_headline_candidates_puts_ti_headline_ahead_of_the_section_headings():
+    from doc_tools.utils.sustainment_header_trust import headline_candidates
+    headline = "PCN#1 Die Coat addition Change Notification / Sample Request"
+    els = [
+        {"type": "NarrativeText", "text": headline},
+        {"type": "Title", "text": "Attachment: 1"},
+        {"type": "Title", "text": "Products Affected:"},
+    ]
+    assert headline_candidates(els) == [headline, "Attachment: 1", "Products Affected:"]
+    assert doc_type_from_titles(headline_candidates(els)) == ("PCN", "title")
+
+
+def test_headline_candidates_excludes_the_long_end_of_life_sentence():
+    from doc_tools.utils.sustainment_header_trust import headline_candidates
+    long_sentence = ("This notice does not change the end-of-life status of any product. "
+                     "Should product affected be on a previously issued product "
+                     "withdrawal notice, please contact your sales representative.")
+    assert len(long_sentence) > 160
+    els = [{"type": "NarrativeText", "text": "PCN#1 Change Notification"},
+           {"type": "NarrativeText", "text": long_sentence},
+           {"type": "Title", "text": "Attachment: 1"}]
+    assert long_sentence not in headline_candidates(els)
+
+
+def test_headline_candidates_ignores_text_after_the_first_title():
+    from doc_tools.utils.sustainment_header_trust import headline_candidates
+    els = [{"type": "Title", "text": "Product Change Notice"},
+           {"type": "NarrativeText", "text": "EOL short caption"}]
+    assert headline_candidates(els) == ["Product Change Notice"]
+
+
+def test_headline_candidates_unchanged_when_the_headline_is_a_title():
+    from doc_tools.utils.sustainment_header_trust import headline_candidates
+    els = [_el("Title", "Cover Page"), _el("Title", "PCN-2683 Rev1 End of Life")]
+    assert headline_candidates(els) == titles_from_elements(els)

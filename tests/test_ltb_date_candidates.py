@@ -322,3 +322,31 @@ def test_extract_header_omits_candidate_block_when_none_found(monkeypatch):
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+# --- is_entirely_a_date: the parts validator and the LTB pass share one parser ------
+@pytest.mark.parametrize("v", [
+    "Jun 22, 2021", "March 25, 2021", "2021-06-22", "06/22/2021", "22 June 2021",
+    "January 15, 2020", "2020-06-30", "6/22/2021", "  Jun 22, 2021 ", "Jun 22,2021",
+])
+def test_is_entirely_a_date_true(v):
+    from doc_tools.utils.ltb_candidates import is_entirely_a_date
+    assert is_entirely_a_date(v), v
+
+
+@pytest.mark.parametrize("v", [
+    "FJ3330013", "HX1112202Q", "WL2511F0048.000000", "PI3HDX511AZLSEX", "TLC271ACS-13",
+    "090-44310-31", "S1613E-20.0000(T)", "LTC6226HDC#TRMPBF", "TPS54340DDAR-P",
+    "SN74LVC1G08DBVR", "FKA000028Q", "S1613E-20.0000 (T)", "2683", "20210316000.1",
+    "AP2204K-3.3TRG1", "", None, "Ship by Jun 22, 2021",
+])
+def test_is_entirely_a_date_false(v):
+    from doc_tools.utils.ltb_candidates import is_entirely_a_date
+    assert not is_entirely_a_date(v), v
+
+
+def test_a_bare_comma_between_day_and_year_still_parses():
+    """'Jun 22,2021' was not a date at all: the separator required whitespace after the comma."""
+    from doc_tools.utils.ltb_candidates import _find_dates, fold_preserving_offsets
+    for s in ("Jun 22,2021", "22 Jun,2021"):
+        assert _find_dates(fold_preserving_offsets(s)), s

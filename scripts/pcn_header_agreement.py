@@ -313,7 +313,7 @@ def build_index_by_file():
         # replaying the product rather than quietly differing from it.
         index_by_file[fn] = (
             provenance.build_positioned_index(elements),
-            sht.titles_from_elements(elements),
+            sht.headline_candidates(elements),
             bool(text_layer_health.assess_elements(elements)["text_layer_degraded"]),
         )
     return index_by_file

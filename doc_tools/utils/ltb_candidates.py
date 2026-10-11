@@ -118,11 +118,11 @@ _MONTHS = {
 
 # day-month-year, month as a name: "22 Dec, 2024" / "22 Dec 2024" / "11 June, 2025"
 _DMY_NAME_RE = re.compile(
-    r"\b(?P<day>\d{1,2})\s+(?P<month>[A-Za-z]{3,9})\.?,?\s+(?P<year>\d{4})\b"
+    r"\b(?P<day>\d{1,2})\s+(?P<month>[A-Za-z]{3,9})\.?(?:,\s*|\s+)(?P<year>\d{4})\b"
 )
 # month-year-day, month as a name: "December 5, 2023" / "Dec 5 2023"
 _MDY_NAME_RE = re.compile(
-    r"\b(?P<month>[A-Za-z]{3,9})\.?\s+(?P<day>\d{1,2}),?\s+(?P<year>\d{4})\b"
+    r"\b(?P<month>[A-Za-z]{3,9})\.?\s+(?P<day>\d{1,2})(?:,\s*|\s+)(?P<year>\d{4})\b"
 )
 # day-month-year, month as a name, dash-separated: "06-Jun-2024" / "08-JUN-2024"
 _DMY_DASH_RE = re.compile(
@@ -234,6 +234,29 @@ def _find_dates(folded_text: str) -> List[Tuple[int, int, str]]:
 
     found.sort(key=lambda t: t[0])
     return found
+
+
+def is_entirely_a_date(value: Optional[str]) -> bool:
+    """True when ONE date found by `_find_dates` covers the whole value (ignoring
+    surrounding whitespace) -- "Jun 22, 2021" is a date; "FJ3330013" and "090-44310-31"
+    are not.
+
+    Public so the parts validator (`table_text_layer.looks_like_mpn`) and the LTB pass
+    agree on what a date IS: there is exactly one date parser in the tree, and a string
+    one of them calls a date the other cannot call a part number. Reuses
+    `fold_preserving_offsets` and `_find_dates` rather than a second parser.
+    """
+    if not value or not value.strip():
+        return False
+    folded = fold_preserving_offsets(value)
+    stripped = folded.strip()
+    if not stripped:
+        return False
+    lead = len(folded) - len(folded.lstrip())
+    for start, end, _iso in _find_dates(folded):
+        if start == lead and end == lead + len(stripped):
+            return True
+    return False
 
 
 # --------------------------------------------------------------------------- #
