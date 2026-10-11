@@ -386,3 +386,174 @@ def _real_page3() -> _FakePage:
         _FakeTable(_DIE_COAT, _TABLE_BBOXES["die_coat"]),
         _FakeTable(_PRODUCT_AFFECTED, _TABLE_BBOXES["devices"]),
     )
+
+
+# =========================================================================== #
+# PAGE 2 — excluded by ACCIDENT, and this section is what stops that accident
+# from being load-bearing.
+#
+# Measured 2026-10-10 on the real PDF: `page.find_tables()` returns ZERO tables
+# for page 2. The page carries a 15-row `DEVICE | CUSTOMER PART NUMBER` table in
+# its text layer, and the text-layer pass never sees it as a table at all. The
+# DEVICES-ONLY ruling (ground truth, `TI_PCN_20210316000.pdf.source`) says those
+# customer part numbers are not affected parts — so the extractor agrees with the
+# ruling for a reason that has nothing to do with the ruling.
+#
+# A GLOBAL RULE IS NOT AVAILABLE, and that is measured too: 10 of TYC's 26
+# ground-truth parts come from a column headed `Customer Part Number`, so
+# "a customer part number is never an affected part" would take TYC from 26/26 to
+# 16/26. The two notices use that column to mean different things, and the general
+# question stays open.
+#
+# What is available is an ENUMERATION. `_PAGE2` below is page 2 as the document
+# prints it, and the tests assert that everything it could possibly contribute is
+# already adjudicated — each string is either one of the nine real devices or one
+# of the eleven parts ground truth rules out by name. A detector change, or a
+# vision pass over this page, therefore cannot admit the eleven silently: the gate
+# names them, and anything NOT on either list reddens CI at PR time.
+# =========================================================================== #
+_PAGE2_ROWS = [
+    ("TPS54340DDAR", "AGIH-1827-5217"),
+    ("TPS54560DDAR", "AGIH-1827-5253"),
+    ("TPS54560DDAR", "CBI-C5ICS-F0023"),
+    ("TPS54540DDAR", "DYGG-311220-01/02"),
+    ("TPS54560DDAR", "GEC-5499697"),
+    ("TPS54560DDAR", "GEC1H-5499697"),
+    ("TPS54540DDAR", "INGH-192055445"),
+    ("TPS54340DDAR", "PBEH-453564691091"),
+    ("TPS54560DDAR", "SEA3H-HUA39159"),
+    ("TPS54360DDAR", "TDN1G-300-611-00"),
+    ("TPS54360DDA", "null"),               # literal "null" on the page, 3 of them
+    ("TPS54540DDA", "null"),
+    ("TPS54340DDA", "null"),
+    ("TPS54560DDA", "CBI-C5ICS-F0023"),    # the one duplicate customer part number
+    ("TPS54360DDAR", "KODH-112-00240"),
+]
+
+# The table AS IT WOULD BE IF DETECTED. Written out because the hazard cannot be
+# tested against a page that yields no tables: the question is not what page 2
+# does today, it is what happens the day it stops being invisible.
+_PAGE2 = [["DEVICE", "CUSTOMER PART NUMBER"]] + [list(r) for r in _PAGE2_ROWS]
+
+
+def _ti_ground_truth():
+    """TI's entry from the SHIPPED ground-truth file, not a copy of it.
+
+    A copy would let the file and this module drift, and the drift would be
+    invisible in exactly the direction that matters: a customer part number
+    quietly dropped from `expect_absent_mpns` while these tests keep passing
+    against the stale copy. Returns the scorer module too, since the gate's
+    verdict is part of what is being asserted.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    scripts = Path(__file__).resolve().parents[1] / "scripts"
+    spec = importlib.util.spec_from_file_location("pcn_score",
+                                                  scripts / "pcn_score.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod, mod.load_ground_truth()["TI_PCN_20210316000.pdf"]
+
+
+def test_page_two_is_transcribed_as_the_document_prints_it():
+    """Fidelity guard, independent of any extractor behaviour.
+
+    Ground truth's `source` describes this page in words -- "15 DEVICE + CUSTOMER
+    PART NUMBER rows (11 distinct customer part numbers, 3 literal 'null' cells,
+    1 duplicate)". Those four numbers are asserted here against the transcription,
+    so the prose and the fixture cannot disagree.
+    """
+    assert len(_PAGE2_ROWS) == 15
+    cpns = [c for _d, c in _PAGE2_ROWS]
+    assert cpns.count("null") == 3
+    real = [c for c in cpns if c != "null"]
+    assert len(real) == 12 and len(set(real)) == 11        # one duplicate
+    assert real.count("CBI-C5ICS-F0023") == 2
+
+    devices = {d for d, _c in _PAGE2_ROWS}
+    assert len(devices) == 8
+    assert devices < set(_NINE_DEVICES), \
+        "page 2 devices must be a strict subset of page 3 nine"
+
+
+def test_the_eleven_ruled_out_parts_are_exactly_page_twos_own_column():
+    """The corpus list and the page must be the same eleven strings.
+
+    This is the join that makes the guard below meaningful: `expect_absent_mpns`
+    is only a real enumeration of the hazard if it enumerates THIS page.
+    """
+    _mod, gt = _ti_ground_truth()
+    on_page = {c for _d, c in _PAGE2_ROWS if c != "null"}
+    assert set(gt["expect_absent_mpns"]) == on_page
+    assert len(gt["expect_absent_mpns"]) == 11
+
+
+def test_page_two_can_emit_nothing_that_is_not_already_adjudicated():
+    """THE GUARD. Every string page 2 can contribute is already decided.
+
+    Deliberately written as a SUBSET assertion, not an equality, so that it never
+    inverts: it holds today, when the grid yields 8 devices and all 11 customer
+    part numbers, and it still holds if the DEVICES-ONLY ruling is ever
+    implemented and the grid yields only devices. What it does not tolerate is a
+    string belonging to neither list -- a new misread off this page, or a twelfth
+    customer part number appearing after a detector change -- and that is the case
+    no other test in the tree would catch before a fire.
+    """
+    _mod, gt = _ti_ground_truth()
+    adjudicated = set(gt["mpns"]) | set(gt["expect_absent_mpns"])
+
+    emitted = {p["affected_mpn"] for p in text_layer.grid_outcome(_PAGE2).parts}
+    assert emitted, "the fixture must exercise the extractor, not pass vacuously"
+
+    unadjudicated = emitted - adjudicated
+    assert not unadjudicated, (
+        "page 2 emitted a part that is neither a real device nor ruled out: "
+        f"{sorted(unadjudicated)}. Decide what it is in "
+        "scripts/pcn_ground_truth.json before this test is made to pass.")
+
+
+def test_if_page_two_is_ever_detected_every_spurious_part_is_named():
+    """The failure must be legible at the gate, not 11 anonymous strings.
+
+    Scores page 2 emission against the real ground-truth entry. The assertion is
+    that `spurious` and `ruled_out` are the SAME set -- page 2 can produce no
+    unanticipated spurious part -- which is true today and stays true if the
+    ruling is implemented (both go empty). `clean is False` is asserted alongside
+    it so that naming a part is never mistaken for excusing it.
+    """
+    mod, gt = _ti_ground_truth()
+    emitted = sorted({p["affected_mpn"]
+                      for p in text_layer.grid_outcome(_PAGE2).parts})
+    scored = mod.score_notice(emitted, gt)
+
+    assert set(scored["spurious"]) == set(scored["ruled_out"])
+    if scored["ruled_out"]:
+        assert scored["clean"] is False
+        text = mod.render(
+            {"per_notice": {"TI_PCN_20210316000.pdf": scored},
+             "totals": {"gt": 9, "exact": scored["exact"],
+                        "spurious": len(scored["spurious"]), "missing": 0,
+                        "malformed": 0, "ruled_out": len(scored["ruled_out"]),
+                        "emitted": len(emitted)},
+             "header_totals": None})
+        assert "RULED OUT by ground truth" in text
+
+
+def test_nothing_in_the_extractor_declines_page_twos_grid():
+    """THE CANARY, and it is MEANT to fail the day the ruling is implemented.
+
+    Page 2 grid has a real column header, so `grid_outcome` accepts it on its own
+    merits and pairs BOTH columns as affected -- `device` and `part number` are
+    both in `AFFECTED_HEADERS`. There is no decline, no rule, nothing: the eleven
+    are excluded only because the page yields no tables.
+
+    If this test goes red, read it as the good news it is -- something now
+    declines this grid. Check that the decline names the ruling, update the
+    ground-truth `source` and `_expect_absent_why` to say the ruling is
+    implemented rather than anticipated, and delete this test. Do not make it pass
+    by loosening the guard above.
+    """
+    out = text_layer.grid_outcome(_PAGE2)
+    assert out.decline is None
+    assert text_layer.pair_columns(_PAGE2[0]) == [(0, None), (1, None)]
