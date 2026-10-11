@@ -184,3 +184,26 @@ regression.
 
 No pin or roll before the nightly — tonight's nightly measures exactly the image
 that passed 3/3. #107 lands on the pin after.
+
+## Day-1 item 3 (`extraction_defect` consumer) is BLOCKED on Lane 1
+
+Lane 1's packet `2026-10-10-packet-to-7f-and-74-...retry-cannot-reach-it.md` was
+**superseded the same night** by the steward-correction ruling, and that ruling is
+what defines the record this lane is to consume:
+
+> Every correction files an `extraction_defect` record {notice, pin digest,
+> extracted, corrected, evidence} to the admin/7f queue.
+
+`extraction_defect` appears **nowhere in doc-tools and nowhere in iagent code** —
+only in that packet. Lane 1 owes the PR. Nothing is built against the shape until
+it lands; guessing the schema would produce a consumer that passes its own tests
+and reads nothing real.
+
+The TI live miss is the first candidate record and its five fields are already
+known, so the consumer has a ready first fixture the day the schema arrives:
+notice `TI_PCN_20210316000.pdf`, pin `c8dce84a`, extracted `"Jun 22, 2021"`,
+corrected the nine devices, evidence page 3 `Product Affected` table.
+
+(The packet is now committed here, as the convention requires of a placed packet.
+A large backlog of untracked `sessions/` files from September remains; not swept
+unilaterally.)
