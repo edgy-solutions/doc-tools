@@ -154,7 +154,8 @@ SEAL_OUT = os.getenv("PCN_SEAL_OUT", "/tmp/pcn_crop_seal.json")
 #
 # `gt` is the affected-part count established in docs/pcn-corpus-validation-2026-09-21.md
 # and re-confirmed against stored extraction.json in
-# docs/pcn-product-baseline-2026-09-22.md section 5. The total is 898. Do not adjust a
+# docs/pcn-product-baseline-2026-09-22.md section 5. The total is 924 (898 until the
+# 2026-10-10 widening below). Do not adjust a
 # gt value to make a run look better; a disagreement with these numbers is the finding.
 #
 # TYC MOVED 24 -> 26 ON 2026-09-24, and with it the total 896 -> 898. This is the one
@@ -174,6 +175,14 @@ TARGETS = [
     {"file": "PCN24-029.pdf",                   "gt": 1},
     {"file": "onsemi_Generic_IPCN25300X.pdf",   "gt": 19},
     {"file": "onsemi_Generic_PD26044X1.pdf",    "gt": 25},
+    # WIDENED 2026-10-10, the second permitted kind of change to these numbers:
+    # two notices INGESTED, which is the only way this corpus grows (the bucket
+    # was enumerated in full on 2026-09-30 and held nothing unseen). TI carries
+    # no last-time-buy date at all and is the first `expect_absent` header field;
+    # IDT's parts grid is COLUMN-MAJOR, a shape no other notice here has. Total
+    # 898 -> 924 over 496 -> 522 distinct.
+    {"file": "TI_PCN_20210316000.pdf",          "gt": 9},
+    {"file": "IDT_PDN_OV-19-05.pdf",            "gt": 17},
 ]
 # Progress-line denominator only. The score comes from the PART NUMBERS in
 # pcn_ground_truth.json, and check_ground_truth() makes a disagreement fatal.
