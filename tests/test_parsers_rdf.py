@@ -6,6 +6,9 @@ previously exercised only at import level (~10% coverage). Each builder is pure
 (lxml + rdflib, no I/O), so we feed representative XML and assert the emitted
 triples directly against the in-memory graph.
 """
+import pathlib
+
+from lxml import etree
 from rdflib import Literal, Namespace, URIRef
 from rdflib.namespace import RDF, RDFS
 
@@ -21,6 +24,7 @@ from doc_tools.parsers.mil_std_40051_rdf import MilStd40051GraphBuilder
 
 MIL = Namespace("http://edgy-solutions.com/ontology/mil#")
 PREFIX = "https://cdn.example/img/"
+HOTSPOT_FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "s1000d" / "hotspot"
 
 
 # --------------------------------------------------------------------------- #
@@ -215,6 +219,476 @@ def test_s1000d_serialize_emits_turtle():
     b.parse_data_module(S1000D_XML)
     ttl = b.serialize()
     assert isinstance(ttl, str) and "mil:" in ttl and "DataModule" in ttl
+
+
+# --------------------------------------------------------------------------- #
+# S1000D 2(e): fault codes, dmRef edges, IPD items, planning intervals
+# --------------------------------------------------------------------------- #
+
+# A module whose identAndStatusSection/dmStatus/brexDmRef/dmRef names its OWN
+# dmCode (520), plus ONE content dmRef pointing at a different module (720).
+# //dmRef unfiltered would emit two refersToDataModule triples (one a
+# self-loop); [not(ancestor::identAndStatusSection)] must emit exactly one.
+S1000D_XML_WITH_DMREF = b"""
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress><dmIdent>
+      <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+              subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+              infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+    </dmIdent></dmAddress>
+    <dmStatus>
+      <brexDmRef><dmRef><dmRefIdent>
+        <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+                subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+                infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+      </dmRefIdent></dmRef></brexDmRef>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <para>See the removal procedure.
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+                subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+                infoCode="720" infoCodeVariant="A" itemLocationCode="A"/>
+      </dmRefIdent></dmRef>
+    </para>
+  </content>
+</dmodule>
+"""
+
+# A brexDmRef dmCode authored BEFORE the dmIdent. The bare `//dmCode[0]`
+# lookup this replaces would pick the brex module (ZZ-...-999Z-Z) instead of
+# the authored own ident (AE-...-520A-A).
+S1000D_XML_BREX_BEFORE_IDENT = b"""
+<dmodule>
+  <identAndStatusSection>
+    <dmStatus>
+      <brexDmRef><dmRef><dmRefIdent>
+        <dmCode modelIdentCode="ZZ" systemDiffCode="Z" systemCode="99" subSystemCode="9"
+                subSubSystemCode="9" assyCode="99" disasCode="99" disasCodeVariant="Z"
+                infoCode="999" infoCodeVariant="Z" itemLocationCode="Z"/>
+      </dmRefIdent></dmRef></brexDmRef>
+    </dmStatus>
+    <dmAddress><dmIdent>
+      <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+              subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+              infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+    </dmIdent></dmAddress>
+  </identAndStatusSection>
+  <content/>
+</dmodule>
+"""
+
+S1000D_XML_FAULT = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="421" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <faultIsolation>
+      <faultCode faultCodeValue="BIT-0417">
+        <faultCodeText>Array module fault.</faultCodeText>
+      </faultCode>
+    </faultIsolation>
+  </content>
+</dmodule>
+"""
+
+S1000D_XML_INTERVAL = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="320" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <scheduling><mpSystem><mpSystemChap>
+      <mpSection><title>Periodic Array Inspection</title>
+        <limit><threshold thresholdUnitOfMeasure="days">
+          <thresholdValue>180</thresholdValue>
+        </threshold></limit>
+      </mpSection>
+    </mpSystemChap></mpSystem></scheduling>
+  </content>
+</dmodule>
+"""
+
+S1000D_XML_IPD = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Array Module Assembly</title>
+        <graphic infoEntityIdent="ICN-ODMRAD-00001"/>
+        <catalogSeqNumberGroup>
+          <catalogSeqNumber item="0001">
+            <description><name>array module</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-AM-0001</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+        </catalogSeqNumberGroup>
+      </figure>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>
+"""
+
+# Same part number cited in BOTH reqSpares and an IPD catalog item, in one
+# document — must mint ONE part- subject, not two.
+S1000D_XML_IPD_AND_REQSPARES = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="720" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <reqSpares><spareDescr><partNumber>ODM-AM-0001</partNumber></spareDescr></reqSpares>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Array Module Assembly</title>
+        <catalogSeqNumberGroup>
+          <catalogSeqNumber item="0001">
+            <description><name>array module</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-AM-0001</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+        </catalogSeqNumberGroup>
+      </figure>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>
+"""
+
+S1000D_XML_FIGURE_NO_ID = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <figure><title>Array</title><graphic infoEntityIdent="ICN-X-1"/></figure>
+  </content>
+</dmodule>
+"""
+
+# A graphic with ONLY a boardno, no infoEntityIdent — the conflation guard
+# (1a/1b): mil:hasICN must never carry a boardno.
+S1000D_XML_FIGURE_BOARDNO_ONLY = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <figure id="figB"><title>Board Figure</title><graphic boardno="BD-999"/></figure>
+  </content>
+</dmodule>
+"""
+
+# Hotspot nested directly inside the catalog item — unambiguous, case (a).
+S1000D_XML_IPD_HOTSPOT_NESTED = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Hotspot Nested</title>
+        <graphic infoEntityIdent="ICN-HS-1"/>
+        <catalogSeqNumberGroup>
+          <catalogSeqNumber item="0001">
+            <description><name>widget</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-W-0001</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <hotspot applicationStructureIdent="HS-N-1"/>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+        </catalogSeqNumberGroup>
+      </figure>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>
+"""
+
+# Hotspot under the graphic, joined by key — case (b) plus the
+# no-guessing-by-position guard: a SECOND graphic hotspot ("NO-MATCH")
+# matches neither item's @item and must attach to nothing.
+S1000D_XML_IPD_HOTSPOT_JOIN = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Hotspot Join</title>
+        <graphic infoEntityIdent="ICN-HS-2">
+          <hotspot applicationStructureIdent="0002"/>
+          <hotspot applicationStructureIdent="NO-MATCH"/>
+        </graphic>
+        <catalogSeqNumberGroup>
+          <catalogSeqNumber item="0001">
+            <description><name>widget one</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-W-0001</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+          <catalogSeqNumber item="0002">
+            <description><name>widget two</name>
+              <identNumber><manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber><partNumber>ODM-W-0002</partNumber></partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+        </catalogSeqNumberGroup>
+      </figure>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>
+"""
+
+
+def test_s1000d_brex_dmref_is_not_a_cross_reference():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_WITH_DMREF)
+    refs = list(b.graph.objects(URIRef(root), MIL.refersToDataModule))
+    assert len(refs) == 1
+    assert refs[0] == MIL["dmc-AE-A-32-10-00-00A-720A-A"]
+    assert refs[0] != URIRef(root)
+
+
+def test_s1000d_dmref_target_matches_the_referenced_modules_own_subject():
+    """The STRONG test: an inline join could pass a label test and still
+    fail this, because it depends on BOTH sides using the same
+    canonicalizer-and-argument-mapping, not on the two strings looking
+    similar."""
+    a = S1000dGraphBuilder(doc_id="doc_a")
+    root_a = a.parse_data_module(S1000D_XML_WITH_DMREF)
+    ref_obj = next(iter(a.graph.objects(URIRef(root_a), MIL.refersToDataModule)))
+
+    b = S1000dGraphBuilder(doc_id="doc_b")
+    root_b = b.parse_data_module(S1000D_XML_OTHER_DM)  # infoCode 720
+
+    assert str(ref_obj) == root_b
+
+
+def test_s1000d_own_ident_is_not_taken_from_a_dmref():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_BREX_BEFORE_IDENT)
+    assert root == str(MIL["dmc-AE-A-32-10-00-00A-520A-A"])
+
+
+def test_s1000d_emits_the_fault_code_node():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_FAULT)
+    fc = MIL["faultcode-d-BIT-0417"]
+    assert (fc, RDF.type, MIL.FaultCode) in b.graph
+    assert (fc, RDFS.label, Literal("BIT-0417")) in b.graph
+    assert (fc, MIL.hasFaultCodeValue, Literal("BIT-0417")) in b.graph
+    assert (fc, MIL.hasFaultCodeText, Literal("Array module fault.")) in b.graph
+    assert (URIRef(root), MIL.hasFaultCode, fc) in b.graph
+
+
+def test_s1000d_fault_code_subjects_are_document_scoped():
+    a = S1000dGraphBuilder(doc_id="doc_a")
+    a.parse_data_module(S1000D_XML_FAULT)
+    c = S1000dGraphBuilder(doc_id="doc_c")
+    c.parse_data_module(S1000D_XML_FAULT)
+
+    fc_a = MIL["faultcode-doc_a-BIT-0417"]
+    fc_c = MIL["faultcode-doc_c-BIT-0417"]
+    assert fc_a != fc_c
+    assert (fc_a, RDF.type, MIL.FaultCode) in a.graph
+    assert (fc_c, RDF.type, MIL.FaultCode) in c.graph
+    assert set(a.graph.objects(None, MIL.hasFaultCodeValue)) == {Literal("BIT-0417")}
+    assert (set(a.graph.objects(None, MIL.hasFaultCodeValue))
+            == set(c.graph.objects(None, MIL.hasFaultCodeValue)))
+
+
+def test_s1000d_emits_the_planning_interval():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_INTERVAL)
+    ivs = list(b.graph.subjects(RDF.type, MIL.PlanningInterval))
+    assert len(ivs) == 1
+    iv = ivs[0]
+    # subject is named after the mpSection title, not a loop index
+    assert "Periodic_Array_Inspection" in str(iv)
+    assert (iv, RDFS.label, Literal("180 days")) in b.graph
+    assert (iv, MIL.hasIntervalValue, Literal("180")) in b.graph
+    assert (iv, MIL.hasIntervalUnit, Literal("days")) in b.graph
+    assert (URIRef(root), MIL.hasPlanningInterval, iv) in b.graph
+
+
+def test_s1000d_emits_ipd_items_with_part_number_and_quantity():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_IPD)
+    g = b.graph
+
+    items = list(g.subjects(RDF.type, MIL.CatalogItem))
+    assert len(items) == 1
+    it = items[0]
+    assert (it, MIL.hasPartNumber, Literal("ODM-AM-0001")) in g
+    qty = list(g.objects(it, MIL.hasQuantity))
+    assert qty == [Literal(1)]
+    assert qty[0].datatype == URIRef("http://www.w3.org/2001/XMLSchema#integer")
+
+    fig = next(iter(g.subjects(RDF.type, MIL.Figure)))
+    assert (fig, MIL.hasCatalogItem, it) in g
+    assert (URIRef(root), MIL.hasCatalogItem, it) in g
+
+
+def test_s1000d_an_ipd_part_and_a_reqspares_part_share_one_subject():
+    b = S1000dGraphBuilder(doc_id="d")
+    root = b.parse_data_module(S1000D_XML_IPD_AND_REQSPARES)
+    g = b.graph
+
+    parts = set(g.subjects(RDF.type, MIL.Part))
+    assert parts == {MIL["part-d-ODM-AM-0001"]}
+    part = MIL["part-d-ODM-AM-0001"]
+
+    assert (URIRef(root), MIL.hasPart, part) in g
+    items = list(g.subjects(RDF.type, MIL.CatalogItem))
+    assert len(items) == 1
+    assert (items[0], MIL.hasPart, part) in g
+
+
+def test_s1000d_figure_identity_falls_back_to_the_authored_icn():
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(S1000D_XML_FIGURE_NO_ID)
+    figs = {str(s) for s in set(b.graph.subjects(RDF.type, MIL.Figure))}
+    assert any("ICN-X-1" in f for f in figs)
+    assert not any("fig_0" in f for f in figs)
+
+
+def test_s1000d_figure_emits_icn_from_info_entity_ident():
+    b = S1000dGraphBuilder(doc_id="d", image_prefix=PREFIX)
+    b.parse_data_module(S1000D_XML)
+    fig = MIL["fig-d-fig1"]
+    assert (fig, MIL.hasICN, Literal("ICN-001")) in b.graph
+
+
+def test_s1000d_boardno_only_graphic_yields_no_icn():
+    """The conflation guard (1a/1b): a boardno must never be emitted as an
+    ICN, because an ICN is not a boardno."""
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(S1000D_XML_FIGURE_BOARDNO_ONLY)
+    fig = MIL["fig-d-figB"]
+    assert not list(b.graph.objects(fig, MIL.hasICN))
+
+
+def test_s1000d_icn_with_no_image_prefix_emits_no_url():
+    """Pins 1c, the confabulation-kill, for THIS parser: now that the ICN
+    has its own predicate, the deleted `elif info_entity:` branch must not
+    be missed — an ICN with no image_prefix emits hasICN only, never a
+    fabricated hasURL built from the bare ICN string."""
+    b = S1000dGraphBuilder(doc_id="d")  # no image_prefix
+    b.parse_data_module(S1000D_XML)
+    fig = MIL["fig-d-fig1"]
+    assert (fig, MIL.hasICN, Literal("ICN-001")) in b.graph
+    assert not list(b.graph.objects(fig, MIL.hasURL)), (
+        "no image_prefix and no bare-ICN fallback means no hasURL at all"
+    )
+
+
+def test_s1000d_hotspot_nested_in_item_attaches_to_that_item():
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(S1000D_XML_IPD_HOTSPOT_NESTED)
+    items = list(b.graph.subjects(RDF.type, MIL.CatalogItem))
+    assert len(items) == 1
+    assert (items[0], MIL.hasHotspotId, Literal("HS-N-1")) in b.graph
+
+
+def test_s1000d_hotspot_joined_by_key_attaches_to_the_right_item_only():
+    """Case (b) plus the no-guessing-by-position guard: the graphic's
+    SECOND hotspot ("NO-MATCH") matches no item's key and must attach to
+    NOTHING — not item 0001, not item 0002, not by falling back to
+    position."""
+    b = S1000dGraphBuilder(doc_id="d")
+    b.parse_data_module(S1000D_XML_IPD_HOTSPOT_JOIN)
+    g = b.graph
+    cat_items = {
+        str(pn): it
+        for it in g.subjects(RDF.type, MIL.CatalogItem)
+        for pn in g.objects(it, MIL.hasPartNumber)
+    }
+    item_0001 = cat_items["ODM-W-0001"]
+    item_0002 = cat_items["ODM-W-0002"]
+
+    assert not list(g.objects(item_0001, MIL.hasHotspotId)), (
+        "item 0001's key doesn't match either graphic hotspot"
+    )
+    assert (item_0002, MIL.hasHotspotId, Literal("0002")) in g
+    assert Literal("NO-MATCH") not in set(g.objects(None, MIL.hasHotspotId)), (
+        "a hotspot ident matching no item must attach to nothing"
+    )
+
+
+def test_s1000d_icn_is_identical_across_documents_but_figure_subjects_differ():
+    """The figure subject stays document-scoped while the ICN literal is
+    identical across two publications — the "two publications' figures
+    can't collide" claim, as an assertion."""
+    a = S1000dGraphBuilder(doc_id="doc_a")
+    a.parse_data_module(S1000D_XML)
+    c = S1000dGraphBuilder(doc_id="doc_c")
+    c.parse_data_module(S1000D_XML)
+
+    fig_a = MIL["fig-doc_a-fig1"]
+    fig_c = MIL["fig-doc_c-fig1"]
+    assert fig_a != fig_c
+    assert (fig_a, MIL.hasICN, Literal("ICN-001")) in a.graph
+    assert (fig_c, MIL.hasICN, Literal("ICN-001")) in c.graph
+
+
+def test_s1000d_hotspot_ids_resolve_into_the_svg_artwork():
+    """Every hotspot id the parser extracts from the authored hotspot
+    fixture module must be an id actually present in the sibling SVG
+    artwork. The converse is NOT required: the SVG carries one extra,
+    unclaimed id, and that must NOT cause a failure — a graphic may carry
+    hotspots no catalog item references. See
+    tests/fixtures/s1000d/hotspot/README.md."""
+    b = S1000dGraphBuilder(doc_id="hotspot-fixture")
+    xml_bytes = (HOTSPOT_FIXTURES / "ipd-hotspot-authored.xml").read_bytes()
+    b.parse_data_module(xml_bytes)
+    extracted_ids = {str(v) for v in b.graph.objects(None, MIL.hasHotspotId)}
+    assert extracted_ids, "the fixture should yield at least one hotspot id"
+
+    svg_root = etree.parse(str(HOTSPOT_FIXTURES / "graphic-hotspot-authored.svg")).getroot()
+    svg_ids = {el.get("id") for el in svg_root.iter() if el.get("id")}
+
+    missing = extracted_ids - svg_ids
+    assert not missing, f"hotspot ids not present in the SVG artwork: {missing}"
+    # The converse is explicitly NOT asserted: an id present in the SVG but
+    # not extracted (the "unclaimed" id) must not fail this seal.
+    assert svg_ids - extracted_ids, (
+        "expected at least one SVG id with no claiming catalog item"
+    )
 
 
 # --------------------------------------------------------------------------- #

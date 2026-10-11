@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dmodule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-2/xml_schema_flat/proced.xsd">
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="US"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="10" day="01"/>
+        <dmTitle>
+          <techName>Array Module</techName>
+          <infoName>Remove Procedure</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <responsiblePartnerCompany enterpriseName="Synthetic"/>
+      <originator enterpriseName="Synthetic"/>
+      <applic>
+        <displayText>
+          <simplePara>All configurations.</simplePara>
+        </displayText>
+      </applic>
+      <brexDmRef>
+        <dmRef>
+          <dmRefIdent>
+            <dmCode modelIdentCode="ODMRAD" systemDiffCode="A" systemCode="34"
+                    subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                    disassyCode="00" disassyCodeVariant="A"
+                    infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+          </dmRefIdent>
+        </dmRef>
+      </brexDmRef>
+      <qualityAssurance>
+        <unverified/>
+      </qualityAssurance>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <procedure>
+      <preliminaryRqmts>
+        <reqSupportEquips>
+          <reqSupportEquip>
+            <supportEquipDescrGroup>
+              <supportEquipDescr>
+                <name>array module extraction tool</name>
+                <identNumber>
+                  <manufacturerCode>ODM</manufacturerCode>
+                  <partAndSerialNumber>
+                    <partNumber>ODM-SE-0001</partNumber>
+                  </partAndSerialNumber>
+                </identNumber>
+              </supportEquipDescr>
+            </supportEquipDescrGroup>
+          </reqSupportEquip>
+        </reqSupportEquips>
+        <reqSafety>
+          <warning>
+            <warningAndCautionPara>Disconnect power before removal.</warningAndCautionPara>
+          </warning>
+        </reqSafety>
+      </preliminaryRqmts>
+      <mainProcedure>
+        <proceduralStep>
+          <para>Open the array access panel at the reported array module position.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Disconnect the array module connector.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Remove the two mounting screws using the array module extraction tool,
+          ODM-SE-0001.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Withdraw the array module from its position.</para>
+        </proceduralStep>
+      </mainProcedure>
+      <closeRqmts>
+        <closeStep>
+          <para>Inspect the connector gasket for damage; replace if necessary.</para>
+        </closeStep>
+        <closeStep>
+          <para>Fit a protective cover over the open array module position until a
+          replacement array module is installed.</para>
+        </closeStep>
+      </closeRqmts>
+    </procedure>
+  </content>
+</dmodule>
