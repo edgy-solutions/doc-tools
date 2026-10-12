@@ -755,7 +755,69 @@ image:
   # The digest above was verified against ghcr directly instead, which is why
   # that verification is written out in full rather than cited.
   # ------------------------------------------------------------------
-  digest: "sha256:c8dce84a4202ec6ce3b1a970d8c3e1d0e526a72b0a8b74d5704eb62bb3f5b203"
+  # 2026-10-11 -- sha256:d16b4402... (2c4c186, which is #106). Children fetched
+  # by their own digest, not merely read out of the index:
+  #     linux/amd64  sha256:d5c46e17...
+  #     linux/arm64  sha256:9272d2a4...
+  # Both are real OCI image manifests with a config and 19 layers each -- the
+  # arm64 child fetched for the reason at the top of this file: sandbox
+  # schedules onto arm workers, so an index whose arm64 child does not pull is
+  # a pin that fails only at roll time. The index also carries two
+  # unknown/unknown buildx attestation entries (provenance and SBOM), which
+  # never satisfy a platform requirement. `scripts/verify_image_pin.py --values
+  # charts/doc-tools/values-sandbox.yaml --require-platform linux/amd64
+  # --require-platform linux/arm64` exits 0 on this file. The digest comes from
+  # the `push`-event run on main for 2c4c186 (38098478738); a `pull_request` run
+  # builds both architectures as a compile check and pushes nothing, so a green
+  # `build-and-push` on a PR is not evidence the image exists.
+  #
+  # WHY THIS DIGEST AND NOT main's TIP. main has since advanced by #63
+  # (9649538, S1000D week 2), which this image does NOT carry. 2c4c186 was
+  # chosen because it IS #106, the commit that widened the corpus declaration
+  # to TEN documents, and that is what makes this the only pin able to clear the
+  # required check (below). #63 touched no ground truth -- `git diff 2c4c186
+  # 9649538 -- scripts/pcn_ground_truth.json` is empty -- so the corpus block
+  # this image emits matches main's declaration exactly.
+  #
+  # What it carries beyond the superseded c8dce84a: #101 (that pin chore), #104
+  # (all-numeric LTB dates, three of six formats wholly inert), #105 (an
+  # expect-absent header state so a fabricated value can fail) and #106 (the
+  # widening). NOT #107, which lands on the pin after, by order.
+  #
+  # THIS PIN IS THE UNWEDGE, AND THAT IS THE REASON FOR IT. The required
+  # `corpus-gate` check asserts the committed report's `corpus` block equals
+  # ground truth's `_corpus` on four keys. #106 moved the declaration to 10
+  # documents / 11 scored entries / 924 gt parts / 522 distinct, while the
+  # nightly keeps running the CHART-PINNED image -- c8dce84a, which predates
+  # #106 and measures 8 / 9 / 898 / 496. So every nightly report since #106
+  # merged fails the required check on the corpus block alone, and no report the
+  # old pin can produce will ever satisfy it. PR #103 (the 2026-10-11 nightly)
+  # reads mergeStateStatus BLOCKED for exactly this reason; that is the pin
+  # being stale, not the report being wrong. The gate measures the image the
+  # chart points at, so the only way out is this bump.
+  #
+  # MEASURED ON THE SUPERSEDED PIN, by the 2026-10-11T07:00Z nightly, three
+  # fires -- the record of what is being left behind:
+  #   - parts 898/898 exact in all three fires, 0 spurious / 0 missing /
+  #     0 malformed, under the EIGHT-document enumeration. The same notices are
+  #     898 of 924 under the ten-document one. That is an ORDERING, not a
+  #     regression.
+  #   - header correctness 3/3 exact and `clean: true` in all three fires.
+  #   - verdict FAIL on one blocking condition: Diodes_PCN_2683_Rev1_EOL
+  #     `doc_id` read 'PCN-2683' | 'PCN #: 2683' | 'PCN-2683' across fires
+  #     1/2/3 with needs_review not True in all three. Fire 2 leaked the field
+  #     LABEL into the value on byte-identical input -- a stochastic header
+  #     sample, the known Diodes carry-forward, not a regression from this pin,
+  #     and NOT exempted.
+  #   - the 2026-10-09 nightly is not a gate red at all: its verdict PASSED and
+  #     the Job exited 1 on a GitHub HTTP 504 while PATCHing the publish ref.
+  #     A publish failure and a measured red are the same Job exit code.
+  #
+  # Measurements on THIS digest are not in at the time of the bump. They come
+  # from three fires after the roll and are recorded in the session report named
+  # in this commit message.
+  # ------------------------------------------------------------------
+  digest: "sha256:d16b44021549cb0d109c512aaa17a31404a533f4515a8fbf5103aa62f6b1db19"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -1006,7 +1068,7 @@ corpusGate:
   # IF YOU BUMP image.digest AND STOP, YOU HAVE ARMED THE SAME FAILURE. The two
   # lines are not kept in step by anything automatic; no test and no CI job
   # compares them, because the Job that would is the one being checked.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:c8dce84a4202ec6ce3b1a970d8c3e1d0e526a72b0a8b74d5704eb62bb3f5b203"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:d16b44021549cb0d109c512aaa17a31404a533f4515a8fbf5103aa62f6b1db19"
   publish:
     repo: edgy-solutions/doc-tools
 
