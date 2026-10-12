@@ -2,18 +2,18 @@
   "schema": 1,
   "verdict": "fail",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-12T06:25:28Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:d16b44021549cb0d109c512aaa17a31404a533f4515a8fbf5103aa62f6b1db19",
+  "generated_at": "2026-10-12T20:55:57Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
   "measured_pin_note": null,
   "image_identity": {
-    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:d16b44021549cb0d109c512aaa17a31404a533f4515a8fbf5103aa62f6b1db19",
-    "measured_digest": "sha256:d16b44021549cb0d109c512aaa17a31404a533f4515a8fbf5103aa62f6b1db19",
+    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
+    "measured_digest": "sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
     "checked": true,
     "comparisons": [
       {
         "source": "pods",
-        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:d16b44021549cb0d109c512aaa17a31404a533f4515a8fbf5103aa62f6b1db19",
-        "expected_digest": "sha256:d16b44021549cb0d109c512aaa17a31404a533f4515a8fbf5103aa62f6b1db19",
+        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
+        "expected_digest": "sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
         "result": "match"
       }
     ],
@@ -23,160 +23,91 @@
     {
       "n": 1,
       "exit": 1,
-      "started_at": "2026-10-12T03:52:56Z",
-      "ended_at": "2026-10-12T04:47:07Z",
-      "elapsed_s": 3250.4,
+      "started_at": "2026-10-12T18:20:03Z",
+      "ended_at": "2026-10-12T19:14:01Z",
+      "elapsed_s": 3237.9,
       "log": "fire1.log",
       "totals": {
-        "gt": 924,
-        "exact": 915,
-        "spurious": 1,
-        "missing": 9,
-        "malformed": 1,
-        "emitted": 916
+        "gt": 522,
+        "exact": 522,
+        "spurious": 0,
+        "missing": 0,
+        "malformed": 0,
+        "ruled_out": 0,
+        "emitted": 522
       },
-      "defects": {
-        "TI_PCN_20210316000.pdf": {
-          "count": 9,
-          "exact": 0,
-          "emitted": 1,
-          "clean": false,
-          "missing": [
-            "TPS54340DDA",
-            "TPS54340DDAR",
-            "TPS54340DDAR-P",
-            "TPS54360DDA",
-            "TPS54360DDAR",
-            "TPS54540DDA",
-            "TPS54540DDAR",
-            "TPS54560DDA",
-            "TPS54560DDAR"
-          ],
-          "spurious": [
-            "Jun 22, 2021"
-          ],
-          "malformed": [
-            "Jun 22, 2021"
-          ]
-        }
-      },
+      "defects": {},
       "seal_checked": true,
-      "log_bytes": 483975,
+      "log_bytes": 438330,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 2,
       "exit": 1,
-      "started_at": "2026-10-12T04:47:07Z",
-      "ended_at": "2026-10-12T05:34:32Z",
-      "elapsed_s": 2844.9,
+      "started_at": "2026-10-12T19:14:01Z",
+      "ended_at": "2026-10-12T20:05:12Z",
+      "elapsed_s": 3071.1,
       "log": "fire2.log",
       "totals": {
-        "gt": 924,
-        "exact": 915,
-        "spurious": 1,
-        "missing": 9,
-        "malformed": 1,
-        "emitted": 916
+        "gt": 522,
+        "exact": 522,
+        "spurious": 0,
+        "missing": 0,
+        "malformed": 0,
+        "ruled_out": 0,
+        "emitted": 522
       },
-      "defects": {
-        "TI_PCN_20210316000.pdf": {
-          "count": 9,
-          "exact": 0,
-          "emitted": 1,
-          "clean": false,
-          "missing": [
-            "TPS54340DDA",
-            "TPS54340DDAR",
-            "TPS54340DDAR-P",
-            "TPS54360DDA",
-            "TPS54360DDAR",
-            "TPS54540DDA",
-            "TPS54540DDAR",
-            "TPS54560DDA",
-            "TPS54560DDAR"
-          ],
-          "spurious": [
-            "Jun 22, 2021"
-          ],
-          "malformed": [
-            "Jun 22, 2021"
-          ]
-        }
-      },
+      "defects": {},
       "seal_checked": true,
-      "log_bytes": 467669,
+      "log_bytes": 448423,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 3,
       "exit": 1,
-      "started_at": "2026-10-12T05:34:32Z",
-      "ended_at": "2026-10-12T06:25:28Z",
-      "elapsed_s": 3056.2,
+      "started_at": "2026-10-12T20:05:12Z",
+      "ended_at": "2026-10-12T20:55:57Z",
+      "elapsed_s": 3044.9,
       "log": "fire3.log",
       "totals": {
-        "gt": 924,
-        "exact": 915,
-        "spurious": 1,
-        "missing": 9,
-        "malformed": 1,
-        "emitted": 916
+        "gt": 522,
+        "exact": 522,
+        "spurious": 0,
+        "missing": 0,
+        "malformed": 0,
+        "ruled_out": 0,
+        "emitted": 522
       },
-      "defects": {
-        "TI_PCN_20210316000.pdf": {
-          "count": 9,
-          "exact": 0,
-          "emitted": 1,
-          "clean": false,
-          "missing": [
-            "TPS54340DDA",
-            "TPS54340DDAR",
-            "TPS54340DDAR-P",
-            "TPS54360DDA",
-            "TPS54360DDAR",
-            "TPS54540DDA",
-            "TPS54540DDAR",
-            "TPS54560DDA",
-            "TPS54560DDAR"
-          ],
-          "spurious": [
-            "Jun 22, 2021"
-          ],
-          "malformed": [
-            "Jun 22, 2021"
-          ]
-        }
-      },
+      "defects": {},
       "seal_checked": true,
-      "log_bytes": 468053,
+      "log_bytes": 440920,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     }
   ],
   "rates_available": true,
   "rates": {
-    "documents": 11,
+    "documents": 10,
     "errors": 0,
     "not_applicable": 0,
     "rates": {
       "needs_review": {
         "count": 3,
-        "denominator": 11
+        "denominator": 10
       },
       "crops_near_cap": {
         "count": 0,
-        "denominator": 11
+        "denominator": 10
       },
       "crops_row_short": {
         "count": 0,
-        "denominator": 11
+        "denominator": 10
       },
       "text_layer_degraded": {
         "count": 3,
-        "denominator": 11
+        "denominator": 10
       }
     },
     "chunk_tally": null
@@ -184,15 +115,16 @@
   "corpus": {
     "statement": "TEN DOCUMENTS IS THE CORPUS, and it stays ten until more notices are ingested. This is an enumeration, not an estimate. It was 8 until 2026-10-10: on 2026-09-30 all six sandbox MinIO buckets were listed in full (4061 objects), every PDF under every sustainment prefix was fetched and hashed, and the result was 8 distinct document contents with no unseen notice sitting in the bucket -- enumerated in docs/pcn-corpus-widening-2026-09-30.md. The corpus therefore does not widen by looking harder; it widens when new notices are ingested, which is exactly how it reached 10. TI PCN#20210316000.1 and IDT/Renesas PDN OV-19-05 were ingested into sustainment/inbound/ on 2026-10-10, the sustainment_sensor fired on both unaided, and both produced manifests under the versioned artifact layout.",
     "why_it_is_here": "This block exists so the denominator lives where the GATE READS IT rather than only in prose. pcn_corpus_run.check_ground_truth() asserts TARGETS against it at startup and aborts on a disagreement, and pcn_corpus_gate.py copies it into docs/corpus-gate/latest.json so a committed report states the corpus it was measured against. A denominator that only a human can check is a denominator that drifts.",
-    "scored_entries": 11,
+    "scored_entries": 10,
     "distinct_documents": 10,
-    "gt_parts": 924,
+    "gt_parts": 522,
     "distinct_parts": 522,
-    "duplicate_pair_note": "ELEVEN SCORED ENTRIES OVER TEN DOCUMENTS. Both numbers are correct and neither is a defect to fix. The harness scores 11 FILENAMES; two of them -- Diodes_PCN_2683_FULLGREEN.pdf and Diodes_PCN_2683_Rev1_EOL.pdf -- are ONE document content (md5 abe083fe...) ingested under two names, so that document is scored twice at 402 parts. Hence 924 harness parts over 522 distinct ones: 402 of the 924 is the same notice counted a second time. Keep the duplicate pair -- it is how the two-ingest case is exercised -- and never quote 924 as a count of distinct parts.",
+    "source_sha256_rekey_note": "THE CORPUS IS KEYED BY SOURCE CONTENT HASH (sha256), not by filename. Re-keyed 2026-10-12. Diodes_PCN_2683_Rev1_EOL.pdf and Diodes_PCN_2683_FULLGREEN.pdf are ONE document under two filenames: byte-identical, measured 2026-10-12 inside the sandbox doc-tools pod, both 181899 bytes, both sha256 af5bfad3f9344eb1dc942230a33cb61b58fb911b977da2063fffbecb5788074c (md5 abe083fe...). Exactly one filename, Diodes_PCN_2683_Rev1_EOL.pdf, is SCORED; Diodes_PCN_2683_FULLGREEN.pdf is a DECLARED ALIAS -- listed in documents[] so a fire of either name is anchored to the declared bytes, asserted rather than double-scored, and absent from notices{} and from TARGETS. Until this re-key that document was scored twice at 402 parts, which is why the harness reported 924 ground-truth parts over 522 distinct ones: 402 of the 924, 77% of the distinct corpus, was one document counted twice. gt_parts == distinct_parts == 522 now holds BY ASSERTION (pcn_corpus_run.check_ground_truth aborts the run if it ever stops holding), so a divergence means a new duplicate document entered the corpus or a part number is shared across two notices, and both need a ruling before a score is quoted. 896, 898 and 924 are HISTORICAL denominators: reports predating 2026-10-12 keep theirs, and a score must always be cited with its denominator. The superseded note said \"Keep the duplicate pair -- it is how the two-ingest case is exercised\". That was wrong: scoring one document twice does not exercise two ingests, it inflates one document to 77% of the corpus. The two-ingest case is now exercised by the declared alias plus the per-fire declared-bytes check (pcn_corpus_gate.check_declared_bytes). The removed notices{} entry for the alias was identical to the Rev1_EOL entry in count (402), mpns (same 402, set-equal), malformed and headers (both empty); it differed only in manifest and source. Its manifest key, preserved here so the second ingest is not lost from the record, was: sustainment/inbound/generated/Diodes_PCN_2683_FULLGREEN_pdf/manifest.json. Four S3 keys hold these bytes (see inbound_copies on the document entry).",
     "documents": [
       {
         "md5": "c9674b3893e657e59fde3c78aad424ce",
         "bytes": 417830,
+        "sha256": "1c38e118c531e7f427f3e126f5b9c4c1f8bde61add47b5ca1c884ce23225430d",
         "filenames": [
           "onsemi_Generic_IPCN25300X.pdf"
         ],
@@ -201,15 +133,19 @@
       {
         "md5": "abe083fe8bab0e963874777280e8e293",
         "bytes": 181899,
+        "sha256": "af5bfad3f9344eb1dc942230a33cb61b58fb911b977da2063fffbecb5788074c",
         "filenames": [
-          "Diodes_PCN_2683_FULLGREEN.pdf",
-          "Diodes_PCN_2683_Rev1_EOL.pdf"
+          "Diodes_PCN_2683_Rev1_EOL.pdf",
+          "Diodes_PCN_2683_FULLGREEN.pdf"
         ],
-        "inbound_copies": 3
+        "inbound_copies": 4,
+        "alias_of": "Diodes_PCN_2683_Rev1_EOL.pdf",
+        "inbound_copies_note": "Corrected 3 -> 4 on 2026-10-12 from a measurement, not a tune: four S3 keys hold these bytes -- sustainment/inbound/Diodes_PCN_2683_FULLGREEN.pdf, sustainment/inbound/diodes_2683/Diodes_PCN_2683_Rev1_EOL.pdf, sustainment/inbound/diodes_bbox/Diodes_PCN_2683_Rev1_EOL.pdf, sustainment/inbound/diodes_tier1/Diodes_PCN_2683_Rev1_EOL.pdf. The declared 3 counted only the Rev1_EOL prefixes and missed the root FULLGREEN copy."
       },
       {
         "md5": "fd9eff0fde5578c105975b729812dacc",
         "bytes": 32264,
+        "sha256": "6d114663e7538f76f0893ad6cd8897d582c148a4fc815ca975be4a1d966433e2",
         "filenames": [
           "ADI_PDN_23_0120.pdf"
         ],
@@ -218,6 +154,7 @@
       {
         "md5": "0e754e2c30b2bb9713a75e720dc1215e",
         "bytes": 163821,
+        "sha256": "734d9c94db9bc63b7d0c513aa0ea5232113ad6f94f6fa60fec9a4d2244516afe",
         "filenames": [
           "EOL-36_BYV34-400,-BYV34-500.pdf"
         ],
@@ -226,6 +163,7 @@
       {
         "md5": "7593ca5333b7a6207d46e1118c7a58fa",
         "bytes": 108301,
+        "sha256": "fcb520eab463b125f66794cd470244b9f1a575918487b00f01d6123211a6306f",
         "filenames": [
           "PCN23-002.pdf"
         ],
@@ -234,6 +172,7 @@
       {
         "md5": "cc3e45064219561ff48f87febeb0cd80",
         "bytes": 48750,
+        "sha256": "cf5f304a41311f72d02f247715ff45d77034f7c13ef658520e0abb26c5db6f2f",
         "filenames": [
           "PCN24-029.pdf"
         ],
@@ -242,6 +181,7 @@
       {
         "md5": "30954fcb867feb9355b762750860fed5",
         "bytes": 145603,
+        "sha256": "7f10d79e5252aa936d5755908f13e9b27b641839e39ab903de056618bc21a38a",
         "filenames": [
           "TYC-PCN-24-210412.pdf"
         ],
@@ -250,6 +190,7 @@
       {
         "md5": "40d244f23763eb4887d80405e6ff0bbe",
         "bytes": 206441,
+        "sha256": "9f4a409489410f26263007f336fab93c8698cf72edabbeecc768dc34844d6359",
         "filenames": [
           "onsemi_Generic_PD26044X1.pdf"
         ],
@@ -258,6 +199,7 @@
       {
         "md5": "714b8cec741ffdf264abc63b30621c5c",
         "bytes": 480972,
+        "sha256": "65b3e80d642f75d1ba065c070319fbe290193adc6513a338a81611efc10ba064",
         "filenames": [
           "TI_PCN_20210316000.pdf"
         ],
@@ -266,6 +208,7 @@
       {
         "md5": "5cf37ab1c42d905c159e519645a57e71",
         "bytes": 129620,
+        "sha256": "65992cb6c5ca8ece688b7f1f6204114de163e505242af1b67042ba8694fff35d",
         "filenames": [
           "IDT_PDN_OV-19-05.pdf"
         ],
@@ -280,7 +223,7 @@
       "1": {
         "exact": 7,
         "fields_scored": 9,
-        "clean": false,
+        "clean": true,
         "observed": true,
         "unobserved": [],
         "pending": []
@@ -288,7 +231,7 @@
       "2": {
         "exact": 7,
         "fields_scored": 9,
-        "clean": false,
+        "clean": true,
         "observed": true,
         "unobserved": [],
         "pending": []
@@ -296,15 +239,13 @@
       "3": {
         "exact": 7,
         "fields_scored": 9,
-        "clean": false,
+        "clean": true,
         "observed": true,
         "unobserved": [],
         "pending": []
       }
     },
-    "failing_notices": [
-      "TI_PCN_20210316000.pdf"
-    ]
+    "failing_notices": []
   },
   "header_agreement": {
     "exit": 1,
@@ -312,20 +253,12 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "mfr": "'TE' | 'TE' | 'TE Connecvity'",
-          "mfr_source": "'TE' | 'TE' | 'TE Connecvity'",
-          "doc_level_ltb_date_source": "'06-JUN-2024' | '-2024' | '06-JUN-2024'"
+          "doc_level_ltb_date_source": "'-2024' | '-2024\\n[Unca' | '-2024'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
         "verdict": "agree",
         "fields": {}
-      },
-      "Diodes_PCN_2683_FULLGREEN.pdf": {
-        "verdict": "DISAGREE",
-        "fields": {
-          "doc_id": "'PCN-2683' | 'PCN-2683' | 'PCN #: 2683'"
-        }
       },
       "EOL-36_BYV34-400,-BYV34-500.pdf": {
         "verdict": "agree",
@@ -372,10 +305,9 @@
         2,
         3
       ],
-      "notices_scored": 11,
+      "notices_scored": 10,
       "verified": [
         "ADI_PDN_23_0120.pdf",
-        "Diodes_PCN_2683_FULLGREEN.pdf",
         "Diodes_PCN_2683_Rev1_EOL.pdf",
         "EOL-36_BYV34-400,-BYV34-500.pdf",
         "IDT_PDN_OV-19-05.pdf",
@@ -389,30 +321,17 @@
       "unverified": [],
       "complete": true
     },
-    "filenames": 11,
+    "filenames": 10,
     "distinct_notices": 10,
-    "collapses": [
-      {
-        "key": "diodes | pcn-2683 | r5",
-        "files": [
-          "Diodes_PCN_2683_FULLGREEN.pdf",
-          "Diodes_PCN_2683_Rev1_EOL.pdf"
-        ]
-      }
-    ],
+    "collapses": [],
     "incomplete_identity": [],
     "identity_half_unstable": [],
-    "revision_half_unstable": [
-      "Diodes_PCN_2683_FULLGREEN.pdf",
-      "Diodes_PCN_2683_Rev1_EOL.pdf"
-    ]
+    "revision_half_unstable": []
   },
   "blocking": [
     "fire 1: pcn_corpus_run.py exited 1 \u2014 parts/crop-seal gate not met (see fire1.log)",
     "fire 2: pcn_corpus_run.py exited 1 \u2014 parts/crop-seal gate not met (see fire2.log)",
-    "fire 3: pcn_corpus_run.py exited 1 \u2014 parts/crop-seal gate not met (see fire3.log)",
-    "Diodes_PCN_2683_FULLGREEN.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log",
-    "TI_PCN_20210316000.pdf: written header does not match ground truth \u2014 fire 1: mfr (misformatted); fire 2: mfr (misformatted); fire 3: mfr (misformatted) (pcn_ground_truth.json notices[TI_PCN_20210316000.pdf].headers)"
+    "fire 3: pcn_corpus_run.py exited 1 \u2014 parts/crop-seal gate not met (see fire3.log)"
   ],
   "exempted": [
     "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires"
