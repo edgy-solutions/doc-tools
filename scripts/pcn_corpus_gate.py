@@ -362,6 +362,50 @@ def check_same_bytes(corpus_by_fire):
     return msgs
 
 
+def check_declared_bytes(corpus_by_fire, corpus_decl):
+    """Every scored notice's bytes must match the sha256 the corpus DECLARES for it.
+
+    `check_same_bytes` proves the fires read the same bytes as each other, but has no
+    anchor: it cannot tell "all three fires read the same wrong file" from "all three
+    read the right one". This compares each fire's `content_hash` to the sha256 in
+    `_corpus`.documents. Every declared filename is mapped, the Diodes alias included,
+    so a fire of either name is anchored to the one declared content.
+
+    The declaration is bare 64-hex while `content_hash` carries a `sha256:` prefix; the
+    prefix is stripped HERE, at the comparison site, not in the declaration.
+
+    Returns blocking messages and never raises. A MISSING hash is not a block -- that is
+    `bytes_coverage`'s job, and an unrecordable check must not read as a failure. A
+    scored filename the corpus does not declare IS a block: the run measured a document
+    the corpus does not know about.
+    """
+    msgs = []
+    declared = {}
+    for d in ((corpus_decl or {}).get("documents") or []):
+        if not isinstance(d, dict):
+            continue
+        for fn in d.get("filenames") or []:
+            declared[fn] = d.get("sha256")
+    for fn, by_n in sorted(content_hashes_by_fire(corpus_by_fire).items()):
+        if fn not in declared:
+            msgs.append(
+                f"{fn}: scored, but `_corpus`.documents does not declare it -- the run "
+                f"measured a document the corpus does not declare"
+            )
+            continue
+        want = declared[fn]
+        for n in sorted(by_n):
+            got = by_n[n]
+            got_hex = got[len("sha256:"):] if isinstance(got, str) and got.startswith("sha256:") else got
+            if got_hex != want:
+                msgs.append(
+                    f"{fn}: fire {n} read bytes with sha256 {str(got_hex)[:16]}... but "
+                    f"`_corpus` declares {str(want)[:16]}... -- the fires may agree with "
+                    f"each other and still all be reading the wrong file"
+                )
+    return msgs
+
+
 def bytes_coverage(corpus_by_fire):
     """WHICH notices had their bytes proved constant across every fire, not whether any
     notice did.
@@ -1090,6 +1134,7 @@ def score_fires(base_dir, fires, expectations=None):
         identity_source = "fire_log"
     coverage = bytes_coverage(corpus_by_fire)
     blocking.extend(check_same_bytes(corpus_by_fire))
+    blocking.extend(check_declared_bytes(corpus_by_fire, pcn_score.load_corpus()))
     for n, headers in headers_by_fire.items():
         if not headers:
             blocking.append(
@@ -1249,7 +1294,7 @@ def _render_corpus_block(corpus):
     # this paragraph from every published report. It was `nine_vs_eight` until the
     # 2026-10-10 widening made that name state the wrong numbers; the new name
     # carries none, so it does not need renaming again.
-    note = corpus.get("duplicate_pair_note") or corpus.get("nine_vs_eight")
+    note = corpus.get("source_sha256_rekey_note") or corpus.get("duplicate_pair_note") or corpus.get("nine_vs_eight")
     if note:
         out += ["", note]
     return "\n".join(out)

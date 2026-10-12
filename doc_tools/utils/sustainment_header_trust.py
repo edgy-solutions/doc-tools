@@ -813,6 +813,9 @@ _REFUSAL_CLAUSE = {
     "value_is_a_domain_not_a_name":
         "is a web or e-mail domain, not a name — a document's own address says where it "
         "is hosted, not who owns the brand",
+    "value_is_a_field_label":
+        "is a form LABEL printed with its value (or alone), not the value itself — it is "
+        "verbatim on the page, so a sourcing check cannot see it",
 }
 
 
@@ -991,6 +994,110 @@ def refuse_unsourced_header_values(header_d: dict, index: List[dict],
                     + (f": '{_clip(source)}'" if source and clause.endswith("cited")
                        else "")
                 )
+    return reasons
+
+
+# --------------------------------------------------------------------------- #
+# 2c'. A form LABEL written into a header field
+# --------------------------------------------------------------------------- #
+# The header pass sometimes writes a form label together with its value (`PCN #: 2683`)
+# into a field. Measured on the Diodes notice, 2 leaks in ~18 file-fire samples. A
+# sourcing check is structurally blind to it: the label+value is typically printed as
+# ONE text run, so it is verbatim on the page and passes `locate_header_source`. It
+# needs its own structural test.
+#
+# WHAT THIS DOES NOT DO. It turns an undeclared silent write into a declared refusal
+# for the fields it covers. It does not repair those values: stripping the label would
+# give `2683`, which is also wrong, and `_RECOVERABLE` holds only `mfr`, so a refusal
+# here is null plus a reason in the leaking fire only and makes no cross-fire agreement
+# check pass by itself. The fixture's own field, `doc_id`, is deliberately NOT covered
+# for the opposite reason — its value IS recoverable. See `_LABEL_ECHO_FIELDS`.
+_LABEL_WORDS = frozenset((
+    "pcn", "pdn", "document", "doc", "notice", "revision", "rev", "date", "title",
+    "subject", "customer", "part", "number", "issue", "effective", "no", "id",
+))
+_LABEL_TOKEN_RE = re.compile(r"^[A-Za-z#.&/\-]+$")
+
+
+def is_field_label_echo(value) -> bool:
+    """True when `value` is a form label echoed with, or instead of, its value.
+
+    Rule: split at the first colon. The left side must be label-shaped — one to three
+    whitespace-separated tokens, letters/`#`/`.` only (no digits), at most 30 chars. The
+    right side must be empty (a bare label such as `Revision:`; same reasoning as
+    `table_text_layer._is_form_label`, `len(v) > 1 and v.endswith(":")`) or a short
+    value (at most 4 tokens, 8 when the label carries a known header word such as PCN or
+    Document). A URL (`http://...`) is never an echo. Non-strings are never an echo.
+    """
+    if not isinstance(value, str):
+        return False
+    v = value.strip()
+    if len(v) < 2 or ":" not in v:
+        return False
+    left, _, right = v.partition(":")
+    left, right = left.strip(), right.strip()
+    if right.startswith("//"):
+        return False
+    tokens = left.split()
+    if not 1 <= len(tokens) <= 3 or len(left) > 30:
+        return False
+    if not all(_LABEL_TOKEN_RE.match(t) for t in tokens):
+        return False
+    known = any(t.strip("#.").lower() in _LABEL_WORDS for t in tokens)
+    if not right:
+        return True
+    return len(right.split()) <= (8 if known else 4)
+
+
+# (field, blank value). Follows `HEADER_SOURCED_FIELDS` where a field is in it (`mfr` and
+# `pub_date` blank to "", `mfr_parent` and `doc_level_ltb_date` to None). `revision` has
+# no documented blank value; None, because the plugin reads it with `revision or ""`.
+#
+# `doc_id` IS DELIBERATELY NOT HERE, and the reason is measured. It is the field the
+# echo was FOUND in -- `doc_id: 'PCN #: 2683'` on the Diodes notice, in one fire of
+# three in every published report from 2026-10-02 to 2026-10-12 -- but it is the one
+# field a refusal would make WORSE. `normalize_doc_id` maps that exact string to
+# 'PCN-2683', which is the correct value: the content is fully recoverable, so blanking
+# it would throw away a right answer and leave an empty field disagreeing with the two
+# fires that wrote the value. The echo reaches `doc_id` because the region supplier
+# writes it AFTER the plugin's only normalization, breaking the "one authoritative,
+# key-safe doc_id" invariant that normalization exists to hold; the fix is to re-assert
+# that invariant after this pipeline, not to refuse the value. Every field below has no
+# such recovery path, which is why a refusal is the right answer for all of them.
+_LABEL_ECHO_FIELDS = (
+    ("mfr", ""),
+    ("mfr_parent", None),
+    ("pub_date", ""),
+    ("doc_level_ltb_date", None),
+    ("revision", None),
+)
+
+
+def refuse_field_label_echoes(header_d: dict) -> List[str]:
+    """Blank any header field whose value is a form label echo
+    (`is_field_label_echo`). MUTATES `header_d` IN PLACE. Returns one doc-level reason
+    string per refused field; never raises.
+
+    Run it BEFORE `refuse_unsourced_header_values`: a label echo that is verbatim on the
+    page survives the sourcing check and would then be handed on as a value. This is a
+    refusal, not a repair — see the comment above `_LABEL_WORDS`.
+    """
+    reasons: List[str] = []
+    try:
+        for field, blank_value in _LABEL_ECHO_FIELDS:
+            value = header_d.get(field)
+            if not is_field_label_echo(value):
+                continue
+            header_d[field] = blank_value
+            source_field = f"{field}_source"
+            if source_field in header_d:
+                header_d[source_field] = None
+            reasons.append(
+                f"header.{field} refused: '{_clip(value)}' "
+                f"{_REFUSAL_CLAUSE['value_is_a_field_label']}"
+            )
+    except Exception:  # noqa: BLE001 — contract: never raises
+        pass
     return reasons
 
 

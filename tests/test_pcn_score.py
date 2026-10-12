@@ -108,12 +108,12 @@ def test_absent_notice_is_not_silently_skipped():
 
 def test_shipped_ground_truth_is_self_consistent():
     gt = pcn_score.load_ground_truth()
-    assert len(gt) == 11
+    assert len(gt) == 10
     for fn, e in gt.items():
         assert len(e["mpns"]) == e["count"], fn
         assert len(set(e["mpns"])) == e["count"], f"{fn} has duplicate MPNs"
         assert all(m and m.strip() for m in e["mpns"]), fn
-    # 924, and there are exactly TWO legitimate reasons for this number to move.
+    # 522, and there are exactly THREE legitimate reasons for this number to move.
     #
     # A CORRECTION, where a count in the JSON was wrong. 898 is the standing example:
     # two tier-1 cells in TYC-PCN-24-210412.pdf each held two real MPNs glued by
@@ -129,9 +129,14 @@ def test_shipped_ground_truth_is_self_consistent():
     # the numerator, so a score measured at 924 is NOT comparable to one measured at
     # 898 -- cite the denominator with every figure.
     #
-    # If you are here because this assert went red, say which of the two you did. An
+    # A DEDUP, where ground truth double-counted one document. 924 -> 522 on 2026-10-12:
+    # Diodes_PCN_2683_FULLGREEN.pdf is byte-identical to Diodes_PCN_2683_Rev1_EOL.pdf
+    # (one sha256), so its 402 parts were counted twice. Every part number stayed;
+    # only the denominator fell, so a score at 522 is NOT comparable to one at 924.
+    #
+    # If you are here because this assert went red, say which of the three you did. An
     # edit that is neither is a tune, and the number was right before you touched it.
-    assert sum(e["count"] for e in gt.values()) == 924
+    assert sum(e["count"] for e in gt.values()) == 522
 
 
 def test_shipped_ground_truth_declares_its_provenance():
