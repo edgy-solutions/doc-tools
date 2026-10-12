@@ -488,8 +488,8 @@ def test_the_renderer_states_not_scored_rather_than_zero_failures():
 def test_the_gate_copies_the_corpus_enumeration_into_its_report():
     corpus = gate.pcn_score.load_corpus()
     assert corpus["distinct_documents"] == 10
-    assert corpus["scored_entries"] == 11
-    assert corpus["gt_parts"] == 924
+    assert corpus["scored_entries"] == 10
+    assert corpus["gt_parts"] == 522
     assert corpus["distinct_parts"] == 522
     rendered = gate._render_corpus_block(corpus)
     assert "distinct documents: **10**" in rendered
@@ -519,10 +519,10 @@ def test_targets_and_the_enumeration_must_agree_or_the_run_aborts():
         # the shipped ones -- otherwise a case passes for the wrong reason and would
         # keep passing after the real check was removed.
         for bad in ({"documents": [], "distinct_documents": 0,
-                     "scored_entries": 11, "gt_parts": 924, "distinct_parts": 522},
+                     "scored_entries": 10, "gt_parts": 522, "distinct_parts": 522},
                     dict(real(), gt_parts=925),
                     dict(real(), distinct_parts=924),
-                    dict(real(), scored_entries=10),
+                    dict(real(), scored_entries=11),
                     {}):
             run.pcn_score.load_corpus = lambda *a, _b=bad, **k: _b
             try:
@@ -535,15 +535,15 @@ def test_targets_and_the_enumeration_must_agree_or_the_run_aborts():
 
 
 def test_the_distinct_parts_arithmetic_is_recomputed_not_restated():
-    """522 is 924 minus the Diodes document's 402, because that one content is
-    scored under two filenames. The check must be that arithmetic over the
-    notices block, not a second copy of the number -- which is why the widening
-    moved both numbers and left the 402 gap untouched."""
+    """522 is the sum of each document's representative filename over the notices
+    block, not a second copy of the number. Since the 2026-10-12 sha256 re-key each
+    document is scored once, so that sum IS the harness total (the Diodes pair was
+    924 = 522 + 402 while it was scored under both names)."""
     gt = run.pcn_score.load_ground_truth()
     corpus = run.pcn_score.load_corpus()
     reps = [d["filenames"][0] for d in corpus["documents"]]
     assert sum(gt[fn]["count"] for fn in reps) == corpus["distinct_parts"]
-    assert corpus["gt_parts"] - corpus["distinct_parts"] == 402
+    assert corpus["gt_parts"] == corpus["distinct_parts"]
 
 
 # --------------------------------------------------------------------------- #
