@@ -1365,7 +1365,7 @@ class SustainmentPlugin(AugmentationPlugin):
         # here, and the model's own label survives only inside the reason text below when
         # it is not used, never as the value actually routed on.
         derived, dt_source = header_trust.doc_type_from_titles(
-            header_trust.titles_from_elements(elements))
+            header_trust.headline_candidates(elements))
         if derived:
             header_d["doc_type"] = derived
             header_d["doc_type_source"] = dt_source

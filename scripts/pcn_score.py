@@ -154,10 +154,28 @@ def score_notice(emitted: List[str], gt_entry: Dict[str, Any]) -> Dict[str, Any]
     Multiplicity is deliberately ignored: ground truth is a set of distinct part
     numbers, so a notice that emits the same MPN twice is not credited twice.
     The duplicate still shows up, as `emitted` exceeding `exact + spurious`.
+
+    `ruled_out` NAMES a spurious part that ground truth anticipated. It is a
+    LABELLED SUBSET of `spurious`, not a fifth class carved out of it: the part
+    stays counted in `spurious` so the gate verdict in `main` cannot be weakened
+    by anything added here. Its only job is to make a known failure legible —
+    "the DEVICES-ONLY ruling was violated" instead of 11 anonymous strings.
+
+    The case it was built for: TI page 2's customer part numbers are excluded
+    today only because `find_tables()` returns zero tables for that page, so no
+    rule implements the ruling. See `expect_absent_mpns` in the ground-truth
+    file. A notice with no `expect_absent_mpns` scores exactly as before.
     """
     gt = list(gt_entry["mpns"])
     gt_set = set(gt)
     emitted_set = set(emitted)
+    ruled = set(gt_entry.get("expect_absent_mpns") or ())
+    both = ruled & gt_set
+    if both:
+        raise ValueError(
+            "ground truth defect: %r appear in both `mpns` and "
+            "`expect_absent_mpns`. A part cannot be required and ruled out at "
+            "once; decide which it is." % sorted(both))
 
     exact = sorted(emitted_set & gt_set)
     spurious = sorted(emitted_set - gt_set)
@@ -170,6 +188,7 @@ def score_notice(emitted: List[str], gt_entry: Dict[str, Any]) -> Dict[str, Any]
         "distinct": len(emitted_set),
         "exact": len(exact),
         "spurious": spurious,
+        "ruled_out": sorted(emitted_set & ruled),
         "missing": missing,
         "malformed": malformed,
         "clean": not spurious and not missing and not malformed
@@ -550,6 +569,7 @@ def score_run(results: Dict[str, Any], gt: Dict[str, Any]) -> Dict[str, Any]:
         "spurious": sum(len(p["spurious"]) for p in per.values()),
         "missing": sum(len(p["missing"]) for p in per.values()),
         "malformed": sum(len(p["malformed"]) for p in per.values()),
+        "ruled_out": sum(len(p.get("ruled_out") or ()) for p in per.values()),
         "emitted": sum(p["emitted"] for p in per.values()),
     }
     return {"per_notice": per, "totals": totals,
@@ -578,6 +598,13 @@ def render(scored: Dict[str, Any]) -> str:
         if p["spurious"]:
             out.append(f"\n{fn} spurious (emitted, not a real part):")
             out += [f"    {m!r}" for m in p["spurious"]]
+        if p.get("ruled_out"):
+            # A subset of the spurious block above, repeated under its own name:
+            # ground truth ANTICIPATED these, so this is a ruling violated, not
+            # an unknown misread, and the fix is a different one.
+            out.append(f"\n{fn} RULED OUT by ground truth and emitted anyway "
+                       f"(`expect_absent_mpns`):")
+            out += [f"    {m!r}" for m in p["ruled_out"]]
         if p["missing"]:
             out.append(f"\n{fn} missing (real part, not emitted):")
             out += [f"    {m!r}" for m in p["missing"]]

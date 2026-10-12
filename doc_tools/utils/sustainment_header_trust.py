@@ -1081,3 +1081,45 @@ def titles_from_elements(elements) -> List[str]:
         if text:
             out.append(text)
     return out
+
+
+HEADLINE_MAX_CHARS = 160
+
+
+def headline_candidates(elements) -> List[str]:
+    """Candidate strings for `doc_type_from_titles`, in document order: every
+    `Title` element, PLUS the short text elements that precede the first `Title`.
+
+    Why widen: the partitioner does not always type a notice's printed headline as
+    `Title`. TI PCN#20210316000.1's headline ("PCN#... Die Coat addition ... Change
+    Notification / Sample Request") is `NarrativeText`; its four real Titles are all
+    section headings, so `titles_from_elements` alone yields no evidence.
+
+    Both bounds defeat a measured hazard:
+      * LENGTH (<= HEADLINE_MAX_CHARS after strip): TI's page-1 prose "This notice
+        does not change the end-of-life status of any product..." carries a PDN
+        keyword but is about a PREVIOUS notice. Admitted, it would make this PCN a
+        PDN or ambiguous. The real headline is 91 characters; that sentence is far
+        longer.
+      * BEFORE THE FIRST `Title`: leaves the other documents' behaviour intact and
+        stops mid-document narrative from ever voting.
+
+    Order is preserved so `doc_type_from_titles`' first-signal-wins holds (a flat
+    blob would let a table caption's "EOL" contradict an explicit "PCN"). Candidates
+    are NOT limited to page 1: Titles anywhere count, since two Diodes notices carry
+    their classifying title on a later page.
+    """
+    out: List[str] = []
+    seen_title = False
+    for el in elements or []:
+        if not isinstance(el, dict):
+            continue
+        text = (el.get("text") or "").strip()
+        if not text:
+            continue
+        if el.get("type") == "Title":
+            seen_title = True
+            out.append(text)
+        elif not seen_title and len(text) <= HEADLINE_MAX_CHARS:
+            out.append(text)
+    return out

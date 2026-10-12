@@ -34,6 +34,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Set, Tuple
 
+from doc_tools.utils.ltb_candidates import is_entirely_a_date
+
 # Column-header VOCABULARY — data, not code, so a new vendor's wording is a list entry
 # rather than a branch. Matched case-insensitively against the normalized header cell.
 AFFECTED_HEADERS: Tuple[str, ...] = (
@@ -105,10 +107,81 @@ _MAX_MPN_SPACES = 2
 
 
 def looks_like_mpn(value: Optional[str]) -> bool:
+    """The plausibility floor. A DATE ("Jun 22, 2021": 12 chars, two spaces, digits) and a
+    form LABEL (ends with ":") both passed the length/space/digit test and a date reached
+    a review queue as the only affected part of TI PCN#20210316000.1. Both are rejected
+    here. Shared with `pair_columns`' cell matching, where neither is an MPN either."""
     v = (value or "").strip()
     if not v or len(v) > _MAX_MPN_LEN or v.count(" ") > _MAX_MPN_SPACES:
         return False
+    if v.endswith(":") or is_entirely_a_date(v):
+        return False
     return any(ch.isdigit() for ch in v)
+
+
+# Phrase-level vocabulary of PARTS-TABLE LABELS: what a caption or an enclosing form's
+# label says when it NAMES a table as the parts list. Distinct from AFFECTED_HEADERS (a
+# COLUMN-header vocabulary, which deliberately matches bare "device"). PHRASES ONLY: TI's
+# form is captioned "Die Coating addition for Select Devices", and a bare-word rule would
+# classify that form as the parts table.
+PARTS_TABLE_LABELS: Tuple[str, ...] = (
+    "product affected", "products affected", "affected product", "affected products",
+    "affected part", "affected parts", "affected device", "affected devices",
+    "device affected", "devices affected", "eol device", "discontinued part",
+)
+
+# Bare words that are a parts-table label only as the WHOLE cell. A cell printed above a
+# list and reading just "Devices" names that list; the same word INSIDE a sentence names
+# a change — TI PCN#20210316000.1 captions its form "Die Coating addition for Select
+# Devices", so a substring rule would classify the notice's own form as its parts table
+# and make the miss worse. Whole-cell only, so both readings get what they are owed.
+PARTS_TABLE_LABELS_EXACT: Tuple[str, ...] = (
+    "device", "devices", "part", "parts", "part number", "part numbers",
+    "mpn", "mpns", "orderable part number",
+)
+
+
+# A label is a LABEL: a short cell printed to name something. The bound is not cosmetic.
+# TI's own page 3 prints the sentence "This notification is to announce the qualification
+# of Polyimide Die Coating material for the devices listed in "Product Affected"
+# section." in a form cell, which contains the phrase verbatim while naming no table at
+# all — it REFERS to the section. Unbounded, that sentence anchors a parts label and the
+# locator starts naming whatever grid follows it.
+_MAX_LABEL_LEN = 48
+_MAX_LABEL_SPACES = 4
+
+
+def is_parts_table_label(cell: Optional[str]) -> bool:
+    """True when this cell NAMES a table as the parts list — a caption or an enclosing
+    form's label, not a column header and not prose that mentions one."""
+    h = _norm_header(cell)
+    if not h or len(h) > _MAX_LABEL_LEN or h.count(" ") > _MAX_LABEL_SPACES:
+        return False
+    if h.rstrip(":").strip() in PARTS_TABLE_LABELS_EXACT:
+        return True
+    return any(k in h for k in PARTS_TABLE_LABELS)
+
+
+def _is_form_label(cell: Optional[str]) -> bool:
+    v = (cell or "").strip()
+    return len(v) > 1 and v.endswith(":")
+
+
+_FORM_MIN_LABELS = 3
+
+
+def _is_form_region(grid: Sequence[Sequence[Optional[str]]]) -> bool:
+    """A grid with NO column header, whose own caption does not name a parts list, and
+    that carries >= 3 form-label cells ("PCN Number:", "Title:", ...). It is the notice's
+    header/form region and is never a parts source. Parts tables all have column headers
+    or a parts caption, so this cannot fire on them."""
+    if find_header_row(grid) is not None:
+        return False
+    ti = find_title_row(grid)
+    if ti is not None and any(is_parts_table_label(c) for c in grid[ti]):
+        return False
+    labels = sum(1 for row in grid for c in row if _is_form_label(c))
+    return labels >= _FORM_MIN_LABELS
 
 
 # Quote characters that ENCLOSE a value. Straight and typographic both occur: a notice
@@ -451,6 +524,7 @@ def grid_outcome(
     *,
     header_row: Optional[int] = None,
     inherited: Optional[InheritedHeader] = None,
+    labelled: bool = False,
 ) -> GridOutcome:
     """[{affected_mpn, replacement_mpn, row, col}] from a grid of cell strings (PURE),
     or a `GridDecline` explaining why not.
@@ -467,14 +541,30 @@ def grid_outcome(
          number itself a DIFFERENT table  -> inherit its pairs (continuation page)
       3. no header, but a CAPTION names
          the contents                     -> every column is an affected part
-      4. otherwise                        -> decline
+      4. no header and no caption, but a
+         parts LABEL elsewhere on the page
+         names this grid (`labelled`)     -> every column is an affected part
+      5. otherwise                        -> decline
 
-    Still PURE: the inherited pairing is passed IN. Threading it across a document's
-    tables is the caller's job (`parts_from_pages`).
+    Ahead of all five, a grid with no column header that is the notice's own FORM REGION
+    (3+ `Label:` cells, no parts caption) declines outright — header-region cells are
+    never a parts source, whatever they look like. That rule precedes inheritance on
+    purpose: a form region must not become a parts source merely because an earlier table
+    declared a header with the same column count.
+
+    Still PURE: the inherited pairing is passed IN, and so is `labelled` — deciding which
+    grid a page's label names needs every table's geometry, so it is the caller's job
+    (`_labelled_table_indices`), as threading inheritance across pages already is.
     """
     if not grid:
         return GridOutcome([], GridDecline("empty grid", 0, 0, grid))
     hi = header_row if header_row is not None else find_header_row(grid)
+    if hi is None and _is_form_region(grid):
+        # The notice's own header/form region (3+ Label: cells, no column header, no
+        # parts caption). Never a parts source; recorded so the stat is visible.
+        return GridOutcome([], GridDecline(
+            "form region: no column header, no parts caption, and 3+ form-label cells",
+            _mpn_bearing_rows(grid), len(grid), grid))
     # Which rule decided the columns — carried only so a zero-part outcome can say what
     # it tried. See the silent-zero decline at the end of this function.
     basis = "a declared header row"
@@ -506,14 +596,23 @@ def grid_outcome(
         # replacements — the shape of a bare discontinuance list. Without a caption we
         # decline: an unlabelled grid of unknown columns must not be guessed into parts.
         ti = find_title_row(grid)
-        if ti is None:
+        if ti is None and labelled:
+            # No caption of its own, but a parts label elsewhere on the page names this
+            # grid (`labelled`, decided by the page loop). Read like a caption-only
+            # table: every column affected.
+            width = max((len(r) for r in grid), default=0)
+            pairs = [(c, None) for c in range(width)]
+            start = 0
+            basis = "a parts label elsewhere on the page naming this grid"
+        elif ti is None:
             return GridOutcome([], GridDecline(
                 "no column header, nothing to inherit, and no caption naming the contents",
                 _mpn_bearing_rows(grid), len(grid), grid))
-        width = max((len(r) for r in grid[ti + 1:]), default=0)
-        pairs = [(c, None) for c in range(width)]
-        start = ti + 1
-        basis = "a caption naming the contents"
+        else:
+            width = max((len(r) for r in grid[ti + 1:]), default=0)
+            pairs = [(c, None) for c in range(width)]
+            start = ti + 1
+            basis = "a caption naming the contents"
     if not pairs:
         return GridOutcome([], GridDecline(
             "header row produced no affected/replacement column pairs",
@@ -643,6 +742,10 @@ def parts_from_grid(
          the contents                     -> every column is an affected part
       4. otherwise                        -> decline
 
+    The back-compat wrapper: `.parts` only, and no `labelled` argument, so a grid named by
+    a label ELSEWHERE on its page cannot be read through here. Callers that have the page
+    use `grid_outcome` (or `parts_and_declines_from_pages`, which supplies both).
+
     Still PURE: the inherited pairing is passed IN. Threading it across a document's
     tables is the caller's job (`parts_from_pages`).
 
@@ -726,6 +829,86 @@ def _tables_of(page) -> List[Any]:
         return []
 
 
+def _bbox_of(table) -> Optional[Tuple[float, float, float, float]]:
+    try:
+        b = tuple(float(v) for v in table.bbox)
+        return b if len(b) == 4 else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _table_top(table) -> Optional[float]:
+    b = _bbox_of(table)
+    return b[1] if b else None
+
+
+def _cell_bottom(table, r: int, c: int) -> Optional[float]:
+    """The bottom edge of one cell, or None when the table carries no cell geometry."""
+    try:
+        cell = table.rows[r].cells[c]
+        return float(cell[3]) if cell else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _parts_label_anchors(tables: Sequence[Any]) -> List[Tuple[int, Optional[float]]]:
+    """(table index, the label cell's BOTTOM edge) for every parts-table label printed on
+    this page. The bottom is None when the table carries no cell geometry."""
+    out: List[Tuple[int, Optional[float]]] = []
+    for i, t in enumerate(tables):
+        try:
+            grid = t.extract()
+        except Exception:  # noqa: BLE001
+            continue
+        for r, row in enumerate(grid):
+            for c, cell in enumerate(row):
+                if is_parts_table_label(cell):
+                    out.append((i, _cell_bottom(t, r, c)))
+    return out
+
+
+# A label's own cell border can overlap the top rule of the table beneath it by a hair.
+_LABEL_SLACK_PT = 2.0
+
+
+def _labelled_table_indices(tables: Sequence[Any]) -> Set[int]:
+    """Indices of the grids that a parts-table LABEL printed elsewhere on this page names.
+
+    TI PCN#20210316000.1 prints "Product Affected:" at row 25 of the enclosing form and
+    the nine devices as a separate bare 3x4 grid, so the caption is not IN the grid and
+    the grid alone is indistinguishable from a continuation row (which must keep
+    declining). The connection is what was missing, and this makes it.
+
+    A label names the NEAREST table BELOW IT, not every table that follows. The weaker
+    "anything after a label" reading over-emits, measured on this very page: the label is
+    at y=464 and the die-coat table at y=309 is ABOVE it, so a page-order rule marks the
+    die-coat table too. It yields nothing only because its cells carry no digits — on a
+    page whose spec or revision table does, that rule fabricates parts, which is the
+    defect class this module exists to avoid. Geometry is therefore load-bearing, not an
+    optimization, and `_LABEL_SLACK_PT` is the only fuzz allowed.
+
+    Without cell geometry (a hand-built grid in a test) the nearest FOLLOWING table in
+    page order is the fallback, which is the same claim with page order standing in for y.
+    """
+    out: Set[int] = set()
+    tops = [_table_top(t) for t in tables]
+    for src, label_bottom in _parts_label_anchors(tables):
+        candidates: List[Tuple[float, int]] = []
+        for j in range(len(tables)):
+            if j == src:
+                # A label inside the grid it names is a CAPTION; `find_title_row` already
+                # reads that case and this must not double-count it.
+                continue
+            if label_bottom is not None and tops[j] is not None:
+                if tops[j] >= label_bottom - _LABEL_SLACK_PT:
+                    candidates.append((tops[j], j))
+            elif j > src:
+                candidates.append((float(j), j))
+        if candidates:
+            out.add(min(candidates)[1])
+    return out
+
+
 def _parts_from_page(
     page, page_number: int, inherited: Optional[InheritedHeader],
 ) -> Tuple[List[Dict[str, Any]], Optional[InheritedHeader], List[Dict[str, Any]]]:
@@ -747,7 +930,10 @@ def _parts_from_page(
         # parts from it, rather than parts attributed to guessed columns.
         return results, None, declines
     dims = {"width": float(page.width), "height": float(page.height)}
-    for table in tables:
+    # Which grids a parts label names — decided once for the page, since the answer
+    # depends on every table's position, not just the ones before this index.
+    labelled_idx = _labelled_table_indices(tables)
+    for idx, table in enumerate(tables):
         grid = table.extract()
         rows = table.rows
         # parts_from_grid decides header-vs-caption itself; short-circuiting on a missing
@@ -770,7 +956,8 @@ def _parts_from_page(
         if own is not None:
             inherited = own
 
-        outcome = grid_outcome(grid, inherited=None if own is not None else inherited)
+        outcome = grid_outcome(grid, inherited=None if own is not None else inherited,
+                               labelled=idx in labelled_idx)
         if outcome.decline is not None:
             d = outcome.decline
             declines.append({"page_number": page_number, "reason": d.reason,
