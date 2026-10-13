@@ -104,6 +104,19 @@ class IngestStatusResource(ConfigurableResource):
     never fail an extraction. `update()` still validates every call against
     the real vocabulary and Lane 1's own rules (shape, blank-detail) BEFORE
     any of that transport is attempted.
+
+    STRUCTURED FAILURE. A `failed` stage may carry five more fields beyond
+    `detail`: `reason_code` (a member of `ingest_failure.REASON_CODES`),
+    `reason` (human-readable, self-contained), `step` (the op/asset that
+    failed), `run_id` (the Dagster run) and `pin_digest` (the running-code
+    identity; auto-filled from `running_code_identity()` when omitted). The
+    SDK's `IngestStatus` is `extra="forbid"` with only `stage` and `detail`,
+    but Lane 1's live route accepts the extras anyway: probed against the
+    sandbox gateway with a canonical but nonexistent ingest_id, `{stage,
+    detail}` and `{stage, detail, reason_code, step, run_id, pin_digest}`
+    both returned an identical `404 ingest_not_found` -- a 404, not a 422,
+    so body validation passed. Lane 1 ignores them until it lands the
+    field; it owns persisting them and `POST /ingest/{id}/retry`.
     """
 
     #: THE UNITS, stated (architect ruling 2026-10-02: "extracted_count /
@@ -136,7 +149,12 @@ class IngestStatusResource(ConfigurableResource):
                extracted_count: Optional[int] = None,
                extracted_total: Optional[int] = None,
                extraction_ref: Optional[str] = None,
-               detail: Optional[str] = None) -> None:
+               detail: Optional[str] = None,
+               reason_code: Optional[str] = None,
+               reason: Optional[str] = None,
+               step: Optional[str] = None,
+               run_id: Optional[str] = None,
+               pin_digest: Optional[str] = None) -> None:
         """Validate and (for now) log one stage transition for `ingest_id`.
 
         `ingest_id` must be ``sha256:<64 lowercase hex>``. That is Lane 1's
@@ -220,6 +238,49 @@ class IngestStatusResource(ConfigurableResource):
 
         logger = logging.getLogger(__name__)
 
+        # NON-RAISING, unlike every validation above. Those run on paths
+        # where the caller can still fix the call; `reason_code`'s only
+        # caller is an error boundary, and the comment at that boundary
+        # already records that a raise inside the handler MASKS the original
+        # exception. So an unknown code is logged and coerced, never raised.
+        from doc_tools.utils.ingest_failure import (
+            REASON_CODE_SLUG_RE, REASON_CODES, running_code_identity,
+        )
+
+        # Lane 1 422s `invalid_reason_code` unless the code matches
+        # REASON_CODE_SLUG_RE (^[a-z][a-z0-9_]{0,63}$), so a non-slug is
+        # coerced here as well as an unknown-but-slug-shaped one.
+        if reason_code is not None and (
+            not isinstance(reason_code, str)
+            or not REASON_CODE_SLUG_RE.match(reason_code)
+            or reason_code not in REASON_CODES
+        ):
+            logger.warning(
+                "ADR-0041 ingest status: bad reason_code=%r (must match "
+                "%s and be one of %s) -- coerced to 'unexpected_error', "
+                "not raised.",
+                reason_code, REASON_CODE_SLUG_RE.pattern, sorted(REASON_CODES),
+            )
+            reason_code = "unexpected_error"
+        # Lane 1 refuses failure-only fields on any other stage with 422
+        # `failure_fields_without_failed`. Omit them (with a warning) rather
+        # than send a request that will be refused. `run_id` is exempt: it is
+        # accepted on EVERY stage, and Lane 1 wants it on `extracting` (their
+        # watchdog names the run with it when a row stalls).
+        if stage != "failed":
+            _fields = {"reason_code": reason_code, "reason": reason,
+                       "step": step, "pin_digest": pin_digest}
+            for _fname, _fval in _fields.items():
+                if _fval is not None:
+                    logger.warning(
+                        "ADR-0041 ingest status: %s is failure-only (Lane 1: "
+                        "422 failure_fields_without_failed) but stage=%r -- "
+                        "omitted from the body.", _fname, stage,
+                    )
+            reason_code = reason = step = pin_digest = None
+        if stage == "failed" and pin_digest is None:
+            pin_digest = running_code_identity()
+
         # The SDK and Lane 1's route share one spelling since v0.9.8; check
         # what the route accepts. See `_WIRE_POSTABLE` above.
         wire_stage = stage
@@ -231,11 +292,13 @@ class IngestStatusResource(ConfigurableResource):
                 "owns the 'received' stamp and the human disposition task "
                 "owns 'promoted'/'rejected'; neither is posted here): "
                 "ingest_id=%s extracted_count=%s [%s] extracted_total=%s "
-                "[%s] detail=%s",
+                "[%s] detail=%s"
+                " reason_code=%s reason=%s step=%s run_id=%s pin_digest=%s",
                 stage, wire_stage, ingest_id,
                 extracted_count, self.EXTRACTED_COUNT_UNIT,
                 extracted_total, self.EXTRACTED_TOTAL_UNIT,
                 detail,
+                reason_code, reason, step, run_id, pin_digest,
             )
             return
 
@@ -248,11 +311,13 @@ class IngestStatusResource(ConfigurableResource):
                 "— skipping the POST for ingest_id=%s stage=%s [wire=%s] "
                 "rather than send one Lane 1's route will 401 "
                 "unauthenticated. extracted_count=%s [%s] extracted_total="
-                "%s [%s] detail=%s",
+                "%s [%s] detail=%s"
+                " reason_code=%s reason=%s step=%s run_id=%s pin_digest=%s",
                 ingest_id, stage, wire_stage,
                 extracted_count, self.EXTRACTED_COUNT_UNIT,
                 extracted_total, self.EXTRACTED_TOTAL_UNIT,
                 detail,
+                reason_code, reason, step, run_id, pin_digest,
             )
             return
 
@@ -279,6 +344,12 @@ class IngestStatusResource(ConfigurableResource):
             body["extraction_ref"] = extraction_ref
         if detail is not None:
             body["detail"] = detail
+        for _name, _value in (
+            ("reason_code", reason_code), ("reason", reason),
+            ("step", step), ("run_id", run_id), ("pin_digest", pin_digest),
+        ):
+            if _value is not None:
+                body[_name] = _value
 
         base = os.getenv("IAGENT_GATEWAY_URL", _DEFAULT_GATEWAY_URL).rstrip("/")
         url = f"{base}/ingest/{ingest_id}/stage"
@@ -292,12 +363,14 @@ class IngestStatusResource(ConfigurableResource):
                 "ADR-0041 ingest status POST failed (non-fatal — a stage "
                 "write must never fail an extraction): ingest_id=%s "
                 "stage=%s [wire=%s] url=%s %s: %s. extracted_count=%s [%s] "
-                "extracted_total=%s [%s] detail=%s",
+                "extracted_total=%s [%s] detail=%s reason_code=%s reason=%s "
+                "step=%s run_id=%s pin_digest=%s",
                 ingest_id, stage, wire_stage, url,
                 type(exc).__name__, str(exc)[:200],
                 extracted_count, self.EXTRACTED_COUNT_UNIT,
                 extracted_total, self.EXTRACTED_TOTAL_UNIT,
                 detail,
+                reason_code, reason, step, run_id, pin_digest,
             )
             return
 
@@ -305,23 +378,27 @@ class IngestStatusResource(ConfigurableResource):
             logger.info(
                 "ADR-0041 ingest status posted: ingest_id=%s stage=%s "
                 "[wire=%s] status=%s extracted_count=%s [%s] "
-                "extracted_total=%s [%s] extraction_ref=%s detail=%s",
+                "extracted_total=%s [%s] extraction_ref=%s detail=%s "
+                "reason_code=%s reason=%s step=%s run_id=%s pin_digest=%s",
                 ingest_id, stage, wire_stage, response.status_code,
                 extracted_count, self.EXTRACTED_COUNT_UNIT,
                 extracted_total, self.EXTRACTED_TOTAL_UNIT,
                 extraction_ref, detail,
+                reason_code, reason, step, run_id, pin_digest,
             )
         else:
             logger.warning(
                 "ADR-0041 ingest status POST non-2xx (non-fatal — a stage "
                 "write must never fail an extraction): ingest_id=%s "
                 "stage=%s [wire=%s] url=%s status=%s body=%s. "
-                "extracted_count=%s [%s] extracted_total=%s [%s] detail=%s",
+                "extracted_count=%s [%s] extracted_total=%s [%s] detail=%s "
+                "reason_code=%s reason=%s step=%s run_id=%s pin_digest=%s",
                 ingest_id, stage, wire_stage, url, response.status_code,
                 response.text[:200],
                 extracted_count, self.EXTRACTED_COUNT_UNIT,
                 extracted_total, self.EXTRACTED_TOTAL_UNIT,
                 detail,
+                reason_code, reason, step, run_id, pin_digest,
             )
 
 
