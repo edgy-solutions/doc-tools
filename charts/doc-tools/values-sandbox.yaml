@@ -817,7 +817,51 @@ image:
   # from three fires after the roll and are recorded in the session report named
   # in this commit message.
   # ------------------------------------------------------------------
-  digest: "sha256:d16b44021549cb0d109c512aaa17a31404a533f4515a8fbf5103aa62f6b1db19"
+  # 2026-10-12 -- sha256:b18d7dc4... (8725e04, which is #109). Children fetched
+  # by their own digest, not merely read out of the index:
+  #     linux/amd64  sha256:30f4ffa5...  config + 19 layers
+  #     linux/arm64  sha256:3a6e80de...  config + 19 layers
+  # Both are real OCI image manifests, the arm64 child for the reason at the top
+  # of this file. The index also carries the two unknown/unknown buildx
+  # attestation entries, which never satisfy a platform requirement. The digest
+  # comes from the `push`-event run on main for 8725e04 (38284312817); the
+  # `pull_request` run on #109 also reported `build-and-push` green in 31m26s and
+  # pushed NOTHING, which is the trap named in the previous entry.
+  #
+  # WHAT THIS CARRIES BEYOND d16b4402: #107 (a date is not a part number, and a
+  # labelled table is found) and #109 -- the corpus re-keyed by measured source
+  # bytes, the `gt_parts == distinct_parts` assertion, the TI `mfr` alias set,
+  # and the field-label refusal at the header boundary. It also carries #63
+  # (S1000D week 2), which d16b4402 predated.
+  #
+  # THE DENOMINATOR MOVES WITH THIS PIN, AND THAT IS THE POINT. #109 re-keyed
+  # the corpus by `source_sha256`: the Diodes pair is byte-identical, so it is
+  # one entry with an alias list rather than two scored rows, and the
+  # declaration goes 10 documents / 11 scored entries / 924 gt / 522 distinct ->
+  # 10 / 10 / 522 / 522. `scored_entries == distinct_documents` for the first
+  # time, and `gt_parts == distinct_parts` is now asserted at enumeration. The
+  # required `corpus-gate` check compares the committed report's `corpus` block
+  # against ground truth's `_corpus` on four keys, so this pin and a report
+  # measured ON it must land in the SAME commit -- a code-only PR is path-gated
+  # out of that check (`^charts/` or `^docs/corpus-gate/`) and cannot satisfy it.
+  #
+  # WHAT THIS PIN IS EXPECTED TO FIX, AND WHAT IT IS NOT. The Diodes `doc_id`
+  # red carried by d16b4402 was measured in SEVEN of seven published reports,
+  # 2026-10-02 to 2026-10-12, one fire of three in every one, at fire positions
+  # 1,2,1,1,2,2,3 -- ~1-in-3 per fire and 100% of nights, not the stochastic
+  # one-off the previous entry calls it. The cause is not the sampling: the
+  # region supplier writes `doc_id` verbatim AFTER the plugin's only
+  # `normalize_doc_id` call, so nothing re-normalized after the last writer.
+  # `normalize_doc_id('PCN #: 2683')` is 'PCN-2683', the correct value, so the
+  # fix re-asserts that invariant rather than refusing the field. The TI `mfr`
+  # misformat was measured at 5 of 6, NOT deterministic, so a clean fire on it
+  # is not evidence the alias set fixed anything.
+  #
+  # Measurements on THIS digest are not in at the time of the bump. They come
+  # from three fires after the roll and are recorded in the session report named
+  # in this commit message.
+  # ------------------------------------------------------------------
+  digest: "sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -1068,7 +1112,7 @@ corpusGate:
   # IF YOU BUMP image.digest AND STOP, YOU HAVE ARMED THE SAME FAILURE. The two
   # lines are not kept in step by anything automatic; no test and no CI job
   # compares them, because the Job that would is the one being checked.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:d16b44021549cb0d109c512aaa17a31404a533f4515a8fbf5103aa62f6b1db19"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b"
   publish:
     repo: edgy-solutions/doc-tools
 
