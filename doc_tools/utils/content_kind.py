@@ -137,6 +137,29 @@ UNBUILT_PASSES: tuple[str, ...] = (
     # domain, so the write path short-circuits it at "origin unresolved" before
     # any pass would run.
     "xml.xml_document_identity",
+    # ``cad.cad_document_identity`` -- the deterministic identity read for a
+    # CAD drop, declared by the ``cad`` row (architect authorisation
+    # 2026-10-13) and listed here because it does not exist. Nothing resolves
+    # for namespace ``cad``: there is no ``cad*.py`` in any pass package.
+    #
+    # What it must do when it is built: read part number, revision, CAGE and
+    # contract/program identifiers out of CAD METADATA -- a STEP header's
+    # FILE_NAME/FILE_DESCRIPTION entities, a DWG/DXF header block, or the
+    # product-data attributes a native CATIA/SolidWorks part carries -- with
+    # the entity or attribute that produced each value as its source, and
+    # refuse rather than guess. Same two invariants as
+    # ``doc_tools/passes/identity.py``, over a locator that is not text at all.
+    #
+    # It is NOT a title-block OCR of a drawing sheet. A drawing SHEET exported
+    # to PDF is a ``pdf`` drop and already has a pass; this one is for the
+    # model file, where the identity is structured data and reading it is
+    # deterministic.
+    #
+    # Not urgent in the way an empty tuple would suggest: no dispatcher maps a
+    # pass name to a callable yet, this kind declares no domain so the write
+    # path short-circuits it at "origin unresolved", and no sensor launches a
+    # run for a CAD drop in the first place.
+    "cad.cad_document_identity",
 )
 
 #: Output classes with no ``owl:Class`` declaration in any TTL yet. ADR-0019 §6
@@ -241,6 +264,68 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         domain_type=None,
         passes=("identity.document_identity",),
         outputs=("mesh:PDFArtifact",),
+    ),
+    # ``cad`` — the CAD drop. ARCHITECT AUTHORISATION 2026-10-13: "add the cad
+    # format row to KIND_MAPPING (architect authorisation, cite this)". Placed
+    # beside ``pdf`` rather than with the other format rows because the
+    # ontology pairs them: ``mesh:CADArtifact`` is "the drop-box's SECOND case,
+    # alongside PDF (ADR-0041 §8's `ContentKind` pairing)".
+    #
+    # THE OUTPUT CLASS IS NOT A PHANTOM, and that is the one thing worth
+    # checking before adding a row. ``mesh:CADArtifact`` is declared —
+    # ``invincible-agent/setup/ontologies/mesh_system.ttl:808``, ``a owl:Class ;
+    # rdfs:subClassOf mesh:Artifact ; rdfs:label "CAD Artifact"`` — so unlike
+    # ``mesh:EngineeringDocumentArtifact`` and its two siblings this row owes
+    # Lane 1 nothing and goes nowhere near ``PHANTOM_OUTPUTS``.
+    #
+    # The same TTL comment prescribes this row's shape rather than leaving it
+    # to taste: "Same selection rule as the PDF kind: declared via
+    # `manifest.metadata.content_kind`, resolved to this class, never
+    # LLM-classified." So: declaration-only selection, and the class as the
+    # target the declared string resolves to.
+    #
+    # NO DOMAIN, under the 2026-10-02 ruling that governs every format row
+    # here: a file format is not an origin. A STEP or DWG reaches this repo
+    # from design, manufacturing and sustainment alike, and the geometry says
+    # nothing about which.
+    #
+    # NOT ALIASED TO ``engineering-document``, in either direction. The
+    # architect's 2026-10-02 words were "Don't alias it to CAD; an engineering
+    # document is not a CAD artifact" — said of the engineering-document leaf,
+    # and the asymmetry does not exist, so a CAD drop does not borrow that
+    # leaf either. Each takes its own.
+    #
+    # WHAT THIS ROW UNBLOCKS, AND WHAT IT DOES NOT. It closes the halt: a drop
+    # declaring ``content_kind: cad`` now resolves to a row instead of raising
+    # ``UnclassifiableContentKindError`` at the ADR-0041 kind guard. It does
+    # NOT make a CAD drop ingest. ``ingress_user_sensor``'s ``s3_filter`` is
+    # ``^ingress-user/pdf/[0-9a-f]{64}/[^/]+\.pdf$``, which rejects
+    # ``ingress-user/cad/<64hex>/part.step`` BY DESIGN (the D2 fix — a CAD drop
+    # must never reach the PDF parser), so no run launches for one today. A
+    # CAD-side sensor and extractor are separate work and are not ordered.
+    #
+    # The format guard at ``document_parser.py:221`` stays exactly as it is: it
+    # refuses ``domain_type in ("pdf", "cad")`` as a SEMANTIC domain. This row
+    # is the other half of that same statement — ``cad`` is a legitimate
+    # CONTENT KIND and an illegitimate DOMAIN — and the two halves live in the
+    # two places that enforce them.
+    "cad": ContentKindEntry(
+        kind_source_value="cad",
+        kind="cad",
+        extractor_config="",
+        baml_function="",
+        target_ontology_class="http://edgy-solutions.com/ontology/mesh#CADArtifact",
+        domain_type=None,
+        # NOT ``identity.document_identity``, and the reason is the input, not
+        # the intent. That pass takes PAGE TEXTS and anchors on title-block
+        # labels; a STEP/DWG payload has no page text at all, so declaring it
+        # would register a pass that cannot run on this kind's own input and
+        # would resolve to a callable, hiding that fact from
+        # ``tests/test_passes_registry.py``. Same resolution as the ``xml``
+        # row: declare the pass this kind needs and list it UNBUILT until it
+        # exists.
+        passes=("cad.cad_document_identity",),
+        outputs=("mesh:CADArtifact",),
     ),
     "engineering-document": ContentKindEntry(
         kind_source_value="engineering-document",
