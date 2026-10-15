@@ -7,6 +7,7 @@ from doc_tools.components.oracle_extractor import OracleExtractorComponent
 from doc_tools.components.design_parser import DesignParserComponent
 from doc_tools.components.datahub_sensor import DataHubSensorComponent
 from doc_tools.components.aitool_sensor import AIToolSensorComponent
+from doc_tools.components.ingest_retry_sensor import build_ingest_retry_sensor
 from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion, doors_ingestion
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions, design_files_partition, iads_files_partition, xml_files_partition
@@ -169,6 +170,28 @@ ingress_user_sensor = S3SensorComponent(
     }
 )
 _ingress_user_sensor_defs = ingress_user_sensor.build_defs(None)
+
+# 1c. The retry poller — the Dagster half of Lane 1's
+# `POST /ingest/{id}/retry`. A SEPARATE sensor, not a mode of the one above,
+# and that is forced rather than chosen: Dagster's run_key dedup consumes a
+# failed run's key permanently (only NOT_STARTED falls through to a launch),
+# and dedup is scoped by sensor NAME, so a new sensor is the only way to get
+# a clean namespace. The attempt counter in the run_key is what keeps a
+# SECOND retry of the same ingest from colliding with the first. Measured in
+# dagster 1.12.21; the source is quoted in the module docstring.
+#
+# Same job, op, bucket and partition set as ingress_user_sensor — it
+# re-launches exactly the drop pipeline, never a different one. It polls
+# `GET /ingest/retries`, which Lane 1 has not shipped yet, so until then
+# every tick is a NAMED skip ("404: not deployed yet") and it launches
+# nothing.
+ingest_retry_sensor = build_ingest_retry_sensor(
+    name="ingest_retry_sensor",
+    job_name=f"{user_document_parser.name}_job",
+    target_op=user_document_parser.name,
+    bucket="processing-artifacts",
+    partition_name="user_pdf_files",
+)
 
 ontology_sensor = S3SensorComponent(
     name="ontology_sensor",
@@ -458,7 +481,7 @@ defs = Definitions(
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
     assets=list(_document_parser_defs.assets) + list(_user_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
     jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job, doors_ingest_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors),
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors) + [ingest_retry_sensor],
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
