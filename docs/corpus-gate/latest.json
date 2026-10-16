@@ -2,18 +2,18 @@
   "schema": 1,
   "verdict": "fail",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-12T20:55:57Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
+  "generated_at": "2026-10-15T15:54:02Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:a72a4a26d5e2e2d2298f4957e2e0db782408a8c9d438eac4c95df43bb1b59e3b",
   "measured_pin_note": null,
   "image_identity": {
-    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
-    "measured_digest": "sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
+    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:a72a4a26d5e2e2d2298f4957e2e0db782408a8c9d438eac4c95df43bb1b59e3b",
+    "measured_digest": "sha256:a72a4a26d5e2e2d2298f4957e2e0db782408a8c9d438eac4c95df43bb1b59e3b",
     "checked": true,
     "comparisons": [
       {
         "source": "pods",
-        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
-        "expected_digest": "sha256:b18d7dc4678e72daaf53e6a8017c52232903c60ce8ba24fd33a040b1ee2b973b",
+        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:a72a4a26d5e2e2d2298f4957e2e0db782408a8c9d438eac4c95df43bb1b59e3b",
+        "expected_digest": "sha256:a72a4a26d5e2e2d2298f4957e2e0db782408a8c9d438eac4c95df43bb1b59e3b",
         "result": "match"
       }
     ],
@@ -23,9 +23,9 @@
     {
       "n": 1,
       "exit": 1,
-      "started_at": "2026-10-12T18:20:03Z",
-      "ended_at": "2026-10-12T19:14:01Z",
-      "elapsed_s": 3237.9,
+      "started_at": "2026-10-15T13:34:40Z",
+      "ended_at": "2026-10-15T14:24:40Z",
+      "elapsed_s": 2999.7,
       "log": "fire1.log",
       "totals": {
         "gt": 522,
@@ -38,38 +38,58 @@
       },
       "defects": {},
       "seal_checked": true,
-      "log_bytes": 438330,
+      "log_bytes": 440654,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 2,
       "exit": 1,
-      "started_at": "2026-10-12T19:14:01Z",
-      "ended_at": "2026-10-12T20:05:12Z",
-      "elapsed_s": 3071.1,
+      "started_at": "2026-10-15T14:24:40Z",
+      "ended_at": "2026-10-15T15:10:42Z",
+      "elapsed_s": 2761.8,
       "log": "fire2.log",
       "totals": {
         "gt": 522,
-        "exact": 522,
+        "exact": 513,
         "spurious": 0,
-        "missing": 0,
+        "missing": 9,
         "malformed": 0,
         "ruled_out": 0,
-        "emitted": 522
+        "emitted": 513
       },
-      "defects": {},
+      "defects": {
+        "onsemi_Generic_IPCN25300X.pdf": {
+          "count": 19,
+          "exact": 10,
+          "emitted": 10,
+          "clean": false,
+          "missing": [
+            "NSR02F30NXT5G",
+            "NSR02L30NXT5G",
+            "NSR05F20NXT5G",
+            "NSR05F30NXT5G",
+            "NSR05F40NXT5G",
+            "NSR10F20NXT5G",
+            "NSR10F30NXT5G",
+            "SNSR01F30NXT5G",
+            "SNSR05F40NXT5G"
+          ],
+          "spurious": [],
+          "malformed": []
+        }
+      },
       "seal_checked": true,
-      "log_bytes": 448423,
+      "log_bytes": 436690,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 3,
       "exit": 1,
-      "started_at": "2026-10-12T20:05:12Z",
-      "ended_at": "2026-10-12T20:55:57Z",
-      "elapsed_s": 3044.9,
+      "started_at": "2026-10-15T15:10:42Z",
+      "ended_at": "2026-10-15T15:54:02Z",
+      "elapsed_s": 2600.5,
       "log": "fire3.log",
       "totals": {
         "gt": 522,
@@ -82,7 +102,7 @@
       },
       "defects": {},
       "seal_checked": true,
-      "log_bytes": 440920,
+      "log_bytes": 429263,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     }
@@ -221,7 +241,7 @@
     "observed": true,
     "fires": {
       "1": {
-        "exact": 7,
+        "exact": 8,
         "fields_scored": 9,
         "clean": true,
         "observed": true,
@@ -229,7 +249,7 @@
         "pending": []
       },
       "2": {
-        "exact": 7,
+        "exact": 8,
         "fields_scored": 9,
         "clean": true,
         "observed": true,
@@ -237,7 +257,7 @@
         "pending": []
       },
       "3": {
-        "exact": 7,
+        "exact": 8,
         "fields_scored": 9,
         "clean": true,
         "observed": true,
@@ -253,7 +273,7 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "doc_level_ltb_date_source": "'-2024' | '-2024\\n[Unca' | '-2024'"
+          "doc_level_ltb_date_source": "'-2024\\n[Unca' | '-2024' | '-2024\\n[Unca'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
