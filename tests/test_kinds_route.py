@@ -11,6 +11,7 @@ from doc_tools.api.app import app
 from doc_tools.api.kinds import (
     ARM_INGRESS_USER_XML,
     ARM_PYTHON_PASS,
+    ingestable_kinds,
     processable_kinds_payload,
 )
 from doc_tools.utils import content_kind as ck
@@ -40,21 +41,37 @@ def test_processable_kinds_is_still_a_sorted_tuple_and_is_the_python_pass_arm():
     assert processable_kinds_payload()["arms"][ARM_PYTHON_PASS] == list(k)
 
 
-def test_partition_invariant_no_kind_missing_from_both_sets():
-    # Pins: the union and excluded partition the registered set exactly.
+def test_partition_invariant_no_kind_missing_from_every_set():
+    # Pins: no registered kind is INVISIBLE in the payload. Three places a kind
+    # can land -- advertised, excluded (no arm can run it), or held out by ruling
+    # -- and a kind in none of them is an omission a consumer cannot interpret.
+    # `excluded` and `held_out` may OVERLAP, and today do: `xml` is both
+    # unrunnable and held, which is why this is a cover, not a partition.
     p = processable_kinds_payload()
     registered = [e.kind for e in ck.KIND_MAPPING.values()]
     excl = [e["kind"] for e in p["excluded"]]
+    held = [e["kind"] for e in p["held_out"]]
     assert len(set(p["kinds"])) == len(p["kinds"]) and len(set(excl)) == len(excl)
+    assert len(set(held)) == len(held)
     assert not set(p["kinds"]) & set(excl), "a kind is both processable and excluded"
-    assert set(p["kinds"]) | set(excl) == set(registered)
+    assert not set(p["kinds"]) & set(held), "a held kind is being advertised"
+    assert set(p["kinds"]) | set(excl) | set(held) == set(registered)
     assert p["registered_count"] == len(registered)
 
 
-def test_kinds_is_the_union_of_the_arms_and_stays_sorted():
+def test_kinds_is_the_union_of_the_arms_MINUS_the_hold_list():
+    # The advertised list is not the raw union, and this assertion is the whole
+    # reason `held_out` exists: arm membership is evidence that a PASS resolves,
+    # never evidence that a DROP has travelled that path. Written as
+    # union-minus-held rather than == sorted(union) because the two are equal
+    # today (nothing held is claimed by an arm) and the day that stops being true
+    # is exactly the day this test has to notice.
     p = processable_kinds_payload()
     union = set(p["arms"][ARM_PYTHON_PASS]) | set(p["arms"][ARM_INGRESS_USER_XML])
-    assert p["kinds"] == sorted(union)
+    held = {e["kind"] for e in p["held_out"]}
+    assert p["kinds"] == sorted(union - held)
+    assert p["kinds"] == list(ingestable_kinds()), (
+        "the route and the publisher must serve ONE definition")
 
 
 def test_the_arms_disagree_on_s1000d_and_the_union_sides_with_the_one_that_RAN_it():
