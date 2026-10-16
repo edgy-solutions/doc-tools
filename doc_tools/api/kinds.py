@@ -24,9 +24,17 @@ ARGUED -- ten ODMRAD data modules completed all five stages of
 Neo4j synced, per run). Serving arm 1 alone would tell Lane 1's door that an
 S1000D data module cannot be processed, ten minutes after ten of them were.
 
-So ``kinds`` is the UNION, and ``arms`` is published alongside it: a door that
-needs to know WHICH path a kind takes can see it, and a disagreement between the
-arms stays visible instead of being averaged away.
+So ``kinds`` is the union MINUS the hold list, and ``arms`` is published
+alongside it unfiltered: a door that needs to know WHICH path a kind takes can
+see it, and a disagreement between the arms stays visible instead of being
+averaged away.
+
+AND THE UNION IS NOT THE LAST WORD. Arm membership is evidence that a PASS
+exists; it is not evidence that a DROP has ever travelled that path. ``xml`` is
+held out by ruling until a user-drop sensor processes a bare ``xml`` drop end to
+end, and ``held_out`` publishes that decision with the measurement that would
+retire it -- see HELD_OUT. ``ingestable_kinds()`` is the one definition of the
+advertised list, shared with the publisher that PUTs it to Lane 1's door.
 """
 import hashlib
 import json
@@ -42,6 +50,40 @@ from doc_tools.utils.content_kind import (
 #: them, so they are part of the contract, not labels.
 ARM_PYTHON_PASS = "python_pass_dispatch"
 ARM_INGRESS_USER_XML = "ingress_user_xml_parsers"
+
+#: Kinds this door does NOT advertise even if an arm claims them, with the
+#: measurement that releases each one. RULED 2026-10-16: "hold xml out of
+#: ingestable_kinds() until a user-drop sensor actually processes a bare xml
+#: drop; s1000d-data-module is in, proven by ten."
+#:
+#: WHY A HOLD LIST AND NOT JUST THE ARM MATH. Today the arms already agree that
+#: `xml` is unrunnable, so `ingestable_kinds()` would omit it anyway -- which is
+#: precisely why the hold is written down. The one bare-`xml` user drop measured
+#: (`rev188-door-probe.xml`) HALTED at stage 1, while the ten
+#: `s1000d-data-module` drops completed all five stages; so arm membership is
+#: evidence about a PASS, and this list is evidence about a DROP. The day a
+#: parser row for `xml` is added, arm 2 would start claiming it and this door
+#: would start advertising a path no drop has ever travelled. The hold stops
+#: that silently happening, and `unblocks_when` says exactly what retires it.
+#:
+#: Every entry is published in the payload. An omission with no reason reads as
+#: a bug to the consumer -- Lane 1 would be right to file it as one.
+HELD_OUT = {
+    "xml": {
+        "reason": "no user drop of a bare `xml` has been processed end to end",
+        "evidence": (
+            "rev188-door-probe.xml halted at stage 1 (the sibling manifest "
+            "declared `xml`, which no arm can run); the ten drops that did "
+            "complete all five stages on 2026-10-16 were s1000d-data-module"
+        ),
+        "unblocks_when": (
+            "a user-drop sensor processes a bare `xml` drop through to a parse "
+            "artifact -- then delete this entry, in the same commit as the "
+            "measurement that justifies it"
+        ),
+        "ruled": "2026-10-16",
+    },
+}
 
 
 def registry_fingerprint() -> str:
@@ -64,6 +106,41 @@ def processable_arms() -> dict:
     }
 
 
+def ingestable_kinds() -> tuple:
+    """The list this door ADVERTISES: either arm can run it, and no hold applies.
+
+    ONE DEFINITION, TWO CONSUMERS -- the `GET /kinds/processable` payload and the
+    publisher that PUTs it to Lane 1's door
+    (`doc_tools.components.processable_kinds_publisher`). A publisher that
+    recomputed the list would be a second answer to the same question, and the
+    two would drift exactly the way the two arms already did.
+
+    `arms` stays in the payload unfiltered, so a kind an arm claims and the hold
+    list withholds is VISIBLE as that, rather than looking like an arm that
+    forgot it. See HELD_OUT.
+    """
+    arms = processable_arms()
+    union = set(arms[ARM_PYTHON_PASS]) | set(arms[ARM_INGRESS_USER_XML])
+    return tuple(sorted(union - set(HELD_OUT)))
+
+
+def held_out_entries() -> list:
+    """HELD_OUT as published rows, each naming the arm(s) that claim the kind.
+
+    `claimed_by` is empty for a kind no arm can run today (the live `xml` case):
+    the hold is then belt and braces, and saying so is more useful than implying
+    the hold is what is keeping it out.
+    """
+    arms = processable_arms()
+    rows = []
+    for kind in sorted(HELD_OUT):
+        row = dict(HELD_OUT[kind])
+        row["kind"] = kind
+        row["claimed_by"] = sorted(a for a, ks in arms.items() if kind in ks)
+        rows.append(row)
+    return rows
+
+
 def processable_kinds_payload() -> dict:
     """Deterministic: no timestamps, counters, or caller data. ``image`` is
     ``None`` when ``DOC_TOOLS_IMAGE`` is unset -- a state, not an error, and
@@ -78,7 +155,11 @@ def processable_kinds_payload() -> dict:
     """
     arms = processable_arms()
     routed = set(arms[ARM_INGRESS_USER_XML])
-    kinds = sorted(set(arms[ARM_PYTHON_PASS]) | routed)
+    # `kinds` is the ADVERTISED list, not the raw union: the honest list is the
+    # one a consumer keying on the obvious field gets. `arms` below still
+    # carries the raw sets, and `held_out` says what the difference is and what
+    # would retire it.
+    kinds = list(ingestable_kinds())
 
     excluded = []
     for e in kind_exclusions():
@@ -96,6 +177,10 @@ def processable_kinds_payload() -> dict:
         "kinds": kinds,
         "arms": arms,
         "excluded": excluded,
+        # Advertised-but-withheld, with the measurement that releases each one.
+        # Carried in the PAYLOAD and not only in a commit message, because the
+        # consumer of the omission is a door, and a door cannot read git.
+        "held_out": held_out_entries(),
         "registered_count": len(KIND_MAPPING),
         "image": os.environ.get("DOC_TOOLS_IMAGE"),
         "registry_fingerprint": registry_fingerprint(),
