@@ -185,136 +185,195 @@ class DocumentParserComponent(Component, Resolvable, Model):
             ingest_id = None
             sidecar_provenance = None
             status_resource = None
-            if self.sidecar_manifest_name:
-                from doc_tools.utils.dagster_resources import IngestStatusResource
-                status_resource = IngestStatusResource()
+            # ERROR BOUNDARY for the sidecar/guard region. Measured: the
+            # extraction `try:` whose handler posts `failed` opens well AFTER
+            # the sidecar read and the ADR-0041 kind guard, so both raise
+            # before any handler exists. Without this boundary the whole
+            # sidecar-and-guard family (sidecar_unreadable,
+            # domain_is_a_format, content_kind_is_a_hash, ingest_id_malformed
+            # and the architect's named `kind_unregistered`) posts nothing
+            # and the row sits at `received` for ever.
+            try:
+                if self.sidecar_manifest_name:
+                    from doc_tools.utils.dagster_resources import IngestStatusResource
+                    status_resource = IngestStatusResource()
 
-                sidecar_key = f"{base_dir}/{self.sidecar_manifest_name}"
-                try:
-                    sidecar_obj = s3_client.get_object(Bucket=bucket, Key=sidecar_key)
-                    sidecar_body = sidecar_obj["Body"].read()
-                    sidecar = json.loads(sidecar_body)
-                except Exception as e:
-                    raise RuntimeError(
-                        f"ADR-0041 sidecar manifest missing or unparseable at "
-                        f"key={sidecar_key!r} (bucket={bucket!r}): {e}"
-                    ) from e
+                    sidecar_key = f"{base_dir}/{self.sidecar_manifest_name}"
+                    try:
+                        sidecar_obj = s3_client.get_object(Bucket=bucket, Key=sidecar_key)
+                        sidecar_body = sidecar_obj["Body"].read()
+                        sidecar = json.loads(sidecar_body)
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"ADR-0041 sidecar manifest missing or unparseable at "
+                            f"key={sidecar_key!r} (bucket={bucket!r}): {e}"
+                        ) from e
 
-                domain = sidecar.get("domain_type")
-                content_kind_from_path = sidecar.get("content_kind")
-                ingest_id = sidecar.get("ingest_id")
-                sidecar_provenance = sidecar.get("provenance")
+                    domain = sidecar.get("domain_type")
+                    content_kind_from_path = sidecar.get("content_kind")
+                    ingest_id = sidecar.get("ingest_id")
+                    sidecar_provenance = sidecar.get("provenance")
 
-                # F3 guard — cheap, and it is the one that would have caught
-                # D3: a resolved domain_type/content_kind that is still a
-                # FORMAT or a HASH must never reach the graph as a semantic
-                # label, even if some future sidecar producer gets this wrong.
-                if domain in ("pdf", "cad"):
-                    raise ValueError(
-                        f"ADR-0041 guard: sidecar {sidecar_key!r} domain_type="
-                        f"{domain!r} is a file FORMAT (ingest_status.KINDS), "
-                        f"not a semantic domain — refusing to use it as one."
-                    )
-                # A MISSING domain WAS a hard halt here, and the premises
-                # behind that halt were ruled on 2026-10-02. What changed, and
-                # what did not:
-                #
-                #  - A null `domain_type` in Lane 1's sidecar is no longer a
-                #    defect. `gateway.py`'s POST /ingest hardcodes it and
-                #    accepts no domain parameter, and under the ruling that is
-                #    CORRECT: "domain_type comes from the registered content
-                #    kind's declared domain, never a run tag" -- and never a
-                #    door parameter either. The door declares the KIND; the
-                #    registered row declares the domain, or declares that the
-                #    kind has none.
-                #  - So the refusal moves from "no domain" to "no registered
-                #    kind". A drop declaring a kind that HAS a KIND_MAPPING row
-                #    is admissible with a null domain: `semantic_assets.py`
-                #    reads the domain off the row, and for a format-level kind
-                #    (pdf / engineering-document / doors-export, which declare
-                #    none) returns "origin unresolved" and writes nothing
-                #    anywhere.
-                #  - A drop declaring NO kind, or an unregistered one, still
-                #    halts, and still halts HERE rather than 200 lines
-                #    downstream where the sidecar key is out of reach. Same
-                #    refusal, with the blocker now being the one thing the door
-                #    controls: the picker's confirmed kind. Defaulting a domain
-                #    here would still be this lane inventing a semantic claim
-                #    about a user drop.
-                #  - The third old blocker is simply gone:
-                #    DOMAINS_THAT_PERSIST_PROVENANCE was deleted by the same
-                #    ruling ("provenance persists for every domain; it is an
-                #    invariant of the write path, not an opt-in"), so a
-                #    resolved domain no longer has to earn its way into a set.
-                if not domain:
-                    from doc_tools.utils.content_kind import KIND_MAPPING, _lookup
-                    registered = _lookup(content_kind_from_path)
-                    if registered is None:
+                    # F3 guard — cheap, and it is the one that would have caught
+                    # D3: a resolved domain_type/content_kind that is still a
+                    # FORMAT or a HASH must never reach the graph as a semantic
+                    # label, even if some future sidecar producer gets this wrong.
+                    if domain in ("pdf", "cad"):
                         raise ValueError(
-                            f"ADR-0041 guard: sidecar {sidecar_key!r} carries no "
-                            f"domain_type (got {domain!r}) AND no registered "
-                            f"content_kind (got {content_kind_from_path!r}). "
-                            f"Since 2026-10-02 the null domain is expected -- the "
-                            f"registered kind's row is what declares the domain, "
-                            f"so a drop needs a kind the table knows. Registered "
-                            f"kinds: {sorted(e.kind for e in KIND_MAPPING.values())}. "
-                            f"Either have the door send one of those as "
-                            f"`content_kind` (POST /ingest's optional form field, "
-                            f"which it writes to the sidecar) or add a row to "
-                            f"KIND_MAPPING (reserved to the architect). Refusing "
-                            f"to guess a domain: a wrong one writes unvetted "
-                            f"content into a vetted domain's graph."
+                            f"ADR-0041 guard: sidecar {sidecar_key!r} domain_type="
+                            f"{domain!r} is a file FORMAT (ingest_status.KINDS), "
+                            f"not a semantic domain — refusing to use it as one."
                         )
-                    # Deliberately NOT copied onto the manifest as a domain.
-                    # The row is read again downstream, where the
-                    # origin-unresolved short-circuit lives; copying its domain
-                    # here would create a second authority for the same value,
-                    # and for a format-level kind there is no value to copy.
-                    _row_note = (
-                        "a format-level kind: it declares no domain, so the "
-                        "write path will return origin_unresolved and write "
-                        "nothing"
-                        if registered.domain_type is None
-                        else "the domain is declared by the row"
-                    )
-                    context.log.info(
-                        f"ADR-0041: sidecar {sidecar_key!r} has domain_type=None "
-                        f"with registered content_kind="
-                        f"{content_kind_from_path!r} -> admissible "
-                        f"(domain_type={registered.domain_type!r}; {_row_note})."
-                    )
-                if content_kind_from_path and re.match(r"^[0-9a-f]{64}$", content_kind_from_path):
-                    raise ValueError(
-                        f"ADR-0041 guard: sidecar {sidecar_key!r} content_kind="
-                        f"{content_kind_from_path!r} is a sha256 hash, not a "
-                        f"content kind — refusing to use it as one."
+                    # A MISSING domain WAS a hard halt here, and the premises
+                    # behind that halt were ruled on 2026-10-02. What changed, and
+                    # what did not:
+                    #
+                    #  - A null `domain_type` in Lane 1's sidecar is no longer a
+                    #    defect. `gateway.py`'s POST /ingest hardcodes it and
+                    #    accepts no domain parameter, and under the ruling that is
+                    #    CORRECT: "domain_type comes from the registered content
+                    #    kind's declared domain, never a run tag" -- and never a
+                    #    door parameter either. The door declares the KIND; the
+                    #    registered row declares the domain, or declares that the
+                    #    kind has none.
+                    #  - So the refusal moves from "no domain" to "no registered
+                    #    kind". A drop declaring a kind that HAS a KIND_MAPPING row
+                    #    is admissible with a null domain: `semantic_assets.py`
+                    #    reads the domain off the row, and for a format-level kind
+                    #    (pdf / engineering-document / doors-export, which declare
+                    #    none) returns "origin unresolved" and writes nothing
+                    #    anywhere.
+                    #  - A drop declaring NO kind, or an unregistered one, still
+                    #    halts, and still halts HERE rather than 200 lines
+                    #    downstream where the sidecar key is out of reach. Same
+                    #    refusal, with the blocker now being the one thing the door
+                    #    controls: the picker's confirmed kind. Defaulting a domain
+                    #    here would still be this lane inventing a semantic claim
+                    #    about a user drop.
+                    #  - The third old blocker is simply gone:
+                    #    DOMAINS_THAT_PERSIST_PROVENANCE was deleted by the same
+                    #    ruling ("provenance persists for every domain; it is an
+                    #    invariant of the write path, not an opt-in"), so a
+                    #    resolved domain no longer has to earn its way into a set.
+                    if not domain:
+                        from doc_tools.utils.content_kind import KIND_MAPPING, _lookup
+                        registered = _lookup(content_kind_from_path)
+                        if registered is None:
+                            raise ValueError(
+                                f"ADR-0041 guard: sidecar {sidecar_key!r} carries no "
+                                f"domain_type (got {domain!r}) AND no registered "
+                                f"content_kind (got {content_kind_from_path!r}). "
+                                f"Since 2026-10-02 the null domain is expected -- the "
+                                f"registered kind's row is what declares the domain, "
+                                f"so a drop needs a kind the table knows. Registered "
+                                f"kinds: {sorted(e.kind for e in KIND_MAPPING.values())}. "
+                                f"Either have the door send one of those as "
+                                f"`content_kind` (POST /ingest's optional form field, "
+                                f"which it writes to the sidecar) or add a row to "
+                                f"KIND_MAPPING (reserved to the architect). Refusing "
+                                f"to guess a domain: a wrong one writes unvetted "
+                                f"content into a vetted domain's graph."
+                            )
+                        # Deliberately NOT copied onto the manifest as a domain.
+                        # The row is read again downstream, where the
+                        # origin-unresolved short-circuit lives; copying its domain
+                        # here would create a second authority for the same value,
+                        # and for a format-level kind there is no value to copy.
+                        _row_note = (
+                            "a format-level kind: it declares no domain, so the "
+                            "write path will return origin_unresolved and write "
+                            "nothing"
+                            if registered.domain_type is None
+                            else "the domain is declared by the row"
+                        )
+                        context.log.info(
+                            f"ADR-0041: sidecar {sidecar_key!r} has domain_type=None "
+                            f"with registered content_kind="
+                            f"{content_kind_from_path!r} -> admissible "
+                            f"(domain_type={registered.domain_type!r}; {_row_note})."
+                        )
+                    if content_kind_from_path and re.match(r"^[0-9a-f]{64}$", content_kind_from_path):
+                        raise ValueError(
+                            f"ADR-0041 guard: sidecar {sidecar_key!r} content_kind="
+                            f"{content_kind_from_path!r} is a sha256 hash, not a "
+                            f"content kind — refusing to use it as one."
+                        )
+
+                    # ADR-0041 ruling 2026-10-02 — ingest_id is the canonical
+                    # `sha256:<64 hex>` spelling EVERYWHERE, and the uuid/bare-hex
+                    # forms are defects. Checked HERE, beside the domain_type and
+                    # content_kind guards, because this is the one place that holds
+                    # the sidecar key to name in the error.
+                    #
+                    # The stamp below used to claim "now that ingest_id is known"
+                    # while `sidecar.get("ingest_id")` could perfectly well be
+                    # None — the comment was aspirational. A None join key is not
+                    # fixable by minting one: `ingest_id` addresses a row in Lane
+                    # 1's ingest_status_projection that Lane 1 created, and a
+                    # locally minted substitute names no row (the same reason F2/D4
+                    # makes the sidecar's provenance block WIN over a fresh mint,
+                    # below). So a sidecar that omits it is refused, which is what
+                    # makes the stamp's comment true rather than hopeful.
+                    ingest_id = canonical_ingest_id(
+                        ingest_id, where=f"ADR-0041 sidecar {sidecar_key!r}"
                     )
 
-                # ADR-0041 ruling 2026-10-02 — ingest_id is the canonical
-                # `sha256:<64 hex>` spelling EVERYWHERE, and the uuid/bare-hex
-                # forms are defects. Checked HERE, beside the domain_type and
-                # content_kind guards, because this is the one place that holds
-                # the sidecar key to name in the error.
-                #
-                # The stamp below used to claim "now that ingest_id is known"
-                # while `sidecar.get("ingest_id")` could perfectly well be
-                # None — the comment was aspirational. A None join key is not
-                # fixable by minting one: `ingest_id` addresses a row in Lane
-                # 1's ingest_status_projection that Lane 1 created, and a
-                # locally minted substitute names no row (the same reason F2/D4
-                # makes the sidecar's provenance block WIN over a fresh mint,
-                # below). So a sidecar that omits it is refused, which is what
-                # makes the stamp's comment true rather than hopeful.
-                ingest_id = canonical_ingest_id(
-                    ingest_id, where=f"ADR-0041 sidecar {sidecar_key!r}"
+                    # "extracting" — parse start, now that ingest_id is known
+                    # (guaranteed canonical and non-None by the guard above).
+                    # Lane 1 asked for run_id on `extracting` (their watchdog names the
+                    # run with it when a row stalls). Same defensive read as the
+                    # failure handlers: it must never fail the extraction.
+                    try:
+                        extracting_run_id = context.run.run_id
+                    except Exception:  # noqa: BLE001
+                        extracting_run_id = None
+                    status_resource.update(
+                        ingest_id, "extracting", run_id=extracting_run_id
+                    )
+                else:
+                    domain = domain_parts[0] if len(domain_parts) >= 2 else "unknown"
+                    content_kind_from_path = domain_parts[1] if len(domain_parts) >= 3 else None
+            except Exception as e:
+                from doc_tools.utils.ingest_failure import (
+                    classify, resolve_join_key,
                 )
 
-                # "extracting" — parse start, now that ingest_id is known
-                # (guaranteed canonical and non-None by the guard above).
-                status_resource.update(ingest_id, "extracting")
-            else:
-                domain = domain_parts[0] if len(domain_parts) >= 2 else "unknown"
-                content_kind_from_path = domain_parts[1] if len(domain_parts) >= 3 else None
+                # Everything below is best-effort and wrapped as ONE unit:
+                # nothing here may mask `e`, which is re-raised
+                # unconditionally at the end.
+                try:
+                    reason_code, reason = classify(e)
+                    try:
+                        failed_run_id = context.run.run_id
+                    except Exception:  # noqa: BLE001
+                        failed_run_id = None
+                    # NOT `ingest_id or <fallback>`: when the ingest_id guard
+                    # is what raised, `ingest_id` still holds the sidecar's
+                    # malformed value, which `update()` refuses — so the one
+                    # failure named `ingest_id_malformed` would post nothing.
+                    # `resolve_join_key` prefers a CANONICAL value.
+                    join_key = resolve_join_key(ingest_id, source_object_key)
+                    if join_key and status_resource is not None:
+                        status_resource.update(
+                            join_key, "failed", detail=str(e),
+                            reason_code=reason_code, reason=reason,
+                            step=self.name, run_id=failed_run_id,
+                        )
+                    else:
+                        context.log.error(
+                            "ADR-0041: sidecar/guard region failed and no "
+                            "'failed' stage could be stamped (%s). "
+                            "Underlying error: %s",
+                            "no join key could be resolved"
+                            if not join_key else
+                            "the status resource was not constructed", e,
+                        )
+                except Exception:  # noqa: BLE001 -- never mask `e`
+                    context.log.error(
+                        "ADR-0041: could not stamp 'failed' from the "
+                        "sidecar/guard boundary. Underlying error: %s", e,
+                    )
+                raise
 
             # Reprocess-safe artifact layout: every generated artifact for this
             # document lands under a `{version}` path segment so a reprocess at a
@@ -677,8 +736,47 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 # inside this handler and MASK the original exception with a
                 # shape complaint. Log the gap instead, and re-raise `e`.
                 if status_resource is not None:
+                    from doc_tools.utils.ingest_failure import classify
+
+                    # Classify once; `classify` is total, so it cannot mask `e`.
+                    reason_code, reason = classify(e)
+                    # `AssetExecutionContext.run_id` is deprecated in this
+                    # Dagster (1.12) and warns; `context.run.run_id` is the
+                    # non-deprecated accessor. Read defensively: a failure
+                    # (or a deprecation warning promoted to an error) here
+                    # must never replace the original exception.
+                    try:
+                        failed_run_id = context.run.run_id
+                    except Exception:  # noqa: BLE001
+                        failed_run_id = None
+
+                    # FALLBACK, used only when the sidecar could not be read
+                    # (so `ingest_id` is None). Measured on a real drop: the
+                    # sidecar's `ingest_id` equals `sha256:` + the 64-hex
+                    # segment of its own S3 key, and the sensor's s3_filter
+                    # (`^ingress-user/pdf/[0-9a-f]{64}/[^/]+\.pdf$`)
+                    # guarantees that segment exists. So the join key can be
+                    # recovered from the key in hand rather than lost.
+                    # `resolve_join_key` rather than a None test: by here
+                    # `ingest_id` has passed the canonical guard, so the two
+                    # agree — but it is the same helper on both failure paths,
+                    # so there is one rule for what may address a row.
+                    from doc_tools.utils.ingest_failure import resolve_join_key
+
+                    ingest_id = resolve_join_key(ingest_id, source_object_key)
+
                     if ingest_id is not None:
-                        status_resource.update(ingest_id, "failed", detail=str(e))
+                        try:
+                            status_resource.update(
+                                ingest_id, "failed", detail=str(e),
+                                reason_code=reason_code, reason=reason,
+                                step=self.name, run_id=failed_run_id,
+                            )
+                        except Exception:  # noqa: BLE001 -- never mask `e`
+                            context.log.error(
+                                "ADR-0041: could not stamp 'failed' for "
+                                "ingest_id=%s. Underlying error: %s", ingest_id, e,
+                            )
                     else:
                         context.log.error(
                             "ADR-0041: ingest failed before an ingest_id was "

@@ -708,10 +708,269 @@ image:
   #     linux/amd64  sha256:0e1c5614dcef3e542f7dd265002f8502ace8b071c3ee5f211d5f9faf1e538763
   #     linux/arm64  sha256:a717e818d51f659caabe56c7657590fa1e4abdf63ba507917b609c7069e3d292
   # ^ THOSE TWO CHILDREN ARE THE SUPERSEDED 2026-10-06 PIN'S, kept as
-  # its record. The children of the digest below are in the 2026-10-08
-  # block at the top of this comment chain.
+  # its record. The 2026-10-08 block at the top of this comment chain
+  # records the children of sha256:6dc19712..., which THIS EDIT SUPERSEDES --
+  # that block is now a record too, not a description of the line below.
+  #
+  # 2026-10-10 -- sha256:c8dce84a... (f56df3a). Children fetched by their own
+  # digest, not merely read out of the index:
+  #     linux/amd64  sha256:aca96b95...
+  #     linux/arm64  sha256:bdc46160...
+  # The arm64 child was fetched and is a real OCI image manifest with config and
+  # layers, per the rule at the top of this file: sandbox schedules onto arm
+  # workers, so an index whose arm64 child does not pull is a pin that fails only
+  # at roll time. The index also carries two unknown/unknown entries, which are
+  # buildx attestation manifests (provenance and SBOM), not platforms. Expected.
+  # The digest comes from the `workflow_dispatch` run for f56df3a, where it
+  # appears 12 times; a `pull_request` run builds both architectures as a compile
+  # check and pushes nothing, so a green `build-and-push` on a PR is not evidence
+  # the image exists.
+  #
+  # What it carries beyond the superseded pin: #98 (an accepted-verbatim set for
+  # `mfr`, compared canonical-after-alias) and everything merged to main before
+  # c5dbc63.
+  #
+  # Measured on this exact digest by a hand-launched Job, three fires:
+  #   - parts 898/898 exact in ALL THREE fires, 0 spurious / 0 missing /
+  #     0 malformed. The first run in which all three fires are clean.
+  #   - header correctness 3/3 exact and `clean: true` in all three fires. TYC's
+  #     `mfr` scored against the CANONICAL `TE Connectivity` with the alias list
+  #     unspent (`aliases: []`), so #98 is a backstop here, not the thing that
+  #     carried the pass.
+  #   - ONE DISAGREEMENT, EXEMPTED, AND IT IS A CITATION NOT A VALUE:
+  #     `doc_level_ltb_date_source` on TYC read '06-JUN-2024' | '-2024' |
+  #     '-2024\n[Unca' across fires 1/2/3. The VALUE `doc_level_ltb_date` is
+  #     correct in every fire; the citation meant to anchor it is truncated in
+  #     two of three, and '-2024' does not name the calendar date it cites. The
+  #     gate's verdict is PASS only through the needs_review declaration
+  #     exemption -- its own strict verdict (no exemptions) is FAIL.
+  #
+  # THE GATE'S `image_identity` MATCH WAS CIRCULAR ON THIS RUN, SO IT IS NOT
+  # EVIDENCE FOR THIS PIN. The report printed `expected by pods | c8dce84a |
+  # match`, but the only pod on c8dce84a was the gate's own Job pod: the
+  # deployment was still on the superseded sha256:6dc19712... A hand-launched
+  # Job gets its image from an explicit DOC_TOOLS_IMAGE, so the check compared
+  # that value against the imageID of the pod it had just set it on -- a value
+  # compared with itself. It reads `match` whatever the deployment is running.
+  # The digest above was verified against ghcr directly instead, which is why
+  # that verification is written out in full rather than cited.
   # ------------------------------------------------------------------
-  digest: "sha256:6dc19712fe2a366be9286ec410421f5c6b805c92822aecbade0ca535c446ce20"
+  # 2026-10-11 -- sha256:d16b4402... (2c4c186, which is #106). Children fetched
+  # by their own digest, not merely read out of the index:
+  #     linux/amd64  sha256:d5c46e17...
+  #     linux/arm64  sha256:9272d2a4...
+  # Both are real OCI image manifests with a config and 19 layers each -- the
+  # arm64 child fetched for the reason at the top of this file: sandbox
+  # schedules onto arm workers, so an index whose arm64 child does not pull is
+  # a pin that fails only at roll time. The index also carries two
+  # unknown/unknown buildx attestation entries (provenance and SBOM), which
+  # never satisfy a platform requirement. `scripts/verify_image_pin.py --values
+  # charts/doc-tools/values-sandbox.yaml --require-platform linux/amd64
+  # --require-platform linux/arm64` exits 0 on this file. The digest comes from
+  # the `push`-event run on main for 2c4c186 (38098478738); a `pull_request` run
+  # builds both architectures as a compile check and pushes nothing, so a green
+  # `build-and-push` on a PR is not evidence the image exists.
+  #
+  # WHY THIS DIGEST AND NOT main's TIP. main has since advanced by #63
+  # (9649538, S1000D week 2), which this image does NOT carry. 2c4c186 was
+  # chosen because it IS #106, the commit that widened the corpus declaration
+  # to TEN documents, and that is what makes this the only pin able to clear the
+  # required check (below). #63 touched no ground truth -- `git diff 2c4c186
+  # 9649538 -- scripts/pcn_ground_truth.json` is empty -- so the corpus block
+  # this image emits matches main's declaration exactly.
+  #
+  # What it carries beyond the superseded c8dce84a: #101 (that pin chore), #104
+  # (all-numeric LTB dates, three of six formats wholly inert), #105 (an
+  # expect-absent header state so a fabricated value can fail) and #106 (the
+  # widening). NOT #107, which lands on the pin after, by order.
+  #
+  # THIS PIN IS THE UNWEDGE, AND THAT IS THE REASON FOR IT. The required
+  # `corpus-gate` check asserts the committed report's `corpus` block equals
+  # ground truth's `_corpus` on four keys. #106 moved the declaration to 10
+  # documents / 11 scored entries / 924 gt parts / 522 distinct, while the
+  # nightly keeps running the CHART-PINNED image -- c8dce84a, which predates
+  # #106 and measures 8 / 9 / 898 / 496. So every nightly report since #106
+  # merged fails the required check on the corpus block alone, and no report the
+  # old pin can produce will ever satisfy it. PR #103 (the 2026-10-11 nightly)
+  # reads mergeStateStatus BLOCKED for exactly this reason; that is the pin
+  # being stale, not the report being wrong. The gate measures the image the
+  # chart points at, so the only way out is this bump.
+  #
+  # MEASURED ON THE SUPERSEDED PIN, by the 2026-10-11T07:00Z nightly, three
+  # fires -- the record of what is being left behind:
+  #   - parts 898/898 exact in all three fires, 0 spurious / 0 missing /
+  #     0 malformed, under the EIGHT-document enumeration. The same notices are
+  #     898 of 924 under the ten-document one. That is an ORDERING, not a
+  #     regression.
+  #   - header correctness 3/3 exact and `clean: true` in all three fires.
+  #   - verdict FAIL on one blocking condition: Diodes_PCN_2683_Rev1_EOL
+  #     `doc_id` read 'PCN-2683' | 'PCN #: 2683' | 'PCN-2683' across fires
+  #     1/2/3 with needs_review not True in all three. Fire 2 leaked the field
+  #     LABEL into the value on byte-identical input -- a stochastic header
+  #     sample, the known Diodes carry-forward, not a regression from this pin,
+  #     and NOT exempted.
+  #   - the 2026-10-09 nightly is not a gate red at all: its verdict PASSED and
+  #     the Job exited 1 on a GitHub HTTP 504 while PATCHing the publish ref.
+  #     A publish failure and a measured red are the same Job exit code.
+  #
+  # Measurements on THIS digest are not in at the time of the bump. They come
+  # from three fires after the roll and are recorded in the session report named
+  # in this commit message.
+  # ------------------------------------------------------------------
+  # 2026-10-12 -- sha256:b18d7dc4... (8725e04, which is #109). Children fetched
+  # by their own digest, not merely read out of the index:
+  #     linux/amd64  sha256:30f4ffa5...  config + 19 layers
+  #     linux/arm64  sha256:3a6e80de...  config + 19 layers
+  # Both are real OCI image manifests, the arm64 child for the reason at the top
+  # of this file. The index also carries the two unknown/unknown buildx
+  # attestation entries, which never satisfy a platform requirement. The digest
+  # comes from the `push`-event run on main for 8725e04 (38284312817); the
+  # `pull_request` run on #109 also reported `build-and-push` green in 31m26s and
+  # pushed NOTHING, which is the trap named in the previous entry.
+  #
+  # WHAT THIS CARRIES BEYOND d16b4402: #107 (a date is not a part number, and a
+  # labelled table is found) and #109 -- the corpus re-keyed by measured source
+  # bytes, the `gt_parts == distinct_parts` assertion, the TI `mfr` alias set,
+  # and the field-label refusal at the header boundary. It also carries #63
+  # (S1000D week 2), which d16b4402 predated.
+  #
+  # THE DENOMINATOR MOVES WITH THIS PIN, AND THAT IS THE POINT. #109 re-keyed
+  # the corpus by `source_sha256`: the Diodes pair is byte-identical, so it is
+  # one entry with an alias list rather than two scored rows, and the
+  # declaration goes 10 documents / 11 scored entries / 924 gt / 522 distinct ->
+  # 10 / 10 / 522 / 522. `scored_entries == distinct_documents` for the first
+  # time, and `gt_parts == distinct_parts` is now asserted at enumeration. The
+  # required `corpus-gate` check compares the committed report's `corpus` block
+  # against ground truth's `_corpus` on four keys, so this pin and a report
+  # measured ON it must land in the SAME commit -- a code-only PR is path-gated
+  # out of that check (`^charts/` or `^docs/corpus-gate/`) and cannot satisfy it.
+  #
+  # WHAT THIS PIN IS EXPECTED TO FIX, AND WHAT IT IS NOT. The Diodes `doc_id`
+  # red carried by d16b4402 was measured in SEVEN of seven published reports,
+  # 2026-10-02 to 2026-10-12, one fire of three in every one, at fire positions
+  # 1,2,1,1,2,2,3 -- ~1-in-3 per fire and 100% of nights, not the stochastic
+  # one-off the previous entry calls it. The cause is not the sampling: the
+  # region supplier writes `doc_id` verbatim AFTER the plugin's only
+  # `normalize_doc_id` call, so nothing re-normalized after the last writer.
+  # `normalize_doc_id('PCN #: 2683')` is 'PCN-2683', the correct value, so the
+  # fix re-asserts that invariant rather than refusing the field. The TI `mfr`
+  # misformat was measured at 5 of 6, NOT deterministic, so a clean fire on it
+  # is not evidence the alias set fixed anything.
+  #
+  # Measurements on THIS digest are not in at the time of the bump. They come
+  # from three fires after the roll and are recorded in the session report named
+  # in this commit message.
+  # ------------------------------------------------------------------
+  # 2026-10-15 -- sha256:a72a4a26... (2961ab9f, the merge of #112). Children
+  # fetched by their own digest, not merely read out of the index:
+  #     linux/amd64  sha256:097aae6a...  config + 19 layers
+  #     linux/arm64  sha256:33197c69...  config + 19 layers
+  # Both come back as `application/vnd.oci.image.manifest.v1+json`, the arm64
+  # child for the reason at the top of this file. The index also carries the two
+  # unknown/unknown buildx attestation entries, which never satisfy a platform
+  # requirement. The digest comes from the `push`-event run on main for 2961ab9f
+  # (38426907014), whose build-and-push pushed
+  # `doc-tools:2961ab9ff6b02b250a08e76d4fcd1ddcb8368de5@sha256:a72a4a26...`.
+  #
+  # WHAT THIS CARRIES BEYOND b18d7dc4, AND IT IS ONE THING: #112 (bdf1daf) --
+  # a pipeline failure now reaches the row. The stage route gains `failed` with
+  # {reason_code, reason, step, run_id, pin_digest}, and the op error boundary
+  # was moved so the ADR-0041 guard refusal actually lands inside it. #111 is
+  # also new on main but is chart + report only, so it changes no code in this
+  # image. NOTHING in #112 touches extraction, so the parts score is expected to
+  # be UNCHANGED by this pin; a move either way is a finding, not a win.
+  #
+  # WHAT IS BEING LEFT BEHIND, MEASURED OVER THREE CONSECUTIVE NIGHTS on
+  # b18d7dc4 (2026-10-13, -14 and -15 nightly reports, NINE fires in all, and
+  # `image_identity.checked: true` with a `pods` match on every one):
+  #   - parts 522/522 exact in EIGHT of nine fires, 0 spurious / 0 missing /
+  #     0 malformed. The re-key held: `gt_parts == distinct_parts == 522` over
+  #     10 documents, which is the independent reproduction the 2026-10-12 bump
+  #     asked for. The ninth fire (10-13, fire 3) scored 504/522 with 1 spurious
+  #     and 18 missing, and its two defects are named next. Three nights of
+  #     three fires is the smallest run that could have caught this: one night
+  #     could have published 522/522 and called the score deterministic.
+  #   - that ninth fire broke in two unrelated places:
+  #       IDT_PDN_OV-19-05.pdf   0/17, every part lost, under a `crops_failed`
+  #                              flag absent in the other eight fires.
+  #       onsemi_Generic_IPCN25300X.pdf  18/19 -- `NSR02F30NXT5G` missing and
+  #                              `NSR02E30NXT5G` spurious. One character, F->E,
+  #                              in an MPN no validator can reject, because the
+  #                              substitute is itself well-formed.
+  #   - the Diodes `doc_id` label leak RECURRED ONCE in nine fires: 10-14 fire 1
+  #     wrote `PCN #: 2683`. Against 7 of 7 published nights before the #109
+  #     re-assert that is a real reduction, but it is NOT eliminated, and 1 of 9
+  #     is consistent with the per-fire rate having moved rather than gone.
+  #     Do not close it.
+  #   - header correctness 7/9 exact with `clean: true` in all nine fires, the
+  #     two non-`exact` fields both PASSES by ruling (TI `mfr` accepted alias,
+  #     TI `doc_level_ltb_date` correctly absent).
+  #   - verdict FAIL on ONE blocking term, and it is neither parts nor headers:
+  #     the crop seal. `repaired_cut_tables=1 repaired_cut_words=16 errors=0`,
+  #     byte-identical in all nine fires, and localised to
+  #     IDT_PDN_OV-19-05.pdf (2 tables, 1 stored-cut, 1 still cut AFTER the
+  #     repair). TI_PCN_20210316000.pdf also has a stored cut and the repair
+  #     CONTAINS it (repaired_cut 0), so the defect is one table, not the
+  #     repair. The seal costs ZERO parts, and nine fires now PROVE that rather
+  #     than assume it: fires 1 and 2 of 10-13 carry the identical seal numbers
+  #     and score IDT 17/17.
+  #   - SO IDT CARRIES TWO DISTINCT DEFECTS ON ONE NOTICE, and they must not be
+  #     merged. The seal cut is deterministic, blocking, and harmless to the
+  #     score; the `crops_failed` total loss is stochastic, non-blocking by
+  #     itself, and costs all 17 parts. Reading the one as the other is how a
+  #     17-part regression gets filed as the clipping that was already known --
+  #     which is exactly what the first pass at this block did.
+  #   - `crops_near_cap` and `crops_row_short` are 0 of 10 -- the INGEST
+  #     detectors are clean and are not this red; do not read them as the seal.
+  #
+  # TWO INSTRUMENT GAPS THAT THE RECORD ABOVE EXISTS ONLY IN SPITE OF:
+  #   - `crops_failed` IS NOT A PUBLISHED RATE. `RATE_FLAGS` in
+  #     doc_tools/utils/ingest_rates.py is (needs_review, crops_near_cap,
+  #     crops_row_short, text_layer_degraded); `crops_failed` and
+  #     `crops_truncated` are in neither it, nor any report under
+  #     docs/corpus-gate/, nor `latest.json`. The ONE flag that cost parts in
+  #     nine fires is the one the published instrument does not carry, while
+  #     that module comments its own rates block with "nobody reads the
+  #     per-notice lines above in steady state". Adding it is owed.
+  #   - the fires exit line says "parts/crop-seal gate not met" while the same
+  #     report publishes parts as perfect, and `latest.json` carries only
+  #     `seal_checked: true` and no seal totals. So the authority report CANNOT
+  #     NAME ITS OWN BLOCKER: every seal number above came from the Job pod
+  #     echoed fire logs, which survive for days, not for ever. Carrying
+  #     `repaired_cut_tables`/`errors` into `latest.json` is owed.
+  #
+  # MEASURED ON THIS DIGEST, three fires immediately after the roll, and
+  # landed in this same commit as report-2026-10-15T155402Z.md:
+  #   verdict FAIL. image_identity MATCH on pods, measured_image equal to the
+  #   two digests above. Corpus 10 documents, 522 parts, gt == distinct.
+  #   Parts 522/522 in fires 1 and 3. Fire 2 scored 513/522 with 0 spurious,
+  #   and its entire loss is nine NSR*/SNSR* MPNs on
+  #   onsemi_Generic_IPCN25300X.pdf -- the same notice that substituted one
+  #   character on 10-13 fire 3. Headers 8/9 exact with `clean: true` in all
+  #   three fires. The TYC `doc_level_ltb_date_source` truncation still
+  #   disagrees and is still exempted on needs_review.
+  #   The seal is BYTE-IDENTICAL to b18d7dc4 on every field including the
+  #   by-edge breakdown, which is the PREDICTED result: #112 touches no
+  #   extraction path, so a move there would have been the finding. All three
+  #   fires exit 1, so the seal alone blocks even the two 522/522 fires.
+  #
+  # SO THIS PIN IS RED ON TWO TERMS WHERE b18d7dc4 WAS RED ON ONE, AND THAT IS
+  # NOT A REGRESSION FROM THE PIN. The extra term is one stochastic fire on a
+  # notice already known to be unstable, measured on an image whose only
+  # change is the failure-reporting path. Rolling back would not clear it.
+  #
+  # A THIRD INSTRUMENT GAP, found by this run and the sharpest of the three:
+  #   the published `rates` block is FIRE 1's, not an aggregate.
+  #   `scripts/pcn_corpus_gate.py:1060` takes rates only when `idx == 0`, on
+  #   the stated assumption that rates are "a property of the image, not of
+  #   which fire happened to run". THIS RUN DISPROVES THAT ASSUMPTION: fire 1
+  #   measured crops_row_short 0 / needs_review 3, fire 2 measured 1 / 4, on
+  #   the same image in the same invocation. So the one rate that flagged the
+  #   fire that lost parts is absent from the report that publishes the loss.
+  #   `header_totals` two lines above is ALREADY per-fire, for exactly this
+  #   reason ("two different facts and both must show"); rates owes the same.
+  # ------------------------------------------------------------------
+  digest: "sha256:a72a4a26d5e2e2d2298f4957e2e0db782408a8c9d438eac4c95df43bb1b59e3b"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -962,7 +1221,7 @@ corpusGate:
   # IF YOU BUMP image.digest AND STOP, YOU HAVE ARMED THE SAME FAILURE. The two
   # lines are not kept in step by anything automatic; no test and no CI job
   # compares them, because the Job that would is the one being checked.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:6dc19712fe2a366be9286ec410421f5c6b805c92822aecbade0ca535c446ce20"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:a72a4a26d5e2e2d2298f4957e2e0db782408a8c9d438eac4c95df43bb1b59e3b"
   publish:
     repo: edgy-solutions/doc-tools
 

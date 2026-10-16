@@ -1365,7 +1365,7 @@ class SustainmentPlugin(AugmentationPlugin):
         # here, and the model's own label survives only inside the reason text below when
         # it is not used, never as the value actually routed on.
         derived, dt_source = header_trust.doc_type_from_titles(
-            header_trust.titles_from_elements(elements))
+            header_trust.headline_candidates(elements))
         if derived:
             header_d["doc_type"] = derived
             header_d["doc_type_source"] = dt_source
@@ -1480,12 +1480,71 @@ class SustainmentPlugin(AugmentationPlugin):
         # correctly. Writing it first means the refusal then runs over the SUPPLIED
         # values like any others, so nothing here is exempt from corroboration — the
         # supplier only changes where the candidate came from.
-        reasons += header_trust.supply_header_from_regions(
+        trust_reasons: List[str] = []
+        trust_reasons += header_trust.supply_header_from_regions(
             header_d, header_witness,
             text_layer_degraded=text_layer_assessment["text_layer_degraded"])
-        reasons += header_trust.refuse_unsourced_header_values(
+        # LABEL ECHOES, between supply and refuse, for two reasons. AFTER the region
+        # supplier so an echo arriving from the REGION WITNESS is caught as well as one
+        # from the model. BEFORE the unsourced refusal so it is reported as a label echo:
+        # a label+value that is verbatim on the page SURVIVES the sourcing check and
+        # would be handed on as a value. Hence also before require_mfr_witness_agreement,
+        # so a label-echoed `mfr` never reaches the witness comparison.
+        trust_reasons += header_trust.refuse_field_label_echoes(header_d)
+        trust_reasons += header_trust.refuse_unsourced_header_values(
             header_d, index, witness_index=header_witness,
             text_layer_degraded=text_layer_assessment["text_layer_degraded"])
+        # AFTER the refusal, not before it. The refusal drops a value whose
+        # citation does not hold up and says "refused"; this asks the separate
+        # question of whether a value that SURVIVED the refusal is corroborated.
+        # Ordered the other way round it pre-empts the refusal on any degraded
+        # document -- mfr ends up withdrawn either way, so the outcome looks
+        # right, but the reason a reader is given is the wrong one and the
+        # refusal's own explanation never appears. Measured: that reordering
+        # alone broke three assertions in tests/test_second_witness_wiring.py,
+        # all three on the REASON and none on the value.
+        trust_reasons += header_trust.require_mfr_witness_agreement(
+            header_d, header_witness,
+            text_layer_degraded=text_layer_assessment["text_layer_degraded"])
+        # RE-ASSERT THE KEY-SAFE doc_id INVARIANT, because the trust pipeline above can
+        # write this field and the normalization that guarantees it ran before the
+        # pipeline, not after. `supply_header_from_regions` assigns `header_d["doc_id"]`
+        # VERBATIM from the crop the region witness read, and nothing normalized it
+        # again, so a crop that prints the form label with its value put the label into
+        # a field documented as a KEY -- the workflow id, the MinIO prefix, the graph
+        # IRI and the provenance index all key on it.
+        #
+        # MEASURED, and it is not an edge case: every published report from
+        # 2026-10-02 to 2026-10-12 is red on exactly this, `doc_id` disagreeing across
+        # the three fires as 'PCN-2683' vs 'PCN #: 2683' on the Diodes notice. WHICH
+        # fire carries the raw form moves between runs (fires 1,2,1,1,2,2,3 over the
+        # seven reports) because the region witness is a sampled vision pass, so it
+        # read as flakiness for eleven days while being a missing re-normalization.
+        # The two fires that agreed were the ones where the supplier did not overwrite
+        # the already-normalized value.
+        #
+        # Idempotent, and NOT a repair of a bad value: `normalize_doc_id` only makes a
+        # key safe, so 'PCN #: 2683' becomes 'PCN-2683' because that IS what the
+        # document prints, while a genuinely wrong id stays wrong and is caught
+        # elsewhere. `doc_id_raw` keeps the faithful printed form for display and is
+        # deliberately left alone here.
+        header_d["doc_id"] = norm.normalize_doc_id(header_d.get("doc_id"))
+        # THE WITNESS LINE IN THE FIRE LOG, which is an ordered requirement and not a
+        # nicety. These reasons used to reach review.json ONLY, and the corpus gate
+        # reads two artifacts per fire -- the fire's stdout and corpus_f{N}.json, which
+        # holds post-trust WRITTEN values. Measured at pin 6dc19712 on 2026-10-09:
+        # `grep -a` for `region witness` and for `header.mfr` across all three fire
+        # logs returned nothing, so whether fire 1's `mfr` was corroborated or merely
+        # unchallenged was NOT IN EVIDENCE in anything that run produced. `print`, not
+        # a logger, because stdout is what `pcn_corpus_gate.run_fires` captures
+        # (stdout=logf, stderr=STDOUT) and what the two region-witness failure notices
+        # above already use.
+        print("[SustainmentPlugin] " + header_trust.header_witness_summary(
+            header_d, header_witness,
+            text_layer_degraded=text_layer_assessment["text_layer_degraded"]))
+        for _r in trust_reasons:
+            print(f"[SustainmentPlugin] header trust: {_r}")
+        reasons += trust_reasons
 
         # Level-2 dedupe identity (doc_tools/utils/notice_identity.py): a deterministic
         # (mfr, doc_id, revision) key computed HERE, at the header pass, because that is

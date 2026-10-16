@@ -744,3 +744,53 @@ def test_a_paired_header_over_rows_with_no_part_numbers_is_not_declined():
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+# --- parts-table label vocabulary and the form-region rule -------------------------
+def test_parts_label_vocabulary_is_whole_cell_for_bare_words():
+    """A bare word counts as a parts label only as the WHOLE cell. Both readings are real
+    and they need separating, not choosing between: a cell reading just "Devices" above a
+    list names that list, while the same word inside a sentence names a change — TI
+    PCN#20210316000.1 captions its form "Die Coating addition for Select Devices", so a
+    substring rule classifies the notice's own form as its parts table."""
+    from doc_tools.utils.table_text_layer import is_parts_table_label
+    assert is_parts_table_label("Product Affected:")
+    assert is_parts_table_label("Products Affected")
+    assert is_parts_table_label("Devices")
+    assert is_parts_table_label("Devices:")
+    assert is_parts_table_label("Part Number")
+    assert not is_parts_table_label("Die Coating addition for Select Devices")
+    assert not is_parts_table_label("Select Devices")
+
+
+def test_a_sentence_mentioning_a_parts_section_is_not_a_label():
+    """Measured on TI page 3, which prints this in a form cell. It contains "Product
+    Affected" verbatim and names no table: it REFERS to the section. Unbounded, it
+    anchors a parts label and the locator names whatever grid follows it."""
+    from doc_tools.utils.table_text_layer import is_parts_table_label
+    assert not is_parts_table_label(
+        "This notification is to announce the qualification of Polyimide Die Coating "
+        "material for the devices\nlisted in “Product Affected” section.\n"
+        "Die Coat Current Change To\nNONE POLYIMIDE")
+
+
+def test_a_form_region_is_declined_with_its_own_reason():
+    from doc_tools.utils.table_text_layer import grid_outcome
+    grid = [["PCN Number:", "", "20210316000.1"], ["Title:", "", ""],
+            ["Dept:", "", "QS 1234"], ["", "ABC12345", ""]]
+    out = grid_outcome(grid)
+    assert out.parts == []
+    assert out.decline is not None and out.decline.reason.startswith("form region")
+
+
+def test_labelled_flag_reads_a_headerless_grid_as_all_affected():
+    from doc_tools.utils.table_text_layer import grid_outcome
+    grid = [["AB1234", "CD5678"]]
+    assert grid_outcome(grid).parts == []
+    assert [p["affected_mpn"] for p in grid_outcome(grid, labelled=True).parts] == ["AB1234", "CD5678"]
+
+
+def test_dates_and_labels_are_not_mpns():
+    assert not looks_like_mpn("Jun 22, 2021")
+    assert not looks_like_mpn("Proposed 1st Ship Date:")
+    assert looks_like_mpn("090-44310-31")

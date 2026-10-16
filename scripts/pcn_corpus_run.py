@@ -56,6 +56,7 @@ functions are called directly and results are kept in memory.
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 import traceback
@@ -154,7 +155,8 @@ SEAL_OUT = os.getenv("PCN_SEAL_OUT", "/tmp/pcn_crop_seal.json")
 #
 # `gt` is the affected-part count established in docs/pcn-corpus-validation-2026-09-21.md
 # and re-confirmed against stored extraction.json in
-# docs/pcn-product-baseline-2026-09-22.md section 5. The total is 898. Do not adjust a
+# docs/pcn-product-baseline-2026-09-22.md section 5. The total is 924 (898 until the
+# 2026-10-10 widening below). Do not adjust a
 # gt value to make a run look better; a disagreement with these numbers is the finding.
 #
 # TYC MOVED 24 -> 26 ON 2026-09-24, and with it the total 896 -> 898. This is the one
@@ -164,16 +166,34 @@ SEAL_OUT = os.getenv("PCN_SEAL_OUT", "/tmp/pcn_crop_seal.json")
 # as the documented 24. A two-part cell is two parts. Splitting them raises the
 # denominator and LOWERS the score (893/898), which is the direction that tells you it
 # was a correction and not a tune. Reports predating this keep their 896.
+#
+# DEDUPED 2026-10-12, the THIRD permitted kind of change to these numbers: ground
+# truth was DOUBLE-COUNTING one document. Diodes_PCN_2683_Rev1_EOL.pdf and
+# Diodes_PCN_2683_FULLGREEN.pdf are byte-identical (181899 bytes, sha256
+# af5bfad3f9344eb1dc942230a33cb61b58fb911b977da2063fffbecb5788074c, measured
+# 2026-10-12 inside the sandbox doc-tools pod), so that one document was scored
+# twice at 402 parts. The corpus is now keyed by source content hash, one document
+# is scored once, and the denominator FELL 924 -> 522 while every part number
+# stayed. FULLGREEN survives only as a declared alias in `_corpus`.documents.
+# Direction of the change: the denominator drops and no part is added or removed,
+# so a score measured at 924 is NOT comparable to one measured at 522.
 TARGETS = [
     {"file": "TYC-PCN-24-210412.pdf",           "gt": 26},
     {"file": "Diodes_PCN_2683_Rev1_EOL.pdf",    "gt": 402},
-    {"file": "Diodes_PCN_2683_FULLGREEN.pdf",   "gt": 402},
     {"file": "EOL-36_BYV34-400,-BYV34-500.pdf", "gt": 4},
     {"file": "ADI_PDN_23_0120.pdf",             "gt": 1},
     {"file": "PCN23-002.pdf",                   "gt": 18},
     {"file": "PCN24-029.pdf",                   "gt": 1},
     {"file": "onsemi_Generic_IPCN25300X.pdf",   "gt": 19},
     {"file": "onsemi_Generic_PD26044X1.pdf",    "gt": 25},
+    # WIDENED 2026-10-10, the second permitted kind of change to these numbers:
+    # two notices INGESTED, which is the only way this corpus grows (the bucket
+    # was enumerated in full on 2026-09-30 and held nothing unseen). TI carries
+    # no last-time-buy date at all and is the first `expect_absent` header field;
+    # IDT's parts grid is COLUMN-MAJOR, a shape no other notice here has. Total
+    # 898 -> 924 over 496 -> 522 distinct.
+    {"file": "TI_PCN_20210316000.pdf",          "gt": 9},
+    {"file": "IDT_PDN_OV-19-05.pdf",            "gt": 17},
 ]
 # Progress-line denominator only. The score comes from the PART NUMBERS in
 # pcn_ground_truth.json, and check_ground_truth() makes a disagreement fatal.
@@ -479,16 +499,16 @@ def check_corpus_enumeration(gt):
     WHAT THIS IS FOR. "Eight documents is the corpus until production traffic
     adds to it" was established by listing every object in every bucket; left in
     prose it would be a claim a reader has to go and re-check. Here it is an
-    INPUT: the enumeration states 9 scored rows over 8 distinct document
-    contents, 898 harness parts, 496 distinct parts, and every one of those four
-    numbers is recomputed from TARGETS and the notices block and must match.
+    INPUT: the enumeration states the scored rows, distinct documents, harness
+    parts and distinct parts, and every one of those numbers is recomputed from
+    TARGETS and the notices block and must match.
 
-    The distinct-parts arithmetic is the one that catches a real mistake. The
-    Diodes pair is one document under two filenames, so 402 of the 898 is the
-    same notice scored a second time; 898 - 402 = 496. If a later edit adds a
-    notice and bumps gt_parts without working out whether it is a new document,
-    this fails at startup instead of shipping a report whose denominator means
-    something different from the one before it.
+    The corpus is keyed by source sha256. A document ingested under two filenames
+    (the Diodes pair) is ONE documents[] entry: the scored representative first,
+    the rest declared aliases that TARGETS and notices{} do not carry. Hence
+    gt_parts == distinct_parts. If a later edit adds a notice without working out
+    whether it is a new document, this fails at startup instead of shipping a
+    report whose denominator means something different from the one before it.
     """
     corpus = pcn_score.load_corpus()
     if not corpus:
@@ -498,11 +518,49 @@ def check_corpus_enumeration(gt):
     files = {t["file"] for t in TARGETS}
     docs = corpus["documents"]
     enumerated = {fn for d in docs for fn in d["filenames"]}
-    if enumerated != files:
+    # documents[] may declare an ALIAS filename that TARGETS deliberately does not
+    # score, so equality is replaced by: every scored row is declared, and each
+    # document has exactly one scored filename.
+    undeclared = files - enumerated
+    if undeclared:
+        raise SystemExit(f"TARGETS scores notices `_corpus`.documents does not "
+                         f"declare: {sorted(undeclared)}")
+    for d in docs:
+        scored = [fn for fn in d["filenames"] if fn in files]
+        if not scored:
+            raise SystemExit(
+                f"`_corpus` document sha256={d.get('sha256')} declares "
+                f"{d['filenames']} but TARGETS scores none of them: a declared "
+                f"document nothing scores")
+        if len(scored) > 1:
+            raise SystemExit(
+                f"`_corpus` document sha256={d.get('sha256')} has {len(scored)} "
+                f"scored filenames {scored}: that is precisely the double-scoring "
+                f"the sha256 re-key removed. Score one filename and declare the "
+                f"rest as aliases")
+        if d["filenames"][0] not in files:
+            raise SystemExit(
+                f"`_corpus` document {d['filenames']}: filenames[0] must be the "
+                f"scored representative, but {d['filenames'][0]!r} is not in "
+                f"TARGETS (distinct_parts relies on that convention)")
+    if set(gt) != files:
         raise SystemExit(
-            f"`_corpus`.documents and TARGETS name different notices: "
-            f"only in _corpus {sorted(enumerated - files)}, "
-            f"only in TARGETS {sorted(files - enumerated)}")
+            f"ground-truth notices and TARGETS differ: only in notices "
+            f"{sorted(set(gt) - files)}, only in TARGETS {sorted(files - set(gt))}. "
+            f"The scored notices must be exactly TARGETS: an alias left in or added "
+            f"back to notices{{}} would silently re-inflate the denominator")
+    hashes = [d.get("sha256") for d in docs]
+    for d in docs:
+        if not isinstance(d.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", d["sha256"]):
+            raise SystemExit(f"`_corpus` document {d['filenames']}: sha256 "
+                             f"{d.get('sha256')!r} is not 64 lowercase hex")
+    if len(set(hashes)) != len(hashes):
+        dup = sorted({h for h in hashes if hashes.count(h) > 1})
+        raise SystemExit(f"`_corpus`.documents repeats a sha256 {dup}: two entries "
+                         f"are one document")
+    if len(set(hashes)) != corpus["distinct_documents"]:
+        raise SystemExit(f"`_corpus`: {len(set(hashes))} distinct sha256 but "
+                         f"distinct_documents={corpus['distinct_documents']}")
     if corpus["scored_entries"] != len(TARGETS):
         raise SystemExit(f"`_corpus`.scored_entries={corpus['scored_entries']} but "
                          f"TARGETS has {len(TARGETS)} rows")
@@ -519,6 +577,14 @@ def check_corpus_enumeration(gt):
     if corpus["distinct_parts"] != distinct:
         raise SystemExit(f"`_corpus`.distinct_parts={corpus['distinct_parts']} but "
                          f"one representative per distinct document sums to {distinct}")
+    if corpus["gt_parts"] != corpus["distinct_parts"]:
+        raise SystemExit(
+            f"`_corpus`.gt_parts={corpus['gt_parts']} != distinct_parts="
+            f"{corpus['distinct_parts']}. After the sha256 re-key each document is "
+            f"scored exactly once, so these are equal by construction; a divergence "
+            f"means either a new duplicate document entered the corpus or a part "
+            f"number is shared across two notices, and BOTH need a ruling before a "
+            f"score is quoted")
 
 
 def main():

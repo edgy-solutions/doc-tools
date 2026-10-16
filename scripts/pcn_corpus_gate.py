@@ -72,6 +72,12 @@ NOTICE_ABSENT_RE = re.compile(r"^(?P<notice>\S.*?)\s{2,}ABSENT\s*$")
 NOTICE_NOT_MEASURED_RE = re.compile(r"^(?P<notice>\S.*?)\s{2,}NOT MEASURED\s*$")
 FIELD_LINE_RE = re.compile(r"^ {6}(?P<field>\S+) +(?P<vals>.+)$")
 
+# A literal backslash-pipe, for escaping a value into a markdown table cell.
+# Spelled as a concatenation because the raw two-character sequence is an invalid
+# escape in a string literal: it works today but warns on every run of a gate
+# whose log people read.
+BAR_ESCAPE = "\\" + "|"
+
 
 def _utcnow_iso():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -356,6 +362,50 @@ def check_same_bytes(corpus_by_fire):
     return msgs
 
 
+def check_declared_bytes(corpus_by_fire, corpus_decl):
+    """Every scored notice's bytes must match the sha256 the corpus DECLARES for it.
+
+    `check_same_bytes` proves the fires read the same bytes as each other, but has no
+    anchor: it cannot tell "all three fires read the same wrong file" from "all three
+    read the right one". This compares each fire's `content_hash` to the sha256 in
+    `_corpus`.documents. Every declared filename is mapped, the Diodes alias included,
+    so a fire of either name is anchored to the one declared content.
+
+    The declaration is bare 64-hex while `content_hash` carries a `sha256:` prefix; the
+    prefix is stripped HERE, at the comparison site, not in the declaration.
+
+    Returns blocking messages and never raises. A MISSING hash is not a block -- that is
+    `bytes_coverage`'s job, and an unrecordable check must not read as a failure. A
+    scored filename the corpus does not declare IS a block: the run measured a document
+    the corpus does not know about.
+    """
+    msgs = []
+    declared = {}
+    for d in ((corpus_decl or {}).get("documents") or []):
+        if not isinstance(d, dict):
+            continue
+        for fn in d.get("filenames") or []:
+            declared[fn] = d.get("sha256")
+    for fn, by_n in sorted(content_hashes_by_fire(corpus_by_fire).items()):
+        if fn not in declared:
+            msgs.append(
+                f"{fn}: scored, but `_corpus`.documents does not declare it -- the run "
+                f"measured a document the corpus does not declare"
+            )
+            continue
+        want = declared[fn]
+        for n in sorted(by_n):
+            got = by_n[n]
+            got_hex = got[len("sha256:"):] if isinstance(got, str) and got.startswith("sha256:") else got
+            if got_hex != want:
+                msgs.append(
+                    f"{fn}: fire {n} read bytes with sha256 {str(got_hex)[:16]}... but "
+                    f"`_corpus` declares {str(want)[:16]}... -- the fires may agree with "
+                    f"each other and still all be reading the wrong file"
+                )
+    return msgs
+
+
 def bytes_coverage(corpus_by_fire):
     """WHICH notices had their bytes proved constant across every fire, not whether any
     notice did.
@@ -581,7 +631,11 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
             "unobserved": t.get("unobserved", []),
             "pending": t.get("pending", []),
         }
-        for status in ("distractor", "wrong", "misformatted", "unreadable", "absent"):
+        # From the scorer, not a second copy: this was a hardcoded tuple of the
+        # same five statuses, so a failure class added to pcn_score would have
+        # been scored there and silently ignored HERE -- a new way to fail that
+        # blocks nothing. `alias` is correctly absent, being a pass.
+        for status in pcn_score.HEADER_FAILURES:
             for located in t.get(status, []):
                 notice, _, field = located.partition(":")
                 failures.setdefault(notice, {}).setdefault(n, []).append(
@@ -1080,6 +1134,7 @@ def score_fires(base_dir, fires, expectations=None):
         identity_source = "fire_log"
     coverage = bytes_coverage(corpus_by_fire)
     blocking.extend(check_same_bytes(corpus_by_fire))
+    blocking.extend(check_declared_bytes(corpus_by_fire, pcn_score.load_corpus()))
     for n, headers in headers_by_fire.items():
         if not headers:
             blocking.append(
@@ -1235,8 +1290,13 @@ def _render_corpus_block(corpus):
         "",
         corpus.get("statement", ""),
     ]
-    if corpus.get("nine_vs_eight"):
-        out += ["", corpus["nine_vs_eight"]]
+    # Read by name, so renaming the key in the ground-truth file silently drops
+    # this paragraph from every published report. It was `nine_vs_eight` until the
+    # 2026-10-10 widening made that name state the wrong numbers; the new name
+    # carries none, so it does not need renaming again.
+    note = corpus.get("source_sha256_rekey_note") or corpus.get("duplicate_pair_note") or corpus.get("nine_vs_eight")
+    if note:
+        out += ["", note]
     return "\n".join(out)
 
 
@@ -1494,7 +1554,15 @@ def render_markdown(report, gate_dir, command_str, log_paths):
         lines.append("| notice | verdict | disagreeing fields |")
         lines.append("|---|---|---|")
         for notice, info in sorted(report["header_agreement"]["notices"].items()):
-            fields = ", ".join(f"`{k}`: {v}" for k, v in info["fields"].items()) or "—"
+            # `v` holds the raw printed values, which the instrument separates
+            # with " | " -- unescaped, that ends the markdown cell early and
+            # shifts every column after it. Not hypothetical: the 2026-10-09 run
+            # disagreed on exactly one field, and its printed line holds two bar
+            # separators plus a literal newline escape inside the third value, so
+            # the row describing the only red in that run is the row that breaks.
+            cells = [f"`{k}`: " + v.replace("|", BAR_ESCAPE)
+                     for k, v in info["fields"].items()]
+            fields = ", ".join(cells) or "—"
             lines.append(f"| {notice} | {info['verdict']} | {fields} |")
         lines.append("")
     if report["header_agreement"]["absent"]:

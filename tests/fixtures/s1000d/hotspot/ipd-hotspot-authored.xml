@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AUTHORED BY THIS SESSION, NOT THE MOCK AUTHOR. See README.md in this
+  directory: the hotspot element/attribute names here are UNVERIFIED
+  stand-ins, not confirmed S1000D schema. This file seals the extraction
+  LOGIC and the SVG-resolution join (spec_icn_hotspot.md section 4), not
+  real S1000D markup. The real authored corpus in ../mrad/ contains no
+  <hotspot> elements at all.
+-->
+<dmodule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_4-2/xml_schema_flat/ipd.xsd">
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="ODMRADHS" systemDiffCode="A" systemCode="34"
+                subSystemCode="1" subSubSystemCode="0" assyCode="01"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="941" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="US"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="10" day="02"/>
+        <dmTitle>
+          <techName>Array Module (Hotspot Fixture)</techName>
+          <infoName>Illustrated Parts Data</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <responsiblePartnerCompany enterpriseName="Synthetic"/>
+      <originator enterpriseName="Synthetic"/>
+      <applic>
+        <displayText>
+          <simplePara>All configurations.</simplePara>
+        </displayText>
+      </applic>
+      <qualityAssurance>
+        <unverified/>
+      </qualityAssurance>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Array Module Assembly (Hotspot Fixture)</title>
+        <!--
+          The graphic carries ONE hotspot, authored for join case (b):
+          its applicationStructureIdent ("0002") equals catalog item
+          0002's @item attribute, with no itemSeqNumber element present
+          (same shape as the real ../mrad/ corpus).
+        -->
+        <graphic infoEntityIdent="ICN-ODMRADHS-00007">
+          <hotspot applicationStructureIdent="0002"/>
+        </graphic>
+        <catalogSeqNumberGroup>
+          <!-- Case (a): hotspot NESTED directly in the item. Unambiguous,
+               takes precedence over any graphic-level join. -->
+          <catalogSeqNumber item="0001">
+            <description>
+              <name>array module</name>
+              <identNumber>
+                <manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber>
+                  <partNumber>ODM-AM-0001</partNumber>
+                </partAndSerialNumber>
+              </identNumber>
+            </description>
+            <hotspot applicationStructureIdent="HS-NESTED-01"/>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+          <!-- Case (b): no hotspot nested here; resolved by matching this
+               item's @item ("0002") against the graphic's hotspot ident
+               above. -->
+          <catalogSeqNumber item="0002">
+            <description>
+              <name>connector gasket</name>
+              <identNumber>
+                <manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber>
+                  <partNumber>ODM-GS-0002</partNumber>
+                </partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>1</reqQuantity>
+          </catalogSeqNumber>
+          <!-- Case (c): no hotspot at all, nested or joined. -->
+          <catalogSeqNumber item="0003">
+            <description>
+              <name>screw</name>
+              <identNumber>
+                <manufacturerCode>ODM</manufacturerCode>
+                <partAndSerialNumber>
+                  <partNumber>ODM-SC-0003</partNumber>
+                </partAndSerialNumber>
+              </identNumber>
+            </description>
+            <reqQuantity>2</reqQuantity>
+          </catalogSeqNumber>
+        </catalogSeqNumberGroup>
+      </figure>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>
