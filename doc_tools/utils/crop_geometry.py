@@ -46,7 +46,7 @@ installed unstructured / unstructured_inference source, not assumed):
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 Box = Tuple[float, float, float, float]  # (x0, top, x1, bottom)
 
@@ -99,6 +99,47 @@ _MAX_HORIZ_EXTENSION_PTS = 36.0
 # --------------------------------------------------------------------------- #
 # PURE — no PDF, no pdfplumber, no pypdfium2. Rules 2-6.
 # --------------------------------------------------------------------------- #
+# --- Rule 7 (word completion) ---------------------------------------------
+#
+# WHY A SEVENTH RULE EXISTS. Rules 2-6 complete a row or a cell that
+# unstructured's box already began to include. MEASURED 2026-10-16 on
+# `IDT_PDN_OV-19-05.pdf` p1, that is not the only way an edge lands mid-glyph:
+# `find_tables()` returned ONE table spanning (60.6, 45.1, 553.1, 723.1) -- 678pt
+# of a 792pt page -- whose nine "rows" are prose blocks of 9.9 to 154.6pt. The
+# element box (50.8, 117.3, 553.0, 505.7) sits inside it, so rule 1 matched, and
+# then:
+#   - top 117.3: every plausible row (<= the 72pt ceiling) starts at or BELOW
+#     125.6, so `min(row.top) >= top` and rule 3 correctly leaves it alone;
+#   - bottom 505.7: every plausible row already ends at or ABOVE 465.6, so
+#     `max(row.bottom) <= bottom` and rule 3 correctly leaves it alone.
+# Both edges are therefore "correct" by rules 2-6 and both still cut text: the
+# top through the title (`PRODUCT DISCONTINUANCE NOTICE (PDN)`, 109.8-124.8) and
+# the bottom through a prose line (498.5-507.8). The defect is not a half-caught
+# ROW -- it is an edge inside a line of text the matched table does not represent
+# as a row at all. Three fires on pin sha256:85ad4c9d failed the crop seal on
+# exactly this, byte-identically, while fire 1 scored 522/522 parts; the seal, not
+# the parts, is what held exit 0.
+#
+# THE RULE: after rules 2-6, extend any edge that still passes through a word to
+# that word's far side. OUTWARD ONLY, never inward -- the module's standing
+# doctrine is that a re-cut crop may cost a column LABEL but must never cost a
+# ROW, and an inward snap can drop one. The criterion is byte-for-byte the one
+# `scripts/pcn_crop_seal.py::_cut_words_by_edge` measures (edge through the
+# word's own axis by >0.5pt on both sides, overlap on the other axis within 1pt,
+# sibling-covered words excluded), so the repair answers the same question the
+# gate asks instead of a near-miss of it.
+#
+# The measured moves on that page are 7.5pt (top) and 2.1pt (bottom). The cap is
+# set well above a tall title line and well below anything that could restructure
+# a crop; if it ever binds, the edge stays cut and the seal says so -- a capped
+# move must not be allowed to look like a clean one.
+_WORD_COMPLETION_MAX_PTS = 36.0
+# A move can bisect a word on the NEXT line (a descender, a taller glyph), so the
+# step is iterated. Each pass is monotone outward and the cap is cumulative, so
+# this terminates on its own; the ceiling only bounds pathological pages.
+_WORD_COMPLETION_PASSES = 4
+
+
 def _corrected_edge(fixed: float, other: float, candidate_boxes: Sequence[Box],
                     near_idx: int, far_idx: int, *, increasing: bool, bound: float,
                     pad_frac: float, max_plausible_size: float, max_size_ratio: float,
@@ -202,9 +243,88 @@ def corrected_bottom(el_box: Box, row_boxes: Sequence[Box], page_height: float,
         min_size_allowance=_MIN_ROW_HEIGHT_ALLOWANCE)
 
 
+def _word_completed_box(box: Box, word_boxes: Sequence[Box],
+                        sibling_boxes: Sequence[Box],
+                        page_width: float, page_height: float,
+                        *, max_extension: float = _WORD_COMPLETION_MAX_PTS,
+                        passes: int = _WORD_COMPLETION_PASSES) -> Box:
+    """Rule 7: `box` with every edge that passes THROUGH a word extended outward
+    to that word's far side. Pure -- plain tuples in, a tuple out.
+
+    `word_boxes` are the page's words as `(x0, top, x1, bottom)`;
+    `sibling_boxes` are the OTHER Table elements' boxes on the same page, whose
+    wholly-contained words are that sibling's content and are not this box's cut
+    (the same exclusion, and the same 1pt tolerance, as the seal's
+    `_covered_by_sibling`; without it a first survey pass reported 924 false
+    cuts).
+
+    Edges only ever move away from the box's centre, each is capped at
+    `max_extension` from its incoming value, and all four are clamped to the
+    page. With no words, or with no word straddling any edge, the box is
+    returned unchanged -- which is what keeps rule 7 inert for every caller that
+    does not pass words.
+
+    WHICH SIBLING WORLD. The caller passes the STORED sibling boxes, because at
+    repair time the repaired ones are not all known yet (elements are repaired in
+    sequence). That is the conservative direction and deliberately so: repaired
+    boxes are supersets of stored ones (this rule and rules 2-6 both only grow a
+    box), so stored siblings exclude FEWER words, so rule 7 extends at least as
+    far as it would with repaired siblings. The seal then tests the result
+    against repaired siblings, which excludes more -- so this can over-satisfy
+    the gate but never under-satisfy it.
+    """
+    if not word_boxes:
+        return box
+
+    def _covered(w: Box) -> bool:
+        for sx0, stop, sx1, sbot in sibling_boxes:
+            if (sx0 - 1 <= w[0] and w[2] <= sx1 + 1
+                    and stop - 1 <= w[1] and w[3] <= sbot + 1):
+                return True
+        return False
+
+    live = [w for w in word_boxes if not _covered(w)]
+    if not live:
+        return box
+
+    x0, top, x1, bottom = box
+    # Budget per edge, measured from the box handed in, not from each pass.
+    limits = (x0 - max_extension, top - max_extension,
+              x1 + max_extension, bottom + max_extension)
+
+    for _ in range(max(0, passes)):
+        moved = False
+        for w in live:
+            wx0, wtop, wx1, wbot = w
+            # Other-axis overlap, paired to the edge's own axis, exactly as the
+            # seal pairs them.
+            in_x = wx1 > x0 - 1 and wx0 < x1 + 1
+            in_y = wbot > top - 1 and wtop < bottom + 1
+            if in_y:
+                if wx1 > x0 + 0.5 and wx0 < x0 - 0.5:
+                    x0 = max(min(wx0, x0), limits[0], 0.0)
+                    moved = True
+                if wx0 < x1 - 0.5 and wx1 > x1 + 0.5:
+                    x1 = min(max(wx1, x1), limits[2], page_width)
+                    moved = True
+            if in_x:
+                if wbot > top + 0.5 and wtop < top - 0.5:
+                    top = max(min(wtop, top), limits[1], 0.0)
+                    moved = True
+                if wtop < bottom - 0.5 and wbot > bottom + 0.5:
+                    bottom = min(max(wbot, bottom), limits[3], page_height)
+                    moved = True
+        if not moved:
+            break
+
+    return (x0, top, x1, bottom)
+
+
 def corrected_box(el_box: Box, row_boxes: Sequence[Box], cell_boxes: Sequence[Box],
                   page_width: float, page_height: float,
-                  *, pad_frac: float = 0.03) -> Box:
+                  *, pad_frac: float = 0.03,
+                  word_boxes: Sequence[Box] = (),
+                  sibling_boxes: Sequence[Box] = ()) -> Box:
     """The corrected `(x0, top, x1, bottom)` for one Table element's box, all
     four edges, applying the SAME doctrine `corrected_bottom` applies to the
     bottom edge alone (see its docstring for rules 2-6 in full):
@@ -233,6 +353,15 @@ def corrected_box(el_box: Box, row_boxes: Sequence[Box], cell_boxes: Sequence[Bo
     `_MAX_HORIZ_EXTENSION_PTS` in one call (see that constant's comment) —
     there is no vertical analogue because the measured vertical extension never
     approached a scale where one was needed.
+
+    Rule 7 (word completion) then runs on that result when `word_boxes` is
+    supplied: any edge still passing through a word is extended outward to the
+    word's far side, capped and clamped. `sibling_boxes` are the other Table
+    elements' boxes on the page, used only for the exclusion rule 7 shares with
+    the seal. Both default to empty, which makes rule 7 a no-op and keeps every
+    existing caller's result bit-for-bit identical — `corrected_bottom` does not
+    take them at all. See `_word_completed_box` and the constants above it for
+    the measurement that forced the rule.
     """
     x0, top, x1, bottom = el_box
     new_bottom = _corrected_edge(
@@ -257,7 +386,11 @@ def corrected_box(el_box: Box, row_boxes: Sequence[Box], cell_boxes: Sequence[Bo
         max_size_ratio=_MAX_CELL_WIDTH_RATIO,
         min_size_allowance=_MIN_CELL_WIDTH_ALLOWANCE,
         max_extension=_MAX_HORIZ_EXTENSION_PTS)
-    return (new_x0, new_top, new_x1, new_bottom)
+    # Rule 7 LAST, on the rule-2-6 result: it finishes edges that are correct by
+    # rows and cells and still land inside a word. Inert without `word_boxes`.
+    return _word_completed_box(
+        (new_x0, new_top, new_x1, new_bottom), word_boxes, sibling_boxes,
+        page_width, page_height)
 
 
 # --------------------------------------------------------------------------- #
@@ -320,6 +453,60 @@ def _rows_and_cells_for_best_table(tables: Sequence[Any], el_box_pts: Box
     return row_boxes, cell_boxes
 
 
+class _ElementBox(NamedTuple):
+    """One Table element's geometry, decoded once. `px` is the element's
+    ORIGINAL pixel-space `(x0, top, x1, bottom)`, kept because the in-place
+    `metadata.coordinates.points` rewrite matches each old coordinate against it
+    (see COORDINATE SPACES in the module docstring); recomputing it at the tail
+    from `box * scale` would reintroduce a rounding difference between the value
+    matched and the value stored."""
+    page: int
+    box: Box
+    scale: float
+    image_path: str
+    coords: Dict[str, Any]
+    points: list
+    px: Box
+
+
+def _decode_element_box(el: Dict[str, Any], pdf: Any) -> Optional[_ElementBox]:
+    """One Table element decoded to `(page_number, box_pts, scale, image_path)`,
+    or `None` when this element carries nothing to repair.
+
+    Lifted out of `repair_table_crops`'s loop so the pre-pass that collects the
+    page's STORED element boxes and the repair loop itself cannot disagree about
+    which elements count or where their edges are. Returning `None` rather than
+    raising keeps the PDF-only-by-construction contract: an element from a
+    non-PDF source has no coordinates and is skipped, not errored on.
+    """
+    meta = el.get("metadata") or {}
+    page_number = meta.get("page_number")
+    coords = meta.get("coordinates")
+    if not page_number or not isinstance(coords, dict):
+        return None
+    points = coords.get("points")
+    layout_height = coords.get("layout_height")
+    image_path = meta.get("image_path")
+    if not points or not layout_height or not image_path:
+        return None
+    if not (1 <= page_number <= len(pdf.pages)):
+        return None
+
+    pp_page = pdf.pages[page_number - 1]
+    if not pp_page.height or not pp_page.width:
+        return None
+    scale = float(layout_height) / float(pp_page.height)  # == dpi/72
+    if scale <= 0:
+        return None
+
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+    px: Box = (min(xs), min(ys), max(xs), max(ys))
+    box: Box = (px[0] / scale, px[1] / scale, px[2] / scale, px[3] / scale)
+    return _ElementBox(page_number, box, scale, str(image_path),
+                       coords, points, px)
+
+
 def repair_table_crops(pdf_path: str, elements: List[Dict[str, Any]],
                        image_output_dir: str) -> int:
     """Re-render and overwrite the crop file for each Table element with at least
@@ -348,42 +535,47 @@ def repair_table_crops(pdf_path: str, elements: List[Dict[str, Any]],
         with pdfplumber.open(pdf_path) as pdf:
             tables_cache: Dict[int, list] = {}
             page_img_cache: Dict[Tuple[int, float], Any] = {}
-            for el in table_elements:
-                meta = el.get("metadata") or {}
-                page_number = meta.get("page_number")
-                coords = meta.get("coordinates")
-                if not page_number or not isinstance(coords, dict):
-                    continue
-                points = coords.get("points")
-                layout_height = coords.get("layout_height")
-                image_path = meta.get("image_path")
-                if not points or not layout_height or not image_path:
-                    continue
-                if not (1 <= page_number <= len(pdf.pages)):
-                    continue
+            words_cache: Dict[int, List[Box]] = {}
 
+            # PRE-PASS: every Table element's STORED box, keyed by page, before
+            # any element is repaired. Rule 7 needs the other elements' boxes on
+            # the page (its sibling exclusion), and a repair that asked for them
+            # mid-loop would see a mix of repaired and unrepaired siblings whose
+            # content depends on element ORDER. Stored boxes are order-free and
+            # are the conservative world -- see `_word_completed_box`.
+            decoded = [(i, _decode_element_box(el, pdf))
+                       for i, el in enumerate(table_elements)]
+            stored_by_page: Dict[int, List[Tuple[int, Box]]] = {}
+            for i, d in decoded:
+                if d is not None:
+                    stored_by_page.setdefault(d.page, []).append((i, d.box))
+
+            for i, el in enumerate(table_elements):
+                d = decoded[i][1]
+                if d is None:
+                    continue
+                page_number, el_box_pts, scale = d.page, d.box, d.scale
+                image_path, coords, points = d.image_path, d.coords, d.points
+                x0_px, top_px, x1_px, bottom_px = d.px
                 pp_page = pdf.pages[page_number - 1]
                 page_height_pts = pp_page.height
                 page_width_pts = pp_page.width
-                if not page_height_pts or not page_width_pts:
-                    continue
-                scale = float(layout_height) / float(page_height_pts)  # == dpi/72
-                if scale <= 0:
-                    continue
-
-                xs = [p[0] for p in points]
-                ys = [p[1] for p in points]
-                x0_px, top_px, x1_px, bottom_px = min(xs), min(ys), max(xs), max(ys)
-                el_box_pts: Box = (x0_px / scale, top_px / scale,
-                                   x1_px / scale, bottom_px / scale)
 
                 tables = tables_cache.get(page_number)
                 if tables is None:
                     tables = pp_page.find_tables()
                     tables_cache[page_number] = tables
                 row_boxes, cell_boxes = _rows_and_cells_for_best_table(tables, el_box_pts)
+                if page_number not in words_cache:
+                    words_cache[page_number] = [
+                        (w["x0"], w["top"], w["x1"], w["bottom"])
+                        for w in pp_page.extract_words()]
+                sibling_boxes = [b for (j, b) in stored_by_page[page_number]
+                                 if j != i]
                 new_x0_pts, new_top_pts, new_x1_pts, new_bottom_pts = corrected_box(
-                    el_box_pts, row_boxes, cell_boxes, page_width_pts, page_height_pts)
+                    el_box_pts, row_boxes, cell_boxes, page_width_pts, page_height_pts,
+                    word_boxes=words_cache[page_number],
+                    sibling_boxes=sibling_boxes)
 
                 moved = (
                     abs(new_x0_pts - el_box_pts[0]) > 0.5

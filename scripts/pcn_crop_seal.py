@@ -275,8 +275,22 @@ def _measure_notice(pdf_path: str, elements: List[dict]) -> Tuple[int, List[dict
                 tables_cache[page_number] = pp_page.find_tables()
             row_boxes, cell_boxes = crop_geometry._rows_and_cells_for_best_table(
                 tables_cache[page_number], el_box_pts)
+            # Rule 7 (word completion) needs the page's words and this element's
+            # STORED siblings, and this call must pass exactly what
+            # `crop_geometry.repair_table_crops` passes -- the words from
+            # `extract_words()` and the stored, not repaired, sibling boxes -- or
+            # the gate would measure a repaired box no re-ingest would ever
+            # write. See `_word_completed_box` on why stored is the conservative
+            # side of that choice.
+            if page_number not in words_cache:
+                words_cache[page_number] = pp_page.extract_words()
+            word_boxes = [(w["x0"], w["top"], w["x1"], w["bottom"])
+                          for w in words_cache[page_number]]
+            stored_sibs_for_rule7 = [b for (j, b) in boxes_by_page[page_number]
+                                     if j != e["idx"]]
             e["repaired_box"] = crop_geometry.corrected_box(
-                el_box_pts, row_boxes, cell_boxes, pp_page.width, pp_page.height)
+                el_box_pts, row_boxes, cell_boxes, pp_page.width, pp_page.height,
+                word_boxes=word_boxes, sibling_boxes=stored_sibs_for_rule7)
             rep_boxes_by_page.setdefault(page_number, []).append(
                 (e["idx"], e["repaired_box"]))
 

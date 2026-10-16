@@ -1023,6 +1023,53 @@ def preserved_log_dumps(report, fires, max_bytes):
         yield "\n".join(head) + text.rstrip("\n") + f"\n\n===== END fire {n} log ====="
 
 
+# The crop-seal counters carried into the report. The first two are the gate's own
+# exit term (pcn_corpus_run.py requires both 0 on every fire, mirrored in
+# `_reconstruct_exit` above); the rest are context — `stored_cut_*` counts cuts the
+# repair FIXED, which is work done, not a failure, and `n_tables` is the population.
+SEAL_COUNTERS = ("repaired_cut_tables", "errors",
+                 "repaired_cut_words", "stored_cut_tables", "stored_cut_words",
+                 "n_tables")
+
+
+def aggregate_seal_totals(totals_by_fire):
+    """Worst case per counter across the fires whose crop-seal JSON was read.
+
+    Same shape and the same NOT-OBSERVED discipline as
+    doc_tools/utils/ingest_rates.py::aggregate_rates_across_fires: a fire whose seal
+    was not read contributes NOTHING — not a zero — and is named in `fires_missing`.
+    MAX per counter, independently per counter, because the exit criterion is
+    `repaired_cut_tables == 0 and errors == 0` on EVERY fire: one bad fire is the
+    verdict, so the maximum is the number that decided it.
+
+    `n_tables` is maxed on the same rule, which makes it the largest table population
+    any fire saw rather than a denominator the fires are asserted to share. `by_fire`
+    is the copy to read when they differ and `agreement` says whether they did — the
+    fires have disagreed on measured rates before over one image (see the per-fire
+    note in `score_fires`), so nothing here is reported once and assumed common.
+    """
+    keys = sorted(totals_by_fire)
+    contributing = [k for k in keys if isinstance(totals_by_fire[k], dict)]
+    block = {
+        "fires": contributing,
+        "fires_missing": [k for k in keys if k not in contributing],
+        "agreement": True,
+        "totals": {},
+        "by_fire": {},
+    }
+    if not contributing:
+        return block
+    agreement = True
+    for counter in SEAL_COUNTERS:
+        per = {k: (totals_by_fire[k].get(counter) or 0) for k in contributing}
+        block["totals"][counter] = max(per.values())
+        block["by_fire"][counter] = per
+        if len(set(per.values())) > 1:
+            agreement = False
+    block["agreement"] = agreement
+    return block
+
+
 def score_fires(base_dir, fires, expectations=None):
     blocking = []
     exempted = []
@@ -1040,9 +1087,24 @@ def score_fires(base_dir, fires, expectations=None):
     corpus_by_fire = {}
     header_totals_by_fire = {}
     rates_by_fire = {}
+    seal_totals_by_fire = {}
     for f in fires:
         corpus, corpus_err = _load_json_soft(f["corpus_path"])
         score, score_err = _load_json_soft(f["score_path"])
+        # THE SEAL'S OWN NUMBERS, per fire. `seal_checked` already records whether the
+        # seal TERM was evaluated; it says nothing about what the seal measured, and
+        # until now the authority artifact carried no copy of that at all — a reader
+        # of latest.json could see a red fire without learning that the crop seal, not
+        # the parts score, is what made it red, and could not tell a fire that was
+        # green with two stored cuts repaired from one with nothing to repair. The
+        # error string is kept rather than raised: a missing seal JSON on a fire that
+        # crashed is already blocking via its exit code, and in --from-logs without
+        # --seal-prefix there is legitimately no seal to read.
+        sealed, seal_err = (_load_json_soft(f["seal_path"])
+                            if f.get("seal_path") else (None, None))
+        # None, never {}: a seal that was not read is not a seal that found nothing.
+        seal_totals = sealed.get("totals") if isinstance(sealed, dict) else None
+        seal_totals_by_fire[f["n"]] = seal_totals
         corpus_by_fire[f["n"]] = corpus or {}
         rates_by_fire[f["n"]] = None  # unreadable score: not observed, not zero
         totals = None
@@ -1079,6 +1141,9 @@ def score_fires(base_dir, fires, expectations=None):
             # --from-logs with --seal-prefix; False when the seal term could not
             # be evaluated.
             "seal_checked": f.get("seal_checked", True),
+            # What the seal measured on this fire, or None when it was not read.
+            "seal_totals": seal_totals,
+            "seal_error": seal_err,
         })
 
     # Rates: worst case per flag across the fires that emitted any; None when no
@@ -1086,6 +1151,9 @@ def score_fires(base_dir, fires, expectations=None):
     _agg = aggregate_rates_across_fires(rates_by_fire)
     rates_available = bool(_agg["fires"])
     rates = _agg if rates_available else None
+
+    # Crop seal: worst case per counter across the fires whose seal JSON was read.
+    crop_seal = aggregate_seal_totals(seal_totals_by_fire)
 
     # (b) Header agreement.
     log_paths = [f["log_path"] for f in fires]
@@ -1199,6 +1267,14 @@ def score_fires(base_dir, fires, expectations=None):
         # `rates` sub-dict), with per-fire detail in `rates_by_fire`.
         "rates": rates,
         "rates_by_fire": rates_by_fire,
+        # THE CROP SEAL, which is the term that has actually been failing: three
+        # fires on pin sha256:85ad4c9d exited 1 on `repaired_cut_tables` alone while
+        # fire 1 scored 522/522 parts. Worst case per counter plus per-fire detail;
+        # `fires_missing` names any fire whose seal was not read, which is NOT the
+        # same as a fire that measured zero. Additive to schema 1 — a consumer that
+        # does not know this key is unaffected, and one that does must treat an
+        # absent key (an older report) as unmeasured rather than clean.
+        "crop_seal": crop_seal,
         # THE CORPUS THIS WAS MEASURED AGAINST, copied from the `_corpus` block of
         # pcn_ground_truth.json (which pcn_corpus_run.check_corpus_enumeration
         # asserts TARGETS against at startup). A score is a fraction and a report
@@ -1238,6 +1314,49 @@ def score_fires(base_dir, fires, expectations=None):
 
 # --------------------------------------------------------------------------
 # Markdown report.
+
+def _render_crop_seal_block(block):
+    """The crop-seal block as plain text.
+
+    Hand-rolled rather than reused from pcn_crop_seal.render(): that renderer takes a
+    whole `{by_notice, totals}` seal document for ONE fire, and this is an aggregate
+    over fires that has no `by_notice`. The per-notice detail stays in each fire's
+    seal JSON next to its log; what belongs in the authority artifact is which counter
+    decided the verdict and whether the fires agreed on it.
+    """
+    if not isinstance(block, dict) or not block.get("fires"):
+        missing = (block or {}).get("fires_missing") or []
+        tail = (f" (fires not read: {', '.join('f%s' % k for k in missing)})"
+                if missing else "")
+        return ("CROP SEAL  not observed — no fire's seal JSON was read" + tail
+                + "\n  An unread seal is UNMEASURED, not clean: the gate's exit term "
+                  "could not be\n  checked from this report. Pass --seal-prefix in "
+                  "--from-logs mode.")
+    fires = block["fires"]
+    totals = block.get("totals") or {}
+    by_fire = block.get("by_fire") or {}
+    names = ", ".join(f"f{k}" for k in fires)
+    lines = [f"CROP SEAL  (MAXIMA across {len(fires)} fire(s): {names})"]
+    if block.get("fires_missing"):
+        lines.append("  fires NOT read: "
+                     + ", ".join(f"f{k}" for k in block["fires_missing"])
+                     + "  (unmeasured, not zero)")
+    if not block.get("agreement", True):
+        lines.append("  fires DISAGREE on at least one counter — see per-fire below")
+    for counter in SEAL_COUNTERS:
+        per = by_fire.get(counter) or {}
+        detail = " ".join(f"f{k}={v}" for k, v in sorted(per.items()))
+        # The two gate terms are marked, so a reader does not have to know which of
+        # these six numbers is allowed to be nonzero.
+        term = "  <- GATE TERM, must be 0" if counter in ("repaired_cut_tables",
+                                                          "errors") else ""
+        lines.append(f"  {counter:<22} {totals.get(counter, 0):>5}{term}")
+        if detail:
+            lines.append(f"  {'':<22} {'':>5}   per fire: {detail}")
+    lines.append("  stored_cut_* counts cuts the repair FIXED — work done, not a "
+                 "failure.")
+    return "\n".join(lines)
+
 
 def _render_rates_block(rates_available, rates):
     """The rates block, rendered by `doc_tools.utils.ingest_rates.render_rates` — the
@@ -1545,6 +1664,10 @@ def render_markdown(report, gate_dir, command_str, log_paths):
                 f"| {f['n']} | {f['exit']} | {f['elapsed_s']} | {t['exact']}/{t['gt']} | "
                 f"{t['spurious']} | {t['missing']} | {t['malformed']} |"
             )
+    lines.append("")
+    lines.append("## Crop seal")
+    lines.append("")
+    lines.append(_render_crop_seal_block(report.get("crop_seal")))
     lines.append("")
     lines.append("## Per-notice defects")
     lines.append("")

@@ -251,3 +251,67 @@ def test_disagreement_line_and_per_fire_counts_are_rendered():
     assert "f1=0 f2=1 f3=0" in out
     assert "from f2" in out
     assert all(len(line) <= 80 for line in out.splitlines())
+
+
+# --------------------------------------------------------------------------- #
+# crops_failed / crops_truncated: COUNTS in `stats`, a PER-DOCUMENT rate here
+# --------------------------------------------------------------------------- #
+def test_a_crop_count_is_aggregated_per_document_not_per_crop():
+    """Three failed crops in one notice is ONE document with a failed crop.
+
+    `crops_failed` is a crop count in `stats`, unlike the booleans beside it. If it
+    were summed, the rate's own denominator (documents) would stop bounding its
+    numerator and "4 of 2 documents" would be renderable.
+    """
+    summary = summarize_rates([
+        {"ok": True, "needs_review": False,
+         "stats": {"crops_failed": 3, "crops_truncated": 0}},
+        {"ok": True, "needs_review": False,
+         "stats": {"crops_failed": 0, "crops_truncated": 0}},
+    ])
+    assert summary["documents"] == 2
+    assert summary["rates"]["crops_failed"] == {"count": 1, "denominator": 2}
+    assert summary["rates"]["crops_failed"]["count"] <= summary["documents"]
+
+
+def test_truncated_is_a_subset_of_failed_so_the_two_rates_nest():
+    """sustainment.py:919 — a truncated crop is also a failed one.
+
+    Pinned because the two rates render as adjacent lines, which invites adding them.
+    A document counted under `crops_truncated` MUST also be counted under
+    `crops_failed`; a producer that ever emitted truncated-without-failed would be the
+    defect, and this asserts the shape the consumer relies on.
+    """
+    summary = summarize_rates([
+        {"ok": True, "needs_review": False,
+         "stats": {"crops_failed": 1, "crops_truncated": 1}},
+        {"ok": True, "needs_review": False,
+         "stats": {"crops_failed": 2, "crops_truncated": 0}},
+    ])
+    failed = summary["rates"]["crops_failed"]["count"]
+    truncated = summary["rates"]["crops_truncated"]["count"]
+    assert (failed, truncated) == (2, 1)
+    assert truncated <= failed, "the two rates nest; they are not disjoint"
+
+
+def test_both_crop_counters_render_and_stay_within_80_columns():
+    out = render_rates(summarize_rates([
+        {"ok": True, "needs_review": True,
+         "stats": {"crops_failed": 1, "crops_truncated": 1,
+                   "crops_near_cap": 0, "crops_row_short": 0,
+                   "text_layer_degraded": 0}},
+    ]))
+    assert "crops_failed" in out
+    assert "crops_truncated" in out
+    assert all(len(line) <= 80 for line in out.splitlines())
+
+
+def test_a_stats_flag_missing_from_the_record_counts_as_not_flagged():
+    """Pre-existing producers (and every fixture) omit the new keys.
+
+    They must read as not-flagged, never raise — a rate that crashes the aggregation
+    on an older record would take down the run log that carries every other rate.
+    """
+    summary = summarize_rates([_ok(needs_review=False)])
+    assert summary["documents"] == 1
+    assert summary["rates"]["crops_failed"] == {"count": 0, "denominator": 1}

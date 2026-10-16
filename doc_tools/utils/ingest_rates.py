@@ -15,10 +15,31 @@ tests never need either producer's machinery to exercise it.
 from typing import Any, Dict, Iterable, List, Optional
 
 # The per-DOCUMENT rate flags this module knows how to aggregate. `needs_review` lives
-# on the record itself (the plugin's doc-level verdict); the other three live under
-# `stats` (counters `SustainmentPlugin._extract_fulltext` already produces — see
+# on the record itself (the plugin's doc-level verdict); the rest live under `stats`
+# (counters `SustainmentPlugin._extract_fulltext` already produces — see
 # doc_tools/plugins/sustainment.py). Order here is the order they render in.
-RATE_FLAGS = ("needs_review", "crops_near_cap", "crops_row_short", "text_layer_degraded")
+#
+# A RATE IS PER DOCUMENT, EVEN WHERE THE UNDERLYING FIELD IS A COUNT. `crops_failed`
+# and `crops_truncated` are crop COUNTS in `stats` (a notice with 3 failed crops stores
+# 3), and they are aggregated here by TRUTHINESS, exactly like the boolean flags: the
+# rate reads "documents with at least one failed crop", never "crops failed". Two
+# consequences a reader of the rendered block must not get wrong:
+#   * 2 of 10 does not mean 2 crops. The crop-level denominator is `n_tables`, which
+#     this module never sees; telemetry.py carries that ratio separately.
+#   * `crops_truncated` is a SUBSET of `crops_failed` (sustainment.py:919), so the two
+#     rates NEST — a truncation is also a failure, and adding them double-counts.
+# They are added because the crop seal, not the parts score, is what has been holding
+# exit 0 (three fires on pin sha256:85ad4c9d failed on the crop term alone while fire 1
+# scored 522/522), and a failed crop was visible per notice but in no run-level rate.
+RATE_FLAGS = ("needs_review", "crops_failed", "crops_truncated",
+              "crops_near_cap", "crops_row_short", "text_layer_degraded")
+
+# Which flags are read off the record and which off its `stats`. DERIVED, not a second
+# hand-written list: when the aggregation loop below carried its own literal tuple of
+# stats flags, a name added to RATE_FLAGS alone would have rendered "0 of N documents"
+# for ever — a clean-looking zero for a signal nothing was counting.
+_RECORD_FLAGS = ("needs_review",)
+_STATS_FLAGS = tuple(f for f in RATE_FLAGS if f not in _RECORD_FLAGS)
 
 
 def summarize_rates(records: Iterable[Dict[str, Any]],
@@ -26,8 +47,10 @@ def summarize_rates(records: Iterable[Dict[str, Any]],
     """Reduce one run's per-document records to counts, denominators and a chunk line.
 
     `records`: one dict per document attempted this run. A HEALTHY record carries
-    `needs_review` (bool) and `stats` (dict, carrying at least `crops_near_cap`,
-    `crops_row_short`, `text_layer_degraded`).
+    `needs_review` (bool) and `stats` (dict, carrying at least every name in
+    `_STATS_FLAGS`). A missing name counts as not-flagged for that document, which is
+    why a producer that stops emitting one looks clean rather than erroring — the names
+    are listed in RATE_FLAGS so that producer and consumer have one place to agree.
 
     THREE dispositions, not two, and the difference is load-bearing:
 
@@ -79,9 +102,13 @@ def summarize_rates(records: Iterable[Dict[str, Any]],
             not_applicable += 1
             continue
         documents += 1
-        if rec.get("needs_review"):
-            counts["needs_review"] += 1
-        for flag in ("crops_near_cap", "crops_row_short", "text_layer_degraded"):
+        for flag in _RECORD_FLAGS:
+            if rec.get(flag):
+                counts[flag] += 1
+        # Truthiness, not value: `crops_failed`/`crops_truncated` are counts, and one
+        # document with three failed crops is ONE document with a failed crop. See the
+        # note on RATE_FLAGS.
+        for flag in _STATS_FLAGS:
             if stats.get(flag):
                 counts[flag] += 1
 
