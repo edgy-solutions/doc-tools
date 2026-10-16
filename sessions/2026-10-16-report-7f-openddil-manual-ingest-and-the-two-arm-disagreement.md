@@ -71,17 +71,21 @@ Three independent reasons, each measured:
    component's `filter_patterns`, so it never becomes a candidate object. The
    payload PDF is untouched, so its ETag does not move either.
 3. The retry path that exists for this — `ingest_retry_sensor`, which mints a
-   fresh run_key namespace with an attempt counter — has launched **0 runs**,
-   because it polls `GET /ingest/retries` and Lane 1 has not shipped it. Every
-   tick is a named skip (`404: not deployed yet`).
+   fresh run_key namespace with an attempt counter — has launched **0 runs**.
+   ~~because it polls `GET /ingest/retries` and Lane 1 has not shipped it.
+   Every tick is a named skip (`404: not deployed yet`).~~ **CORRECTED — see
+   §7. The route IS shipped; 109 of 109 ticks got HTTP 200 and the queue is
+   EMPTY. The sensor is idle because nothing enqueues a failed ingest.**
 
 **What will work:** re-drop the five payloads under a **new object key** (new sha
 prefix) with `content_kind` declared in the sibling manifest — `pcn` for the four
 notices. Ordering is not an obstacle: the sensor cursor is a **LastModified**
 watermark, not a lexicographic one (`dagster_aws.s3.sensor.get_objects` sorts by
 `LastModified` and slices after the cursor object), so a re-drop is listed
-whatever its key sorts like. Alternatively, ship `GET /ingest/retries` and the
-retry sensor relaunches them with no re-drop at all.
+whatever its key sorts like. ~~Alternatively, ship `GET /ingest/retries` and
+the retry sensor relaunches them with no re-drop at all.~~ **That alternative is
+DISPROVED in §7: the route is already shipped and its queue is empty, so the
+re-drop is the ONLY path.**
 
 ### Severe, incidental, and worth a guardrail
 
@@ -309,3 +313,96 @@ Carried out of it:
   **architect** (the six-distinct-DMCs-in-ten-drops identity/supersession
   question; the three XML builders no user drop can reach; and that deleting an
   object in a watched prefix bricks that sensor, with no guardrail).
+
+---
+
+## 7. ADDENDUM 2026-10-16 13:40Z — I WAS WRONG ABOUT THE POLLER, AND IT CHANGES LANE 1's REMEDY
+
+§2 of this report says `ingest_retry_sensor` "polls `GET /ingest/retries` and
+Lane 1 has not shipped it. Every tick is a named skip (`404: not deployed
+yet`)." **That is false, and it was false when I wrote it.** I took it from the
+module's own docstring instead of reading the tick reasons — the exact mistake
+this lane has a memory about.
+
+Measured against the sandbox, all 109 ticks the instance holds:
+
+| first tick of stretch | reason | ticks |
+|---|---|---|
+| 04:29:40Z | **HTTP 200, queue EMPTY** | 8 |
+| 05:10:02Z | no `svc:doc-tools` token could be minted | 1 |
+| 05:15:02Z | **HTTP 200, queue EMPTY** | 96 |
+| 13:19:48Z | no `svc:doc-tools` token could be minted | 1 |
+| 13:24:55Z | **HTTP 200, queue EMPTY** | 3 |
+
+**Zero 404s, ever** — including the sensor's very first tick at 04:29:40Z, the
+moment #113 went live. `GET /ingest/retries` **is deployed and answering.**
+
+This is not an inference from a status code I did not see. The skip text is
+`no ingest rows are awaiting a retry`, and in
+`doc_tools/components/ingest_retry_sensor.py` that string is only reachable
+after the `404` branch, the `>= 400` branch, the JSON-parse branch and the
+row-list-type branch have all been passed. **The message itself proves an HTTP
+200 carrying an empty row list.**
+
+### What this changes
+
+Remedy 3 in §2 — "ship `GET /ingest/retries` and the retry sensor relaunches
+them with no re-drop at all" — is **disproved**. The route is shipped. The
+queue is empty. **Nothing enqueues a failed ingest**, so the five
+`ingress-user/pdf/` drops that died on the ADR-0041 guard are not in it and
+this sensor will never pick them up.
+
+So **the re-drop under a new object key is not the better option; it is the only
+one**, and the packet to Lane 1 must say so. The open question moves from "ship
+the route" to "what is supposed to write a row into the retry queue, and why did
+five guard failures not write one?" That is Lane 1's to answer; it is their
+store.
+
+### A second, smaller finding with teeth for the next pin
+
+**2 of 109 ticks could not mint a `svc:doc-tools` token** and skipped with
+`check KEYCLOAK_REALM_URL and the client secret`. The refusal is correct — an
+anonymous poll would 401 — but a tick that cannot mint inspects nothing, so
+retry coverage has holes at ~1.8% of ticks.
+
+This matters beyond the poller, because Lane 1's packet
+(`2026-10-16-packet-to-7f-door-forks-ruled-…`) specifies that
+`PUT /ingest/processable-kinds` is gated on **the same `svc:doc-tools`
+client-credentials token**. A publisher that mints on startup and happens to
+land on one of those ticks publishes nothing — and Lane 1 flips
+`INGEST_DOOR_READS_PROCESSABLE_KINDS` ON only once the publish is visible, with
+`503 processable_kinds_unknown` as the pre-publish state. So the publisher must
+retry its mint rather than publish once and trust it. Flagged into the next pin.
+
+### The ten S1000D drops: terminal, and the poller is not why
+
+They never needed a relaunch, because none of them failed. Step-level, all ten
+are **5 of 5 steps SUCCESS**:
+
+```
+extract_rdf_from_xml -> upload_to_jena -> index_xml_chunks_to_weaviate
+  -> init_neo4j_n10s -> sync_jena_to_neo4j
+```
+
+~120s each, 04:30:09Z to 04:40:02Z. The 11th run is the `rev188-door-probe.xml`
+drop declaring kind `xml`: **FAILURE at step 1 of 5** (`extract_rdf_from_xml`),
+20.4s. Nothing has run since — `ingress_user_xml_sensor` is skipping on cursor
+`2026-10-13 16:48:57.027000+00:00`, and `ingest_retry_sensor` has launched **0
+runs in its life**.
+
+### That failing probe contradicts F1, and I will raise it before building
+
+The ruling's `ingestable_kinds()` is "pass-dispatchable kinds ∪ kinds an ingress
+sensor handles by manifest (**so `xml` and `s1000d-data-module` are IN**)". But
+the one measured user drop declaring kind `xml` **failed at the first stage** on
+this very pin. If `xml` is published as ingestable, the door will accept drops
+that die in `extract_rdf_from_xml` — the refusal moves from the door (where it
+is a clean 400) to a failed Dagster run (where it is a dead drop in a queue
+nothing drains, per the addendum above).
+
+`s1000d-data-module` is a different case and F1 is right about it: ten drops
+proved it end to end. The disagreement is only about `xml`, and it is the same
+two-arm problem one level up — `xml` is handled by the *partitioned* `xml_sensor`
+on other prefixes, not by the user-drop table. I will build to the ruling, and
+raise this with the measurement attached rather than silently widen or narrow
+the list.

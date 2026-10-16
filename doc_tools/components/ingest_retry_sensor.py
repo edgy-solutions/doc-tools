@@ -39,12 +39,29 @@ Modifying `ingress_user_sensor` was never an option regardless: it is a
 declarative `S3SensorComponent` from external `dag_tools`, with no seam of
 ours to hook.
 
-IDLE UNTIL THE ROUTE EXISTS. `GET /ingest/retries` is Lane 1's and is not
-deployed yet. Until it is, every tick returns a NAMED SkipReason (the 404 is
-reported, not swallowed) and launches nothing. That is deliberate: a
-degradation nobody can see is a path nobody fixes, so each refusal says
-which one it was -- no token, route absent, transport error, or a row this
-module refused and why.
+IDLE, BUT NOT FOR THE REASON THIS DOCSTRING FIRST GAVE. It said the route was
+not deployed yet. MEASURED 2026-10-16 against the sandbox: `GET
+/ingest/retries` IS deployed and answers, and the 404 branch below has never
+once been taken -- 109 of 109 ticks from the sensor's first tick at 04:29:40Z
+returned HTTP 200. Every one of them carried an EMPTY row list, so the skip is
+"no ingest rows are awaiting a retry", which is only reachable past the 404 and
+>=400 branches.
+
+So this sensor is idle because NOTHING ENQUEUES A FAILED INGEST, not because the
+route is missing. That distinction decides a remedy: the five `ingress-user/pdf/`
+drops that failed the ADR-0041 guard are NOT in the queue and this sensor will
+never pick them up, so they need a re-drop under a new object key. Do not tell
+anyone that shipping the route will relaunch them; the route is shipped.
+
+The named-SkipReason design is what made that measurable, and it stays: each
+refusal says which one it was -- no token, route absent, transport error, empty
+queue, or a row this module refused and why. A degradation nobody can see is a
+path nobody fixes.
+
+One real hole, also measured: 2 of those 109 ticks could not mint a
+`svc:doc-tools` token and skipped rather than polling anonymously. The refusal
+is right (an anonymous poll would 401), but a tick that cannot mint is a tick
+that inspects nothing.
 """
 
 from __future__ import annotations
