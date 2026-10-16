@@ -1,5 +1,27 @@
 """Starlette app serving this image's processable kinds.
 
+THIS APP IS SERVED NOWHERE, BY RULING, AND THAT IS NOT AN OMISSION.
+RULED 2026-10-16 (F2, architect): the reversed route is the one that ships --
+`doc_tools.components.processable_kinds_publisher` PUTs the list from inside the
+Dagster code-location pod to Lane 1's BFF, which is why doc-tools needs no HTTP
+surface at all. Nothing in `charts/` references this module; the one container
+runs `dagster api grpc -p 3030` and starts no ASGI server. So there is no second
+container and no Service, and the Deployment's `containerPort`/probe naming is
+left alone until the day a port actually exists.
+
+What this app is FOR, then: it is the same `ingestable_kinds()` behind a
+transport anyone can call by hand, kept in the tree so the payload has one
+definition and a human (or a future third-party consumer) can get at it without
+a Dagster run. It is code, deliberately unwired -- not a half-finished deploy.
+
+THE STANDING POSTURE RULE, recorded here rather than in the chart because the
+chart has nothing to record it against. The auth behaviour described below is
+correct for an UNSERVED module and must not survive being served: the day this
+app is put behind a port, it ships with `REQUIRE_TRANSPORT_AUTH=true` AND a
+verification key configured FIRST. "unverified => 200" never ships on a served
+route. Flipping REQUIRE with no key configured 401s every caller including a
+legitimate one, so the key is the first half of that change, not a follow-up.
+
 Starlette only: the SDK moved its heavier web framework behind an extra on
 purpose, and this repo imports neither half of it.
 
@@ -8,7 +30,8 @@ AUTH: REFUSE WHAT CAN BE JUDGED FALSE, MARK WHAT CANNOT BE JUDGED.
 a missing SDK is a broken image, and a fallback that serves while verifying
 nothing is the presence-only defect that module exists to have closed.
 
-The three outcomes, and why a flat "unverified means 401" is wrong here:
+The three outcomes, and why a flat "unverified means 401" is wrong WHILE
+UNSERVED (see the standing posture rule above -- being served reverses this):
 ``verify_bearer`` NEVER RAISES. It returns ``verified=False`` with a named
 reason, and two of those reasons -- ``no-verification-key`` and
 ``pyjwt-missing`` -- mean THIS POD cannot judge the token, not that the token is

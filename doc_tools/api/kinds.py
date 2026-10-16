@@ -1,4 +1,11 @@
-"""The payload behind ``GET /kinds/processable``.
+"""The payload behind ``GET /kinds/processable`` -- a route served NOWHERE.
+
+RULED 2026-10-16 (F2): the push wins. This payload reaches Lane 1 by being PUT
+from `doc_tools.components.processable_kinds_publisher`, not by anyone calling
+this route, and `doc_tools.api.app` is wired into no chart on purpose. See that
+module's docstring for the ruling and for the posture rule that applies the day
+it IS served. The payload itself is the same either way -- one definition, two
+transports, and only one of them deployed.
 
 Processability is a property of THIS image -- each declared pass is resolved
 through ``doc_tools.passes.dispatch``, and the user-drop parser table is a
