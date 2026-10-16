@@ -184,10 +184,15 @@ _ingress_user_sensor_defs = ingress_user_sensor.build_defs(None)
 # dagster 1.12.21; the source is quoted in the module docstring.
 #
 # Same job, op, bucket and partition set as ingress_user_sensor — it
-# re-launches exactly the drop pipeline, never a different one. It polls
-# `GET /ingest/retries`, which Lane 1 has not shipped yet, so until then
-# every tick is a NAMED skip ("404: not deployed yet") and it launches
-# nothing.
+# re-launches exactly the drop pipeline, never a different one.
+#
+# It polls `GET /ingest/retries`. This comment used to say Lane 1 had not
+# shipped that route; MEASURED 2026-10-16, that is false and was false when
+# written — 109 of 109 ticks got HTTP 200 and the 404 branch has never been
+# taken. Every tick skips with "no ingest rows are awaiting a retry", so the
+# sensor launches nothing because the QUEUE IS EMPTY, not because the route is
+# absent. See the module docstring for why that changes the remedy for a
+# failed drop.
 ingest_retry_sensor = build_ingest_retry_sensor(
     name="ingest_retry_sensor",
     job_name=f"{user_document_parser.name}_job",
