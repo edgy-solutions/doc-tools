@@ -970,7 +970,59 @@ image:
   #   `header_totals` two lines above is ALREADY per-fire, for exactly this
   #   reason ("two different facts and both must show"); rates owes the same.
   # ------------------------------------------------------------------
-  digest: "sha256:a72a4a26d5e2e2d2298f4957e2e0db782408a8c9d438eac4c95df43bb1b59e3b"
+  # 2026-10-16 -- sha256:85ad4c9d... (dd23c75, the merge of #97). Children
+  # fetched by their own digest, not merely read out of the index:
+  #     linux/amd64  sha256:39c7bec9...  config + 19 layers
+  #     linux/arm64  sha256:da004bf2...  config + 19 layers
+  # Both come back as `application/vnd.oci.image.manifest.v1+json`, the arm64
+  # child for the reason at the top of this file. The index also carries the two
+  # unknown/unknown buildx attestation entries, which never satisfy a platform
+  # requirement. The digest comes from the `push`-event run on main for dd23c75
+  # (38846427173, success at 03:37:16Z). `verify_image_pin.py` resolves it
+  # HTTP 200 with both platforms present, and the running pod's `imageID` is
+  # this digest -- read off `.status.containerStatuses[*].imageID`, never
+  # `.image`, which here is the unrelated local store id `sha256:6cec1f8f...`.
+  #
+  # WHAT THIS CARRIES BEYOND a72a4a26 -- FIVE MERGES, and only one of them can
+  # move the parts score:
+  #   - #97 (ingress-user XML sensor). The sensor is `default_status=RUNNING`,
+  #     so it went live with this roll and immediately fired ELEVEN
+  #     `xml_graph_sync_job` runs on a prefix it had never seen: ten ODMRAD data
+  #     modules through all five stages, and one correct halt on a probe
+  #     declaring kind `xml`, which no arm of this image can run. Touches no
+  #     extraction path.
+  #   - #113 (ingest retry poller). Registers and launches NOTHING: it polls
+  #     `GET /ingest/retries`, which Lane 1 has not shipped, so every tick is a
+  #     named skip. 0 runs in its life so far.
+  #   - #114 (cad format row). The ROW landed ahead of its pass on purpose, so
+  #     `cad` is a registered kind that this image cannot process -- it shows up
+  #     as an `unbuilt_pass` exclusion, which is the row working, not a gap.
+  #   - #116 (rates per fire + the onsemi orphan fixture). THIS IS AN INSTRUMENT
+  #     CHANGE AND IT CHANGES WHAT THE REPORT SAYS. The previous entry's third
+  #     instrument gap -- "the published `rates` block is FIRE 1's, not an
+  #     aggregate" -- is closed here, so the rates block in the report for this
+  #     pin is the first one that is per-fire. A rates MOVE against the previous
+  #     report is therefore the instrument being fixed, not the image behaving
+  #     differently; do not read it as a regression.
+  #   - #117 (DOC_TOOLS_IMAGE on the Deployment). doc-tools IS the dagster code
+  #     location, so the key had to be in THIS chart; it was empty in the
+  #     code-location pod before, which is what made `image_identity`
+  #     unresolvable from inside a gate run.
+  # NOTHING in any of the five touches extraction, so the parts score is
+  # expected to be UNCHANGED by this pin. A move either way is a finding, not a
+  # win.
+  #
+  # TWO CARRY-FORWARDS THAT ARE EXPECTED TO BE PRESENT, NOT FIXED, HERE:
+  #   - the Diodes `doc_id` label leak, stochastic, measured on 7 of 7 nights.
+  #     #116 fixtures the onsemi orphan but not this; it belongs to the bytes.
+  #   - the TI `mfr` misformat, measured at 5 of 6 and NOT deterministic, so a
+  #     clean fire on it is not evidence that the alias set fixed anything.
+  #
+  # Measurements on THIS digest are not in at the time of the bump. They come
+  # from three fires after the roll and are recorded in the session report named
+  # in this commit message.
+  # ------------------------------------------------------------------
+  digest: "sha256:85ad4c9db2bee559f051ff541648a4fad8b6b9729c44155fe488fb1b0a558437"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -1221,7 +1273,7 @@ corpusGate:
   # IF YOU BUMP image.digest AND STOP, YOU HAVE ARMED THE SAME FAILURE. The two
   # lines are not kept in step by anything automatic; no test and no CI job
   # compares them, because the Job that would is the one being checked.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:a72a4a26d5e2e2d2298f4957e2e0db782408a8c9d438eac4c95df43bb1b59e3b"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:85ad4c9db2bee559f051ff541648a4fad8b6b9729c44155fe488fb1b0a558437"
   publish:
     repo: edgy-solutions/doc-tools
 
