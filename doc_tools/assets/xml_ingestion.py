@@ -33,6 +33,24 @@ _INGRESS_USER_SEGMENT = "ingress-user"
 _INGRESS_USER_PARSERS = {"s1000d-data-module": S1000dGraphBuilder}
 
 
+def ingress_user_parsable_kinds() -> tuple[str, ...]:
+    """The kinds a user drop can actually be routed to, sorted.
+
+    PUBLIC BECAUSE THIS SET IS THE DOOR'S ANSWER, and a second hardcoding of it
+    is how the two sets drift. `content_kind.processable_kinds()` is NOT this
+    set: it reports what `dispatch.resolve_python_pass` can run, and that arm
+    refuses a class by contract -- so it excludes `s1000d-data-module`, whose
+    parser here IS a class. Ten ODMRAD data modules completed all five stages
+    of `xml_graph_sync_job` on 2026-10-16 through this table, so a door told
+    "not processable" by the other predicate would be told wrong.
+
+    The gap this exposes is real and is NOT closed here: `DitaGraphBuilder`,
+    `IadsGraphBuilder` and `MilStd40051GraphBuilder` are imported in this module
+    and reachable from the partitioned `xml_sensor` path, but no user drop can
+    reach them, because they have no row in this table."""
+    return tuple(sorted(_INGRESS_USER_PARSERS))
+
+
 def _resolve_ingress_user_parser(context, s3_client, bucket: str, s3_key: str):
     """Parser class for ``ingress-user/<fmt>/<sha256>/<name>`` from the sibling
     ``manifest.json``'s declared content kind. Halts loudly (never sniffs, never
