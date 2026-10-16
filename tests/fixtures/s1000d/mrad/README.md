@@ -56,3 +56,12 @@ by ancestor; `test_s1000d_walk_seal.py` keeps a negative control on both counts.
 
 Source: `C:\tmp\overnight-1002\M6` (scratch). The XML and `GROUND-TRUTH.json`
 here are byte-identical copies, verified by sha256 at copy time.
+
+## Also used by the user-drop XML route
+
+`tests/test_ingress_user_xml_route.py` drives these same six modules through the
+user-drop route (`ingress-user/xml/<sha256>/<name>.xml` ->
+`extract_rdf_from_xml`) against a **stubbed S3**. Drops of these modules are
+PRESENT-AND-UNPROCESSED in the sandbox MinIO, so the route is proven here
+against the fixtures only — **not** against live MinIO. The DMCs are
+`ODMRAD-A-34-10-01-00A-{040A,320A,421A,520A,720A,941A}-A`.
