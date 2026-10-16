@@ -54,6 +54,11 @@ RULED_DOMAINS = {
     "engineering-document": None,
     "doors-export": None,
     "pdf": None,
+    # Not from the 2026-10-02 ruling — the `cad` row is the architect's
+    # 2026-10-13 authorisation. It is transcribed here because it is governed
+    # by the SAME clause ("a file format is not an origin") and a row pinned by
+    # nothing is a row that can drift to a domain nobody granted it.
+    "cad": None,
 }
 
 
@@ -77,7 +82,7 @@ def test_a_format_level_kind_declares_none_and_that_is_not_an_empty_string():
     ``is None``, so an empty string would sail past it into
     ``"".upper()`` and a blank Neo4j label.
     """
-    for kind in ("pdf", "engineering-document", "doors-export"):
+    for kind in ("pdf", "cad", "engineering-document", "doors-export", "xml"):
         assert KIND_MAPPING[kind].domain_type is None
 
 
@@ -268,12 +273,31 @@ def test_the_phantom_outputs_are_exactly_the_two_owed_by_lane_1():
         "pcn:Component",
         "mil:DataModule",
         "mesh:PDFArtifact",
+        # Declared, and checked before the `cad` row was added rather than
+        # assumed: mesh_system.ttl:808, `a owl:Class ; rdfs:subClassOf
+        # mesh:Artifact ; rdfs:label "CAD Artifact"`. It is the one artifact
+        # leaf besides PDF that Lane 1 already shipped, so the `cad` row owes
+        # them nothing and must NOT appear in PHANTOM_OUTPUTS.
+        "mesh:CADArtifact",
     }
     all_outputs = {o for e in KIND_MAPPING.values() for o in e.outputs}
     assert all_outputs - declared_curies == set(PHANTOM_OUTPUTS)
-    assert "mesh:CADArtifact" not in all_outputs, (
+    # NARROWED 2026-10-13, when the architect authorised the `cad` row. This
+    # assertion used to read `"mesh:CADArtifact" not in all_outputs`, which
+    # forbade ANY row from targeting the CAD leaf. That is not what was ruled.
+    # The ruling was about one specific aliasing — "Don't alias it to CAD; an
+    # engineering document is not a CAD artifact" — said of the
+    # engineering-document leaf, so it is engineering-document that must not
+    # reach for this class. A `cad` row targeting the CAD leaf is the ruling
+    # being honoured, not broken: it is exactly why the two leaves are
+    # separate. Checked against the row, not the table, so the next row to
+    # target mesh:CADArtifact is free to and this one still cannot.
+    assert "mesh:CADArtifact" not in KIND_MAPPING["engineering-document"].outputs, (
         "the architect ruled against aliasing an engineering document to CAD: "
         "'an engineering document is not a CAD artifact'"
+    )
+    assert KIND_MAPPING["cad"].outputs == ("mesh:CADArtifact",), (
+        "the cad row targets the leaf the TTL declares for it, and nothing else"
     )
 
 
