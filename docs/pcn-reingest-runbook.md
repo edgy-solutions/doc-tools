@@ -105,18 +105,35 @@ its own LTB date will be rewritten with `2024-12-22`**. The new values are the i
 ones — but an in-place re-ingest now DESTROYS the previous values rather than rewriting
 them identically, and there is no rollback for the S3 artifacts.
 
-So before any re-ingest that carries an extractor change, copy the derived artifacts to a
-dated backup prefix:
+So before any re-ingest that carries an extractor change, copy that notice's artifact
+prefix to a dated backup prefix — **one prefix per notice**, keyed by `doc_id`:
 
 ```
 mc cp --recursive \
-   <alias>/processing-artifacts/sustainment/inbound/<...>/generated/ \
-   <alias>/processing-artifacts/backup/<YYYY-MM-DD>-pre-<pin sha>/generated/
+   <alias>/processing-artifacts/sustainment/inbound/<path>/generated/<doc_id>_pdf/ \
+   <alias>/processing-artifacts/backup/<YYYY-MM-DD>/<doc_id>/
 ```
 
-Back up the `generated/` tree only. Do NOT copy to a fresh SOURCE prefix and re-ingest
-there — that is the corpus fork this section already warns against. The backup is a
-read-only escape hatch, not a second corpus.
+**Per notice, not per corpus, and that is the point.** Acceptance happens a notice at a
+time — one is verified, another is still being argued about. A single corpus-wide backup
+prefix forces the delete to be all-or-nothing, so it survives until the *last* notice is
+accepted and nobody can say which parts of it are still load-bearing. Keyed by `doc_id`,
+each backup is deletable the moment its own notice is accepted:
+
+```
+mc rm --recursive --force <alias>/processing-artifacts/backup/<YYYY-MM-DD>/<doc_id>/
+```
+
+The backup is bounded by construction — it is a copy of one notice's derived artifacts,
+not a version history, and nothing writes into it after the copy. That is why this is the
+answer instead of bucket versioning on `processing-artifacts`: versioning is unbounded and
+retains every object version forever unless a lifecycle rule expires them, and the crops
+are images, so the bucket bloats with no rule to stop it. A dated per-notice copy is the
+same protection with a delete you can actually perform.
+
+Back up the `generated/<doc_id>_pdf/` tree only. Do NOT copy to a fresh SOURCE prefix and
+re-ingest there — that is the corpus fork this section already warns against. The backup is
+a read-only escape hatch, not a second corpus.
 
 Skip this only when you have positively established that the pending change cannot alter
 stored values — which is a claim about the extractor diff, not an assumption. Restating
