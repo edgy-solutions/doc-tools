@@ -6,7 +6,10 @@ was healthy), and the written_without_vector NOT-OBSERVED-vs-ZERO distinction â€
 point of the module. See the module docstring for why `chunk_tally=None` must never
 render as a 0.
 """
-from doc_tools.utils.ingest_rates import RATE_FLAGS, render_rates, summarize_rates
+from doc_tools.utils.ingest_rates import (
+    RATE_FLAGS, aggregate_rates_across_fires, render_rates,
+    render_rates_across_fires, summarize_rates,
+)
 
 
 def _ok(needs_review, crops_near_cap=0, crops_row_short=0, text_layer_degraded=0):
@@ -144,3 +147,107 @@ if __name__ == "__main__":
     import sys
     import pytest
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+# --------------------------------------------------------------------------- #
+# aggregate_rates_across_fires / render_rates_across_fires
+# --------------------------------------------------------------------------- #
+def _summary(docs=10, chunk_tally=None, **counts):
+    rates = {f: {"count": counts.get(f, 0), "denominator": docs} for f in RATE_FLAGS}
+    return {"documents": docs, "errors": 0, "not_applicable": 0,
+            "rates": rates, "chunk_tally": chunk_tally}
+
+
+def test_disagreeing_fires_report_the_worst_case_from_the_right_fire():
+    # Measured on pin a72a4a26: same image, same invocation.
+    agg = aggregate_rates_across_fires({
+        1: _summary(crops_row_short=0, needs_review=3),
+        2: _summary(crops_row_short=1, needs_review=4),
+    })
+    assert agg["agreement"] is False
+    assert agg["rates"]["crops_row_short"]["count"] == 1
+    assert agg["rates"]["crops_row_short"]["fire"] == 2
+    assert agg["rates"]["needs_review"]["count"] == 4
+    assert agg["rates"]["needs_review"]["fire"] == 2
+    assert agg["rates"]["needs_review"]["by_fire"] == {1: 3, 2: 4}
+    assert list(agg["rates"]) == list(RATE_FLAGS)
+
+
+def test_different_flags_max_on_different_fires():
+    agg = aggregate_rates_across_fires({
+        1: _summary(needs_review=5),
+        2: _summary(crops_near_cap=2),
+    })
+    assert agg["rates"]["needs_review"]["fire"] == 1
+    assert agg["rates"]["crops_near_cap"]["fire"] == 2
+
+
+def test_missing_fire_is_excluded_and_never_a_zero():
+    agg = aggregate_rates_across_fires({
+        1: None,
+        2: _summary(docs=8, needs_review=2),
+    })
+    assert agg["fires"] == [2]
+    assert agg["fires_missing"] == [1]
+    assert agg["documents"] == 8
+    assert agg["rates"]["needs_review"]["by_fire"] == {2: 2}
+    out = render_rates_across_fires(agg)
+    assert "not observed" in out and "f1" in out
+
+
+def test_denominator_travels_with_the_max_count():
+    agg = aggregate_rates_across_fires({
+        1: _summary(docs=10, needs_review=3),
+        2: _summary(docs=7, needs_review=4),
+    })
+    r = agg["rates"]["needs_review"]
+    assert (r["count"], r["denominator"], r["fire"]) == (4, 7, 2)
+    assert agg["agreement"] is False
+
+
+def test_identical_fires_agree_and_render_no_disagreement():
+    agg = aggregate_rates_across_fires({
+        1: _summary(needs_review=3), 2: _summary(needs_review=3), 3: _summary(needs_review=3),
+    })
+    assert agg["agreement"] is True
+    out = render_rates_across_fires(agg)
+    assert "DISAGREED" not in out
+    assert "MAXIMA across 3 fire(s): f1, f2, f3" in out
+    assert all(len(line) <= 80 for line in out.splitlines())
+
+
+def test_no_fire_contributed():
+    agg = aggregate_rates_across_fires({1: None, 2: None})
+    assert agg["fires"] == []
+    assert agg["fires_missing"] == [1, 2]
+    assert agg["rates"] == {}
+    assert agg["agreement"] is True
+    assert aggregate_rates_across_fires({})["fires"] == []
+
+
+def test_chunk_tally_all_none_stays_none_not_zero():
+    agg = aggregate_rates_across_fires({1: _summary(), 2: _summary()})
+    assert agg["chunk_tally"] is None
+    assert "not observed" in render_rates_across_fires(agg)
+
+
+def test_chunk_tally_maxes_over_fires_that_have_one():
+    agg = aggregate_rates_across_fires({
+        1: _summary(),
+        2: _summary(chunk_tally={"written": 10, "written_without_vector": 1}),
+        3: _summary(chunk_tally={"written": 12, "written_without_vector": 0}),
+    })
+    assert agg["chunk_tally"] == {"written": 12, "written_without_vector": 1}
+
+
+def test_disagreement_line_and_per_fire_counts_are_rendered():
+    agg = aggregate_rates_across_fires({
+        1: _summary(crops_row_short=0, needs_review=3),
+        2: _summary(crops_row_short=1, needs_review=4),
+        3: _summary(crops_row_short=0, needs_review=3),
+    })
+    out = render_rates_across_fires(agg)
+    assert "FIRES DISAGREED" in out
+    assert "f1=0 f2=1 f3=0" in out
+    assert "from f2" in out
+    assert all(len(line) <= 80 for line in out.splitlines())

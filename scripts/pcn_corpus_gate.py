@@ -46,7 +46,9 @@ import pcn_header_agreement as hdr_agreement  # noqa: E402
 import pcn_score  # noqa: E402
 
 from doc_tools.utils import notice_identity  # noqa: E402
-from doc_tools.utils.ingest_rates import render_rates  # noqa: E402
+from doc_tools.utils.ingest_rates import (  # noqa: E402
+    aggregate_rates_across_fires, render_rates, render_rates_across_fires,
+)
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIRE_COUNT = 3
@@ -1037,12 +1039,12 @@ def score_fires(base_dir, fires, expectations=None):
     fire_reports = []
     corpus_by_fire = {}
     header_totals_by_fire = {}
-    rates = None
-    rates_available = False
-    for idx, f in enumerate(fires):
+    rates_by_fire = {}
+    for f in fires:
         corpus, corpus_err = _load_json_soft(f["corpus_path"])
         score, score_err = _load_json_soft(f["score_path"])
         corpus_by_fire[f["n"]] = corpus or {}
+        rates_by_fire[f["n"]] = None  # unreadable score: not observed, not zero
         totals = None
         # None, not {}: "no per-notice data" and "every notice clean" are
         # different facts and the report must not blur them.
@@ -1053,19 +1055,14 @@ def score_fires(base_dir, fires, expectations=None):
             # Per fire, not once: a header that is correct in one fire and a
             # distractor in the next is two different facts and both must show.
             header_totals_by_fire[f["n"]] = score.get("header_totals")
-            # rates: singular in the report, not one per fire. All three fires run
-            # the same pinned image in one gate invocation, so rates availability
-            # (and the rates themselves) are a property of the image, not of which
-            # fire happened to run. Reported once, from fire 1.
-            if idx == 0:
-                if "rates" in score:
-                    rates_available = True
-                    rates = score["rates"]
-                else:
-                    # Images before PR #35 do not emit "rates" at all. Absence is
-                    # recorded as rates_available: false, never rendered as a zero.
-                    rates_available = False
-                    rates = None
+            # Per fire, not once. The earlier "reported once, from fire 1" rested on
+            # the claim that rates are a property of the image, not of the fire.
+            # DISPROVED on pin a72a4a26 (same image, same invocation): fire 1
+            # measured crops_row_short 0 of 10 and needs_review 3 of 10; fire 2
+            # measured 1 of 10 and 4 of 10, and fire 2 was the fire that lost
+            # parts (513/522). A fire with no "rates" key (images before PR #35)
+            # maps to None: unavailable, never a zero.
+            rates_by_fire[f["n"]] = score.get("rates") if "rates" in score else None
         if corpus_err or score_err:
             blocking.append(
                 f"fire {f['n']}: could not read its own output ({corpus_err or score_err}) "
@@ -1083,6 +1080,12 @@ def score_fires(base_dir, fires, expectations=None):
             # be evaluated.
             "seal_checked": f.get("seal_checked", True),
         })
+
+    # Rates: worst case per flag across the fires that emitted any; None when no
+    # fire did (images before PR #35), which is recorded as unavailable.
+    _agg = aggregate_rates_across_fires(rates_by_fire)
+    rates_available = bool(_agg["fires"])
+    rates = _agg if rates_available else None
 
     # (b) Header agreement.
     log_paths = [f["log_path"] for f in fires]
@@ -1192,7 +1195,10 @@ def score_fires(base_dir, fires, expectations=None):
         "image_identity": image_identity,
         "fires": fire_reports,
         "rates_available": rates_available,
+        # The AGGREGATE (worst case per flag, `summarize_rates`-compatible
+        # `rates` sub-dict), with per-fire detail in `rates_by_fire`.
         "rates": rates,
+        "rates_by_fire": rates_by_fire,
         # THE CORPUS THIS WAS MEASURED AGAINST, copied from the `_corpus` block of
         # pcn_ground_truth.json (which pcn_corpus_run.check_corpus_enumeration
         # asserts TARGETS against at startup). A score is a fraction and a report
@@ -1258,6 +1264,8 @@ def _render_rates_block(rates_available, rates):
             "not available — this pin predates PR #35, the commit that starts "
             "emitting `rates` in `score_f{N}.json`. Not printed as a zero."
         )
+    if isinstance(rates, dict) and isinstance(rates.get("rates"), dict) and "fires" in rates:
+        return "```" + "\n" + render_rates_across_fires(rates) + "\n" + "```"
     if not isinstance(rates, dict) or "rates" not in rates:
         return (
             "present but not in the shape `summarize_rates` produces (no `rates` key) "

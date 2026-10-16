@@ -578,6 +578,27 @@
         "NSR01F30NXT5G"
       ],
       "malformed": [],
+      "_stochastic_loss": {
+        "signature": "page-break orphan",
+        "mpns": [
+          "NSR10F30NXT5G",
+          "NSR10F20NXT5G",
+          "SNSR05F40NXT5G",
+          "NSR05F40NXT5G",
+          "NSR05F30NXT5G",
+          "NSR05F20NXT5G",
+          "SNSR01F30NXT5G",
+          "NSR02L30NXT5G",
+          "NSR02F30NXT5G"
+        ],
+        "positions_in_mpns": [9, 10, 11, 12, 13, 14, 15, 16, 17],
+        "observed": [
+          {"pin": "a72a4a26", "fire": 2, "exact": 10, "flag": "crops_row_short"},
+          {"pin": "a72a4a26", "fire": 1, "exact": 19},
+          {"pin": "a72a4a26", "fire": 3, "exact": 19}
+        ],
+        "_why": "A RECORD, NOT A RULE. Nothing in pcn_score.py reads this key and nothing should: these nine MPNs are REQUIRED parts and must keep failing the gate when they are missing. It is written down because the loss is STOCHASTIC and would otherwise be rediscovered as a new regression every time it recurs. Measured 2026-10-15 on pin a72a4a26: three fires of ONE gate invocation on ONE image, and fire 2 scored 10 of 19 while fires 1 and 3 scored 19 of 19, so this is not a property of the image and no code change is implicated by its appearance. THE SIGNATURE IS CONTIGUITY, and that is the whole evidential value: the nine lost MPNs are positions 9-17 of the 19 in this list, an unbroken run, with positions 1-8 and 18-19 kept. Nine independent misreads do not land in a contiguous block; a table segment orphaned at a page break does. The `crops_row_short` flag fire 2 raised on this notice (and fires 1 and 3 did not) is consistent with that reading. DO NOT 'FIX' A RED BY MOVING THESE TO expect_absent_mpns: pcn_score.py refuses a part that is both required and ruled out, and the attempt would assert a false fact about the notice -- all 19 are verbatim in the text layer, per `source` above. The separate one-character substitution seen on this same notice (NSR02F30NXT5G -> NSR02E30NXT5G, 10-13 fire 3) is a DIFFERENT defect and must not be folded into this one. tests/test_onsemi_page_break_orphan.py asserts the contiguity and the non-exemption."
+      },
       "source": "every emitted MPN verbatim-confirmed in the source PDF text layer",
       "manifest": "sustainment/inbound/onsemi_truthkey/generated/onsemi_Generic_IPCN25300X_pdf/manifest.json"
     },
