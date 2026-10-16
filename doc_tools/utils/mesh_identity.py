@@ -122,6 +122,70 @@ def ontology_auth_headers() -> Dict[str, str] | None:
         return None
 
 
+def publisher_auth_headers(attempts: int = 3,
+                           backoff_s: float = 1.0,
+                           sleep=None) -> Dict[str, str] | None:
+    """Same svc:doc-tools identity, RETRIED — for the kinds publisher only.
+
+    WHY THIS ONE RETRIES AND THE OTHER TWO DO NOT. Measured over 109 ticks of
+    `ingest_retry_sensor` on 2026-10-16: 107 minted, 2 did not ("no svc:doc-tools
+    token could be minted"). A ~2% transient mint failure costs those two callers
+    nothing — the stage POST is advisory telemetry about work that already
+    happened and recurs on the next event, and the engine-o classify raises
+    `Failure`, which Dagster retries. The publisher is different: its PUT is the
+    only thing that tells Lane 1's door what this image can ingest, so a dropped
+    mint leaves the door running on whatever it was last told — which may be
+    nothing at all. Retrying here buys back that 2% without touching the failure
+    contract of the other two.
+
+    NEVER RAISES, like its siblings: exhausted attempts return ``None`` and the
+    caller reports the refusal. `sleep` is injectable so a test can exercise the
+    retry without spending wall-clock; the default sleeps `backoff_s` multiplied
+    by the attempt number (1s, 2s), which is a transient-DNS/Keycloak-restart
+    shape, not a congestion backoff.
+    """
+    if sleep is None:
+        import time
+        sleep = time.sleep
+    last: Exception | None = None
+    made = 0
+    for attempt in range(1, max(1, attempts) + 1):
+        made = attempt
+        try:
+            from iagent_mesh.service_identity import mint_token
+            token = mint_token(
+                client_id=client_id(),
+                client_secret=os.environ[CLIENT_SECRET_ENV],
+            )
+            if attempt > 1:
+                logger.warning(
+                    "doc-tools minted its svc:doc-tools token on attempt %d of %d "
+                    "(the earlier failure was %s)",
+                    attempt, attempts, _cause(last) if last else "unrecorded",
+                )
+            return {"Authorization": f"Bearer {token}"}
+        except Exception as exc:  # noqa: BLE001 — log and return None, never raise
+            last = exc
+            # A MISSING VARIABLE IS NOT TRANSIENT. `os.environ[...]` raising
+            # KeyError means the deployment is unconfigured, and three attempts
+            # at it is three identical failures and two pointless sleeps.
+            if isinstance(exc, KeyError):
+                break
+            if attempt < max(1, attempts):
+                sleep(backoff_s * attempt)
+    logger.warning(
+        # ATTEMPTS MADE, not attempts configured: a KeyError stops after one, and
+        # a log claiming three would send a reader looking for two failures that
+        # never happened.
+        "doc-tools could not mint a token for %s after %d attempt(s) (%s) — NOT "
+        "publishing the processable-kinds list, rather than publishing it "
+        "anonymously to a route that will 401; %s",
+        client_id(), made, _cause(last) if last else "no exception recorded",
+        _remedy(last) if last else "",
+    )
+    return None
+
+
 def stage_auth_headers() -> Dict[str, str] | None:
     """Authorization header for Lane 1's `POST /ingest/{id}/stage` route.
 

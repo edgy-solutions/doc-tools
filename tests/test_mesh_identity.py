@@ -90,3 +90,80 @@ def test_client_id_is_overridable_but_defaults_to_this_service(monkeypatch):
     assert mi.client_id() == "iagent-doc-tools"
     monkeypatch.setenv(mi.CLIENT_ID_ENV, "other")
     assert mi.client_id() == "other"
+
+
+# --------------------------------------------------------------------------- #
+# publisher_auth_headers: the only helper that retries
+# --------------------------------------------------------------------------- #
+def test_the_publisher_recovers_from_a_transient_mint_failure():
+    """Measured shape: 107 of 109 ticks minted, 2 did not.
+
+    The publisher's PUT is the only thing that tells Lane 1's door what this
+    image can ingest, so losing that ~2% means the door runs on whatever it was
+    last told. The other two helpers do not retry on purpose, and that asymmetry
+    is pinned in the test below.
+    """
+    calls = []
+    slept = []
+
+    def _flaky(**kw):
+        calls.append(kw)
+        if len(calls) < 3:
+            raise RuntimeError("connection reset by peer")
+        return "tok"
+
+    with patch("iagent_mesh.service_identity.mint_token", side_effect=_flaky):
+        headers = mi.publisher_auth_headers(attempts=3, backoff_s=0.0,
+                                            sleep=slept.append)
+    assert headers == {"Authorization": "Bearer tok"}
+    assert len(calls) == 3
+    assert len(slept) == 2, "one sleep between each pair of attempts, no more"
+
+
+def test_exhausted_attempts_return_none_and_never_raise():
+    with patch("iagent_mesh.service_identity.mint_token",
+               side_effect=_mint_raises(RuntimeError("keycloak is down"))) as m:
+        assert mi.publisher_auth_headers(attempts=3, backoff_s=0.0,
+                                         sleep=lambda _s: None) is None
+    assert m.call_count == 3
+
+
+def test_a_missing_variable_is_not_retried():
+    """`os.environ[...]` raising KeyError means the deployment is unconfigured.
+
+    Three attempts at that is three identical failures and two pointless sleeps,
+    and the sleeps are what make a sensor tick look hung.
+    """
+    slept = []
+    with patch("iagent_mesh.service_identity.mint_token",
+               side_effect=_mint_raises(KeyError(mi.REALM_URL_ENV))) as m:
+        assert mi.publisher_auth_headers(attempts=3, backoff_s=0.0,
+                                         sleep=slept.append) is None
+    assert m.call_count == 1, "a KeyError is a configuration answer, not a blip"
+    assert slept == []
+
+
+def test_the_exhausted_warning_counts_attempts_made_not_configured(caplog):
+    with caplog.at_level("WARNING"):
+        with patch("iagent_mesh.service_identity.mint_token",
+                   side_effect=_mint_raises(KeyError(mi.REALM_URL_ENV))):
+            mi.publisher_auth_headers(attempts=3, backoff_s=0.0,
+                                      sleep=lambda _s: None)
+    # A log claiming three attempts after one would send a reader looking for two
+    # failures that never happened.
+    assert "after 1 attempt(s)" in caplog.text
+
+
+def test_the_other_two_helpers_still_mint_exactly_once():
+    """The asymmetry is deliberate, so it is asserted rather than left to drift.
+
+    A stage POST is advisory telemetry about work that already happened and
+    recurs on the next event; the engine-o classify raises Failure and dagster
+    retries the run. Neither needs a retry here, and adding one to all three
+    would make every unconfigured pod sleep through every call.
+    """
+    for helper in (mi.ontology_auth_headers, mi.stage_auth_headers):
+        with patch("iagent_mesh.service_identity.mint_token",
+                   side_effect=_mint_raises(RuntimeError("blip"))) as m:
+            assert helper() is None
+        assert m.call_count == 1, helper.__name__
