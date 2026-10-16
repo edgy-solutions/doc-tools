@@ -149,3 +149,121 @@ def render_rates(summary: dict) -> str:
                      f"({_pct(wwv, written)})")
 
     return "\n".join(lines)
+
+
+def aggregate_rates_across_fires(rates_by_fire: Dict[Any, Optional[dict]]) -> dict:
+    """Worst case per flag across several fires of one gate invocation.
+
+    `rates_by_fire`: fire key -> that fire's `summarize_rates`-shaped dict, or None for
+    a fire that emitted no `rates` at all.
+
+    * MAX per flag, independently per flag (different flags may max on different fires).
+    * The denominator travels with the count: it is the denominator of the fire that
+      produced the max, and that fire is recorded in `"fire"`. A max count is never
+      paired with another fire's population.
+    * A None fire contributes NOTHING (not zeros, not a denominator); it is listed in
+      `fires_missing`.
+    * `chunk_tally` stays None unless some contributing fire observed one (NOT-OBSERVED
+      is not ZERO; see `summarize_rates`).
+    * Ties on count keep the earliest fire in sorted order.
+    """
+    def _key(k):
+        return (str(type(k).__name__), k)
+
+    keys = sorted(rates_by_fire, key=_key)
+    contributing = [k for k in keys if rates_by_fire[k] is not None]
+    missing = [k for k in keys if rates_by_fire[k] is None]
+
+    agg: Dict[str, Any] = {
+        "fires": contributing,
+        "fires_missing": missing,
+        "agreement": True,
+        "documents": 0,
+        "errors": 0,
+        "not_applicable": 0,
+        "rates": {},
+        "chunk_tally": None,
+    }
+    if not contributing:
+        return agg
+
+    summaries = {k: rates_by_fire[k] for k in contributing}
+    for field in ("documents", "errors", "not_applicable"):
+        agg[field] = max((s.get(field) or 0) for s in summaries.values())
+
+    agreement = True
+    for flag in RATE_FLAGS:
+        per = {}
+        for k, s in summaries.items():
+            r = (s.get("rates") or {}).get(flag, {"count": 0, "denominator": s.get("documents", 0)})
+            per[k] = (r["count"], r["denominator"])
+        best = contributing[0]
+        for k in contributing:
+            if per[k][0] > per[best][0]:
+                best = k
+        if len(set(per.values())) > 1:
+            agreement = False
+        agg["rates"][flag] = {
+            "count": per[best][0],
+            "denominator": per[best][1],
+            "fire": best,
+            "by_fire": {k: per[k][0] for k in contributing},
+        }
+    agg["agreement"] = agreement
+
+    tallies = [s["chunk_tally"] for s in summaries.values() if s.get("chunk_tally") is not None]
+    if tallies:
+        agg["chunk_tally"] = {
+            "written": max(t.get("written") or 0 for t in tallies),
+            "written_without_vector": max(t.get("written_without_vector") or 0
+                                          for t in tallies),
+        }
+    return agg
+
+
+def render_rates_across_fires(agg: dict) -> str:
+    """Render an `aggregate_rates_across_fires` result as aligned plain text (<=80 cols)."""
+    fires = agg.get("fires", [])
+    missing = agg.get("fires_missing", [])
+    rates = agg.get("rates", {})
+    chunk_tally = agg.get("chunk_tally")
+    names = ", ".join(f"f{k}" for k in fires) or "none"
+
+    lines = [f"INGEST RATES  (MAXIMA across {len(fires)} fire(s): {names})",
+             f"  {agg.get('documents', 0)} scored, {agg.get('errors', 0)} error(s), "
+             f"{agg.get('not_applicable', 0)} not applicable (max across fires)"]
+    for flag in RATE_FLAGS:
+        r = rates.get(flag)
+        if r is None:
+            lines.append(f"  {flag:<22} not observed")
+            continue
+        count, denom = r["count"], r["denominator"]
+        lines.append(f"  {flag:<22} {count:>4} of {denom:<4} documents  "
+                     f"({_pct(count, denom)})  from f{r.get('fire')}")
+
+    if not agg.get("agreement", True):
+        lines.append("")
+        lines.append("  !! FIRES DISAGREED on the same image in the same invocation.")
+        lines.append("  !! These rates are NOT a property of the image; read the worst case.")
+        for flag in RATE_FLAGS:
+            r = rates.get(flag)
+            if not r:
+                continue
+            by_fire = r.get("by_fire", {})
+            # Flag differs if counts differ (denominator-only differences are shown too).
+            if len(set(by_fire.values())) > 1 or r["denominator"] != agg.get("documents"):
+                detail = " ".join(f"f{k}={v}" for k, v in by_fire.items())
+                lines.append(f"    {flag:<22} {detail}")
+
+    if missing:
+        lines.append("  fires that emitted no rates (not observed, NOT zero): "
+                     + ", ".join(f"f{k}" for k in missing))
+
+    if chunk_tally is None:
+        lines.append("  written_without_vector: not observed (no chunk write in this run)")
+    else:
+        written = chunk_tally.get("written", 0)
+        wwv = chunk_tally.get("written_without_vector", 0)
+        lines.append(f"  written_without_vector {wwv:>4} of {written:<4} chunks written  "
+                     f"({_pct(wwv, written)})")
+    return "\n".join(lines)

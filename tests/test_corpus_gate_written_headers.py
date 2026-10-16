@@ -606,3 +606,22 @@ def test_a_header_reason_without_needs_review_does_not_exempt():
         _corpus(False, reasons=(_HEADER_REASON,)))
     assert exempted == []
     assert len(blocking) == 1
+
+
+def test_aggregate_rates_render_with_the_disagreement_line():
+    from doc_tools.utils.ingest_rates import aggregate_rates_across_fires
+
+    def s(rs, nr):
+        return {"documents": 10, "errors": 0, "not_applicable": 0, "chunk_tally": None,
+                "rates": {"needs_review": {"count": nr, "denominator": 10},
+                          "crops_near_cap": {"count": 0, "denominator": 10},
+                          "crops_row_short": {"count": rs, "denominator": 10},
+                          "text_layer_degraded": {"count": 0, "denominator": 10}}}
+    agg = aggregate_rates_across_fires({1: s(0, 3), 2: s(1, 4)})
+    out = gate._render_rates_block(True, agg)
+    assert "FIRES DISAGREED" in out
+    assert "{'count'" not in out
+
+
+def test_legacy_aggregate_without_fires_key_still_renders():
+    assert "INGEST RATES" in gate._render_rates_block(True, REAL_RATES)
