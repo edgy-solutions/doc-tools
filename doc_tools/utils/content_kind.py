@@ -106,10 +106,16 @@ class ContentKindEntry:
 #: sources, refused if not printed") — is NO LONGER UNBUILT. It is
 #: ``doc_tools/passes/identity.py``, deterministic and sealed on two fixtures.
 #:
-#: BUILT IS NOT WIRED, and this tuple only ever claimed the former. Nothing
-#: dispatches a pass by name yet, and the three kinds that declare this one all
-#: declare no domain, so the write path still short-circuits them at
-#: "origin unresolved". The pass is callable; no ingest calls it.
+#: BUILT IS NOT WIRED, and this tuple only ever claimed the former. That
+#: distinction NARROWED and this paragraph used to deny it: PR #94 added an
+#: ingest route, and ``doc_tools/assets/doors_ingestion.py`` now calls
+#: ``run_passes_for_kind("doors-export", ...)``, so a declared pass IS
+#: dispatched by name in production for that kind. The earlier wording
+#: ("nothing dispatches a pass by name yet ... no ingest calls it") was left
+#: standing after the code moved under it, which is how a docstring claiming
+#: Helm was absent from CI in this repo reached two merged PRs. The remaining
+#: format-level rows declare no domain, so the write path still short-circuits
+#: those at "origin unresolved".
 #:
 #: The tuple is now self-enforcing rather than hand-maintained:
 #: ``tests/test_passes_registry.py`` requires every declared pass to resolve to
@@ -158,6 +164,11 @@ PHANTOM_OUTPUTS = (
     # document behind it, which is what that comment asks for: the S1000D
     # 3xx planning types, which no shipping row can classify.
     "mesh:XMLArtifact",
+    # The FOURTH and FIFTH leaves, owed by Lane 1 alongside the three above:
+    # the STEP AP242 and DXF format-level kinds. As with the others, the rows
+    # are registered now and the outputs resolve when the TTL lands.
+    "mesh:StepAp242Artifact",
+    "mesh:DxfArtifact",
 )
 
 
@@ -271,6 +282,36 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         # tests/test_passes_dispatch.py::test_doors_object_text_contract_line_is_not_the_identity
         passes=("identity.identity_from_doors_text",),
         outputs=("mesh:DoorsExportArtifact",),
+    ),
+    # STEP AP242 and DXF: CAD file formats, identity pass only (no extraction).
+    # domain_type=None is deliberate: under the 2026-10-02 ruling a FILE FORMAT
+    # IS NOT AN ORIGIN. A STEP or DXF file can come from any system of record,
+    # exactly as the pdf / xml / doors-export rows argue. Reached only by an
+    # explicit declaration; an unregistered CAD format (iges, sldprt, ...) still
+    # HALTS as UnclassifiableContentKindError.
+    "step-ap242": ContentKindEntry(
+        kind_source_value="step-ap242",
+        kind="step-ap242",
+        extractor_config="",
+        baml_function="",
+        target_ontology_class=(
+            "http://edgy-solutions.com/ontology/mesh#StepAp242Artifact"
+        ),
+        domain_type=None,
+        passes=("cad.step_ap242_identity",),
+        outputs=("mesh:StepAp242Artifact",),
+    ),
+    "dxf": ContentKindEntry(
+        kind_source_value="dxf",
+        kind="dxf",
+        extractor_config="",
+        baml_function="",
+        target_ontology_class=(
+            "http://edgy-solutions.com/ontology/mesh#DxfArtifact"
+        ),
+        domain_type=None,
+        passes=("cad.dxf_identity",),
+        outputs=("mesh:DxfArtifact",),
     ),
     # ``xml`` is the generic XML drop: an XML document that is NOT an S1000D
     # data module. It exists because without it such a drop HALTS. The S1000D
