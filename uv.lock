@@ -1756,8 +1756,10 @@ dependencies = [
     { name = "rdflib" },
     { name = "sparqlwrapper" },
     { name = "sqlalchemy" },
+    { name = "starlette" },
     { name = "tabulate" },
     { name = "unstructured", extra = ["all-docs"] },
+    { name = "uvicorn" },
     { name = "weaviate-client" },
 ]
 
@@ -1799,8 +1801,10 @@ requires-dist = [
     { name = "rdflib", specifier = ">=7.6.0" },
     { name = "sparqlwrapper", specifier = ">=2.0.0" },
     { name = "sqlalchemy" },
+    { name = "starlette", specifier = ">=0.52.1" },
     { name = "tabulate" },
     { name = "unstructured", extras = ["all-docs"] },
+    { name = "uvicorn", specifier = ">=0.41.0" },
     { name = "weaviate-client", specifier = ">=4.0.0" },
 ]
 

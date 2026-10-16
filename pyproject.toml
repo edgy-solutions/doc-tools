@@ -108,6 +108,8 @@ dependencies = [
     #     by reading the source — see tests/test_mesh_sdk_pin.py, which asserts both that
     #     `ProvenanceBlock` imports and that `user-drop` is a member of `OBTAINED_VIA`.
     "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.9.8",
+    "starlette>=0.52.1",
+    "uvicorn>=0.41.0",
 ]
 
 

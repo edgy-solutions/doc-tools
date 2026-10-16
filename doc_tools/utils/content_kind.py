@@ -557,6 +557,72 @@ def ingress_user_prefixes() -> dict[str, str]:
     }
 
 
+KIND_UNBUILT_PASS = "unbuilt_pass"
+KIND_PASS_IS_A_CLASS = "pass_is_a_class"
+KIND_PASS_UNRESOLVED = "pass_unresolved"   # 0 hits, or >1 ambiguous hits
+KIND_PASS_NOT_CALLABLE = "pass_not_callable"
+KIND_NO_PASSES = "no_passes"
+
+KIND_REASON_CODES: tuple[str, ...] = (
+    KIND_UNBUILT_PASS,
+    KIND_PASS_IS_A_CLASS,
+    KIND_PASS_UNRESOLVED,
+    KIND_PASS_NOT_CALLABLE,
+    KIND_NO_PASSES,
+)
+
+
+def _pass_unrunnable_reason(dotted: str) -> Optional[tuple[str, str]]:
+    """``None`` if this one pass is runnable, else ``(reason_code, detail)``.
+
+    The single predicate both ``processable_kinds()`` and ``kind_exclusions()``
+    are built on, so the positive and negative sets cannot drift apart.
+    """
+    import inspect
+
+    # Lazy: dispatch imports this module.
+    from doc_tools.passes.dispatch import resolve_python_pass
+
+    if dotted in UNBUILT_PASSES:
+        return (KIND_UNBUILT_PASS,
+                f"pass {dotted!r} is listed in UNBUILT_PASSES: declared but not built")
+    if "::" in dotted:
+        return None  # BAML arm, dispatched elsewhere
+    hits = resolve_python_pass(dotted)
+    if not hits:
+        return (KIND_PASS_UNRESOLVED,
+                f"pass {dotted!r} resolved to 0 hits: no such python pass in this image")
+    if len(hits) != 1:
+        return (KIND_PASS_UNRESOLVED,
+                f"pass {dotted!r} resolved to {len(hits)} hits: ambiguous, dispatch needs exactly 1")
+    fn = hits[0][1]
+    if inspect.isclass(fn):
+        return (KIND_PASS_IS_A_CLASS,
+                f"pass {dotted!r} resolves to a class; dispatch refuses a class by contract")
+    if not callable(fn):
+        return (KIND_PASS_NOT_CALLABLE,
+                f"pass {dotted!r} resolves to a non-callable; dispatch refuses it by contract")
+    return None
+
+
+def _kind_exclusion(e: ContentKindEntry) -> Optional[dict]:
+    """``None`` if every declared pass of ``e`` is runnable, else its exclusion
+    entry, reported on the FIRST unrunnable pass in declared order."""
+    if not e.passes:
+        return {"kind": e.kind, "reason_code": KIND_NO_PASSES, "pass": None,
+                "detail": f"kind {e.kind!r} declares no passes, so there is nothing to run"}
+    for p in e.passes:
+        r = _pass_unrunnable_reason(p)
+        if r is not None:
+            code, detail = r
+            n = len(e.passes)
+            if n > 1:
+                detail += (f"; first unrunnable pass of {n} declared, in the order "
+                           f"they would run")
+            return {"kind": e.kind, "reason_code": code, "pass": p, "detail": detail}
+    return None
+
+
 def processable_kinds() -> tuple[str, ...]:
     """Registered kinds every declared pass of which this repo can actually run.
 
@@ -570,31 +636,35 @@ def processable_kinds() -> tuple[str, ...]:
     BAML passes (``<ns>.baml::<Fn>``) are dispatched by a different arm and
     count as processable.
 
-    Measured at the time of writing: ``xml`` is excluded (its only pass is
-    unbuilt) and ``s1000d-data-module`` is excluded (``s1000d.S1000dGraphBuilder``
-    is a class, which dispatch refuses by contract). Both exclusions are
-    CORRECT, not gaps to paper over.
+    Measured at the time of writing: ``cad`` and ``xml`` are excluded (their
+    passes are unbuilt) and ``s1000d-data-module`` is excluded
+    (``s1000d.S1000dGraphBuilder`` is a class, which dispatch refuses by
+    contract).
+
+    THIS IS ONE ARM, NOT THE ANSWER TO "can the image process X". An earlier
+    revision of this docstring called all of those exclusions CORRECT; that is
+    true of THIS arm and false of the image. ``xml_ingestion``'s user-drop table
+    routes ``s1000d-data-module`` to the very class this function rejects, and on
+    2026-10-16 ten ODMRAD data modules completed all five stages of
+    ``xml_graph_sync_job`` through it. Ask ``doc_tools.api.kinds`` for the union
+    of the arms; it is what ``GET /kinds/processable`` serves, and it names each
+    arm so the disagreement stays visible.
     """
-    import inspect
-
-    # Lazy: dispatch imports this module.
-    from doc_tools.passes.dispatch import resolve_python_pass
-
-    def _runnable(dotted: str) -> bool:
-        if dotted in UNBUILT_PASSES:
-            return False
-        if "::" in dotted:
-            return True
-        hits = resolve_python_pass(dotted)
-        if not hits or len(hits) != 1:
-            return False
-        fn = hits[0][1]
-        return not inspect.isclass(fn) and callable(fn)
-
     # SORTED, because iagent_mesh.ingest.registered_kinds() is sorted and this
     # is documented as its narrower subset -- an unsorted subset of a sorted set
     # reads as a different set to anyone diffing or displaying the two.
     return tuple(sorted(
-        e.kind for e in KIND_MAPPING.values()
-        if e.passes and all(_runnable(p) for p in e.passes)
+        e.kind for e in KIND_MAPPING.values() if _kind_exclusion(e) is None
     ))
+
+
+def kind_exclusions() -> tuple[dict, ...]:
+    """Every registered kind this image CANNOT process, with the cause.
+
+    Sorted by kind. Each entry: {"kind", "reason_code", "pass", "detail"}.
+    ``pass`` is the dotted pass string that caused it, or None for no_passes.
+    ``detail`` is a sentence naming the pass and the cause -- a door that merely
+    omits a kind tells the human nothing.
+    """
+    out = [x for x in (_kind_exclusion(e) for e in KIND_MAPPING.values()) if x]
+    return tuple(sorted(out, key=lambda d: d["kind"]))
