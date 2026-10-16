@@ -84,6 +84,25 @@ spec:
             - name: MANUFACTURING_OVERLAY_SPEC
               value: {{ printf "%s/%s" .Values.manufacturingOverlay.mountPath .Values.manufacturingOverlay.secretKey | quote }}
             {{- end }}
+            # THIS DEPLOYMENT IS THE DAGSTER CODE LOCATION, so an ingest row's
+            # `pin_digest` is stamped by this pod — and without this variable the
+            # stamp fell back to a git sha, which names source and not the image
+            # that actually ran. The corpus-gate CronJob has carried
+            # DOC_TOOLS_IMAGE since it was added; the Deployment never did, so
+            # every ingest wrote a weaker provenance than the nightly gate.
+            #
+            # Rendered from the SAME `include "doc-tools.image" .` as this
+            # container's `image:` above, so the two cannot disagree: there is no
+            # second place to update and no way to stamp a digest the pod is not
+            # running.
+            #
+            # DELIBERATELY AFTER the `.Values.env` range, which means it wins
+            # over a same-named values key rather than losing to one. That is not
+            # an oversight: the running image's digest is a FACT about this pod,
+            # not a setting, and a values-supplied digest would be free to be
+            # stale — which is the exact defect this entry exists to close.
+            - name: DOC_TOOLS_IMAGE
+              value: {{ include "doc-tools.image" . | quote }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
