@@ -8,6 +8,9 @@ from doc_tools.components.design_parser import DesignParserComponent
 from doc_tools.components.datahub_sensor import DataHubSensorComponent
 from doc_tools.components.aitool_sensor import AIToolSensorComponent
 from doc_tools.components.ingest_retry_sensor import build_ingest_retry_sensor
+from doc_tools.components.processable_kinds_publisher import (
+    build_processable_kinds_publisher_sensor,
+)
 from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion, doors_ingestion
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions, design_files_partition, iads_files_partition, xml_files_partition
@@ -200,6 +203,16 @@ ingest_retry_sensor = build_ingest_retry_sensor(
     bucket="processing-artifacts",
     partition_name="user_pdf_files",
 )
+
+# Tells Lane 1's door what THIS image can ingest, every tick, by PUT. It
+# launches no runs — see the module docstring for why a sensor and not a
+# schedule, and for why every tick publishes instead of a fingerprint cursor
+# gating it (a cursor records what we did, which is not evidence of what the
+# door still holds). The list it sends is `api.kinds.ingestable_kinds()`, the
+# same definition `GET /kinds/processable` serves: s1000d-data-module in
+# (measured, ten drops through all five stages), `xml` held out until a user
+# drop of a bare `xml` is processed end to end.
+processable_kinds_publisher_sensor = build_processable_kinds_publisher_sensor()
 
 # The XML sibling of ingress_user_sensor: a user-dropped XML under
 # ingress-user/xml/<sha256>/<name>.xml. Upstream already mints these (the seam
@@ -523,7 +536,7 @@ defs = Definitions(
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
     assets=list(_document_parser_defs.assets) + list(_user_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
     jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job, doors_ingest_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ingress_user_xml_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors) + [ingest_retry_sensor],
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ingress_user_xml_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors) + [ingest_retry_sensor, processable_kinds_publisher_sensor],
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
