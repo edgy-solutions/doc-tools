@@ -37,7 +37,11 @@ def test_upload_to_jena_puts_to_named_graph(mock_client_cls):
     mock_client_cls.return_value.__enter__.return_value = client
     client.put.return_value = MagicMock(raise_for_status=lambda: None)
 
-    payload = {"s3_key": "s1000d/m.xml", "rdf_string": "@prefix x: <y> .", "root_uri": "mil#x"}
+    payload = {"s3_key": "s1000d/m.xml", "rdf_string": "@prefix x: <y> .", "root_uri": "mil#x",
+               # upload_to_jena now ALSO writes the instance graph and refuses a
+               # payload with no domain; the MagicMock jena absorbs get_client().
+               # That second write is covered in test_xml_instance_graph_write.py.
+               "domain": "MAINTENANCE"}
     out = upload_to_jena(build_asset_context(), extract_rdf_from_xml=payload, jena=_jena_resource())
 
     assert out == payload  # metadata passes through downstream

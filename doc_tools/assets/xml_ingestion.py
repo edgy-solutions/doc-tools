@@ -13,7 +13,7 @@ from doc_tools.parsers.dita_rdf import DitaGraphBuilder
 from doc_tools.parsers.iads_rdf import IadsGraphBuilder
 from doc_tools.parsers.mil_std_40051_rdf import MilStd40051GraphBuilder
 from doc_tools.partitions import xml_files_partition
-from doc_tools.utils.content_kind import resolve_content_kind
+from doc_tools.utils.content_kind import domain_label_for_kind, resolve_content_kind
 from doc_tools.utils.dagster_resources import WeaviateResource
 from doc_tools.utils.xml_chunks import extract_chunks_from_graph
 
@@ -52,7 +52,7 @@ def ingress_user_parsable_kinds() -> tuple[str, ...]:
 
 
 def _resolve_ingress_user_parser(context, s3_client, bucket: str, s3_key: str):
-    """Parser class for ``ingress-user/<fmt>/<sha256>/<name>`` from the sibling
+    """(parser class, resolved kind) for ``ingress-user/<fmt>/<sha256>/<name>`` from the sibling
     ``manifest.json``'s declared content kind. Halts loudly (never sniffs, never
     defaults) when the manifest is missing, declares no kind, or the kind has no
     parser. An unresolvable kind propagates ``UnclassifiableContentKindError``."""
@@ -96,7 +96,7 @@ def _resolve_ingress_user_parser(context, s3_client, bucket: str, s3_key: str):
             f"Halting rather than guessing."
         )
     context.log.info(f"User drop {s3_key} declares {entry.kind!r}; routing to {parser_cls.__name__}.")
-    return parser_cls
+    return parser_cls, entry.kind
 
 
 
@@ -202,12 +202,15 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
     # still routes to the 40051 parser via the first segment. The architect's
     # 2026-06-29 "support depths" ruling is honored here.
     doc_type = s3_key.split('/')[0].lower()
+    # Prefix-routed paths (s1000d/, iads/, dita/, 40051/) carry NO content kind;
+    # only a user drop resolves one, from its manifest.
+    kind: Optional[str] = None
 
     # A user drop (ingress-user/<fmt>/<sha256>/<name>) names the SEAM in its
     # first segment, not a parser. Its parser comes from the content kind the
     # sibling manifest.json DECLARES -- never sniffed, never defaulted (ADR-0021).
     if doc_type == _INGRESS_USER_SEGMENT:
-        parser_cls = _resolve_ingress_user_parser(context, s3_client, s3_bucket, s3_key)
+        parser_cls, kind = _resolve_ingress_user_parser(context, s3_client, s3_bucket, s3_key)
         PARSERS = {doc_type: parser_cls}
     else:
         PARSERS = {
@@ -327,11 +330,23 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
             f"(chunks=[] passed downstream): {e}"
         )
 
+    # The instance-graph domain is decided HERE, where the kind is known, and
+    # carried downstream. This is the only asset that knows the kind (a user
+    # drop's manifest-declared one); resolving it in upload_to_jena would need
+    # a cross-module import of _XML_INGEST_DOMAIN and would still not see the
+    # kind. Prefix-routed paths have no kind at all, so they take the module
+    # constant -- the same value their Weaviate chunks are already tagged with.
+    # tests/test_xml_instance_graph_write.py pins that the two arms agree for
+    # the one kind the user-drop table routes (s1000d-data-module).
+    domain = (domain_label_for_kind(kind) if kind else None) or _XML_INGEST_DOMAIN
+
     return {
         "rdf_string": rdf_string,
         "root_uri": root_uri,
         "s3_key": s3_key,
         "chunks": chunks,
+        "domain": domain,
+        "content_kind": kind,
     }
 
 

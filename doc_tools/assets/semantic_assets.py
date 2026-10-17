@@ -924,11 +924,69 @@ def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, j
                 headers={"Content-Type": "text/turtle; charset=utf-8"}
             )
             response.raise_for_status()
-            
-        return extract_rdf_from_xml # Pass metadata downstream
     except Exception as e:
         context.log.error(f"Failed to upload to Jena: {e}")
         raise e
+
+    # SECOND WRITE: the module's content triples into the DOMAIN instance graph
+    # (architect ruling 2026-10-16), mirroring the PCN path
+    # (semantic_assets.py:787-791 over plugins/sustainment.py:2003-2053).
+    #  - The graph is http://internal/<DOMAIN>_INSTANCES and NEVER the bare
+    #    http://internal/<DOMAIN> vocabulary graph: the peer prime DROPs that one
+    #    first on every re-ingest (AGENTS.md:118-140), which already collided once
+    #    in production.
+    #  - Additive INSERT DATA over POST, never PUT: the graph is shared by every
+    #    module of the domain, and a PUT would clobber the others.
+    #  - Set-idempotent on retry BECAUSE the S1000D builder emits no timestamp,
+    #    no uuid and no prov term (grepped). Adding a volatile triple to the
+    #    parser later makes every retry ADD triples, so it is visibly a change to
+    #    this guarantee. The sorted N-Triples keep the retry body byte-identical.
+    #  - A missing domain is a defect in extract_rdf_from_xml and RAISES: a
+    #    tolerated skip is a path nobody fixes. The urn:doc: PUT above is
+    #    idempotent, so the retry is safe.
+    #  - Failure here RAISES (it is the point of the pin, not a trailing
+    #    secondary output like chunk extraction).
+    domain = extract_rdf_from_xml.get("domain")
+    if not domain:
+        context.log.error(
+            f"extract_rdf_from_xml for {s3_key} returned no 'domain'; the producing "
+            f"asset is the defect. Refusing to skip the instance-graph write."
+        )
+        raise ValueError(
+            f"extract_rdf_from_xml output for {s3_key!r} carries no 'domain'; "
+            f"cannot choose the http://internal/<DOMAIN>_INSTANCES graph."
+        )
+    instance_graph = f"http://internal/{domain}_INSTANCES"
+    # Imported here, not at module scope: rdflib is used nowhere else in this
+    # module and the Dagster code location imports it at definition load time.
+    from rdflib import Graph as _RdfGraph
+    g = _RdfGraph()
+    g.parse(data=extract_rdf_from_xml["rdf_string"], format="turtle")
+    # nt gives absolute IRIs (no prefixes needed inside INSERT DATA); its line
+    # order is not stable, hence the sort.
+    nt_lines = sorted(
+        ln for ln in g.serialize(format="nt").splitlines() if ln.strip()
+    )
+    body = (
+        f"INSERT DATA {{ GRAPH <{instance_graph}> {{\n"
+        + "\n".join(nt_lines)
+        + "\n} }"
+    )
+    try:
+        jena.get_client().execute_update(body, graph_uri=instance_graph)
+    except Exception as e:
+        # Name the GRAPH in the log. A bare propagation reads as "Jena failed"
+        # and sends the next reader back to the urn:doc: PUT above, which by
+        # this point has already succeeded.
+        context.log.error(
+            f"Failed the instance-graph write for {s3_key} into "
+            f"{instance_graph} ({len(g)} triples): {e}"
+        )
+        raise
+    context.log.info(
+        f"Inserted {len(g)} triples for {s3_key} into instance graph {instance_graph}"
+    )
+    return extract_rdf_from_xml # Pass metadata downstream
 
 @asset(deps=[upload_to_jena], partitions_def=xml_files_partition)
 def init_neo4j_n10s(context: AssetExecutionContext, neo4j: Neo4jResource) -> MaterializeResult:
