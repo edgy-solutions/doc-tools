@@ -347,6 +347,27 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
         "chunks": chunks,
         "domain": domain,
         "content_kind": kind,
+        "doc_id": doc_id,
+        # The supersede key for the instance-graph write in upload_to_jena
+        # (architect ruling 2 of 2026-10-17). Two things make this the slug and
+        # not doc_id:
+        #  - root_uri alone is not enough. The builder mints dependent subjects
+        #    (step-<slug>-N-M, proclist-<slug>-N, part-/tool-/fig-/item-/
+        #    interval-/faultcode-) that carry the slug and NOT the module IRI,
+        #    so a re-drop with fewer steps would orphan them for ever.
+        #  - The slug is NOT doc_id: it is _fragment(doc_id) (s1000d_rdf.py
+        #    doc_slug). A doc_id containing any character outside
+        #    [A-Za-z0-9_.-] appears in the subjects sanitized, so a filter
+        #    written against the raw doc_id would silently match nothing and
+        #    the write would stay additive. Taken from the builder rather than
+        #    re-derived here, for the reason _dmc_string_from_code states: same
+        #    canonicalizer both sides or the two never meet.
+        # None for iads/dita/40051, which do not scope their subjects per
+        # document at all (a known defect). upload_to_jena must NOT delete by
+        # slug for those -- their subjects are shared, so it would take a
+        # sibling document's triples, which is the component-IRI failure
+        # already on record for the PCN path.
+        "doc_slug": getattr(builder, "doc_slug", None),
     }
 
 
