@@ -200,6 +200,100 @@ def test_reconcile_ltb_applies_doc_level_fallback():
     assert parts[1]["ltb_date"] == "2025-12-31"  # doc-level fallback
 
 
+def test_reconcile_ltb_records_whether_the_date_was_inherited():
+    """The flag is the whole point: after the backfill, `ltb_date` looks identical
+    whether the row printed it or inherited it, and `ltb_date_source` is None in
+    both cases. Without a marker the review builder cannot tell them apart."""
+    parts = [
+        {"affected_mpn": "A", "ltb_date": "2024-01-01"},
+        {"affected_mpn": "B", "ltb_date": None},
+        {"affected_mpn": "C", "ltb_date": "   "},   # whitespace is not a date
+        {"affected_mpn": "D", "ltb_date": None},
+    ]
+    merge.reconcile_ltb(parts[:3], "2025-12-31")
+    merge.reconcile_ltb(parts[3:], None)            # no doc-level date either
+    assert parts[0]["ltb_date"] == "2024-01-01" and parts[0]["ltb_date_inherited"] is False
+    assert parts[1]["ltb_date"] == "2025-12-31" and parts[1]["ltb_date_inherited"] is True
+    assert parts[2]["ltb_date"] == "2025-12-31" and parts[2]["ltb_date_inherited"] is True
+    # No date at all is NOT "inherited" — there is nothing to point at.
+    assert parts[3]["ltb_date"] is None and parts[3]["ltb_date_inherited"] is False
+
+
+def test_an_inherited_ltb_date_carries_the_header_sentence_as_its_evidence():
+    """MEASURED defect, 965 of 965 `parts[].ltb_date` items on the 88 deployed
+    review.json had no bbox at all. The row prints no date; the document states it
+    once in prose. The honest evidence is that sentence, labelled as inherited."""
+    els = [
+        _el("Table", "AD7873ACPZ", 2, [[0, 0], [1, 0], [1, 1], [0, 1]],
+            html="<table><tr><td>AD7873ACPZ</td></tr></table>"),
+        _el("NarrativeText", "Last time buy is June 6, 2024 for all affected devices.",
+            5, [[0, 2], [1, 2], [1, 3], [0, 3]]),
+    ]
+    idx = provenance.build_positioned_index(els)
+    ocr_norm = provenance._norm("AD7873ACPZ Last time buy is June 6, 2024 for all affected devices.")
+    header = {"doc_level_ltb_date": "2024-06-06", "doc_level_ltb_date_source": "June 6, 2024"}
+    parts = [{"affected_mpn": "AD7873ACPZ", "affected_mpn_source": "AD7873ACPZ"}]
+    merge.reconcile_ltb(parts, header["doc_level_ltb_date"])
+    items, _reasons = merge.build_review_items(header, parts, idx, ocr_norm)
+    by_fp = {it["field_path"]: it for it in items}
+
+    ltb = by_fp["parts[0].ltb_date"]
+    assert ltb["value"] == "2024-06-06"
+    assert ltb["page_number"] == 5, "evidence is the prose page, not the table page"
+    assert ltb["bboxes"], "an inherited date must still carry a bbox"
+    assert ltb["match_method"] == "inherited_doc_level", (
+        "an inherited bbox must be DISTINGUISHABLE from a cell this row owns")
+    assert ltb["source_snippet"] == "June 6, 2024", "the verbatim sentence, not the ISO value"
+    # and it agrees with the header item it borrowed from
+    assert ltb["bboxes"] == by_fp["header.doc_level_ltb_date"]["bboxes"]
+
+
+def test_an_unlocatable_doc_level_date_lends_no_evidence_to_the_rows():
+    """If the header date itself did not resolve, there is no sentence to point at.
+    Rows must then report not_found rather than borrow an empty box and look sourced."""
+    els = [_el("Table", "AD7873ACPZ", 2, [[0, 0], [1, 0], [1, 1], [0, 1]],
+               html="<table><tr><td>AD7873ACPZ</td></tr></table>")]
+    idx = provenance.build_positioned_index(els)
+    header = {"doc_level_ltb_date": "2024-06-06", "doc_level_ltb_date_source": "not in this doc"}
+    parts = [{"affected_mpn": "AD7873ACPZ", "affected_mpn_source": "AD7873ACPZ"}]
+    merge.reconcile_ltb(parts, header["doc_level_ltb_date"])
+    items, _ = merge.build_review_items(header, parts, idx, provenance._norm("AD7873ACPZ"))
+    ltb = {it["field_path"]: it for it in items}["parts[0].ltb_date"]
+    assert ltb["match_method"] == "not_found" and ltb["bboxes"] == []
+
+
+def test_a_row_ltb_date_is_resolved_on_its_source_never_on_the_iso_value():
+    """A bare ISO date can match an unrelated occurrence and outline the wrong
+    thing, so the value is never used as a search key. The row's own source is."""
+    els = [
+        _el("Table", "AD7873ACPZ 06-Jun-2024", 3, [[0, 0], [1, 0], [1, 1], [0, 1]],
+            html="<table><tr><td>AD7873ACPZ</td><td>06-Jun-2024</td></tr></table>"),
+        # an unrelated ISO date elsewhere: the trap the value-fallback walked into
+        _el("NarrativeText", "Document issued 2024-06-06 by the PCN desk.", 9,
+            [[0, 5], [1, 5], [1, 6], [0, 6]]),
+    ]
+    idx = provenance.build_positioned_index(els)
+    ocr_norm = provenance._norm("AD7873ACPZ 06-Jun-2024 Document issued 2024-06-06 by the PCN desk.")
+    header = {"doc_level_ltb_date": None}
+    sourced = [{"affected_mpn": "AD7873ACPZ", "affected_mpn_source": "AD7873ACPZ",
+                "ltb_date": "2024-06-06", "ltb_date_source": "06-Jun-2024"}]
+    merge.reconcile_ltb(sourced, None)
+    items, _ = merge.build_review_items(header, sourced, idx, ocr_norm)
+    ltb = {it["field_path"]: it for it in items}["parts[0].ltb_date"]
+    assert ltb["page_number"] == 3, "resolved to the row's own cell, not the prose ISO date"
+    assert ltb["match_method"] != "inherited_doc_level"
+
+    # same value, NO source, no doc-level date: not_found, and NOT a match on page 9
+    unsourced = [{"affected_mpn": "AD7873ACPZ", "affected_mpn_source": "AD7873ACPZ",
+                  "ltb_date": "2024-06-06", "ltb_date_source": None}]
+    merge.reconcile_ltb(unsourced, None)
+    items2, _ = merge.build_review_items(header, unsourced, idx, ocr_norm)
+    ltb2 = {it["field_path"]: it for it in items2}["parts[0].ltb_date"]
+    assert ltb2["page_number"] is None and ltb2["bboxes"] == [], (
+        "the ISO value must not be used as a search key: page 9 is an unrelated date")
+    assert ltb2["source_snippet"] is None
+
+
 def test_clean_replacement_drops_qualification_vehicle_lists():
     # single replacement kept; comma-separated list (qual vehicles) dropped
     assert norm.clean_replacement("AD7873ARUZ") == "AD7873ARUZ"

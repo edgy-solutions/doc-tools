@@ -133,9 +133,24 @@ def dedup_parts(parts: List[dict], counts: Optional[dict] = None) -> List[dict]:
 
 
 def reconcile_ltb(parts: List[dict], doc_level_ltb: Optional[str]) -> List[dict]:
-    """Per-part LTB: prefer per-row, fall back to the doc-level date (in place)."""
+    """Per-part LTB: prefer per-row, fall back to the doc-level date (in place).
+
+    Also RECORDS WHICH ONE WON, in `ltb_date_inherited`. That flag is what lets
+    the review item carry honest evidence. Without it the backfill is invisible
+    downstream: this function writes an ISO date into `ltb_date` and leaves
+    `ltb_date_source` None, so the review builder used to fall back to
+    searching the positioned OCR index for the ISO string itself — which the
+    document never prints in that form (it says "June 6, 2024", or prints the
+    date once in a header sentence and never on the row at all). Every such
+    row therefore resolved to `not_found` BY CONSTRUCTION, measured at 965 of
+    965 on the 88 deployed review.json. An inherited date is not unlocatable;
+    its evidence is the header sentence that states it once.
+    """
     for p in parts:
-        p["ltb_date"] = norm.effective_ltb(p.get("ltb_date"), doc_level_ltb)
+        own = p.get("ltb_date")
+        own = own.strip() if isinstance(own, str) else own
+        p["ltb_date"] = norm.effective_ltb(own, doc_level_ltb)
+        p["ltb_date_inherited"] = bool(p["ltb_date"]) and not own
     return parts
 
 
@@ -171,6 +186,8 @@ def build_review_items(header: dict, parts: List[dict], index: List[dict],
     items: List[dict] = []
     reasons: List[str] = []
 
+    doc_ltb_prov: Optional[dict] = None
+    doc_ltb_src: Optional[str] = None
     for fp, val, src in (
         ("header.pub_date", header.get("pub_date"), header.get("pub_date_source")),
         ("header.mfr", header.get("mfr"), header.get("mfr_source")),
@@ -186,6 +203,12 @@ def build_review_items(header: dict, parts: List[dict], index: List[dict],
         if nr:
             reasons.append(f"{fp}: source not located")
         items.append(_review_item(fp, val, src or val, "header", prov, nr, reason))
+        if fp == "header.doc_level_ltb_date" and prov["found"]:
+            # KEPT for the rows that inherit this date. The doc-level LTB is stated
+            # once, in prose, and resolves against its own verbatim source; a row
+            # that inherited it points a reviewer AT THAT SENTENCE. Only kept when
+            # it actually resolved: an unlocated header date has no evidence to lend.
+            doc_ltb_prov, doc_ltb_src = prov, src or val
 
     if header.get("summary"):
         items.append(_review_item("header.summary", header.get("summary"), None, "derived"))
@@ -245,10 +268,28 @@ def build_review_items(header: dict, parts: List[dict], index: List[dict],
                                       p.get("replacement_mpn_source"), "table", rprov, rnr,
                                       "source not located" if rnr else None))
         if p.get("ltb_date"):
-            lprov = provenance.resolve_value(
-                p.get("ltb_date_source") or p["ltb_date"], index, prefer_region="table")
+            lsrc = p.get("ltb_date_source")
+            if p.get("ltb_date_inherited") and doc_ltb_prov:
+                # INHERITED from the document-level date: the row prints no date, so
+                # the only honest evidence is the header sentence that states it once.
+                # Point the reviewer there, and SAY SO in match_method — an inherited
+                # bbox must never be mistaken for a cell this row owns.
+                lprov = dict(doc_ltb_prov, match_method="inherited_doc_level")
+                lsrc = doc_ltb_src
+            else:
+                # Resolve on the VERBATIM SOURCE ONLY, never on the value. The value is
+                # an ISO date the document is not obliged to print in that form, so the
+                # old `or p["ltb_date"]` fallback searched for a string that mostly does
+                # not exist. Dropping it also removes a hazard the MPN fields do not
+                # have: an MPN's value IS its printed form, but a bare ISO date can
+                # match an UNRELATED occurrence elsewhere on the page and outline the
+                # wrong thing. For a steward vetting a row in a few looks, a confident
+                # wrong crop is worse than an honest not_found. Where a document really
+                # does print ISO dates, the model's source snippet is that same string,
+                # so this path loses nothing real.
+                lprov = provenance.resolve_value(lsrc, index, prefer_region="table")
             items.append(_review_item(f"parts[{i}].ltb_date", p["ltb_date"],
-                                      p.get("ltb_date_source"), "table", lprov, False, None))
+                                      lsrc, "table", lprov, False, None))
     return items, reasons
 
 
