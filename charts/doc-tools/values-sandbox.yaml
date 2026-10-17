@@ -1324,7 +1324,22 @@ corpusGate:
   # IF YOU BUMP image.digest AND STOP, YOU HAVE ARMED THE SAME FAILURE. The two
   # lines are not kept in step by anything automatic; no test and no CI job
   # compares them, because the Job that would is the one being checked.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:85ad4c9db2bee559f051ff541648a4fad8b6b9729c44155fe488fb1b0a558437"
+  #
+  # 2026-10-16 LATE, READ-THEN-WRITE AGAIN (the strong form). The af53f15 pin
+  # (`sha256:5846f877`, four merges: #120 #121 #118 #123) rolled as helm
+  # REVISION 46, `deployed`, at 03:09Z. This value was then read off the pods
+  # -- `custom-columns=...:.status.containerStatuses[*].imageID`, ONE distinct
+  # value, the old ReplicaSet already scaled to 0 -- and written from that
+  # reading. It is NOT copied from `image.digest` above, which it happens to
+  # equal: that equality is the result being asserted, not the source of the
+  # value. Roll 2 applies this line.
+  #
+  # The window between the two rolls was RED on image identity by construction,
+  # which the pre-roll diff proved rather than assumed: `expectImage` did not
+  # appear in it, so the gate would have compared a `5846f877` run against an
+  # `85ad4c9d` expectation. Both rolls were therefore taken the same evening,
+  # before the 07:00Z nightly, so no gate run fell inside that window.
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:5846f877ce3e41a89f7df373a41faa14503991b8928f6a84bb18e49c08a1887b"
   publish:
     repo: edgy-solutions/doc-tools
 
