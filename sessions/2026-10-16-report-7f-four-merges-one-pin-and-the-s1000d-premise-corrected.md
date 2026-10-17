@@ -141,3 +141,110 @@ roll again; `expectImage` is never copied from the digest just typed into
 `image.digest`. Both rolls should land before 07:00Z, which is the sandbox
 nightly's schedule, so the stale-`expectImage` window never contains a gate run.
 Chris rolls.
+
+---
+
+# Addendum, same day — the packet's three items, measured
+
+## 1. #124 is merged (`1d40833`), and the pre-roll diff is clean
+
+44 changed lines, and every one of them is the digest: the five
+`app.kubernetes.io/version` labels, the Deployment's `image`, its
+`DOC_TOOLS_IMAGE`, the gate CronJob's `image`, and the gate's own
+`DOC_TOOLS_IMAGE`. Nothing else moves.
+
+Two things the diff says that are worth reading deliberately:
+
+- **A 22-line `doc-tools-test-connection` Pod appears as added.** It is a HOOK.
+  `helm template` renders hooks and `helm get manifest` excludes them, so it is
+  a phantom of the comparison, not a resource this roll creates. Subtract it:
+  the real change is 12 lines, all digest.
+- **`corpusGate.expectImage` does not appear in the diff at all**, which is the
+  confirmation that it is unchanged. So between roll 1 and roll 2 the gate would
+  compare pods at `5846f877` against an expectation of `85ad4c9d` and go red on
+  image identity **by construction**. That is the window to keep clear of
+  `0 7 * * *`, and it is the reason the second roll is not optional rather than
+  tidy-up.
+
+## 2. The contract exists, I have read it, and the builder ALREADY matches it
+
+`tests/fixtures/s1000d_mrad/mrad.ttl` is in `invincible-agent` at
+`origin/master` — read from there, not from a working tree. Lane 1's packet is
+still welcome but no longer blocking.
+
+**The diff is zero.** Driving the wired builder over the six committed fixtures,
+with `doc_id` set to each module's filename (which is what the contract's scope
+URIs are keyed on):
+
+```
+live triples:     99
+contract triples: 99
+in both:          99
+MISSING (contract has, live does not): 0
+EXTRA   (live has, contract does not): 0
+```
+
+So "make the builder emit the fixture's shape" is **already satisfied** — there
+is nothing to change in the parser to meet this contract. Script:
+`scratchpad/diff_mrad_contract.py`.
+
+**And that result was predictable from the contract's own header**, which is the
+part that changes what the next pin should be: mrad.ttl says it was *"produced by
+doc-tools PR #63 (head 4a6df088) over six sample MRAD XML data modules"*. It is
+a snapshot of this parser's output. Diffing against it can therefore detect
+**drift since #63** and nothing else; it cannot witness conformance to an
+independently specified shape, because it was not independently specified. As a
+regression fixture it is useful and it is now green.
+
+**The walk is not in mrad.ttl either.** 124 lines, and there is no Option node,
+no predicate joining a fault code to the DMCs that resolve it, and nothing for
+`picture_spare`. What it has is exactly the per-module shape already measured:
+`hasFaultCode` → a `FaultCode` node with value and text, `refersToDataModule`
+edges, tools, parts, catalog items, a figure, a planning interval.
+
+So the contract I was pointed at **cannot be the contract for the walk**, and my
+two open questions are open against a different artifact than the one that
+answers them. Both are about the walk's shape — whether remove/install is one
+option or two, and whether option 4 cites the 320A interval — and neither can be
+read off mrad.ttl, because mrad.ttl expresses no options. Ruling them is still
+what unblocks the work; what changes is that there is no file to conform to
+afterwards, so the walk needs its shape **stated**, not diffed.
+
+## 3. The graph pre-ruling is CONFIRMED in code, with one word to change
+
+`doc_tools/assets/semantic_assets.py:911` — `upload_to_jena` PUTs the whole
+serialized graph to `urn:doc:<s3_key>` and that is the **only** RDF write on the
+XML path. There is no domain-graph write anywhere in it. So yes: the ten
+modules' fault-isolation rows are sitting in `urn:doc:` graphs, and the fix is
+**where the builder's output is written, before any parser change** — the
+pre-ruling is right, and item 2 above is the independent reason the parser needs
+no change.
+
+The one word: the pre-ruling names `http://internal/MAINTENANCE`, and **the bare
+domain name is the VOCABULARY graph** (`ontology_assets.py:1223` writes ontology
+TTLs there). This repo's standing rule puts runtime instances in
+`<http://internal/{DOMAIN}_INSTANCES>` (`AGENTS.md:123`), and the reason is not
+style: `invincible-agent`'s prime does **DROP-first** on manifest-listed
+vocabulary graphs, so instance content written to the bare name is wiped by the
+next prime. That already collided once — the prime meant to land `pcn_extension`
+would have destroyed the extracted parts first (`AGENTS.md:126-132`). The read
+side is already union-scoped (engine-o injects
+`VALUES ?g { …vocab… …_INSTANCES… }`), so `_INSTANCES` loses the walk nothing.
+
+**Proposed target, for the ruling tonight: `http://internal/MAINTENANCE_INSTANCES`**,
+with `urn:doc:<sha>` keeping provenance and the raw module exactly as pre-ruled.
+
+## 4. A correction to my own record: where "8 triples" came from
+
+My note in `doc_tools/api/kinds.py:30` says the ten drops wrote *"8 triples to
+Jena"*. That label is wrong and it is probably the origin of the "8 identity
+triples per module" premise. `upload_to_jena` logs **no triple count** — only
+the graph URI. The single triple count anywhere in this pipeline is Neo4j's
+`triplesLoaded`, returned by `n10s.rdf.import.fetch`
+(`semantic_assets.py:1058-1068`).
+
+So the 8 is a **Neo4j-stage** number, after n10s mapping, not a count of what the
+parser emitted or of what Jena received. What the parser emits over these bytes
+is 5 / 9 / 11 / 12 / 14 / 48, which matches the contract triple-for-triple. The
+two numbers were never in conflict; they were two different instruments at two
+different stages, and I labelled one of them with the other's name.
