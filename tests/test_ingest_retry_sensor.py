@@ -26,6 +26,9 @@ ID_B = f"sha256:{DIGEST_B}"
 PARTITION_NAME = "user_pdf_files"
 BUCKET = "processing-artifacts"
 TARGET_OP = "process_user_document_artifact"
+PQ_KEY = f"ingress-user/pdf/{DIGEST_A}/q.pdf"
+XML_PARTITION = "xml_files"
+XML_OP = "extract_rdf_from_xml"
 
 
 class _FakeResponse:
@@ -46,17 +49,35 @@ def instance():
         yield inst
 
 
-def _build():
+def _build(*, xml: bool = False, ingress_prefix: Optional[str] = None):
+    if xml:
+        return mod.build_ingest_retry_sensor(
+            name="ingest_retry_sensor_xml",
+            job_name="xml_graph_sync_job",
+            target_op=XML_OP,
+            bucket=BUCKET,
+            partition_name=XML_PARTITION,
+            ingress_prefix=ingress_prefix or "xml",
+        )
     return mod.build_ingest_retry_sensor(
         name="ingest_retry_sensor",
         job_name=f"{TARGET_OP}_job",
         target_op=TARGET_OP,
         bucket=BUCKET,
         partition_name=PARTITION_NAME,
+        ingress_prefix=ingress_prefix or "pdf",
     )
 
 
-def _run(monkeypatch, instance, *, rows: Any, status: int = 200, token: bool = True):
+def _run(
+    monkeypatch,
+    instance,
+    *,
+    rows: Any,
+    status: int = 200,
+    token: bool = True,
+    xml: bool = False,
+):
     """Evaluate the sensor against a canned retry-route response."""
     monkeypatch.setattr(
         mod, "stage_auth_headers", lambda: ({"Authorization": "Bearer t"} if token else None)
@@ -72,7 +93,7 @@ def _run(monkeypatch, instance, *, rows: Any, status: int = 200, token: bool = T
 
     monkeypatch.setattr(httpx, "get", _get)
     ctx = build_sensor_context(instance=instance)
-    result = _build()(ctx)
+    result = _build(xml=xml)(ctx)
     return result, captured
 
 
@@ -256,9 +277,9 @@ def test_no_matching_partition_is_refused_rather_than_guessed(monkeypatch, insta
 @pytest.mark.parametrize(
     "payload",
     [
-        [{"ingest_id": ID_A, "attempt": 2, "source_object_key": "p/q.pdf"}],
-        {"retries": [{"ingest_id": ID_A, "attempt": 2, "source_object_key": "p/q.pdf"}]},
-        {"rows": [{"ingest_id": ID_A, "attempt": 2, "source_object_key": "p/q.pdf"}]},
+        [{"ingest_id": ID_A, "attempt": 2, "source_object_key": PQ_KEY}],
+        {"retries": [{"ingest_id": ID_A, "attempt": 2, "source_object_key": PQ_KEY}]},
+        {"rows": [{"ingest_id": ID_A, "attempt": 2, "source_object_key": PQ_KEY}]},
     ],
 )
 def test_a_bare_list_or_either_envelope_is_accepted(monkeypatch, instance, payload):
@@ -285,3 +306,105 @@ def test_a_transport_failure_skips_with_the_exception_named(monkeypatch, instanc
     result = _build()(build_sensor_context(instance=instance))
     assert "ConnectError" in _skip_text(result)
     assert not _requests(result)
+
+
+# --------------------------------------------------------------------------
+# Two sensors, one route: the key guard keeps them from cross-launching
+# --------------------------------------------------------------------------
+
+XML_KEY = f"ingress-user/xml/{DIGEST_A}/mrad.xml"
+PDF_KEY = f"ingress-user/pdf/{DIGEST_A}/x.pdf"
+
+
+def test_the_xml_sensor_launches_a_legal_xml_row(monkeypatch, instance):
+    result, _ = _run(
+        monkeypatch,
+        instance,
+        xml=True,
+        rows=[{"ingest_id": ID_A, "attempt": 2, "source_object_key": XML_KEY}],
+    )
+    (req,) = _requests(result)
+    assert req.run_key == f"{ID_A}-a2"
+    assert req.run_config["ops"][XML_OP]["config"]["file_url"] == f"s3://{BUCKET}/{XML_KEY}"
+    (add,) = result.dynamic_partitions_requests
+    assert add.partitions_def_name == XML_PARTITION
+    assert add.partition_keys == [req.partition_key]
+
+
+def test_the_pdf_sensor_refuses_an_xml_key_instead_of_cross_launching(
+    monkeypatch, instance
+):
+    """REGRESSION. `source_object_key` bypasses the partition-set lookup, so
+    before the key guard the PDF sensor launched the PDF parser on this XML
+    key -- XML into the PDF parser. It must launch nothing and say why."""
+    result, _ = _run(
+        monkeypatch,
+        instance,
+        rows=[{"ingest_id": ID_A, "attempt": 2, "source_object_key": XML_KEY}],
+    )
+    assert not _requests(result)
+    assert not result.dynamic_partitions_requests
+    assert "does not match" in _skip_text(result)
+    assert XML_KEY in _skip_text(result)
+
+
+def test_a_row_of_another_kind_is_skipped_quietly(monkeypatch, instance):
+    """`kind` is a silent pre-filter: not a refusal, not a warning."""
+    result, _ = _run(
+        monkeypatch,
+        instance,
+        xml=True,
+        rows=[
+            {"ingest_id": ID_A, "attempt": 2, "source_object_key": PDF_KEY, "kind": "pdf"}
+        ],
+    )
+    assert not _requests(result)
+    text = _skip_text(result)
+    assert "'xml'" in text
+    assert "none for ingress prefix" in text
+    assert "does not match" not in text and "refused" not in text
+
+
+def test_a_content_kind_that_names_no_ingress_prefix_still_launches(
+    monkeypatch, instance
+):
+    """The rows this sensor exists for are content kind `s1000d-data-module`,
+    NOT `xml`. If the pre-filter skipped every kind != its own prefix, both
+    sensors would drop these in SILENCE -- no refusal, no warning, the queue
+    draining to nothing with no log line saying why. Only a kind naming
+    another REGISTERED prefix is skipped; anything else is judged on its key,
+    and this key is a legal XML one, so it launches."""
+    result, _ = _run(
+        monkeypatch,
+        instance,
+        xml=True,
+        rows=[
+            {
+                "ingest_id": ID_A,
+                "attempt": 2,
+                "source_object_key": XML_KEY,
+                "kind": "s1000d-data-module",
+            }
+        ],
+    )
+    (req,) = _requests(result)
+    assert req.run_key == f"{ID_A}-a2"
+
+
+def test_the_key_guard_does_not_depend_on_a_kind_field(monkeypatch, instance):
+    """The one that proves the guard needs nothing from the route: a PDF key
+    with NO `kind` at all is still refused by the XML sensor, because the
+    route is not known to send `kind`."""
+    result, _ = _run(
+        monkeypatch,
+        instance,
+        xml=True,
+        rows=[{"ingest_id": ID_A, "attempt": 2, "source_object_key": PDF_KEY}],
+    )
+    assert not _requests(result)
+    assert "does not match" in _skip_text(result)
+
+
+def test_an_unknown_ingress_prefix_fails_at_build_time():
+    with pytest.raises(ValueError, match="nope"):
+        _build(ingress_prefix="nope")

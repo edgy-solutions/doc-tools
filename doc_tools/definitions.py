@@ -202,6 +202,25 @@ ingest_retry_sensor = build_ingest_retry_sensor(
     target_op=user_document_parser.name,
     bucket="processing-artifacts",
     partition_name="user_pdf_files",
+    ingress_prefix="pdf",
+)
+
+# The XML sibling of ingest_retry_sensor, for ingress_user_xml_sensor's drops.
+# A SEPARATE SENSOR for the same reason ingress_user_xml_sensor is separate from
+# ingress_user_sensor: a sensor has ONE target_job, so a widened retry sensor
+# would run xml_graph_sync_job on a PDF or the PDF parser on an XML. What keeps
+# the two from cross-launching is the key guard (`ingress_prefix`), not the
+# partition set: `source_object_key` now bypasses the partition lookup, which
+# was the only thing that told the kinds apart. MEASURED: the retry route's
+# `kind` field appears nowhere in this repo (no code, docstring or fixture), so
+# the guard does not depend on it; `kind` is a silent pre-filter only.
+ingest_retry_sensor_xml = build_ingest_retry_sensor(
+    name="ingest_retry_sensor_xml",
+    job_name="xml_graph_sync_job",
+    target_op="extract_rdf_from_xml",
+    bucket="processing-artifacts",
+    partition_name="xml_files",
+    ingress_prefix="xml",
 )
 
 # Tells Lane 1's door what THIS image can ingest, every tick, by PUT. It
@@ -536,7 +555,7 @@ defs = Definitions(
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
     assets=list(_document_parser_defs.assets) + list(_user_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
     jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job, doors_ingest_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ingress_user_xml_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors) + [ingest_retry_sensor, processable_kinds_publisher_sensor],
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ingress_user_xml_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors) + [ingest_retry_sensor, ingest_retry_sensor_xml, processable_kinds_publisher_sensor],
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
