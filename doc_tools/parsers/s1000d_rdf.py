@@ -502,8 +502,16 @@ class S1000dGraphBuilder:
         # WHY rdf:List AND NOT mil:stepIndex. The rule was "rdf:List unless
         # mil:stepIndex already exists". It does not: measured against the
         # DEPLOYED vocabulary graph <http://internal/MAINTENANCE> (4959
-        # triples), `ASK mil:stepIndex` is False and so is an ASK for ANY mil:
-        # term at all. The 511 rdf:first triples already in that graph are OWL
+        # triples), `ASK mil:stepIndex` is False in SUBJECT, PREDICATE AND
+        # OBJECT position. Checking all three matters -- an earlier pass of
+        # this measurement asked only about predicate position and concluded
+        # "no mil: term is declared at all", which is FALSE: the graph carries
+        # 16 declared mil: terms plus the ontology header (69 triples, exactly
+        # mil_extension.ttl), and a TBox declares its terms as SUBJECTS, so a
+        # predicate-position scan cannot see any of them. What is true is
+        # narrower and still a gap: 25 of the 41 mil: terms these parsers emit
+        # are undeclared, stepIndex among the things nobody ever declared.
+        # The 511 rdf:first triples already in that graph are OWL
         # axiom plumbing (owl:intersectionOf 139, owl:unionOf 84,
         # owl:propertyChainAxiom 3) and order ZERO domain content, so they are
         # not precedent either way.
@@ -545,11 +553,15 @@ class S1000dGraphBuilder:
                 step_uri = self.MIL[f"step-{scope}-{proc_pos}-{step_pos}"]
                 text = _collapse_ws(" ".join(step_el.itertext()))
                 self.graph.add((step_uri, RDF.type, self.MIL.ProceduralStep))
-                # Day 2 (the mil.ttl TBox we owe) declares mil:ProceduralStep
-                # an rdfs:subClassOf iof-maint:ProcedureStep, which IS declared
-                # in the vocabulary graph and carries no ordering predicate.
-                # Emitting the mil: class now and tying it there later keeps
-                # one namespace for everything this builder coins.
+                # Day 2 declares mil:ProceduralStep an rdfs:subClassOf of the
+                # vocabulary's own ProcedureStep class, which carries no
+                # ordering predicate. The carrier for that declaration already
+                # exists and is NOT a new file in this repo: it is
+                # setup/ontologies/mil_extension.ttl in invincible-agent,
+                # stamped domain=MAINTENANCE and primed into
+                # <http://internal/MAINTENANCE>. Emitting the mil: class now
+                # and tying it there later keeps one namespace for everything
+                # this builder coins.
                 self.graph.add((step_uri, RDFS.label, Literal(f"step {proc_pos}.{step_pos}")))
                 if text:
                     self.graph.add((step_uri, self.MIL.hasStepText, Literal(text)))

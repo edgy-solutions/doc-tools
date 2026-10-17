@@ -724,8 +724,10 @@ def test_s1000d_procedure_steps_are_an_ordered_rdf_list():
 
     rdf:List, not mil:stepIndex, because mil:stepIndex does not exist:
     measured against the deployed vocabulary graph
-    <http://internal/MAINTENANCE>, an ASK for it is False and so is an ASK
-    for any mil: term at all."""
+    <http://internal/MAINTENANCE>, an ASK for it is False in subject,
+    predicate AND object position. (16 other mil: terms ARE declared there;
+    the earlier "none at all" reading came from scanning only predicate
+    position, where a TBox declaration never appears.)"""
     b = S1000dGraphBuilder(doc_id="mrad-720a")
     dmc_uri = b.parse_data_module(MRAD_720A.read_bytes())
 
