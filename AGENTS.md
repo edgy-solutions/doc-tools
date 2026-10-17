@@ -41,6 +41,12 @@ a fresh session repeating a retracted measurement.
 ## Safety Guardrails
 - **Dynamic Queries**: Be extremely careful with Cypher query string formatting for dynamic labels to avoid injection vulnerability or syntax errors. Only use bounded f-strings against `config.graph_node_label` etc, and parameterize everything else natively.
 - **Containerization**: This project uses standard **Dockerfiles** managed in `.github/workflows/build-container.yml`. System-level packages belong in the `apt-get install` block within the Dockerfile generator step.
+- **`kubectl rollout status` says "successfully rolled out" while the OLD pod is still `Running`.** Measured 2026-10-17 on helm rev 48: for ~84s after that message, both the new and the previous pod were `Running` (the old one pending termination), so a read of "the pods" `.status.containerStatuses[*].imageID` returned **two distinct digests**. This matters because `corpusGate.expectImage` must be *read back* off the pods rather than copied from the `image.digest` you just typed in — that independent reading is the whole point of the two-roll sequence. A read taken on the strength of the rollout message can capture **the digest being replaced**, arming the gate against the wrong image; worse, it makes a recorded "ONE distinct value" false, so the record claims a check that was never performed. Wait for the pod count to settle before reading:
+  ```bash
+  until [ "$(kubectl get pods -n sandbox -l app.kubernetes.io/name=doc-tools \
+    --no-headers | wc -l)" = "1" ]; do sleep 10; done
+  ```
+  Then assert the distinct digest count is 1 rather than assuming it. The pod-count form is only valid for a single-replica Deployment; with more replicas, count **distinct digests** and require exactly one.
 
 ## Extension Patterns
 - **Adding a New Domain**: Do not write raw litellm or langchain logic in the assets. 
