@@ -141,3 +141,43 @@ roll again; `expectImage` is never copied from the digest just typed into
 `image.digest`. Both rolls should land before 07:00Z, which is the sandbox
 nightly's schedule, so the stale-`expectImage` window never contains a gate run.
 Chris rolls.
+
+## 6. The pin is ROLLED — both rolls, the seal, and the window
+
+Rolling is now this lane's (`helm upgrade` in the allow list). Reported as asked,
+helm rev and pod `imageID` after each.
+
+| roll | commit | helm | pods `imageID` |
+|---|---|---|---|
+| 1 | `1d40833` (#124) | **rev 46**, `deployed`, 03:09Z | ONE distinct value, `ghcr.io/edgy-solutions/doc-tools@sha256:5846f877ce3e...` |
+| 2 | `bbe02ce` (#126) | **rev 47**, `deployed`, 03:16Z | unchanged — same pod, `restartCount` 0 |
+
+**Roll 2 restarting nothing is the correct outcome, not a no-op roll.** Its only
+rendered change was the gate CronJob env; the Deployment pod spec was untouched.
+Verified from both sides: the pre-roll diff carried exactly one real line
+(`expectImage`, `85ad4c9d` -> `5846f877`), and the pod still shows its roll-1
+start time with zero restarts.
+
+**Seal: three of three PASS** (`scratchpad/seal_image_identity.py`) — gate
+expectation == `DOC_TOOLS_IMAGE` == chart `image.digest` == pods `imageID`.
+
+**`expectImage` was read, not predicted.** Written from the pods after roll 1,
+not copied from the digest typed into `image.digest`. It happens to equal it —
+that equality is the result being asserted, and had I sourced the value from the
+chart the check would have compared the file against itself.
+
+**The red window never contained a gate run.** Seven minutes wide, 03:09Z-03:16Z,
+and nearly four hours clear of `0 7 * * *`. That the window was red at all is
+established rather than assumed: `expectImage` was ABSENT from roll 1's pre-roll
+diff, and an absent field is positive confirmation it is unchanged — pods at
+`5846f877` against an expectation of `85ad4c9d`.
+
+**Lane 1:** the digest is
+`sha256:5846f877ce3e41a89f7df373a41faa14503991b8928f6a84bb18e49c08a1887b`, live
+in sandbox since 03:09Z. This is the pin that carries `ingestable_kinds()` and
+the PUT publisher, so `INGEST_DOOR_READS_PROCESSABLE_KINDS` now has a producer
+on the other side of it.
+
+Pre-roll diffs and roll logs: `scratchpad/preroll_5846f877.log`,
+`scratchpad/roll_5846f877.log`, `scratchpad/preroll2_5846f877.log`,
+`scratchpad/roll2_5846f877.log`.
