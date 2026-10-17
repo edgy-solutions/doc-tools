@@ -1022,7 +1022,58 @@ image:
   # from three fires after the roll and are recorded in the session report named
   # in this commit message.
   # ------------------------------------------------------------------
-  digest: "sha256:85ad4c9db2bee559f051ff541648a4fad8b6b9729c44155fe488fb1b0a558437"
+  # 2026-10-16, SECOND PIN OF THE DAY -- sha256:5846f877... (af53f15, the merge
+  # of #123). Four PRs ride this one pin, merged in the ruled order: #120
+  # (9b538e7, the retry-poller correction), #121 (fe5d4d6, rule 7 for the IDT
+  # crop box + crop rates + seal totals in latest.json), #118 (4c7d740, the
+  # kinds route, CODE-ONLY per F2), #123 (af53f15, ingestable_kinds() + the PUT
+  # publisher).
+  #
+  # Children fetched from the index, not merely assumed present:
+  #     linux/amd64  sha256:34b9e262...
+  #     linux/arm64  sha256:384fda0a...
+  # Both `application/vnd.oci.image.manifest.v1+json`; the arm64 child for the
+  # reason at the top of this file. The index also carries the unknown/unknown
+  # buildx attestation entries, which never satisfy a platform requirement.
+  #
+  # THE DIGEST CAME FROM TWO INDEPENDENT SOURCES THAT AGREE, which is the point
+  # of saying so: the registry's own `docker-content-digest` for the
+  # `:af53f15010274dc97069367a68cdc6cd94e83b66` tag, and the `digest=` line the
+  # push-event run on main printed (38972898894, success). A digest read only
+  # off a build log is a transcription with one witness.
+  #
+  # WHAT THIS PIN IS EXPECTED TO CHANGE IN THE REPORT, AND WHAT IT IS NOT:
+  #   - #121 fixes the IDT p1 crop box (deterministic) and lands crops_failed /
+  #     seal totals in RATE_FLAGS and latest.json. The crop seal is what gated
+  #     exit 0 on the previous pin while two of three fires were 522/522, so a
+  #     VERDICT FLIP here is #121 working. The seal is deterministic (identical
+  #     across three fires), so if it is still red it is red for a different
+  #     edge than the one rule 7 addressed -- read which edge before reading it
+  #     as a regression.
+  #   - #120 and #118 touch NO extraction path, and #123's publisher runs in a
+  #     sensor, not in a pass. So the parts score is expected UNCHANGED. A move
+  #     either way is a finding, not a win.
+  #   - #123 adds a sensor that PUTs to `iagent-cortex-bff:8090`. Until Lane 1
+  #     deploys that route it logs 404 "not deployed yet" on every tick and
+  #     changes nothing else; a 404 here is the expected state, not a fault.
+  #
+  # CARRY-FORWARDS EXPECTED PRESENT, NOT FIXED, HERE: the Diodes `doc_id` label
+  # leak (stochastic, 7 of 7 nights) and the TI `mfr` misformat (5 of 6, NOT
+  # deterministic -- a clean fire on it is not evidence of a fix).
+  #
+  # `corpusGate.expectImage` FURTHER DOWN THIS FILE IS DELIBERATELY STILL AT
+  # 85ad4c9d AS THIS PIN LANDS. It is written from the running pods' `imageID`
+  # AFTER the roll, never by copying the digest typed on the line below --
+  # copying it would make the gate compare this file against itself. So this is
+  # two rolls, and the second is not optional. The sandbox gate CronJob is
+  # enabled on `0 7 * * *`, so both rolls landing the same day keeps the
+  # stale-expectImage window clear of a nightly run.
+  #
+  # Measurements on THIS digest are not in at the time of the bump. They come
+  # from three fires after the roll and are recorded in the session report named
+  # in this commit message.
+  # ------------------------------------------------------------------
+  digest: "sha256:5846f877ce3e41a89f7df373a41faa14503991b8928f6a84bb18e49c08a1887b"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
