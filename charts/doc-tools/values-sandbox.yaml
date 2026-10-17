@@ -1072,8 +1072,68 @@ image:
   # Measurements on THIS digest are not in at the time of the bump. They come
   # from three fires after the roll and are recorded in the session report named
   # in this commit message.
+  # ==================================================================
+  # PIN BUMPED 2026-10-17 to f4d6440 -- the #127 merge, the XML path's SECOND
+  # RDF write. Third and last pin of the 2026-10-16/17 sequence, rolled by this
+  # lane (the architect put `helm upgrade` in the allow list and made pins 7f's
+  # to roll). One merge since af53f15, not four: this pin carries exactly #127.
+  #
+  # WHY IT NEEDED A NEW IMAGE AT ALL, unlike the two pins below it: those moved
+  # chart values only. This one changes Python that runs in the code location --
+  # `upload_to_jena` now does a SECOND write, additive `INSERT DATA` through
+  # `JenaClient.execute_update` into `http://internal/<DOMAIN>_INSTANCES`, after
+  # the `urn:doc:<s3_key>` PUT it already did. Before this image, the XML path
+  # wrote RDF exactly once and no module's content was in any graph a
+  # domain-scoped reader looks at.
+  #
+  # THIS PIN CANNOT MOVE THE CORPUS SCORE. It touches the XML/S1000D path only;
+  # the PCN parts and header paths are untouched, and the gate scores PCN
+  # notices. If the next nightly moves off 522/522, this pin is not the cause
+  # and should not be blamed for it.
+  #
+  # WHAT TO WATCH INSTEAD, and it is falsifiable by ONE count.
+  # `http://internal/MAINTENANCE_INSTANCES` held ZERO triples when this pin was
+  # cut (measured in the pod; `MAINTENANCE` vocabulary held 4959, and the pair
+  # that already works is `SUSTAINMENT` 10922 / `SUSTAINMENT_INSTANCES` 1990).
+  # After the ten MRAD modules are re-dropped it must read 112 -- the DISTINCT
+  # union of the ten `urn:doc:` graphs, over 20 subjects. 193 (the sum WITH
+  # duplicates) means the write is accumulating instead of being a set no-op,
+  # and the idempotency claim in the commit message is wrong. ~99 means the repo
+  # fixtures rather than the dropped bytes reached the graph.
+  #
+  # THE RE-DROP IS NOT AUTOMATIC AND A RETRY IS NOT FREE: a failed run's
+  # `run_key` is consumed permanently (only NOT_STARTED falls through, and there
+  # is no time window), so a retry MUST mint a new key. The retry sensor that
+  # would do so has zero runs because nothing enqueues a failure.
+  #
+  # A green `build-and-push` is NOT evidence an image exists -- the push step is
+  # gated on the event not being a pull_request, so PR runs compile both
+  # architectures and publish nothing. This digest comes from the `push`-event
+  # run on main (38999054397), and from TWO INDEPENDENT WITNESSES that agree:
+  # the run's own `digest=` output, and the REGISTRY's answer for the
+  # commit-sha tag `f4d64400f30f...` fetched separately. ghcr sent no
+  # Docker-Content-Digest header on either fetch, so the digest is COMPUTED FROM
+  # THE RESPONSE BODY -- a header is a claim about the body, and the body is the
+  # thing.
+  #
+  # INDEX VERIFIED BEFORE COMMITTING, children fetched BY THEIR OWN DIGEST
+  # (regenerated for this pin, never carried forward from the block below):
+  #     linux/amd64  sha256:f9cb3a5482eeac4b127ec45e8dd568a0983804547b7391b19f15275d4319e524
+  #     linux/arm64  sha256:4a35140a9dbc5db285154c28a8cb36568a38b85040db941210f149a1730bb794
+  # Both return 200 as OCI image manifests on their own digest, and each one's
+  # CONFIG BLOB was read to confirm the architecture it was actually built for
+  # rather than trusting the index's platform claim. Two unknown/unknown entries
+  # are buildx provenance/SBOM attestations and satisfy no platform. The arm64
+  # child is the load-bearing one: sandbox schedules onto arm workers, so an
+  # index whose arm64 child is missing or stale pulls green here and fails there.
+  #
+  # `corpusGate.expectImage` is NOT moved in this edit. It is written in a
+  # SECOND roll from the digest read back off the running pods, because copying
+  # the digest typed in above into it would make the gate compare this file
+  # against itself. Between the two rolls the gate is RED BY CONSTRUCTION; both
+  # rolls land well clear of the 07:00Z window.
   # ------------------------------------------------------------------
-  digest: "sha256:5846f877ce3e41a89f7df373a41faa14503991b8928f6a84bb18e49c08a1887b"
+  digest: "sha256:2bf85719d2ca8e0cd651df4f45a0ce563732e059d59cafca009839ba3c4fbaa9"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -1339,7 +1399,27 @@ corpusGate:
   # appear in it, so the gate would have compared a `5846f877` run against an
   # `85ad4c9d` expectation. Both rolls were therefore taken the same evening,
   # before the 07:00Z nightly, so no gate run fell inside that window.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:5846f877ce3e41a89f7df373a41faa14503991b8928f6a84bb18e49c08a1887b"
+  #
+  # 2026-10-17, READ-THEN-WRITE, THIRD TIME. The f4d6440 pin
+  # (`sha256:2bf85719`, one merge: #127, the XML path's second RDF write) rolled
+  # as helm REVISION 48, `deployed`, at 04:08Z. This value was then read off the
+  # pod -- `custom-columns=...:.status.containerStatuses[*].imageID`, ONE
+  # distinct value -- and written from that reading.
+  #
+  # THE OLD POD WAS STILL RUNNING WHEN THE ROLLOUT REPORTED SUCCESS. `kubectl
+  # rollout status` said "successfully rolled out" while the previous pod was
+  # still in `Running`, pending termination, so for ~84s a read of "the pods"
+  # would have returned TWO distinct imageIDs -- `5846f877` and `2bf85719` --
+  # and "ONE distinct value" would have been false. This value was taken only
+  # after the pod count came back to 1. A read taken on the strength of the
+  # rollout message alone can capture the digest being replaced.
+  #
+  # The window between the two rolls was RED on image identity by construction,
+  # and the pre-roll diff proved it rather than assuming it: `expectImage`
+  # appeared ZERO times in it, so the gate would have compared a `2bf85719` run
+  # against a `5846f877` expectation. Both rolls were taken inside an hour,
+  # ~3h clear of the 07:00Z nightly, so no gate run fell inside the window.
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:2bf85719d2ca8e0cd651df4f45a0ce563732e059d59cafca009839ba3c4fbaa9"
   publish:
     repo: edgy-solutions/doc-tools
 
