@@ -444,6 +444,26 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
 _BY_KIND: dict[str, ContentKindEntry] = {e.kind: e for e in KIND_MAPPING.values()}
 
 
+def domain_label_for_kind(kind: str) -> Optional[str]:
+    """Uppercase domain label for a registered kind, or None when the kind is
+    unknown or declares no domain.
+
+    Exists so the label has ONE definition per route. A kind-derived label and
+    a plugin-derived label (``BaseDomainPlugin.domain_label``,
+    plugins/base.py:175-180) computed two different ways drift apart, exactly
+    as the two processability arms did. The sanitization here is deliberately
+    byte-for-byte that property's: ``.upper().replace(" ", "_").replace("-", "_")``.
+
+    Resolves through ``_BY_KIND``, the module's one kind index, rather than
+    scanning ``KIND_MAPPING`` again -- a second traversal is a second lookup
+    convention, and those are what drift.
+    """
+    entry = _BY_KIND.get(kind)
+    if entry is None or not entry.domain_type:
+        return None
+    return entry.domain_type.upper().replace(" ", "_").replace("-", "_")
+
+
 def _lookup(kind_source_value: Optional[str]) -> Optional[ContentKindEntry]:
     """One lookup over both spellings. ``None`` in → ``None`` out → HALT."""
     if not kind_source_value:
