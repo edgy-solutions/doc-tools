@@ -25,6 +25,13 @@ from doc_tools.parsers.mil_std_40051_rdf import MilStd40051GraphBuilder
 MIL = Namespace("http://edgy-solutions.com/ontology/mil#")
 PREFIX = "https://cdn.example/img/"
 HOTSPOT_FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "s1000d" / "hotspot"
+MRAD_FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "s1000d" / "mrad"
+# The two procedural modules of the six. Measured: 520A carries 4
+# proceduralStep elements and 720A carries 5, every one a direct child of
+# mainProcedure. The other four carry none at all, which is what makes the
+# "no procedure emits no head" case a real corpus case and not a contrivance.
+MRAD_720A = MRAD_FIXTURES / "DMC-ODMRAD-A-34-10-01-00A-720A-A_001-00_EN-US.xml"
+MRAD_040A = MRAD_FIXTURES / "DMC-ODMRAD-A-34-10-01-00A-040A-A_001-00_EN-US.xml"
 
 
 # --------------------------------------------------------------------------- #
@@ -689,6 +696,133 @@ def test_s1000d_hotspot_ids_resolve_into_the_svg_artwork():
     assert svg_ids - extracted_ids, (
         "expected at least one SVG id with no claiming catalog item"
     )
+
+
+def _walk_steps(graph, head):
+    """Follow rdf:first/rdf:rest from `head` and return the step URIs in order.
+
+    Deliberately a manual walk and not rdflib's Collection: Collection is
+    tolerant of a list that runs off the end, and the thing most worth
+    asserting about this list is that it TERMINATES at rdf:nil.
+    """
+    steps, cell, seen = [], head, set()
+    while cell != RDF.nil:
+        assert cell not in seen, f"cycle in the procedure list at {cell}"
+        seen.add(cell)
+        first = list(graph.objects(cell, RDF.first))
+        rest = list(graph.objects(cell, RDF.rest))
+        assert len(first) == 1, f"cell {cell} has {len(first)} rdf:first objects"
+        assert len(rest) == 1, f"cell {cell} has {len(rest)} rdf:rest objects"
+        steps.append(first[0])
+        cell = rest[0]
+    return steps
+
+
+def test_s1000d_procedure_steps_are_an_ordered_rdf_list():
+    """The 720A module's five steps must come back in DOCUMENT order from a
+    list hung off the MODULE subject and terminated by rdf:nil.
+
+    rdf:List, not mil:stepIndex, because mil:stepIndex does not exist:
+    measured against the deployed vocabulary graph
+    <http://internal/MAINTENANCE>, an ASK for it is False and so is an ASK
+    for any mil: term at all."""
+    b = S1000dGraphBuilder(doc_id="mrad-720a")
+    dmc_uri = b.parse_data_module(MRAD_720A.read_bytes())
+
+    heads = list(b.graph.objects(URIRef(dmc_uri), MIL.hasProcedureSteps))
+    assert len(heads) == 1, f"expected one procedure list head, got {heads}"
+
+    steps = _walk_steps(b.graph, heads[0])
+    assert len(steps) == 5, f"expected 5 ordered steps, got {len(steps)}"
+    for step in steps:
+        assert (step, RDF.type, MIL.ProceduralStep) in b.graph
+
+    texts = [str(next(b.graph.objects(s, MIL.hasStepText))) for s in steps]
+    # Order is the assertion. These are the first words of the five steps as
+    # the fixture prints them, in the fixture's order.
+    assert [t.split()[0] for t in texts] == [
+        "Position", "Install", "Connect", "Restore", "Run",
+    ], texts
+    # A hard-wrapped <para> must not leave its newline and indent in the
+    # literal (step 2 wraps before "ODM-SE-0001").
+    assert "\n" in MRAD_720A.read_text(encoding="utf-8")
+    assert all("\n" not in t and "  " not in t for t in texts), texts
+    assert "ODM-SE-0001" in texts[1], texts[1]
+
+
+def test_s1000d_procedure_list_cells_are_uris_so_re_ingest_cannot_duplicate():
+    """The list must contain NO blank nodes, and re-parsing the same bytes
+    must not grow the graph.
+
+    This is not style. The instance-graph write serializes this graph to
+    N-Triples and sends it as SPARQL INSERT DATA, which mints a FRESH blank
+    node per execution — so a blank-node list (rdflib's Collection default)
+    would append an entire second procedure on every re-ingest, and the
+    idempotency proof the architect asked for would fail for a reason nothing
+    in the parser's own tests would show."""
+    xml_bytes = MRAD_720A.read_bytes()
+    b = S1000dGraphBuilder(doc_id="mrad-720a")
+    b.parse_data_module(xml_bytes)
+
+    head = next(iter(b.graph.objects(None, MIL.hasProcedureSteps)))
+    cells = [head] + [
+        o for o in b.graph.objects(None, RDF.rest) if o != RDF.nil
+    ]
+    assert cells, "no list cells found"
+    for term in cells + _walk_steps(b.graph, head):
+        assert isinstance(term, URIRef), f"{term!r} is not a URIRef"
+
+    before = len(b.graph)
+    b.parse_data_module(xml_bytes)
+    assert len(b.graph) == before, (
+        f"re-parsing the same bytes grew the graph by {len(b.graph) - before} "
+        f"triples; the re-ingest would not be set-idempotent"
+    )
+
+    other = S1000dGraphBuilder(doc_id="mrad-720a")
+    other.parse_data_module(xml_bytes)
+    assert sorted(other.graph.serialize(format="nt").splitlines()) == sorted(
+        b.graph.serialize(format="nt").splitlines()
+    ), "two builders over the same bytes disagree, so the subjects are not deterministic"
+
+
+def test_s1000d_a_module_with_no_procedure_emits_no_list_head():
+    """Four of the six MRAD modules carry no proceduralStep. Those must emit
+    no head at all — never an empty list, which a consumer would walk into
+    and render as a procedure with no steps rather than as no procedure."""
+    b = S1000dGraphBuilder(doc_id="mrad-040a")
+    dmc_uri = b.parse_data_module(MRAD_040A.read_bytes())
+    assert list(b.graph.objects(URIRef(dmc_uri), MIL.hasProcedureSteps)) == []
+    assert list(b.graph.subjects(RDF.type, MIL.ProceduralStep)) == []
+
+
+def test_s1000d_a_nested_procedural_step_is_folded_not_dropped():
+    """S1000D permits proceduralStep nesting and the MRAD corpus has none, so
+    only direct children are ORDERED. A nested step must still not vanish:
+    its text is folded into the enclosing step's literal, where it is
+    visible, rather than silently discarded."""
+    xml = b"""
+<dmodule>
+  <identAndStatusSection><dmAddress><dmIdent>
+    <dmCode modelIdentCode="AE" systemDiffCode="A" systemCode="32" subSystemCode="1"
+            subSubSystemCode="0" assyCode="00" disasCode="00" disasCodeVariant="A"
+            infoCode="720" infoCodeVariant="A" itemLocationCode="A"/>
+  </dmIdent></dmAddress></identAndStatusSection>
+  <content><procedure><mainProcedure>
+    <proceduralStep>
+      <para>Outer step.</para>
+      <proceduralStep><para>Inner step.</para></proceduralStep>
+    </proceduralStep>
+  </mainProcedure></procedure></content>
+</dmodule>
+"""
+    b = S1000dGraphBuilder(doc_id="nested")
+    dmc_uri = b.parse_data_module(xml)
+    head = next(iter(b.graph.objects(URIRef(dmc_uri), MIL.hasProcedureSteps)))
+    steps = _walk_steps(b.graph, head)
+    assert len(steps) == 1, f"only the direct child is ordered, got {len(steps)}"
+    text = str(next(b.graph.objects(steps[0], MIL.hasStepText)))
+    assert "Outer step." in text and "Inner step." in text, text
 
 
 # --------------------------------------------------------------------------- #

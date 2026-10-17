@@ -31,6 +31,22 @@ def _fragment(value: str) -> str:
     return _FRAGMENT_UNSAFE.sub("_", value.strip())
 
 
+_WHITESPACE_RUN = re.compile(r"\s+")
+
+
+def _collapse_ws(value: str) -> str:
+    """Collapse whitespace runs in element text.
+
+    Needed, not cosmetic: S1000D authoring tools hard-wrap a <para> at the
+    column and indent the continuation, so the raw text of a step in the MRAD
+    corpus arrives as "Install the two mounting screws using the array module
+    extraction tool,\n          ODM-SE-0001." A literal carrying that newline
+    and run of spaces does not compare equal to the same sentence anywhere
+    else, and a renderer shows the wrap.
+    """
+    return _WHITESPACE_RUN.sub(" ", value).strip()
+
+
 class S1000dGraphBuilder:
     """
     Generic parser that ingests S1000D XML Data Modules and converts them
@@ -68,6 +84,12 @@ class S1000dGraphBuilder:
         # is exercised only by the authored fixture at
         # tests/fixtures/s1000d/hotspot/ — not by real S1000D markup.
         self.HAS_HOTSPOT_ID = self.MIL.hasHotspotId
+
+        # The rdf:List-valued procedures property (section 9). Named in the
+        # plural and pointing at a list HEAD, not at a step: a consumer that
+        # reads it expecting one step gets a cell, which fails loudly rather
+        # than rendering step 1 as the whole procedure.
+        self.HAS_PROCEDURE_STEPS = self.MIL.hasProcedureSteps
 
     @property
     def doc_slug(self) -> str:
@@ -474,6 +496,85 @@ class S1000dGraphBuilder:
                 part_uri = self._part_node(pn, scope)
                 self.graph.add((dmc_uri, self.HAS_PART, part_uri))
                 self.graph.add((it_uri, self.HAS_PART, part_uri))
+
+        # 9. Procedure order (//mainProcedure/proceduralStep) as an rdf:List.
+        #
+        # WHY rdf:List AND NOT mil:stepIndex. The rule was "rdf:List unless
+        # mil:stepIndex already exists". It does not: measured against the
+        # DEPLOYED vocabulary graph <http://internal/MAINTENANCE> (4959
+        # triples), `ASK mil:stepIndex` is False and so is an ASK for ANY mil:
+        # term at all. The 511 rdf:first triples already in that graph are OWL
+        # axiom plumbing (owl:intersectionOf 139, owl:unionOf 84,
+        # owl:propertyChainAxiom 3) and order ZERO domain content, so they are
+        # not precedent either way.
+        #
+        # WHY THE LIST CELLS ARE URIs AND NOT BLANK NODES. rdflib's
+        # Collection mints blank nodes; this must not. The instance-graph
+        # write (assets/semantic_assets.py, SECOND WRITE) serializes this
+        # graph to N-Triples and sends it as SPARQL INSERT DATA, and INSERT
+        # DATA mints a FRESH blank node on every execution. A blank-node list
+        # would therefore append an entire second list on re-ingest and break
+        # the set-idempotency that write documents and depends on ("the S1000D
+        # builder emits no timestamp, no uuid and no prov term"). Deterministic
+        # cell URIs keep the retry body byte-identical, which is also what the
+        # idempotency proof (re-run one module, count unchanged) rests on.
+        #
+        # ONLY DIRECT CHILDREN ARE ORDERED. S1000D permits proceduralStep
+        # nesting; the six MRAD modules contain none (measured: 520A has 4 and
+        # 720A has 5, every one at depth 1), so a sub-list shape would be
+        # unexercised code guessing at markup nobody in this corpus has. A
+        # nested step is NOT dropped silently -- itertext() folds its text into
+        # the enclosing step's text, which is visible in the literal.
+        #
+        # Cells are deliberately NOT typed rdf:List. A walk reaches them by
+        # rdf:rest*/rdf:first, which needs no type, and typing them would add
+        # one triple per step to every procedural module to say nothing.
+        for proc_pos, proc_el in enumerate(root.xpath("//mainProcedure"), start=1):
+            step_elements = proc_el.xpath("./proceduralStep")
+            if not step_elements:
+                continue
+            step_uris = []
+            for step_pos, step_el in enumerate(step_elements, start=1):
+                # Keying on the ORDINAL here is deliberate, and is not the
+                # fig_0 defect of section 5. That defect was a loop index
+                # standing in for an identity that EXISTED in the markup. A
+                # step has no code, no part number and no title, and two steps
+                # in one procedure may carry byte-identical text ("Run BIT."),
+                # so its position in its procedure IS its identity -- which is
+                # also exactly what this section is asked to record.
+                step_uri = self.MIL[f"step-{scope}-{proc_pos}-{step_pos}"]
+                text = _collapse_ws(" ".join(step_el.itertext()))
+                self.graph.add((step_uri, RDF.type, self.MIL.ProceduralStep))
+                # Day 2 (the mil.ttl TBox we owe) declares mil:ProceduralStep
+                # an rdfs:subClassOf iof-maint:ProcedureStep, which IS declared
+                # in the vocabulary graph and carries no ordering predicate.
+                # Emitting the mil: class now and tying it there later keeps
+                # one namespace for everything this builder coins.
+                self.graph.add((step_uri, RDFS.label, Literal(f"step {proc_pos}.{step_pos}")))
+                if text:
+                    self.graph.add((step_uri, self.MIL.hasStepText, Literal(text)))
+                step_uris.append(step_uri)
+
+            for idx, step_uri in enumerate(step_uris, start=1):
+                cell = self.MIL[f"proclist-{scope}-{proc_pos}-{idx}"]
+                self.graph.add((cell, RDF.first, step_uri))
+                # rdf:nil terminates the last cell. Without it the list is not
+                # a list: a consumer walking rdf:rest cannot tell the end from
+                # a gap, and SPARQL's rdf:rest* path silently stops early.
+                rest = (
+                    self.MIL[f"proclist-{scope}-{proc_pos}-{idx + 1}"]
+                    if idx < len(step_uris)
+                    else RDF.nil
+                )
+                self.graph.add((cell, RDF.rest, rest))
+
+            # The head goes on the MODULE subject, so the whole procedure is
+            # reachable from the data module without knowing the cell naming.
+            self.graph.add((
+                dmc_uri,
+                self.HAS_PROCEDURE_STEPS,
+                self.MIL[f"proclist-{scope}-{proc_pos}-1"],
+            ))
 
         return str(dmc_uri)
 
