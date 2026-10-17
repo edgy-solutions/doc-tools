@@ -51,13 +51,22 @@ into `ingress-user/cad/{sha256}/{file}` is never seen. This is the same shape
 already measured for XML: ten MRAD drops arrived in `ingress-user/xml/` and no
 sensor fired, because the declared prefix is not a watched one.
 
-So gap 1 is a **decision, not a line of code**: widen that sensor's filter to
-the registry's prefixes, or add a second sensor per prefix. Widening means one
-sensor's partition set spans formats with different parsers; a second sensor
-means a second cursor to go stale. Both are live choices with precedent
-problems in this repo, and whoever rules on it should know that a watched
-prefix's cursor is a LastModified watermark whose backing object must never be
-deleted.
+**This is not an open question, and I had it wrong when I first wrote this
+section.** The repo has already decided it, twice, and the reason is in
+`definitions.py:225-229`: **a sensor has ONE `target_job`**, so widening the PDF
+sensor's regex to accept another format would route that format into the PDF
+parser — the D2 defect that comment exists to prevent. The answer is therefore
+**a separate sensor per kind**, and `ingress_user_xml_sensor` is the standing
+precedent for exactly that.
+
+Confirmed again the same night, in code: the xml **retry** sensor (PR #135) was
+built as a second sensor for the same reason. So a cad kind needs its own
+drop sensor and its own retry sensor, which is a small, precedented change —
+**not a ruling**. Two things learned there apply here directly: a retry row
+whose `source_object_key` is present **bypasses** the partition-set lookup, so
+each sensor needs a key-shape guard from its own registry row or the sensors
+cross-launch; and a watched prefix's cursor is a LastModified watermark whose
+backing object must never be deleted.
 
 ### 2. The row declares no prefix and no suffixes
 
@@ -123,8 +132,10 @@ must keep them apart: the drop path may say `cad`, and the sidecar's
 
 ## What this means for sequencing
 
-Gaps 2, 3 and 5 are small and local to this repo. Gap 1 is a ruling. Gap 4 is
-the actual project, and it is per-format. Gap 6 is a cross-lane contract note.
+Gaps 1, 2, 3 and 5 are small and local to this repo — gap 1 only because the
+per-kind-sensor pattern is already settled and now has two implementations to
+copy. Gap 4 is the actual project, and it is per-format. Gap 6 is a cross-lane
+contract note.
 
 **Recommendation:** do not open a cad lane on the strength of the row existing.
 The honest first increment is **STEP only** — a real extractor for STEP header
