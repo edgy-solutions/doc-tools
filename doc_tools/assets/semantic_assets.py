@@ -935,12 +935,49 @@ def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, j
     #    http://internal/<DOMAIN> vocabulary graph: the peer prime DROPs that one
     #    first on every re-ingest (AGENTS.md:118-140), which already collided once
     #    in production.
-    #  - Additive INSERT DATA over POST, never PUT: the graph is shared by every
-    #    module of the domain, and a PUT would clobber the others.
-    #  - Set-idempotent on retry BECAUSE the S1000D builder emits no timestamp,
-    #    no uuid and no prov term (grepped). Adding a volatile triple to the
-    #    parser later makes every retry ADD triples, so it is visibly a change to
-    #    this guarantee. The sorted N-Triples keep the retry body byte-identical.
+    #  - DMC-KEYED SUPERSEDE, not a bare additive insert (architect ruling 2 of
+    #    2026-10-17). Once a module can be re-dropped with NEW bytes,
+    #    "idempotent" has to mean "the graph holds the CURRENT state of this
+    #    module", not the weaker "re-running the same bytes adds nothing" this
+    #    comment used to claim. Measured why the bare INSERT was wrong: the ten
+    #    MRAD drops are six distinct modules, four of them dropped twice, and
+    #    two of those pairs DISAGREE on content (720A at 19 triples vs 14, 520A
+    #    at 14 vs 9). Under a pure INSERT the graph accumulates both versions
+    #    and no reader can tell which is current; and a re-drop with FEWER
+    #    steps leaves step-/proclist- subjects orphaned for ever.
+    #  - Still never PUT: the graph is shared by every module of the domain, so
+    #    a whole-graph replace would clobber the siblings. The DELETE is scoped
+    #    to this one module's subjects.
+    #  - DELETE and INSERT go in ONE request, separated by ';'. A SPARQL Update
+    #    request is applied in a single Fuseki transaction, so the supersede is
+    #    atomic. Issued as two calls, a DELETE that commits followed by an
+    #    INSERT that fails would leave the module with NO triples at all --
+    #    strictly worse than the duplication being fixed.
+    #  - Scope of the DELETE, measured BEFORE it was written
+    #    (scratchpad/dmc_supersede_predicate.py; 6 MRAD modules, 36 subjects):
+    #      * every subject is either root_uri or contains "-<slug>-": 0 of 36
+    #        uncovered, across 9 shapes (dmc- plus the 8 scoped prefixes
+    #        part-/tool-/fig-/faultcode-/interval-/item-/step-/proclist-);
+    #      * BOTH legs are required. root_uri's local name is
+    #        "dmc-ODMRAD-...-040A-A" while the slug is "DMC-ODMRAD-...-040A" --
+    #        different case, no leading "DMC-", trailing "-A" -- so the module's
+    #        own subject does NOT match the slug test;
+    #      * 0 shared subjects and 0 shared triples between modules, so the
+    #        blast radius on a sibling is 0. This is the opposite of the PCN
+    #        side, where component IRIs ARE shared across notices and
+    #        delete-by-subject is destructive;
+    #      * no dmRef TARGET is ever a subject (s1000d_rdf.py:243 mints
+    #        dmc-<target> in OBJECT position only), so this deletes nothing
+    #        another module owns.
+    #    The slug is hyphen-delimited in the filter so it cannot match a longer
+    #    slug by bare substring; 0 collisions among the six, and a well-formed
+    #    DMC does not extend another DMC. tests/ pins that count at 0.
+    #  - No doc_slug means the parser does not scope its subjects per document
+    #    at all (iads/dita/40051). Those stay ADDITIVE and warn: deleting by
+    #    their unscoped subjects would take a SIBLING document's triples, which
+    #    is the destructive case above. Currently unreachable -- only
+    #    s1000d-data-module is routed -- but it must not silently arm if one of
+    #    them is wired up.
     #  - A missing domain is a defect in extract_rdf_from_xml and RAISES: a
     #    tolerated skip is a path nobody fixes. The urn:doc: PUT above is
     #    idempotent, so the retry is safe.
@@ -967,11 +1004,55 @@ def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, j
     nt_lines = sorted(
         ln for ln in g.serialize(format="nt").splitlines() if ln.strip()
     )
-    body = (
+    insert_op = (
         f"INSERT DATA {{ GRAPH <{instance_graph}> {{\n"
         + "\n".join(nt_lines)
         + "\n} }"
     )
+
+    doc_slug = extract_rdf_from_xml.get("doc_slug")
+    root_uri = extract_rdf_from_xml.get("root_uri")
+    if doc_slug and root_uri:
+        # root_uri is spliced inside <...> and doc_slug inside a "..." literal.
+        # Both come from our own builder, but a malformed one would produce a
+        # body that deletes MORE than this module. Refuse rather than send it:
+        # an over-broad DELETE against a shared graph is not recoverable.
+        bad_uri = set('<>"{}|^`\\') & set(str(root_uri))
+        if bad_uri or any(c.isspace() for c in str(root_uri)):
+            raise ValueError(
+                f"root_uri {root_uri!r} for {s3_key!r} is not safe to splice "
+                f"into a SPARQL IRI (offending characters: {sorted(bad_uri)}); "
+                f"refusing to send a DELETE whose scope cannot be trusted."
+            )
+        if set('"\\\n\r') & set(str(doc_slug)):
+            raise ValueError(
+                f"doc_slug {doc_slug!r} for {s3_key!r} is not safe to splice "
+                f"into a SPARQL string literal; refusing to send a DELETE "
+                f"whose scope cannot be trusted. _fragment() should have "
+                f"replaced these -- the parser is the defect."
+            )
+        # Hyphen-delimited on both sides: "-<slug>-" matches every scoped
+        # subject (part-<slug>-X ... proclist-<slug>-N-M) and cannot match a
+        # bare substring of a longer slug.
+        delete_op = (
+            f"DELETE {{ GRAPH <{instance_graph}> {{ ?s ?p ?o }} }}\n"
+            f"WHERE {{ GRAPH <{instance_graph}> {{ ?s ?p ?o }}\n"
+            f"  FILTER( ?s = <{root_uri}> "
+            f"|| CONTAINS(STR(?s), \"-{doc_slug}-\") ) }}"
+        )
+        body = delete_op + " ;\n" + insert_op
+        superseding = True
+    else:
+        # See the no-doc_slug bullet above. Additive, and LOUD about it.
+        context.log.warning(
+            f"{s3_key}: no doc_slug from the parser (root_uri={root_uri!r}), so "
+            f"the instance-graph write into {instance_graph} is ADDITIVE, not "
+            f"superseding. A re-drop with new bytes will accumulate both "
+            f"versions. This parser does not scope its subjects per document, "
+            f"so a delete-by-subject would take a sibling document's triples."
+        )
+        body = insert_op
+        superseding = False
     try:
         jena.get_client().execute_update(body, graph_uri=instance_graph)
     except Exception as e:
@@ -979,12 +1060,15 @@ def upload_to_jena(context: AssetExecutionContext, extract_rdf_from_xml: dict, j
         # and sends the next reader back to the urn:doc: PUT above, which by
         # this point has already succeeded.
         context.log.error(
-            f"Failed the instance-graph write for {s3_key} into "
-            f"{instance_graph} ({len(g)} triples): {e}"
+            f"Failed the instance-graph "
+            f"{'supersede' if superseding else 'additive write'} for {s3_key} "
+            f"into {instance_graph} ({len(g)} triples): {e}"
         )
         raise
     context.log.info(
-        f"Inserted {len(g)} triples for {s3_key} into instance graph {instance_graph}"
+        f"{'Superseded' if superseding else 'Inserted (additive)'} "
+        f"{len(g)} triples for {s3_key} into instance graph {instance_graph}"
+        + (f" keyed on {root_uri} / -{doc_slug}-" if superseding else "")
     )
     return extract_rdf_from_xml # Pass metadata downstream
 
