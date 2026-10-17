@@ -81,6 +81,7 @@ from dagster import (
     sensor,
 )
 
+from doc_tools.utils.content_kind import ingress_user_prefixes
 from doc_tools.utils.ingest_id import INGEST_ID_RE
 from doc_tools.utils.mesh_identity import stage_auth_headers
 
@@ -223,6 +224,7 @@ def build_ingest_retry_sensor(
     target_op: str,
     bucket: str,
     partition_name: str,
+    ingress_prefix: str,
     minimum_interval_seconds: int = _MINIMUM_INTERVAL_S,
     default_status: DefaultSensorStatus = DefaultSensorStatus.RUNNING,
 ) -> SensorDefinition:
@@ -235,7 +237,22 @@ def build_ingest_retry_sensor(
     STOPPED deliberately; this one and the drop it recovers are the pair a
     user is actually waiting on. NOT RETROACTIVE -- `default_status` is
     consulted only when the instance holds no stored status for the sensor.
+
+    `ingress_prefix` ("pdf", "xml", ...) names which drop kind this sensor
+    retries. Two guards hang off it: an optional `kind` filter (silent) and a
+    mandatory key-shape guard (loud) -- see the row loop.
     """
+
+    # Resolved at BUILD time: a definitions-time failure is better than a
+    # sensor that silently refuses every row for ever; this repo has already
+    # shipped inert sensors.
+    _available = ingress_user_prefixes()
+    if ingress_prefix not in _available:
+        raise ValueError(
+            f"unknown ingress_prefix {ingress_prefix!r}; "
+            f"available: {sorted(_available)!r}"
+        )
+    key_re = re.compile(_available[ingress_prefix])
 
     @sensor(
         name=name,
@@ -255,6 +272,7 @@ def build_ingest_retry_sensor(
         run_requests: List[RunRequest] = []
         new_partitions: List[str] = []
         refused: List[str] = []
+        not_ours: List[Any] = []
 
         try:
             registered = set(context.instance.get_dynamic_partitions(partition_name))
@@ -262,6 +280,16 @@ def build_ingest_retry_sensor(
             registered = set()
 
         for row in rows:
+            # Optimisation only, never the guard: the route is not known to
+            # send `kind` (no fixture or doc here has it). A row that names a
+            # sibling kind is skipped silently -- with two sensors live, a
+            # warning per foreign row per tick would bury real refusals. A row
+            # with no (or non-str) kind falls through to the key guard below.
+            kind = row.get("kind")
+            if isinstance(kind, str) and kind and kind != ingress_prefix:
+                not_ours.append(row.get("ingest_id"))
+                continue
+
             ingest_id = row.get("ingest_id")
             if not isinstance(ingest_id, str) or not INGEST_ID_RE.match(ingest_id):
                 refused.append(
@@ -305,6 +333,19 @@ def build_ingest_retry_sensor(
                     refused.append(f"{ingest_id}: {reason}")
                     continue
 
+            # THE guard. `source_object_key` bypasses the partition-set lookup
+            # (the only thing that used to tell a PDF row from an XML one), so
+            # without this an XML sensor would run xml_graph_sync_job on a PDF
+            # key and vice versa. Checked on the resolved key, whichever
+            # branch produced it, and independent of `kind`.
+            if not key_re.match(object_key):
+                refused.append(
+                    f"{ingest_id}: key {object_key!r} does not match the "
+                    f"ingress-user/{ingress_prefix}/<sha256>/<name> shape "
+                    f"({key_re.pattern})"
+                )
+                continue
+
             partition_key = _encode_partition_key(object_key)
             if partition_key not in registered:
                 # The original drop normally registered this already; adding it
@@ -336,19 +377,30 @@ def build_ingest_retry_sensor(
             context.log.warning("%s refused a retry row -- %s", name, message)
 
         if not run_requests:
-            return SensorResult(
-                skip_reason=SkipReason(
+            if not refused:
+                reason = (
+                    f"{len(rows)} row(s) at the retry route, none for "
+                    f"ingress prefix {ingress_prefix!r}"
+                )
+            else:
+                reason = (
                     f"{len(rows)} row(s) at the retry route, none launchable: "
                     + "; ".join(refused)[:900]
                 )
-            )
+                if not_ours:
+                    reason += (
+                        f" (+{len(not_ours)} row(s) for other ingress prefixes)"
+                    )
+            return SensorResult(skip_reason=SkipReason(reason))
 
         context.log.info(
-            "%s launching %d retry run(s) (run_keys %s); refused %d row(s)",
+            "%s launching %d retry run(s) (run_keys %s); refused %d row(s); "
+            "%d row(s) for other ingress prefixes",
             name,
             len(run_requests),
             [r.run_key for r in run_requests],
             len(refused),
+            len(not_ours),
         )
 
         return SensorResult(
