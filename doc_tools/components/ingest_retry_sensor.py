@@ -285,8 +285,21 @@ def build_ingest_retry_sensor(
             # sibling kind is skipped silently -- with two sensors live, a
             # warning per foreign row per tick would bury real refusals. A row
             # with no (or non-str) kind falls through to the key guard below.
+            #
+            # `kind in _available` is load-bearing, not belt: it skips ONLY a
+            # kind that names another REGISTERED ingress prefix. The rows this
+            # exists for are content kind `s1000d-data-module`, not `xml`, so a
+            # bare `!= ingress_prefix` would make every sensor skip them in
+            # SILENCE and the queue would drain to nothing with no log line
+            # saying why. An unrecognised kind is judged on its key instead,
+            # and refused loudly if the key is wrong.
             kind = row.get("kind")
-            if isinstance(kind, str) and kind and kind != ingress_prefix:
+            if (
+                isinstance(kind, str)
+                and kind
+                and kind != ingress_prefix
+                and kind in _available
+            ):
                 not_ours.append(row.get("ingest_id"))
                 continue
 

@@ -365,6 +365,32 @@ def test_a_row_of_another_kind_is_skipped_quietly(monkeypatch, instance):
     assert "does not match" not in text and "refused" not in text
 
 
+def test_a_content_kind_that_names_no_ingress_prefix_still_launches(
+    monkeypatch, instance
+):
+    """The rows this sensor exists for are content kind `s1000d-data-module`,
+    NOT `xml`. If the pre-filter skipped every kind != its own prefix, both
+    sensors would drop these in SILENCE -- no refusal, no warning, the queue
+    draining to nothing with no log line saying why. Only a kind naming
+    another REGISTERED prefix is skipped; anything else is judged on its key,
+    and this key is a legal XML one, so it launches."""
+    result, _ = _run(
+        monkeypatch,
+        instance,
+        xml=True,
+        rows=[
+            {
+                "ingest_id": ID_A,
+                "attempt": 2,
+                "source_object_key": XML_KEY,
+                "kind": "s1000d-data-module",
+            }
+        ],
+    )
+    (req,) = _requests(result)
+    assert req.run_key == f"{ID_A}-a2"
+
+
 def test_the_key_guard_does_not_depend_on_a_kind_field(monkeypatch, instance):
     """The one that proves the guard needs nothing from the route: a PDF key
     with NO `kind` at all is still refused by the XML sensor, because the
