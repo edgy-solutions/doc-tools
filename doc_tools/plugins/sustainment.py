@@ -1346,6 +1346,22 @@ class SustainmentPlugin(AugmentationPlugin):
             doc_flags.append(f"header extraction failed: {e}")
             needs_review = True
         header_d = header_to_dict(header) if header is not None else empty_header(doc_id)
+        # The architect's clause of 2026-10-17: the notice id comes from
+        # EXTRACTION, never from the filename; not extracted -> null, and the
+        # consumer's title falls back to the drop id. Capture the header's own
+        # doc_id BEFORE the key fallback below runs. On a failed header pass
+        # `empty_header(doc_id)` seeds the pipeline doc_id, which must not be
+        # read as extracted. Measured: fa231498 / 0096a523 are two 606-byte
+        # PDFs named PCN23-002.pdf whose header pass produced nothing, and the
+        # review payload presented `PCN23-002` as "the raw printed notice number".
+        if header is None:
+            header_d["doc_id_extracted"] = None
+        else:
+            _extracted = header_d.get("doc_id")
+            header_d["doc_id_extracted"] = (
+                str(_extracted).strip() or None) if _extracted is not None else None
+        # The KEY fallback stays: doc_id is a KEY (workflow id, MinIO prefix,
+        # graph IRI, provenance index) and must never be null.
         if not header_d.get("doc_id"):
             header_d["doc_id"] = doc_id
         # ONE authoritative, key-safe doc_id. Both sources are messy — the LLM's
@@ -1353,7 +1369,10 @@ class SustainmentPlugin(AugmentationPlugin):
         # doc_id is a KEY for the workflow id, the MinIO prefix, the graph IRI and
         # the provenance index. Normalize HERE so every downstream consumer keys
         # on the SAME clean slug; stash the raw printed form for faithful display.
-        header_d["doc_id_raw"] = header_d.get("doc_id")
+        # `doc_id_raw` is the DISPLAY field, so it honours the 2026-10-17
+        # clause: the extracted printed form or None, never the filename-seeded
+        # key (fa231498 / 0096a523: `PCN23-002` from a filename, header empty).
+        header_d["doc_id_raw"] = header_d.get("doc_id_extracted")
         header_d["doc_id"] = norm.normalize_doc_id(header_d.get("doc_id"))
         # doc_type is derived from the DOCUMENT'S OWN TITLE, not from the header model's
         # `doc_type` field: that field flipped PCN/PDN/PCN across repeated fires on
@@ -1792,7 +1811,11 @@ class SustainmentPlugin(AugmentationPlugin):
                   "trace_id": doc_id,
                   # the raw printed notice number ('PCN # 23-002') for DISPLAY;
                   # doc_id above is the normalized key. Display may prefer this.
-                  "doc_id_raw": header_d.get("doc_id_raw") or header_d.get("doc_id") or doc_id,
+                  # 2026-10-17 clause: extracted or null, NEVER a fallback to the key
+                  # or the filename (fa231498 / 0096a523 showed `PCN23-002`, taken from
+                  # the filename of a PDF whose header pass produced nothing). The
+                  # consumer's title falls back to the drop id when this is null.
+                  "doc_id_raw": header_d.get("doc_id_extracted"),
                   # doc_type + categories DRIVE the disposition proposer's rule match:
                   # every PCN rule requires a change category, so without these the
                   # proposer returns UNCLASSIFIABLE for every part and the UI shows
