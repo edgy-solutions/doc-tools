@@ -1133,7 +1133,7 @@ image:
   # against itself. Between the two rolls the gate is RED BY CONSTRUCTION; both
   # rolls land well clear of the 07:00Z window.
   # ------------------------------------------------------------------
-  digest: "sha256:94f09a766fea1d6d4de017b585cafa7ec9072acbc5d35ad5ffdefe99f56b2b00"
+  digest: "sha256:65c199e892ebcd161b0bf9f3a393f27a351b84c78436a524e920c91305c01f64"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -1419,7 +1419,7 @@ corpusGate:
   # appeared ZERO times in it, so the gate would have compared a `2bf85719` run
   # against a `5846f877` expectation. Both rolls were taken inside an hour,
   # ~3h clear of the 07:00Z nightly, so no gate run fell inside the window.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:94f09a766fea1d6d4de017b585cafa7ec9072acbc5d35ad5ffdefe99f56b2b00"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:65c199e892ebcd161b0bf9f3a393f27a351b84c78436a524e920c91305c01f64"
   publish:
     repo: edgy-solutions/doc-tools
 
