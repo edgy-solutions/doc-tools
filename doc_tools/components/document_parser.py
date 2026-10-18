@@ -590,6 +590,14 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         # to avoid — it breaks the first time the layout
                         # changes, and silently.
                         "pipeline_version": version,
+                        # DECLARED, not derived (same rationale as `source_key`
+                        # and `pipeline_version` above): the downstream graph
+                        # asset now makes the `review` stage POST and must name
+                        # `extraction_ref` without path surgery, and it cannot
+                        # recount the unstructured elements (the
+                        # `extracted_count` unit). `manifest_key` is set below,
+                        # once the key is computed, before the put_object.
+                        "element_count": len(elements) if elements else 0,
                     }
 
                     # ADR-0041 — when this instance is configured with obtained_via
@@ -663,6 +671,10 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     # file is NEVER overwritten by a later reprocess — a different
                     # DOC_TOOLS_VERSION lands at a different key entirely.
                     manifest_object_name = f"{base_dir}/generated/{base_name}/{version}/manifest.json"
+                    # This object's own bucket-relative key, declared (see
+                    # `element_count` above); the value is exactly what the
+                    # removed `review` POST passed as `extraction_ref`.
+                    manifest["manifest_key"] = manifest_object_name
                     manifest_json = json.dumps(manifest, indent=2)
                     s3_client.put_object(
                         Bucket=bucket,
@@ -691,9 +703,17 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         ContentType="application/json",
                     )
 
-                # "review" — success, with the element/page
-                # counts this asset already computed above (`elements`,
-                # `pages_list`) rather than re-deriving a count elsewhere.
+                # NO `review` POST HERE any more (moved to semantic_assets.py).
+                #
+                # The row count Lane 1 serves comes from review.json, which the
+                # downstream graph asset writes, so this site cannot know it.
+                # Posting `review` here filed a `document_promotion` task on
+                # zero-row extractions (measured on sha256:fa231498... and
+                # sha256:0096a523..., both extracted_count=2 and 0 part rows).
+                # The POST now happens where the row count exists; it reads
+                # `manifest_key` and `element_count` off the manifest above.
+                #
+                # The units the moved POST carries, kept here as the record:
                 #
                 # TWO FIELDS, TWO UNITS — see IngestStatusResource's
                 # EXTRACTED_COUNT_UNIT / EXTRACTED_TOTAL_UNIT, which these two
@@ -718,13 +738,6 @@ class DocumentParserComponent(Component, Resolvable, Model):
                 # never `current.json`, which the next reprocess repoints, so
                 # a decision record naming it would later describe a
                 # different extraction than the one that was reviewed.
-                if status_resource is not None:
-                    status_resource.update(
-                        ingest_id, "review",
-                        extracted_count=len(elements) if elements else 0,
-                        extracted_total=len(pages_list) if pages_list else None,
-                        extraction_ref=manifest_object_name,
-                    )
 
                 return manifest
             except Exception as e:

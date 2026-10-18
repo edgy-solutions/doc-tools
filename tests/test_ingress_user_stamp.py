@@ -743,10 +743,14 @@ def test_f7_review_names_the_versioned_manifest_it_wrote(monkeypatch):
 
     manifest = _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
 
-    posted = [c for c in _RecordingStatusResource.calls
-              if c["stage"] == "review"]
-    assert len(posted) == 1
-    ref = posted[0]["extraction_ref"]
+    # The `review` POST MOVED to the graph asset (section 7 below): the parser
+    # cannot know the part-row count, and posting here filed a
+    # document_promotion task on zero-row extractions. It now DECLARES the
+    # fields that POST needs on the manifest instead.
+    assert [c for c in _RecordingStatusResource.calls
+            if c["stage"] == "review"] == []
+    ref = manifest["manifest_key"]
+    assert isinstance(manifest["element_count"], int)
 
     # The ref must name an object this run ACTUALLY WROTE. Asserting it
     # against a re-derived string would only prove the test can do the same
@@ -769,3 +773,148 @@ def test_f7_review_names_the_versioned_manifest_it_wrote(monkeypatch):
     written = json.loads(fake_client.objects[(BUCKET, ref)].decode("utf-8"))
     assert written["pipeline_version"] == version
     assert manifest["pipeline_version"] == version
+
+
+# --------------------------------------------------------------------------- #
+# 7. THE INGEST STAGE POST LIVES IN THE GRAPH ASSET, GATED ON THE ROW COUNT.
+#
+# Lane 1 serves a review row's `rows` from review.json's `review_items` whose
+# field_path is `parts[N].<field>`, counted by DISTINCT N. The parser used to
+# post `review` before review.json existed, which filed a document_promotion
+# task on two live zero-row extractions (sha256:fa231498... / sha256:0096a523...,
+# both extracted_count=2). These tests drive the real asset with the plugin
+# stubbed, and record IngestStatusResource.update.
+# --------------------------------------------------------------------------- #
+
+def _stage_manifest():
+    m = _manifest_with_provenance("sustainment")
+    m.update({
+        "ingest_id": CANON_INGEST_ID,
+        "manifest_key": "inbound/generated/x_pdf/v1/manifest.json",
+        "element_count": 2,
+        "pages": [{"page": 1}],
+    })
+    return m
+
+
+def _drive_stage(monkeypatch, review, *, with_review_attr=True):
+    """Run the graph asset; return the recorded IngestStatusResource.update calls.
+
+    `review` is the dict the stub augmentation carries as `.review` (None means
+    the plugin declares a review block but writes none). Downstream failures
+    after the stage POST are suppressed: the POST is what is under test.
+    """
+    import contextlib
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
+    from doc_tools.plugins.sustainment import SustainmentPlugin
+    from doc_tools.utils.dagster_resources import IngestStatusResource
+
+    if with_review_attr:
+        aug = SimpleNamespace(review=review, needs_review=True,
+                              review_reasons=["header pass failed: boom"], stats={})
+    else:
+        aug = SimpleNamespace()
+    node = SimpleNamespace(domain_augmentation=aug)
+    monkeypatch.setattr(SustainmentPlugin, "process_fulltext",
+                        lambda self, *a, **k: [node])
+    monkeypatch.setattr(SustainmentPlugin, "augment", lambda self, *a, **k: node)
+
+    calls = []
+    monkeypatch.setattr(
+        IngestStatusResource, "update",
+        lambda self, ingest_id, stage, **kw: calls.append((ingest_id, stage, kw)))
+    with contextlib.suppress(Exception):
+        build_knowledge_graph(
+            build_asset_context(), _bkg_config(), _stage_manifest(),
+            s3=MagicMock(), neo4j=MagicMock(), weaviate=MagicMock(),
+            llm=MagicMock(), jena=MagicMock(),
+        )
+    return calls
+
+
+def test_part_field_re_counts_distinct_indices_not_items():
+    from doc_tools.assets.semantic_assets import _part_row_count
+    items = [{"field_path": "parts[0].mpn"}, {"field_path": "parts[0].status"},
+             {"field_path": "parts[1].mpn"}, {"field_path": "header.mfr"},
+             {"field_path": "parts[2]"}]
+    assert _part_row_count({"review_items": items}) == 2
+    assert _part_row_count(None) == 0
+
+
+def test_rows_over_three_indices_post_review_once_with_manifest_refs(monkeypatch):
+    review = {"review_items": [{"field_path": f"parts[{i}].mpn"} for i in range(3)]}
+    calls = _drive_stage(monkeypatch, review)
+    assert [c[1] for c in calls] == ["review"]
+    kw = calls[0][2]
+    assert calls[0][0] == CANON_INGEST_ID
+    assert kw["extraction_ref"] == "inbound/generated/x_pdf/v1/manifest.json"
+    assert kw["extracted_count"] == 2
+    assert kw["extracted_total"] == 1
+
+
+def test_items_but_zero_part_rows_seal_as_extraction_empty(monkeypatch):
+    review = {"review_items": [{"field_path": "header.mfr"}, {"field_path": "header.doc_id"}]}
+    calls = _drive_stage(monkeypatch, review)
+    assert [c[1] for c in calls] == ["failed"]
+    assert calls[0][2]["reason_code"] == "extraction_empty"
+    assert "header pass failed" in calls[0][2]["reason"]
+
+
+def test_no_review_json_for_a_review_contract_document_seals_too(monkeypatch):
+    calls = _drive_stage(monkeypatch, None)
+    assert [c[1] for c in calls] == ["failed"]
+    assert calls[0][2]["reason_code"] == "extraction_empty"
+
+
+def test_a_document_with_no_review_contract_is_posted_review_not_sealed(monkeypatch):
+    calls = _drive_stage(monkeypatch, None, with_review_attr=False)
+    assert [c[1] for c in calls] == ["review"]
+
+
+def test_no_ingest_id_posts_nothing(monkeypatch):
+    import contextlib
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
+    from doc_tools.plugins.sustainment import SustainmentPlugin
+    from doc_tools.utils.dagster_resources import IngestStatusResource
+
+    node = SimpleNamespace(domain_augmentation=SimpleNamespace(review=None))
+    monkeypatch.setattr(SustainmentPlugin, "process_fulltext", lambda self, *a, **k: [node])
+    calls = []
+    monkeypatch.setattr(IngestStatusResource, "update",
+                        lambda self, *a, **k: calls.append(a))
+    m = _stage_manifest()
+    del m["ingest_id"]
+    with contextlib.suppress(Exception):
+        build_knowledge_graph(
+            build_asset_context(), _bkg_config(), m,
+            s3=MagicMock(), neo4j=MagicMock(), weaviate=MagicMock(),
+            llm=MagicMock(), jena=MagicMock())
+    assert calls == []
+
+
+def test_a_failure_after_the_stage_post_does_not_stamp_failed(monkeypatch):
+    # The stubbed nodes make graph generation raise AFTER the review POST.
+    # The wrapper must not stamp `failed` onto a row already at `review`.
+    review = {"review_items": [{"field_path": "parts[0].mpn"}]}
+    calls = _drive_stage(monkeypatch, review)
+    assert [c[1] for c in calls] == ["review"]
+    assert not any(c[2].get("reason_code") == "extraction_failed" for c in calls)
+
+
+def test_a_failure_before_the_stage_post_stamps_extraction_failed_and_reraises(monkeypatch):
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
+    from doc_tools.utils.dagster_resources import IngestStatusResource
+
+    calls = []
+    monkeypatch.setattr(
+        IngestStatusResource, "update",
+        lambda self, ingest_id, stage, **kw: calls.append((ingest_id, stage, kw)))
+    s3 = MagicMock()
+    s3.get_client.side_effect = RuntimeError("BEFORE_STAGE_BLOCK")
+    with pytest.raises(RuntimeError, match="BEFORE_STAGE_BLOCK"):
+        build_knowledge_graph(
+            build_asset_context(), _bkg_config(), _stage_manifest(),
+            s3=s3, neo4j=MagicMock(), weaviate=MagicMock(),
+            llm=MagicMock(), jena=MagicMock())
+    assert [c[1] for c in calls] == ["failed"]
+    assert calls[0][2]["reason_code"] == "extraction_failed"

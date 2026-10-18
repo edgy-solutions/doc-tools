@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import httpx
 import urllib.parse
@@ -166,6 +167,25 @@ def _index_chunk(client, name: str, properties: dict) -> str:
     return "skipped_would_strip_vector"
 
 
+# Mirrors Lane 1's `_PART_FIELD_RE` in the deployed gateway: a review row's
+# `rows` are the review_items whose field_path matches this, counted by
+# DISTINCT part index. That is the row count -- not the item count (one part
+# carries several field items) and not `extracted_count` (unstructured
+# ELEMENTS) or `extracted_total` (rasterized PAGES).
+_PART_FIELD_RE = re.compile(r"^parts\[(\d+)\]\.[A-Za-z0-9_]+$")
+
+
+def _part_row_count(review_payload) -> int:
+    """Distinct part indices over review_payload["review_items"]; 0 if none."""
+    items = (review_payload or {}).get("review_items") or []
+    idx = set()
+    for it in items:
+        m = _PART_FIELD_RE.match(str((it or {}).get("field_path") or ""))
+        if m:
+            idx.add(m.group(1))
+    return len(idx)
+
+
 def _extraction_payload(document_nodes, doc_id: str, domain_type: str) -> dict:
     """Serialize the structured LLM extraction for persistence to S3.
 
@@ -191,7 +211,8 @@ def _build_knowledge_graph_impl(
     neo4j: Neo4jResource,
     weaviate: WeaviateResource,
     llm: LLMExtractorResource,
-    jena: JenaResource
+    jena: JenaResource,
+    posted: "dict | None" = None,
 ):
     """
     Ingests documents into Neo4j using generic labels provided via Configuration.
@@ -714,6 +735,7 @@ def _build_knowledge_graph_impl(
     except Exception as e:
         context.log.error(f"Failed to write extraction.json: {e}")
 
+    review_payload = None  # stays None when no review.json is written (below)
     # Phase 5: persist the human-review payload (provenance + needs_review) to
     # review.json so the review UI has its data contract. Only sustainment
     # augmentations carry a `review` block; other domains have none and skip
@@ -745,6 +767,66 @@ def _build_knowledge_graph_impl(
                 context.log.info(msg)
     except Exception as e:
         context.log.error(f"Failed to write review.json: {e}")
+
+    # Phase 5b: the ingest stage POST (`review`, or `failed:extraction_empty`).
+    # It lives HERE, not in document_parser.py, because the row count Lane 1
+    # serves comes from review.json, which only exists at this point. Posting
+    # `review` from the parser filed a `document_promotion` task on zero-row
+    # extractions (measured on sha256:fa231498... and sha256:0096a523..., both
+    # PCN23-002, extracted_count=2 / extracted_total=1, 0 part rows -- one
+    # because the header pass raised BamlValidationError, one because no Table
+    # element was detected), so a seal on `extracted_count == 0` catches
+    # neither. No ingest_id means no Lane 1 row to address: the vetted
+    # sustainment/inbound/ path has no ingest_id and stays unposted.
+    if manifest.get("ingest_id"):
+        ingest_id = manifest["ingest_id"]
+        try:
+            # Not a Dagster resource: instantiated inline, exactly as the
+            # parser does.
+            from doc_tools.utils.dagster_resources import IngestStatusResource
+
+            rows = _part_row_count(review_payload)
+            # Only a plugin whose augmentation declares a `review` block has a
+            # row contract. Manufacturing / S1000D-via-PDF drops have none;
+            # sealing them on a row count they never produce would fail every
+            # such drop. Domain-generic on purpose -- not a "sustainment" test.
+            rows_are_review_unit = any(
+                hasattr(n.domain_augmentation, "review")
+                for n in document_nodes if n.domain_augmentation is not None
+            )
+            _count = manifest.get("element_count")
+            _total = len(manifest.get("pages") or []) or None
+            _ref = manifest.get("manifest_key")
+            status = IngestStatusResource()
+            if rows_are_review_unit and rows == 0:
+                first = (review_payload or {}).get("review_reasons") or []
+                reason = "extraction produced zero part rows"
+                if first:
+                    reason += f"; first review reason: {first[0]}"
+                context.log.info(
+                    f"ingest stage for {doc_id}: failed:extraction_empty "
+                    f"(part rows={rows}, review-contract document)")
+                status.update(
+                    ingest_id, "failed", reason_code="extraction_empty",
+                    reason=reason, extracted_count=_count,
+                    extracted_total=_total, extraction_ref=_ref,
+                )
+                # Recorded only on a SUCCESSFUL POST: the wrapper reads it to
+                # decide whether a later failure may still stamp `failed`.
+                if posted is not None:
+                    posted["stage"] = "failed"
+            else:
+                context.log.info(
+                    f"ingest stage for {doc_id}: review "
+                    f"(part rows={rows}, rows_are_review_unit={rows_are_review_unit})")
+                status.update(
+                    ingest_id, "review", extracted_count=_count,
+                    extracted_total=_total, extraction_ref=_ref,
+                )
+                if posted is not None:
+                    posted["stage"] = "review"
+        except Exception as e:  # a stage write must never fail an extraction
+            context.log.error(f"Failed to post ingest stage for {doc_id}: {e}")
 
     # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
     #
@@ -871,10 +953,42 @@ def make_build_knowledge_graph(
         llm: LLMExtractorResource,
         jena: JenaResource
     ):
-        return _build_knowledge_graph_impl(
-            context, config, process_document_artifact,
-            s3=s3, neo4j=neo4j, weaviate=weaviate, llm=llm, jena=jena,
-        )
+        posted: dict = {}
+        try:
+            return _build_knowledge_graph_impl(
+                context, config, process_document_artifact,
+                s3=s3, neo4j=neo4j, weaviate=weaviate, llm=llm, jena=jena,
+                posted=posted,
+            )
+        except Exception as e:
+            if posted.get("stage") is not None:
+                # A `failed` after a stage was posted is a backwards move on a
+                # row a steward may already hold (Lane 1 409s it or overrides
+                # it), and the extraction a steward reviews is complete by the
+                # time the stage is posted -- the sinks that failed are
+                # downstream of it. The asset still fails loudly in Dagster
+                # (re-raised); only the stage overwrite is suppressed.
+                context.log.warning(
+                    f"Graph build failed after stage {posted['stage']!r} was "
+                    f"already posted; not stamping failed: "
+                    f"{type(e).__name__}: {e}")
+                raise
+            # Before the `review` POST moved into the impl, a graph-asset
+            # failure left the row at `review` with a missing graph. Now it
+            # would leave it at `extracting` until Lane 1's watchdog timed it
+            # out, so the failure must be stamped from here. Re-raised: the
+            # stamp must never swallow the failure.
+            _iid = process_document_artifact.get("ingest_id")
+            if _iid:
+                try:
+                    from doc_tools.utils.dagster_resources import IngestStatusResource
+                    IngestStatusResource().update(
+                        _iid, "failed", reason_code="extraction_failed",
+                        reason=f"{type(e).__name__}: {e}"[:500],
+                    )
+                except Exception as stamp_err:
+                    context.log.error(f"Failed to stamp failed stage: {stamp_err}")
+            raise
 
     return _build_knowledge_graph_asset
 

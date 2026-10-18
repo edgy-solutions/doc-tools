@@ -36,6 +36,12 @@ REASON_CODES: frozenset[str] = frozenset({
     "ingest_id_malformed",
     # A failure inside the extraction body.
     "extraction_failed",
+    # An extraction that COMPLETED but produced zero reviewable part rows, so
+    # there is nothing for a steward to vet. Raised from semantic_assets.py,
+    # where review.json's row count exists. RETRYABILITY IS LANE 1's QUEUE
+    # PROPERTY: the deployed IngestStageUpdateRequest has no `retryable`
+    # field, so this side can only NAME the code.
+    "extraction_empty",
     # The watchdog (packet: `failed:timeout`). LANE 1 EMITS THIS, NOT US: see
     # RESERVED_TO_LANE_1. Kept here so it is RECOGNISED, never emitted.
     "timeout",

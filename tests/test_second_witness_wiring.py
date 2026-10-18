@@ -728,3 +728,66 @@ def test_a_region_read_that_times_out_is_not_retried(monkeypatch, plugin):
     assert fake_b.region_calls == 1, "a timeout was retried"
     assert aug.stats["witness_regions_lost"] == 1
     assert any("LOST the header_block region" in r for r in aug.review_reasons)
+
+
+# --------------------------------------------------------------------------- #
+# The notice id comes from EXTRACTION, never from the filename (architect,
+# 2026-10-17). `doc_id` is a KEY and keeps its fallback; `doc_id_raw` is the
+# DISPLAY field and is the header's own printed id or None. Measured case:
+# fa231498 / 0096a523, two 606-byte PDFs named PCN23-002.pdf whose header pass
+# produced nothing, presented as "the raw printed notice number".
+# --------------------------------------------------------------------------- #
+
+class _RaisingHeaderB(_FakeB):
+    def ExtractHeader(self, doc, system_instructions, baml_options=None):
+        raise RuntimeError("simulated BamlValidationError")
+
+
+def _run_healthy(monkeypatch, plugin, fake_b, drop_id="PCN23-002", text=None, elements=None):
+    _patch_b(monkeypatch, fake_b)
+    nodes = plugin._extract_fulltext(
+        text if text is not None else _full_text(healthy=True), drop_id, elements=elements if elements is not None else _healthy_elements(),
+        manifest=_manifest(1), s3_client=_FakeS3(), bucket="notices",
+    )
+    return nodes[0].domain_augmentation
+
+
+def test_a_failed_header_pass_leaves_doc_id_raw_null_but_the_key_intact(monkeypatch, plugin):
+    aug = _run_healthy(monkeypatch, plugin, _RaisingHeaderB())
+    assert aug.review["doc_id_raw"] is None
+    assert aug.review["doc_id"]  # the key is never null
+    assert aug.review["doc_id"] != "PCN # 23-002"
+
+
+def test_an_extracted_doc_id_is_kept_as_printed_while_the_key_is_normalized(monkeypatch, plugin):
+    header = _header()
+    header.doc_id = "PCN # 23-002"
+    aug = _run_healthy(monkeypatch, plugin, _FakeB(header=header))
+    assert aug.review["doc_id_raw"] == "PCN # 23-002"
+    assert aug.review["doc_id"] != "PCN # 23-002"
+    assert aug.review["doc_id"]
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_a_blank_extracted_doc_id_is_null_not_the_filename(monkeypatch, plugin, blank):
+    header = _header()
+    header.doc_id = blank
+    aug = _run_healthy(monkeypatch, plugin, _FakeB(header=header))
+    assert aug.review["doc_id_raw"] is None
+    assert aug.review["doc_id"]
+
+
+def test_mfr_stays_blank_and_is_never_filled_from_the_filename(monkeypatch, plugin):
+    """The correct half, pinned: `empty_header` sets mfr '' with no fallback."""
+    # The body text is deliberately free of any manufacturer name: the header
+    # trust pass may legitimately recover a manufacturer the DOCUMENT prints
+    # (that is extraction); what must never happen is a fill from the drop id.
+    text = "A notice with no manufacturer printed anywhere in it."
+    els = [_el(text)]
+    aug = _run_healthy(monkeypatch, plugin, _RaisingHeaderB(),
+                       drop_id="TE-Connectivity-PCN", text=text, elements=els)
+    assert not aug.notice.mfr
+    header = _header(mfr="", mfr_source=None)
+    aug = _run_healthy(monkeypatch, plugin, _FakeB(header=header),
+                       drop_id="TE-Connectivity-PCN", text=text, elements=els)
+    assert not aug.notice.mfr

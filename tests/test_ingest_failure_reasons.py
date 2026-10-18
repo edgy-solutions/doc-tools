@@ -282,3 +282,9 @@ def test_the_mirrored_canonical_pattern_agrees_with_the_authority():
     from doc_tools.utils.ingest_id import INGEST_ID_RE
 
     assert _CANONICAL_INGEST_ID_RE.pattern == INGEST_ID_RE.pattern
+
+
+def test_extraction_empty_is_emittable():
+    # Raised from semantic_assets.py when a review-contract document yields
+    # zero part rows; it is NOT reserved to Lane 1.
+    assert "extraction_empty" in EMITTABLE_CODES
