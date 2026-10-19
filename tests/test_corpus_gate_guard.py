@@ -152,6 +152,7 @@ hatch has to be explicit — an override label the job reads — and not an `if:
 import datetime
 import json
 import os
+import re
 import warnings
 from pathlib import Path
 
@@ -167,6 +168,52 @@ REPORT_PATH = (
 # nights of slack, so a single missed or delayed run does not itself turn the
 # gate red before anyone had a chance to act on the last real result.
 CORPUS_GATE_MAX_AGE_DAYS = int(os.environ.get("CORPUS_GATE_MAX_AGE_DAYS", "3"))
+
+
+CHART_VALUES_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "charts"
+    / "doc-tools"
+    / "values-sandbox.yaml"
+)
+_CHART_DIGEST_RE = re.compile(
+    r'^[ \t]*digest:[ \t]*"(sha256:[0-9a-f]{64})"[ \t]*$', re.MULTILINE
+)
+_SHA256_RE = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def _chart_declared_digest():
+    """The one image digest the chart pins, parsed with the stdlib only (this
+    module runs under `uv run --no-project --with pytest`, so no yaml). Strict
+    on purpose: anything but exactly one real `digest:` key fails."""
+    if not CHART_VALUES_PATH.is_file():
+        pytest.fail(f"{CHART_VALUES_PATH} does not exist; cannot read the chart's pin.")
+    matches = _CHART_DIGEST_RE.findall(CHART_VALUES_PATH.read_text(encoding="utf-8"))
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        pytest.fail(
+            f"{CHART_VALUES_PATH}: the parse found no `digest:` key, so the "
+            f"comparison against the report's measured image cannot be made "
+            f"(returning None here would make the verdict check pass vacuously)."
+        )
+    pytest.fail(
+        f"{CHART_VALUES_PATH}: found {len(matches)} `digest:` keys "
+        f"({', '.join(matches)}). The chart grew a second image pin, so this "
+        f"helper no longer knows which one the gate measures."
+    )
+
+
+def _report_measured_digest(report):
+    """The sha256:<64 hex> inside the report's `measured_image`, or None when
+    the field is absent, not a string, or carries none. Never fails: that field
+    is guarded by `test_the_report_names_the_image_it_measured`, and failing
+    here would double-report one defect."""
+    measured = report.get("measured_image")
+    if not isinstance(measured, str):
+        return None
+    m = _SHA256_RE.search(measured)
+    return m.group(0) if m else None
 
 
 def _load_report():
@@ -257,8 +304,30 @@ def test_verdict_is_pass():
     blocks the next pin" — a pin bump IS a chart change — while keeping a red
     verdict off every ordinary code PR, which is the wedge this file's
     docstring describes.
+
+    APPLICABILITY: the verdict is asserted only when the committed report
+    measured the image the chart declares (`values-sandbox.yaml` `digest:`).
+    Otherwise this SKIPS, naming both digests. A skip and not a pass, because a
+    skip prints under `-rs` and cannot be mistaken for a measured green.
+    Measured: on PR #143 this check failed against a report generated
+    2026-10-15T15:54:02Z at `measured_image sha256:a72a4a26…` while the chart
+    declared `sha256:ac853308…`, i.e. it was red about an image the branch did
+    not contain. Tradeoff: a pin bump is no longer blocked by a verdict measured
+    at the OLD pin; what still blocks is a chart diff that does NOT move the
+    pin while the report about that same pin is red.
     """
     report = _load_report()
+    measured = _report_measured_digest(report)
+    declared = _chart_declared_digest()
+    if measured is None or measured != declared:
+        pytest.skip(
+            f"report generated_at={report.get('generated_at')!r} measured "
+            f"{measured and measured[:23]}... (full: {measured}); the chart "
+            f"declares {declared[:23]}... (full: {declared}). The verdict is "
+            f"therefore NOT evidence about this chart; the outcome for the "
+            f"pinned image lives in the nightly CronJob's own exit code and "
+            f"the published report."
+        )
     verdict = report.get("verdict")
     if verdict == "pass":
         return
