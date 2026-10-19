@@ -1061,6 +1061,52 @@ def doc_text_tokens(text: Optional[str]) -> Set[str]:
     return tokens
 
 
+def _words_of(page) -> List[Any]:
+    """This page's words, or [] if pdfplumber cannot read it. Never raises: one
+    unreadable page must not lose the whole document."""
+    try:
+        return list(page.extract_words())
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def word_boxes_for_mpns(
+    numbered_pages: Iterable[Tuple[int, Any]], mpns: Iterable[str],
+) -> Dict[str, Dict[str, Any]]:
+    """Per-MPN word box from the PDF word layer, for rows with no cell geometry (PURE).
+
+    For a table pdfplumber flattens into ONE cell (IDT: width 1, all MPNs in one cell)
+    there is nothing to attach a per-row bbox to, but `extract_words()` still returns each
+    MPN as a discrete word. Boxes are in PDF POINTS, next to the page's own point
+    dimensions, exactly like `_parts_from_page`, so `fraction = bbox / page_dims` holds
+    with no unit conversion.
+
+    A word matches only on EXACT string equality (after `.strip()`, and with trailing
+    `.,;:` also tried) -- no case folding, no containment, for the same reason as
+    `prefer_text_layer_mpn`: a containment test claims a different thing than "this word
+    IS the MPN". An MPN gets an entry ONLY if it matches exactly ONE word box across the
+    WHOLE document; zero or several matches get no entry -- an honest absence, never a
+    guessed coordinate.
+    """
+    wanted = {m for m in mpns if m}
+    hits: Dict[str, List[Dict[str, Any]]] = {m: [] for m in wanted}
+    for page_number, page in numbered_pages:
+        for w in _words_of(page):
+            try:
+                raw = w["text"].strip()
+                bbox = [float(w["x0"]), float(w["top"]), float(w["x1"]), float(w["bottom"])]
+            except Exception:  # noqa: BLE001 — a malformed word is skipped, not fatal
+                continue
+            for cand in {raw, raw.rstrip(_TOKEN_TRAILERS)}:
+                if cand in hits:
+                    hits[cand].append({
+                        "page_number": page_number,
+                        "bbox": bbox,
+                        "page_dims": {"width": float(page.width), "height": float(page.height)},
+                    })
+    return {m: h[0] for m, h in hits.items() if len(h) == 1}
+
+
 def prefer_text_layer_mpn(emitted: Optional[str], doc_tokens: Set[str]) -> Optional[str]:
     """Return `emitted`, or the one longer text-layer MPN it is a cut fragment of (PURE).
 
