@@ -149,20 +149,39 @@ TI   p2  595.4 x 841.7  chars=917   words=98   tables=0    <- the known page-2 e
 on it.** The parts were simply not sourced from it — they came through the
 `unique` path, which falls back to an enclosing region.
 
-**And the region is not even in the same coordinate space.** IDT page 1 is
-**612 × 792 points**, but the stored box runs to **x 1536.5, y 1410.6** — two
-and a half times the page width. That box is in rendered-image **pixel** space,
-while TI cell boxes are in PDF **points**, and *nothing in the row says which*.
-Any consumer that assumes points — a crop, a UI overlay, the seal — draws the
-wrong rectangle for IDT. I rate this the more serious of the two defects, and it
-is not what I was sent to look for.
+**The two documents are in different coordinate spaces** — IDT page 1 is
+**612 × 792 points**, but the stored box runs to **x 1536.5, y 1410.6**.
 
-Two gaps to close before building, in this order:
+**I over-claimed this an hour ago and am retracting it.** I wrote that *nothing
+in the row says which space the bbox is in*. That is wrong. `page_dims` is on
+every row, and measuring it settles the question:
 
-1. the mixed coordinate space, because a per-row box is worthless if its units
-   are ambiguous;
-2. why 17 part rows resolved against a table pdfplumber reports as **9 rows** —
-   the table is found, so this is a coverage question, not a detection one.
+| row | `page_dims` | scale vs points | implied dpi | bbox space |
+|---|---|---|---|---|
+| IDT `unique` | `{1700, 2200}` | 2.778 | **200.0** | **pixels** |
+| TI `text_layer_cell` | `{595.4, 841.66}` | 1.000 | 72 | **points** |
+
+Each row's bbox is in the same space as **its own** `page_dims`, so a consumer
+that normalizes by `page_dims` is correct for both documents. The space is not
+*labelled*, but it is **recoverable and self-consistent**. That makes it a trap
+for a consumer that assumes points — real, worth a guard — but **not** the
+missing-data defect I called it.
+
+Mechanism, confirmed in the tree: `unique` is set at `provenance.py:119` when
+exactly one index element contains the snippet, attaching
+`bboxes = [c["bbox"] for c in chosen]` (`provenance.py:131`) taken from
+unstructured `metadata.coordinates.points` — the hi_res layout pass, which
+renders the page. `crop_geometry.py:29-37` states the relation
+`layout_height / page.height == dpi / 72`, and the 200 dpi above is the
+`document_parser.py:429` default. No code converts a stored bbox to points on
+output.
+
+**So the IDT defect reduces to one thing, which is the thing I was sent to
+look at:** all 34 items share ONE table-region rectangle, where TI has 9
+distinct cells — while a 9-row text-layer table sits on the same page, unused.
+The question to answer before building is why 17 part rows resolved through the
+`unique` region path instead of that table. The table is found, so this is a
+coverage question, not a detection one.
 
 ## 6. Idempotency — BEFORE re-captured and stable, the write is still blocked
 
@@ -196,6 +215,8 @@ of 157 is the defect the probe exists to catch.
 2. Headers are now the entire corpus blocker. The witness instrument gap — 5 of
    10 notices absent in at least one fire — is the largest single item, and it
    is an instrument problem, not a model problem.
-3. IDT: settle the coordinate space first, then the 17-rows-against-9 coverage
-   question.
+3. IDT: the coordinate space is settled — normalize by the row's own
+   `page_dims` and it is unambiguous. The open question is the
+   17-rows-against-9 coverage one: why the parts resolved through the `unique`
+   region path instead of the text-layer table on the same page.
 4. `mil.ttl` TBox, queued behind the above per the packet.
