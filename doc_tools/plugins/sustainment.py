@@ -813,7 +813,8 @@ class SustainmentPlugin(AugmentationPlugin):
     @traced(name="extract parts vision (gemma)")
     def _extract_parts(self, tables: List[dict], manifest: Optional[dict],
                        s3_client, full_text: str,
-                       tl_declines: Optional[List[dict]] = None) -> Tuple[List[dict], dict]:
+                       tl_declines: Optional[List[dict]] = None,
+                       bucket: Optional[str] = None) -> Tuple[List[dict], dict]:
         from doc_tools.baml_client.sync_client import b
         from baml_py import Image
         prompt = self._get_dynamic_prompt(
@@ -1007,6 +1008,10 @@ class SustainmentPlugin(AugmentationPlugin):
             if rows_by_page[page] < best["n_rows"]:
                 row_short.append({"page_number": page, "tier1_rows": best["n_rows"],
                                   "vision_rows": rows_by_page[page], "n_declines": len(ds)})
+        # PER-ROW boxes for vision rows that have no cell geometry (IDT: one flattened
+        # cell, so every row would otherwise share the enclosing table rectangle). Only
+        # a COUNT goes into the stats: the word index must not bloat the manifests.
+        word_bboxes = self._attach_word_boxes(all_parts, manifest, s3_client, bucket)
         return all_parts, {"n_crops_used": n_crops, "crops_missing": missing,
                            "crops_failed": failed, "crops_truncated": truncated,
                            "crops_near_cap": near_cap, "crops_row_short": len(row_short),
@@ -1015,7 +1020,53 @@ class SustainmentPlugin(AugmentationPlugin):
                            "grid_rows_emitted": grid_rows_emitted,
                            "grid_no_parts_col": grid_no_parts_col,
                            "text_layer_repairs": len(tl_repairs),
-                           "text_layer_repair_detail": tl_repairs}
+                           "text_layer_repair_detail": tl_repairs,
+                           "text_layer_word_bboxes": word_bboxes}
+
+    def _attach_word_boxes(self, parts: List[dict], manifest: Optional[dict], s3_client,
+                           bucket: Optional[str]) -> int:
+        """Attach exact-match PDF word boxes to vision rows lacking cell geometry.
+
+        Returns how many parts got an affected-MPN box. Any failure degrades to the
+        current behaviour (no boxes): this is provenance, never a reason to fail a doc.
+        """
+        try:
+            targets = [p for p in parts if not p.get("text_layer_bbox")]
+            if not targets:
+                return 0
+            key = (manifest or {}).get("source_key")
+            if not key or s3_client is None or not bucket:
+                return 0
+            import pdfplumber  # noqa: PLC0415 — heavy import, only on this path
+            mpns = set()
+            for p in targets:
+                for k in ("affected_mpn", "replacement_mpn"):
+                    if p.get(k):
+                        mpns.add(p[k])
+            body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
+            with pdfplumber.open(io.BytesIO(body)) as pdf:
+                def _born_digital_pages():
+                    for pno, page in enumerate(pdf.pages, start=1):
+                        if text_layer.page_has_text_layer(page):
+                            yield pno, page
+                boxes = text_layer.word_boxes_for_mpns(_born_digital_pages(), mpns)
+            n = 0
+            for p in targets:
+                hit = boxes.get(p.get("affected_mpn"))
+                if hit:
+                    p["text_layer_word_bbox"] = hit["bbox"]
+                    p["text_layer_word_page"] = hit["page_number"]
+                    p["text_layer_word_page_dims"] = hit["page_dims"]
+                    n += 1
+                rep = boxes.get(p.get("replacement_mpn"))
+                # Only usable when it sits on the same page as the affected box, since
+                # the review item reuses the affected box's page and page_dims.
+                if rep and hit and rep["page_number"] == hit["page_number"]:
+                    p["text_layer_word_replacement_bbox"] = rep["bbox"]
+            return n
+        except Exception as e:  # noqa: BLE001 — degrade to no boxes, never fail the doc
+            print(f"[SustainmentPlugin] word-box attachment unavailable ({e}); rows keep table-level provenance")
+            return 0
 
     def _transcribe_pages_witness(self, manifest: Optional[dict], s3_client) -> List[dict]:
         """THE SECOND WITNESS: one positioned-index record per page, read from the page's
@@ -1751,7 +1802,7 @@ class SustainmentPlugin(AugmentationPlugin):
         elif tables and vision_ok and s3_client is not None:
             try:
                 parts_d, ps = self._extract_parts(tables, manifest, s3_client, full_text,
-                                                  tl_declines_with_grid)
+                                                  tl_declines_with_grid, bucket=bucket)
                 stats.update(ps)
                 stats["vision_used"] = True
                 if self._apply_vision_stats(ps, len(tables), reasons, doc_flags):
@@ -1783,7 +1834,7 @@ class SustainmentPlugin(AugmentationPlugin):
                 # counter — there was never an image to have.
                 synthetic = [{"text": full_text, "metadata": {}}]
                 parts_d, ps = self._extract_parts(synthetic, manifest, s3_client, full_text,
-                                                  tl_declines_with_grid)
+                                                  tl_declines_with_grid, bucket=bucket)
                 stats.update(ps)
                 stats["vision_used"] = True
                 stats["router_textonly_vision"] = True
