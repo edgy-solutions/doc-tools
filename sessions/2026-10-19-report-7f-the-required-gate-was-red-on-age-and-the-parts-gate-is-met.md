@@ -179,9 +179,46 @@ output.
 **So the IDT defect reduces to one thing, which is the thing I was sent to
 look at:** all 34 items share ONE table-region rectangle, where TI has 9
 distinct cells — while a 9-row text-layer table sits on the same page, unused.
-The question to answer before building is why 17 part rows resolved through the
-`unique` region path instead of that table. The table is found, so this is a
-coverage question, not a detection one.
+
+### The root cause, measured — it is a tier fallback, not a provenance bug
+
+A row gets `text_layer_cell` **only if its part dict carries
+`text_layer_bbox`**, and only the text-layer tier sets that
+(`plugins/sustainment.py:618`). When that tier yields zero parts it returns
+early and the document degrades to vision; `resolve_value(...,
+prefer_region="table")` then resolves to the enclosing table region. The code
+comment at that fallback predicts IDT exactly: *"it resolves to the enclosing
+TABLE region (every part on a page sharing one huge box)"*.
+
+Recorded stats, read off the artifacts rather than inferred:
+
+| | IDT | TI |
+|---|---|---|
+| `text_layer_used` | **False** | True |
+| `text_layer_parts` | **0** | 9 |
+| `text_layer_declines` | **0 — empty** | 3 |
+| `vision_used` | **True** | False |
+| `text_layer_pages` | 1 | 5 |
+| `text_layer_retention` | 0.1651 | 0.1075 |
+
+**Degradation is not the discriminator.** Both notices are
+`text_layer_degraded = True`, and TI's retention is *lower* than IDT's, yet TI
+produced 9 text-layer parts and IDT produced none.
+
+### A second defect, independent of the bboxes
+
+**IDT produced zero parts AND zero declines.** The plugin's own comment calls a
+decline *"the router's only independent check on the vision pass"*, and says it
+*"must survive even when this tier ends up producing zero parts"*. IDT emitted
+neither, so for this notice that check is silently absent. This is the second
+notice with that shape — the paired-grid case had 29 MPN rows, no parts and no
+decline — which makes zero-decline the rule to fix, not an exception to note.
+
+**Where the fix belongs:** upstream of provenance, in
+`text_layer.parts_and_declines_from_pages`. It must yield IDT's 17 part rows
+from the 9-row table pdfplumber finds on page 1, or emit a decline. Per-row
+bboxes then follow for free, because the tier already carries the cell geometry.
+Nothing in the provenance layer needs changing.
 
 ## 6. Idempotency — BEFORE re-captured and stable, the write is still blocked
 
@@ -215,8 +252,8 @@ of 157 is the defect the probe exists to catch.
 2. Headers are now the entire corpus blocker. The witness instrument gap — 5 of
    10 notices absent in at least one fire — is the largest single item, and it
    is an instrument problem, not a model problem.
-3. IDT: the coordinate space is settled — normalize by the row's own
-   `page_dims` and it is unambiguous. The open question is the
-   17-rows-against-9 coverage one: why the parts resolved through the `unique`
-   region path instead of the text-layer table on the same page.
+3. IDT: root-caused. The fix is in `text_layer.parts_and_declines_from_pages`,
+   not in provenance — make it yield the 17 rows from the page-1 table, or emit
+   a decline. Per-row bboxes follow for free. The zero-decline guard gap is a
+   separate fix and now has two instances.
 4. `mil.ttl` TBox, queued behind the above per the packet.
