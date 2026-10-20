@@ -7483,3 +7483,65 @@ The POD still holds the OLD script, so the relaunch needs a `kubectl cp` first.
 A direct GraphQL launch carries no `run_key`, so the failed run consumed nothing
 and relaunching is free. Recorded as
 `a-launchrunsuccess-is-not-a-run-config-not-partition`.
+
+### 2026-10-19 (cont.) ExtractHeader IS the fleet model; the nightly red is a DIFFERENT cause
+
+Report: `sessions/2026-10-19-report-7f-extractheader-is-the-fleet-model-and-the-header-identity-has-no-text-layer-primary.md`
+
+**Answering the architect: yes, it is a model call, and it is the PRIMARY and
+ONLY source of mfr/doc_id/pub_date/revision.** `ExtractHeader`
+(`baml_src/sustainment.baml:73`, declared `client LLM`, text-only pass 1) is
+redirected at call time by `_header_call_opts` (`:395`), which registers
+`HeaderBounded` as `openai-generic` and calls `cr.set_primary("HeaderBounded")`
+-> `LLM_BASE_URL` / `LLM_MODEL`, measured as **gpt-oss-128k:120b**,
+`temperature 0`, no seed. The identity half is two of its returned fields, so
+the 300 s timeout and the cross-fire instability are ONE event.
+
+**The timeout, four numbers:** configured 600 000 ms (and no env key sets it);
+observed cut 300 001-300 008 ms; **healthy p100 36 300 ms** (10-19, 15/15 calls,
+19-36 s); fire budget 2 794-3 201 s. So 300 s is ~8x the healthy worst case and
+~10 % of a fire — NOT "well under the fire budget". Which layer imposes it is
+still unmeasured and needs an endpoint probe, not a code read.
+
+**Fallback hits:** 10-18 nine (PCN24-029 3/3, IPCN25300X 3/3, TI 2/3, IDT 1/3);
+**10-19 zero.** The fallback DOES set `needs_review=True` (half the ruling
+holds) but writes a filename-derived `doc_id` instead of deferring to the text
+layer (half inverted).
+
+**The ruling is net-new work, not a reordering.** Measured field by field: the
+ONLY text-layer primary today is `doc_type`
+(`header_trust.doc_type_from_titles(headline_candidates(...))`). `mfr`,
+`doc_id`, `pub_date`, `revision` are the model's, and the trust pipeline after
+it (`:1503-1527`) only refuses/withdraws/corroborates — **it fixes precision,
+never recall**, so a 408 cannot be repaired downstream. The one supplier arm,
+`supply_header_from_regions` (`sustainment_header_trust.py:578`), is VISION and
+returns immediately unless `text_layer_degraded` AND a region witness exists —
+inert by design on the healthy-text-layer documents that timed out.
+`ltb_candidates` (a real text-layer extractor, rendered into the prompt) and
+`doc_type_from_titles` are the two shapes to copy.
+
+**The nightly gate pod Error (`...-29873220-hntrx`): same instrument, different
+cause.** The Error IS the red (non-pass verdict exits non-zero). No absences,
+**no header timeouts at all** (15/15 completed), three fires exit 0 at 522/522
+parts with 0 spurious/missing/malformed, digest `ac853308` matching pods. The
+single 408 in the whole run is `VisionBounded`/`TranscribePage` **page 2** — the
+voided-witness path. The one blocker is TYC written-header correctness (fire 3:
+mfr absent, pub_date distractor), with needs_review exempting the disagreement
+and the identity instability but NOT correctness. Note: fire 3 had no header
+timeout, so TYC mfr came back absent from a call that SUCCEEDED — a recall miss
+on the damaged text layer, whose corroborating page-2 witness was the 408 in the
+same fire. Two independent faults, one notice.
+
+**Correction to last night's report:** "15 calls = 5 notices x 3 fires" is 15
+calls *in the echoed window* (the echo caps at 262 144 B of a ~440 KB log), not
+15 in the run. The no-retry finding is unaffected.
+
+**MRAD idempotency second write: DONE, and the AFTER is owed.** Chris copied the
+fixed launcher in and relaunched; run `3f9f8535-af7c-4c2b-b687-aaab792e5bdd`
+printed the previously-missing `Fetching XML from s3://...` line and reached
+**RUN_SUCCESS** in 1 m 35 s at 2026-10-20 01:11:52Z, all five steps. So the
+second write is in Jena. BEFORE (four agreeing fingerprints): total 157, module
+37 over 7 subjects, bnodes 0/0, sha256 `5f378a2da5443ec3`. Pass = all six fields
+identical; a changed sha256 at an unchanged total 157 is the defect the proof
+exists to catch. Next line to run:
+`kubectl exec -n sandbox doc-tools-557cc96c6b-7v2z2 -- python /tmp/idem_fingerprint.py`
