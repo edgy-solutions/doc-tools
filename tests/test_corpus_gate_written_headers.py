@@ -224,8 +224,16 @@ class _Notice:
             setattr(self, k, v)
 
 
+def _ident(doc_id="PCN-24-210412"):
+    """A `stats["notice_identity"]`-shaped record. `written_header` takes doc_id from
+    the IDENTITY record, not from the notice: the notice carries the key-safe,
+    filename-seeded value, and `doc_id=None` here is how a header pass that returned
+    no notice number reaches the written header — as an absence, not as a filename."""
+    return {"doc_id": doc_id}
+
+
 def test_written_header_carries_the_identity_triple_and_the_written_tuple():
-    h = run.written_header(_Notice())
+    h = run.written_header(_Notice(), _ident())
     assert set(h) == {"mfr", "doc_id", "revision", "doc_type", "pub_date",
                       "doc_level_ltb_date"}
     assert h["revision"] == "1"
@@ -236,7 +244,7 @@ def test_blank_strings_are_normalized_to_none():
     coerces a missing or refused value to "". The log-derived path spells the same
     absence None. Left unnormalized, the gate would report a DISAGREEMENT between two
     sources that both observed absence."""
-    h = run.written_header(_Notice(mfr="", pub_date="", doc_level_ltb_date=None))
+    h = run.written_header(_Notice(mfr="", pub_date="", doc_level_ltb_date=None), _ident())
     assert h["mfr"] is None
     assert h["pub_date"] is None
     assert h["doc_level_ltb_date"] is None
@@ -245,7 +253,7 @@ def test_blank_strings_are_normalized_to_none():
 def test_doc_type_is_not_normalized_away():
     """doc_type's "PCN" default is a real written value — it selects the disposition
     ruleset downstream — so it is recorded as written, not blanked."""
-    assert run.written_header(_Notice(doc_type="PCN"))["doc_type"] == "PCN"
+    assert run.written_header(_Notice(doc_type="PCN"), _ident())["doc_type"] == "PCN"
 
 
 def test_a_refused_mfr_gives_a_header_that_forms_no_identity_key():
@@ -253,11 +261,34 @@ def test_a_refused_mfr_gives_a_header_that_forms_no_identity_key():
     reaches build_identity as falsy and no key is formed, which is the deliberate
     direction (a missed duplicate, not a false match)."""
     from doc_tools.utils import notice_identity as ni
-    h = run.written_header(_Notice(mfr=""))
+    h = run.written_header(_Notice(mfr=""), _ident())
     ident = ni.build_identity(h["mfr"], h["doc_id"], h["revision"])
     assert ident["complete"] is False
     assert ident["key"] is None
     assert "mfr" in ident["note"]
+
+
+def test_an_extracted_doc_id_round_trips_from_the_identity_record():
+    """The ordinary case: the header pass returned a notice number, so the identity
+    record carries it and the written header reports it."""
+    assert run.written_header(_Notice(), _ident("PDN-23-0120"))["doc_id"] == "PDN-23-0120"
+
+
+def test_a_doc_id_that_was_never_extracted_is_written_as_absent_not_as_a_filename():
+    """THE RULING, as a test. A header pass that was cut (a 300 s ExtractHeader
+    timeout, measured nine times on 2026-10-18) leaves `notice.doc_id` seeded from the
+    pipeline doc_id — a FILENAME — because doc_id is a key (workflow id, MinIO prefix,
+    graph IRI, provenance index) and must never be null. That key-safe value must not
+    be reported as the extracted notice number: a consumer cannot tell it from a real
+    one. The identity record holds claim-or-None, so the written header reports the
+    absence and no identity key can be formed from it."""
+    from doc_tools.utils import notice_identity as ni
+    h = run.written_header(_Notice(doc_id="PCN24-029"), _ident(None))
+    assert h["doc_id"] is None
+    assert h["mfr"] == "TE Connectivity"
+    ident = ni.build_identity(h["mfr"], h["doc_id"], h["revision"])
+    assert ident["key"] is None
+    assert "doc_id" in ident["note"]
 
 
 # ---------------------------------------------------------------------------

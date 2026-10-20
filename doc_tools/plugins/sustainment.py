@@ -237,6 +237,27 @@ VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
 # knob is a way for the pin to be quietly undone in the one environment where it matters.
 HEADER_TEMPERATURE = 0
 
+# Request bound for the HEADER pass, in milliseconds.
+#
+# Measured on the 10-19 nightly: 15/15 ExtractHeader calls returned in 19 274-36 300 ms,
+# so the healthy p100 is 36 300 ms and 90 s is ~2.5x the healthy worst case. The observed
+# cut was 300 001-300 008 ms against a fire budget of 2 794-3 201 s -- i.e. ~10% of a fire
+# spent returning nothing.
+#
+# A SEPARATE key from `LLM_REQUEST_TIMEOUT_MS` because that one is shared with the vision
+# client, whose `VISION_MAX_TOKENS` sizing (charts/doc-tools/values-sandbox.yaml) depends
+# on the 600 s default: lowering the shared key would convert a DETECTED vision truncation
+# into an undetected vision timeout.
+HEADER_TIMEOUT_MS_DEFAULT = 90_000
+
+# Seed for the HEADER pass.
+#
+# Temperature 0 alone left three fires disagreeing on byte-identical input. A seed removes
+# one source of that and does NOT make the call deterministic -- a probe at temperature 0
+# with seed 0 still produced three different outputs. One variable removed, not a
+# determinism guarantee.
+HEADER_SEED = 0
+
 # Greedy decoding for the parts pass. NOT a tuning knob -- an identity requirement.
 #
 # Measured 2026-09-27 on pin sha256:0136991e: `ADI_PDN_23_0120` emitted 'AD7873ACPZ' in
@@ -411,13 +432,17 @@ def _header_call_opts() -> dict:
     No Collector: unlike the vision pass, there is no truncation check on this pass.
     """
     from baml_py import AbortController, ClientRegistry
-    ms = int(os.getenv("LLM_REQUEST_TIMEOUT_MS", "600000"))
+    ms = int(os.getenv("HEADER_REQUEST_TIMEOUT_MS", str(HEADER_TIMEOUT_MS_DEFAULT)))
     cr = ClientRegistry()
     options = {
         "base_url": os.environ.get("LLM_BASE_URL", ""),
         "api_key": os.environ.get("LLM_API_KEY", "") or "any",
         "model": os.environ.get("LLM_MODEL", ""),
         "temperature": HEADER_TEMPERATURE,
+        # `seed` is a standard OpenAI-compatible REQUEST parameter and belongs at the top
+        # level, NOT inside the nested `options` dict below (that nesting is the Ollama
+        # `num_ctx` passthrough). See HEADER_SEED: one variable removed, not determinism.
+        "seed": HEADER_SEED,
     }
     num_ctx = os.environ.get("LLM_NUM_CTX")
     if num_ctx:
@@ -1586,8 +1611,18 @@ class SustainmentPlugin(AugmentationPlugin):
         # match, which silently merges two different manufacturers' notices. Coverage is
         # currently total anyway: at pin 025be04a all nine corpus notices carry both an
         # mfr and a doc_id, with refusals 0.
+        #
+        # A filename is not an identity claim. `header_d["doc_id"]` is KEY-SAFE by
+        # construction (filename-seeded above so the workflow id / MinIO prefix / graph
+        # IRI / provenance index are never null), and that is exactly why it must not be
+        # the identity triple's doc_id: a consumer cannot tell a filename from an
+        # extracted notice number. `doc_id_extracted` is the model's own claim, set
+        # before the key fallback and None on a cut, so it is the discriminator for
+        # WHETHER a claim exists; the normalized key-safe form is still what we PASS, so
+        # every key that formed before this change forms identically after it.
+        _doc_id_claim = header_d.get("doc_id") if header_d.get("doc_id_extracted") else None
         stats["notice_identity"] = notice_identity.build_identity(
-            header_d.get("mfr"), header_d.get("doc_id"), header_d.get("revision"))
+            header_d.get("mfr"), _doc_id_claim, header_d.get("revision"))
 
         # ---- Router + Pass 2: parts (multimodal, Gemma) ----
         tables = provenance.table_elements(elements)
