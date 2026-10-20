@@ -36,7 +36,55 @@ holds for doc_id / pub_date / revision. The 10-19 report now carries two inline
 `CORRECTED 2026-10-20` blocks; memory
 `header-identity-has-no-text-layer-primary` is rewritten.
 
-**Item 1 is therefore `doc_id` only, and it is IN FLIGHT with an implementer.**
+**ITEM 1 PHASE A IS COMMITTED — `27add3e`, `doc_id_from_document`.** 168 lines,
+**purely additive** (zero deletions), 19 new tests + the two neighbouring
+header-trust suites green (35), registries **byte-unchanged** and two tests pin
+that. Case-sensitive code token with an open 0-2 letter prefix (`FPCN`/`IPCN`
+are real), mandatory digit, hyphen/space/`#` as separators, **no colon** — which
+kills the `PCN #: 2683` label echo at the regex. **Uniqueness is the safety and
+there is NO prefix rule** (`PCN-36` is not a truncation of `PCN-3600`).
+**`Table` is excluded and it costs EOL-36**, whose number is printed only in a
+Table — refusal there, model value stands; both halves pinned in a test so
+flipping it is one line. Admitting `Table` is also the one lever that might cure
+EOL-36's identity instability, but it would change a written value
+(`BED.PCN-36` → `PCN-36`) on a notice nothing scores — measure first.
+**Phase B (the wiring into `sustainment.py`) is mine and NOT started.**
+
+**⚠ THE PUBLISHED AUTHORITY CONTRADICTS MY OWN FIRE TABLE — READ THIS BEFORE
+PLANNING THE PIN.** `origin/main` carries a **newer** report than my checkout
+(mine is 10-15; main's is **2026-10-18T11:25:31Z**, image `...7a554afa`).
+**#144 MERGED** (`809963c`) and it worked: the required **`corpus-gate` context
+is GREEN**, `build-and-push` **succeeded** (so an image exists for main's tip),
+and the red is **`corpus-gate-verdict`, which is advisory** — merges are **not**
+frozen. The verdict now asserts on **content**, five blocking items:
+**5 notices ABSENT in ≥1 fire** (ADI, Diodes, EOL-36, IDT, TI — no exemption
+exists for an absence, by design); **ADI / Diodes / EOL-36 identity-half
+unstable** with `needs_review` not True in all three fires; and **IDT** header
+correctness (fire 2: `doc_level_ltb_date`, `pub_date` absent). Correctness was
+**7/9, 5/9, 7/9**, failing notice **IDT — not TYC**, whose disagreement is
+exempted. TYC is the **10-19 nightly's** culprit. Two reports, two culprits, and
+**CI grades the 10-18 one**.
+
+**The structural blocker, measured:** `compute_stability` lumps a `None` key
+into `identity_half_unstable`, and the exemption needs `needs_review` in **all
+three** fires — so **a notice cut in only some fires can never be exempted**,
+because the healthy fires legitimately have `needs_review=False`. IDT escaped
+only because it is flagged in all three for other reasons. **The 90 s bound
+makes a cut cheaper, not rarer, so items 2+3 do not move this verdict in either
+direction.** "Green on three fires" needs the absences to stop (cluster-side) or
+the exemption re-grained **per fire** — a GATE change and the architect's call.
+Memory: `an-intermittent-cut-can-never-earn-the-instability-exemption`.
+
+**One risk in `da7c1ee` worth knowing before a pin:** a notice whose filename
+stem normalizes to the same key as its real doc_id, cut in 1-2 of 3 fires with
+`mfr` present, was stable before (the filename formed the same key) and becomes
+`identity_half_unstable` after. **`onsemi_Generic_IPCN25300X.pdf` is exactly
+that filename.** Not live today — it has no key in any fire, so all three agree
+— and it becomes live the moment `mfr` resolves there. The behaviour is correct
+(the old stability was a filename artifact) but it would surface as a new,
+unexemptable red.
+
+**Item 1 context — `doc_id` is the only gap, and phase A is now in:**
 Scope: `doc_id_from_document` + `tests/test_doc_id_from_document.py` in
 `sustainment_header_trust.py` **only**; the wiring into `sustainment.py` is
 phase B and mine. First shape rule was **measured wrong before any code was

@@ -119,8 +119,11 @@ on the ruling:
    say nothing about it. Unit tests are the only proof it can have, which is how
    I have specified it.
 2. **The three-fire pin condition therefore measures mfr / pub_date / ltb on
-   three notices.** The single remaining blocker there is **TYC**, and both of
-   its failures sit in **fire 3 — the only fire with the vision 408**:
+   three notices.** On **my 10-19 fires** the remaining failure was **TYC**,
+   with both halves in **fire 3 — the only fire with the vision 408**. ⚠ **See
+   section 8: the published authority report says IDT, not TYC, and it has four
+   more blocking items.** The table below is the 10-19 nightly, which is *not*
+   the report CI grades.
 
 | fire | mfr | pub_date | vision 408 |
 |---|---|---|---|
@@ -130,8 +133,8 @@ on the ruling:
 
 TYC's text layer is degraded, so `_DOCUMENT_WINS` is correctly off and the
 region witness is the only arm that reads it right — and that witness is the
-voided-page-2 408 the ruling says **stays as is**. So *"pin after the corpus
-gate reads green on three fires"* is, as the corpus stands, **gated on a vision
+voided-page-2 408 the ruling says **stays as is**. So on the 10-19 run, *"pin
+after the corpus gate reads green on three fires"* was **gated on a vision
 timeout not recurring**, not on the header work. Two of three fires were
 already green on TYC. **I have not changed that path and will not without a
 ruling.**
@@ -147,9 +150,14 @@ read the verdict.**
 
 That makes "three fires, pin when green" an ordering question rather than a
 blocker: the pin has to move **before** the fires can measure the code, and a
-pin PR's own gate verdict reads RED on report age in the meantime, which is
-normal and not a finding. **Chris is asleep; I have not merged anything.** Say
-the word and I will take it in that order.
+pin PR's own gate verdict reads RED in the meantime, which is normal and not a
+finding. **Chris is asleep; I have not merged anything.** Say the word and I
+will take it in that order.
+
+**Updated by section 8:** the required `corpus-gate` context is **green** on
+main and `build-and-push` **succeeded** there, so merges are **not** frozen and
+a pin PR is not blocked by the advisory verdict. The blocker on this sequence is
+a merge decision only.
 
 ## 5. Lane 01's window data, and one discrepancy worth naming
 
@@ -161,7 +169,9 @@ window, which attributes the 300 s cuts to the cluster rather than to this
 repo's code. They will no longer start a roll between 07:00Z and the gate's
 last fire.
 
-**The discrepancy:** they name the five absent from header agreement on 10-18 as
+**The discrepancy** (now partly resolved — their list is the published
+report's `header_agreement.absent`, verbatim; see section 8)**:** they name the
+five absent from header agreement on 10-18 as
 **ADI, Diodes 2683, EOL-36, IDT, TI**; I measured the `ExtractHeader` timeouts
 on **PCN24-029 (3/3), IPCN25300X (3/3), TI (2/3), IDT (1/3)**. Only TI and IDT
 appear in both. So **absence from the agreement table is not the same event as a
@@ -227,3 +237,86 @@ ABSENT row means "not visible in the echoed window", not "not measured".
 - **doc_id behaviour on the real corpus.** Unscored by construction (section 3),
   so I will instrument what the new arm extracts per notice rather than claim it
   from a green gate.
+
+## 8. CORRECTION, measured after sections 3-5 were written: the published authority says IDT, not TYC, and the red is five items wide
+
+While writing this I read `origin/main`, not my checkout. Two things had moved,
+and both change the conclusion above.
+
+**PR #144 merged** (`809963c`, 2026-10-19T23:47Z) and landed a **newer authority
+report** than the one in my working tree. My local `docs/corpus-gate/latest.json`
+is the 10-15 report; **main's is 2026-10-18T11:25:31Z**, measured image
+`...7a554afa`. A local checkout is not the deployed contract, and I had been
+reasoning from the stale one.
+
+**The required gate is GREEN and merges are not frozen.** On main's tip the
+`Build Container Image` run shows `corpus-gate` **success** (that is the one
+required context), `build-and-push` **success** — so **an image exists for
+main's tip** — and the failure is **`corpus-gate-verdict`**, which is advisory.
+So #144 did its job: the age clause no longer fires, and the verdict now asserts
+on **content**.
+
+**What the published report actually blocks on — five items, not one:**
+
+| # | blocking item |
+|---|---|
+| 1 | **header agreement: 5 notices ABSENT in ≥1 fire** — ADI, Diodes 2683, EOL-36, IDT, TI. *"an instrument gap, not a value disagreement; there is no declaration exemption for it"* |
+| 2 | **ADI**: identity half (mfr/doc_id) unstable across fires **and `needs_review` is not True in all three fires** |
+| 3 | **Diodes 2683**: same |
+| 4 | **EOL-36**: same |
+| 5 | **IDT**: written header does not match ground truth — **fire 2**: `doc_level_ltb_date` absent, `pub_date` absent |
+
+Exempted: **IDT's identity-half instability**, because `needs_review=True` in all
+three fires. `identity_half_unstable` is ADI / Diodes / EOL-36 / IDT;
+`incomplete_identity` is Diodes / PCN23-002 / onsemi IPCN25300X — and note
+**`incomplete_identity` is reported but does not block** (two of its three
+notices appear nowhere in the blocking list).
+
+Header correctness on that report: **fire 1 exact 7/9, fire 2 exact 5/9, fire 3
+exact 7/9**, failing notice **IDT**. So lane 01's *"your fire 2 scored 5 of 9"*
+is this report, and **TYC is not the failing notice here** — it is the 10-19
+nightly where TYC failed. Two different reports, two different culprits, and
+**CI grades the 10-18 one**.
+
+### The structural finding, and it is the real blocker
+
+`compute_stability` (`scripts/pcn_corpus_gate.py:488`) lumps a `None` key into
+`identity_half_unstable` explicitly — *"an incomplete identity in at least one
+fire is at least as severe as a real difference"*. And the declaration rule
+exempts instability only when `needs_review == True` **in all three fires**.
+
+Put those together: **a notice cut in only SOME fires can never earn the
+exemption**, because the fires where it was healthy legitimately have
+`needs_review=False`. There is nothing the pipeline can do to declare its way
+out of an intermittent timeout. IDT escaped only because it happens to carry
+`needs_review=True` in all three fires for other reasons. That is why items 2-4
+are red, and **the 90 s bound does not cure them**: a bounded call still returns
+nothing, so the notice is still absent and still unstable — the bound makes each
+cut **cheaper (90 s instead of 300 s), not rarer.** Item 1 has no exemption at
+all by design.
+
+**So items 2+3 of the ruling do not move this verdict, in either direction, and
+I am not claiming they do.** "Green on three fires" is not one vision timeout
+away; it needs the absences to stop happening, which is a cluster-side and
+bound-side matter, or it needs the exemption rule to be re-grained per fire —
+which is a **gate** change and the architect's call, not mine to make quietly.
+
+### One risk in `da7c1ee` I had not seen, stated precisely
+
+My commit message says the change cannot red the gate. That is right for every
+notice in today's report, but there is one shape where it could, and it is worth
+naming before the pin:
+
+A notice whose **filename stem normalizes to the same key as its real doc_id**,
+cut in **one or two** of three fires, with `mfr` present in all three, was
+**stable before** this change (the filename-derived doc_id formed the *same* key
+in the cut fire) and becomes **`identity_half_unstable` after** it (the cut fire
+now keys `None`). `onsemi_Generic_IPCN25300X.pdf` is exactly that filename — its
+stem carries its own notice number.
+
+It is **not live today**: that notice sits in `incomplete_identity` with no key
+in any fire, so all three agree and the stability check skips it. It becomes
+live the moment `mfr` starts resolving there. The behaviour is *correct* — the
+old stability was an artifact of the filename, which is precisely what the
+ruling calls out — but it would surface as a new red, and under the rule above
+it could not be exempted. Flagging it rather than discovering it on a pin.
