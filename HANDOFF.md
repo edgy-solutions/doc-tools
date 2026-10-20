@@ -31,14 +31,36 @@ reach the identity triple. Two payload facts measured there: the review dict has
 (`field_path header.mfr` etc., with `value` + `source_snippet`). `doc_id` has no
 review item at all.
 
-**The mil TBox draft is PLACED with 74** (packet + `2026-10-20-mil-tbox-draft-from-7f.ttl`
-in `invincible-agent/sessions/`, uncommitted — their tree). Sealed: 184 triples,
-42 `mil:` subjects, 25 new, 0 defects, BOM gone. The seal found two EXISTING terms
-(`mil:hasInstructionText`, `mil:hasWarning`) with no definition of any kind, hence
-no embedding text; I wrote one each and flagged it. **Open and not mine:** where
-the file lives, who loads it and under which graph IRI. There is no `mil` TBox file
-in either repo, and the namespace appears only as `input_uri` examples in
-`weaviate_expert/main.py` and `neo4j_expert/main.py`.
+**The mil TBox draft is PLACED with 74** — packet +
+`2026-10-20-mil-tbox-additions-from-7f.ttl` (the deliverable) +
+`2026-10-20-mil-tbox-draft-from-7f.ttl` (the merge, for reading) in
+`invincible-agent/sessions/`, uncommitted, their tree.
+
+**It is an EXTENSION of a live carrier, not a new file**, and my first write-up of
+this said the opposite. `invincible-agent/setup/ontologies/mil_extension.ttl` exists
+— 17 `mil:` subjects, 69 triples — primed by `setup/prime_databases.py` as
+`{domain: "MAINTENANCE", s3_key: "mil/mil_extension.ttl"}` into
+`<http://internal/MAINTENANCE>`, measured deployed and reachable in the pod on
+2026-10-17. **There is no graph-IRI question to answer**; the prime entry already
+names the target. My "no `mil` TBox anywhere" came from a `find` scoped to
+`agent_fleet/` only — a strong negative off a narrow search, and
+[[no-mil-term-is-in-the-vocabulary-graph-at-all]] had already recorded the carrier.
+The namespace does also appear as `input_uri` examples in `weaviate_expert/main.py`
+and `neo4j_expert/main.py`, and those four content kinds ARE declared and DO resolve;
+the undeclared half is the 25 S1000D-specific terms.
+
+Sealed on the operation 74 would actually run: **their 69 + my 115 as a set = 184,
+the merged file = 184, set difference 0 both ways**, 42 subjects, 0 defects, no BOM on
+either placed file. Script: `scratchpad/seal_additions_append.py <live> <additions>
+<merged>`, so the seal is re-runnable, not asserted. The seal also found two EXISTING
+terms (`mil:hasInstructionText`, `mil:hasWarning`) with no definition of any kind,
+hence no embedding text; I wrote one each as **additive single triples** (type/domain/
+range/label not restated, so the append cannot redefine them) and flagged it.
+`mil:MIL_Ontology` flags too and is fine — it is the `owl:Ontology` header node.
+
+**Open and 74's, now a much shorter list:** adopt the wording; rule on
+`mil:hasProcedureSteps` having `rdf:List` as its range; say whether anything needs
+re-priming beyond the normal path.
 
 **NEXT, and it needs a decision:** merge → image → pin → three fires, in that
 order, with the values diff shown before the roll. And the gate's own blocker is
@@ -177,7 +199,8 @@ zero consumers of `dispatch_failure:*` and no reader for the decision record),
 and **name their consumers of those two predicates** before I move them to a
 row IRI. The Neo4j edge is already notice-scoped, so that leg can land first.
 
-Still open: **`mil.ttl` draft to 74**, needing the routing call below.
+Still open: **`mil.ttl` draft to 74** — DONE 2026-10-20 and placed; the "routing
+call" named below turned out not to be a question. See the LATEST section.
 
 ## 2026-10-19 — THE REQUIRED GATE WAS RED ON REPORT AGE. PARTS GATE IS **MET** AT THE LIVE PIN. PR #144 OPEN, MERGE BLOCKED
 
@@ -196,8 +219,11 @@ the OCR-verbatim bypass deliberately **not** extended to word boxes, and the
 grid deliberately **not** made to decline.
 
 **`mil.ttl` TBox (next in the packet) — NEEDS A ROUTING DECISION, it is not in
-my tree.** There is no tracked `mil.ttl` in doc-tools; the only ones here are my
-own drafts, `scratchpad/mil_additions.ttl`, `mil_additions_pfx.ttl`,
+my tree.** *[RETRACTED 2026-10-20 — the routing question does not exist. The
+carrier is `invincible-agent/setup/ontologies/mil_extension.ttl`, already primed
+into `<http://internal/MAINTENANCE>`; the paragraph below names the wrong home.
+See the LATEST section.]* There is no tracked `mil.ttl` in doc-tools; the only ones
+here are my own drafts, `scratchpad/mil_additions.ttl`, `mil_additions_pfx.ttl`,
 `mil_merged.ttl`. The TBox home is
 `invincible-agent/agent_fleet/ontology_service/` (which holds `iof_mro.ttl` and
 `Maintenance.rdf`), and **that is not a repo this lane commits in** — by the

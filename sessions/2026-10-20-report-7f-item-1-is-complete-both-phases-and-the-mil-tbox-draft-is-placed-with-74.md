@@ -99,34 +99,67 @@ mfr-document-wins, 62 region-witness + label-echo.
 ## 4. The mil TBox draft is placed with 74
 
 `invincible-agent/sessions/2026-10-20-packet-to-74-mil-tbox-draft-25-terms-the-writers-emit-and-nothing-declares.md`,
-with the TTL beside it as `2026-10-20-mil-tbox-draft-from-7f.ttl`. Placed, not
-committed — their tree, their commit.
+with two TTLs beside it: `2026-10-20-mil-tbox-additions-from-7f.ttl` (the
+deliverable) and `2026-10-20-mil-tbox-draft-from-7f.ttl` (the merge, for reading and
+diffing only). Placed, not committed — their tree, their commit.
 
-Sealed against the file itself: parses, **184 triples, 42 `mil:` subjects, 25 of them
-new** (6 classes, 19 properties), nothing declared-but-absent, **0 seal defects**, and
-the BOM `Out-File -Encoding utf8` had added is gone. Every term carries exactly one
-`rdf:type`, one `rdfs:label` and one `skos:definition`, and **zero `rdfs:comment`** —
-because `rdfs:comment` IS the embedding and a term declaring both yields two rows
-whose last writer wins, which is how `mro:TechnicalManual`'s stored definition came
-to be a build note.
+**Correcting myself, because the first version of this section was wrong and the
+packet went out carrying it.** I wrote that there is no `mil` TBox file anywhere in
+either repo. There is: **`invincible-agent/setup/ontologies/mil_extension.ttl`**, 17
+`mil:` subjects and 69 triples, primed by `setup/prime_databases.py` as
+`{domain: "MAINTENANCE", name: "mil_extension", s3_key: "mil/mil_extension.ttl"}` —
+i.e. into `<http://internal/MAINTENANCE>`, deployed and reachable. The 16 generic-spine
+terms the experts are called with ARE declared and ARE resolvable. My negative came
+from a `find` scoped to `agent_fleet/` only, and project memory had already recorded
+that the carrier lives in the peer repo and that the Day 2 declarations should
+**extend** it rather than add a second file declaring the same namespace. I drew a
+strong negative from a narrow search, which is the failure this fleet keeps catching,
+and the packet has been rewritten with the correction left visible in it.
 
-**The seal also found a defect in the existing terms:** `mil:hasInstructionText` and
-`mil:hasWarning` each have a label and **no definition of any kind**, so under the
-`skos:definition UNION rdfs:comment` extractor they have no embedding text at all and
-cannot be reached semantically. I wrote one definition for each in the draft and
-flagged it to 74 rather than burying it.
+So the deliverable is an **extension of a working carrier**, not a new file, and
+there is no graph-IRI question to answer — the existing prime entry already names the
+target. That shrinks what §4 of the packet asks 74 to decide to: adopt the wording,
+rule on `mil:hasProcedureSteps` having `rdf:List` as its range, and say whether
+anything needs re-priming beyond the normal path.
 
-**The routing question is open and it is yours and 74's.** There is no `mil` TBox file
-anywhere in either repo: no `mil*.ttl` under `agent_fleet/`, and the namespace appears
-in exactly two places, `weaviate_expert/main.py` and `neo4j_expert/main.py`, as
-`input_uri` values. So the experts are documented to be *called with*
+Sealed the way the operation actually works: not "my merged copy parses", but
+**appending the additions to the live carrier reproduces that copy exactly**. Their 69
+triples plus my 115 as a set is **184**; the merged file is **184**; the set difference
+is **0 in each direction**; **42 `mil:` subjects** after the append, their 17 plus my
+25 (6 classes, 19 properties), none of theirs dropped, **0 seal defects**, and no BOM
+on either placed file. Every term I add carries exactly one `rdf:type`, one
+`rdfs:label` and one `skos:definition`, and **zero `rdfs:comment`** — because
+`rdfs:comment` IS the embedding and a term declaring both yields two rows whose last
+writer wins, which is how `mro:TechnicalManual`'s stored definition came to be a build
+note. That rule is **theirs**: line 13 of `mil_extension.ttl` states it in a comment,
+and the packet now credits it there instead of lecturing them with it. The seal script
+is placed with the packet as `2026-10-20-mil-tbox-seal-additions-append-from-7f.py`
+(`rdflib` only, three file arguments, no writes), so 74 can re-run it rather than
+trust it; `scratchpad/seal_additions_append.py` here is the same file.
+
+**The seal also found a defect in the existing terms, and it is the one real finding
+here:** `mil:hasInstructionText` and `mil:hasWarning` each have a label and **no
+definition of any kind**, so under the `skos:definition UNION rdfs:comment` extractor
+they have no embedding text at all and cannot be reached semantically. These are the
+**only** two triple-level changes the append makes to their 17 subjects, and in the
+additions file they are additive single triples under a header saying they are not new
+terms — type, domain, range and label are not restated, so the append cannot silently
+redefine them. I wrote one definition each and flagged it rather than burying it. One
+further subject the same scan flags, `mil:MIL_Ontology`, is the `owl:Ontology` header
+node, pre-existing and untouched; the one-definition rule does not apply to it and the
+packet says so, so the seal output does not read as an unreported defect.
+
+**What remains open on the gap the 25 close** is narrower than I first wrote. The
+namespace appears in `weaviate_expert/main.py` and `neo4j_expert/main.py` as
+`input_uri` values — the experts are documented to be *called with*
 `mil:FaultIsolationDataModule`, `mil:IllustratedPartsDataModule`,
-`mil:DescriptiveDataModule`, `mil:ProcedureDataModule` — and a semantic lookup on
-those URIs resolves against a vocabulary graph containing **no `mil` term at all**.
-What I asked 74 to decide: where the file lives, who loads it and under which graph
-IRI (a load must name its target graph explicitly — a default-graph-wide operation on
-that endpoint drops production graphs), and whether declaring the terms changes any
-consumer today.
+`mil:DescriptiveDataModule`, `mil:ProcedureDataModule`. Those four **are** declared in
+`mil_extension.ttl` and do resolve. What does not resolve is the S1000D-specific half
+the parsers emit: of the 41 `mil:` terms the four parsers write, 16 were declared and
+**25 were not**. If a load is run, two standing constraints still hold and are in the
+packet: name the target graph explicitly, because a default-graph-wide operation on
+that endpoint drops production graphs; and `INSERT DATA` mints fresh blank nodes on
+every call, so a blank-node list breaks idempotency on the second apply.
 
 I also told 74 what the draft does **not** claim: there are two S1000D parsers and
 the wired one is the unmeasured one; S1000D 3xx has no content kind; and an
