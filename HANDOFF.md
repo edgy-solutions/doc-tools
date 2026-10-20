@@ -2,7 +2,52 @@
 
 Updated 2026-10-20. In-flight state only; durable findings live in project memory.
 
-## 2026-10-20 LATEST — HEADER RULING: ITEMS 2+3 COMMITTED (`da7c1ee`). ITEM 1 SPLITS — mfr IS ALREADY DONE, doc_id IS THE ONLY GAP
+## 2026-10-20 LATEST — ITEM 1 IS COMPLETE, BOTH PHASES. THE MIL DRAFT IS PLACED WITH 74. ONLY THE MERGE/PIN/FIRES REMAIN, AND THEY NEED A HUMAN
+
+Report: `sessions/2026-10-20-report-7f-item-1-is-complete-both-phases-and-the-mil-tbox-draft-is-placed-with-74.md`.
+Branch `7f/report-2026-10-19-required-gate-red-on-age` is **pushed**, 13 ahead of
+`main` / 1 behind. No merge, no roll, no pin moved, no fire.
+
+**Phase B landed (`80a7f30`)** — `doc_id_from_document` is wired into
+`_extract_fulltext` as the primary arm. Precedence: the document's printing, then
+the model's claim, then the pipeline key. New `doc_id_origin` is the identity
+discriminator, replacing `doc_id_extracted` at the `_doc_id_claim` line;
+`doc_id_extracted` keeps its old meaning (the MODEL's claim). Gated off on
+`text_layer_degraded`, proven by a monkeypatch that raises. Registries untouched.
+A disagreement is REPORTED and does **not** set `needs_review` — deliberately,
+because `needs_review` is a gate EXEMPTION and a trigger on an unscored field
+could flip the gate green by exempting a notice whose scored fields are wrong.
+`stats["doc_id_arm"]` is the only readout, since nothing scores `doc_id`.
+
+**One defect fixed in the same commit:** `review["doc_id_raw"]` read
+`doc_id_extracted`, so a document-arm number would be routed on while the MODEL's
+number was displayed. It now reads the claim that won.
+
+**The bound's regression test landed (`3a59052`)** — a header pass that RAISES, on
+a healthy layer, still writes the document's `mfr` with a source snippet; the call
+is made ONCE; the cut forces review; a notice-number-shaped FILENAME still does not
+reach the identity triple. Two payload facts measured there: the review dict has
+**no top-level `mfr` key**, and header values reach a consumer as **review items**
+(`field_path header.mfr` etc., with `value` + `source_snippet`). `doc_id` has no
+review item at all.
+
+**The mil TBox draft is PLACED with 74** (packet + `2026-10-20-mil-tbox-draft-from-7f.ttl`
+in `invincible-agent/sessions/`, uncommitted — their tree). Sealed: 184 triples,
+42 `mil:` subjects, 25 new, 0 defects, BOM gone. The seal found two EXISTING terms
+(`mil:hasInstructionText`, `mil:hasWarning`) with no definition of any kind, hence
+no embedding text; I wrote one each and flagged it. **Open and not mine:** where
+the file lives, who loads it and under which graph IRI. There is no `mil` TBox file
+in either repo, and the namespace appears only as `input_uri` examples in
+`weaviate_expert/main.py` and `neo4j_expert/main.py`.
+
+**NEXT, and it needs a decision:** merge → image → pin → three fires, in that
+order, with the values diff shown before the roll. And the gate's own blocker is
+unchanged — five blocking items, `doc_id` among none of them, and an intermittent
+cut can never earn the instability exemption. Item 1 changes no scored field.
+
+---
+
+## 2026-10-20 — HEADER RULING: ITEMS 2+3 COMMITTED (`da7c1ee`). ITEM 1 SPLITS — mfr WAS ALREADY DONE, doc_id WAS THE GAP
 
 Standing order: *"header identity text-layer-primary arm + 90s bound + seed, as
 ruled; three fires; pin when green. Fingerprint result from Chris in the
