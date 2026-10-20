@@ -1,8 +1,92 @@
 # HANDOFF — doc-tools/lane/7f
 
-Updated 2026-10-19. In-flight state only; durable findings live in project memory.
+Updated 2026-10-20. In-flight state only; durable findings live in project memory.
 
-## 2026-10-19 LATEST — THE REQUIRED GATE WAS RED ON REPORT AGE. PARTS GATE IS **MET** AT THE LIVE PIN. PR #144 OPEN, MERGE BLOCKED
+## 2026-10-20 LATEST — HEADER RULING: ITEMS 2+3 COMMITTED (`da7c1ee`). ITEM 1 SPLITS — mfr IS ALREADY DONE, doc_id IS THE ONLY GAP
+
+Standing order: *"header identity text-layer-primary arm + 90s bound + seed, as
+ruled; three fires; pin when green. Fingerprint result from Chris in the
+morning. Then mil.ttl draft to 74."*
+
+**Items 2 and 3 are done, green and committed** — `da7c1ee`, 49 tests pass,
+`doc_tools/plugins/sustainment.py` + `scripts/pcn_corpus_run.py` +
+`tests/test_corpus_gate_written_headers.py`. **Not pushed, no PR yet.**
+
+- The header pass reads **`HEADER_REQUEST_TIMEOUT_MS`, default 90000**. A
+  **dedicated key on purpose**: `LLM_REQUEST_TIMEOUT_MS` is shared with the
+  vision client, and `values-sandbox.yaml:1268-1277` sizes
+  `VISION_MAX_TOKENS: 8192` *against the 600 s default*, so lowering the shared
+  key would trade a DETECTED parts truncation for an undetected timeout.
+- `seed: 0`, at the **top level** of the request (not in the nested `options`
+  dict — that nesting is the Ollama `num_ctx` passthrough).
+- **No retry existed and none was added** — measured one call per notice per
+  fire, so "refuse, never retry" needed no code.
+- `build_identity` is now passed the doc_id **claim**, gated on
+  `doc_id_extracted`, not the filename-seeded key. **The key fallback stays.**
+  Proved against `notice_identity.py` loaded from `HEAD`: every key that formed
+  before forms byte-identically after.
+
+**CORRECTION carried into the record (my 10-19 report was wrong):** `mfr`
+already has a text-layer-primary arm — `mfr_from_document:482`, wired as
+`_DOCUMENT_WINS:542`, reached from inside `refuse_unsourced_header_values`
+**even when the model returned nothing**, and unguarded by the header
+exception. So on a 408 with a healthy text layer mfr is already written from the
+document. "The pipeline fixes precision, never recall" is false for mfr; it
+holds for doc_id / pub_date / revision. The 10-19 report now carries two inline
+`CORRECTED 2026-10-20` blocks; memory
+`header-identity-has-no-text-layer-primary` is rewritten.
+
+**Item 1 is therefore `doc_id` only, and it is IN FLIGHT with an implementer.**
+Scope: `doc_id_from_document` + `tests/test_doc_id_from_document.py` in
+`sustainment_header_trust.py` **only**; the wiring into `sustainment.py` is
+phase B and mine. First shape rule was **measured wrong before any code was
+written** — it fabricated `PCN Date` from TYC prose while missing the real
+`PCN-24-210412` on the same line, and missed 5 of 10 glued/hyphenated real
+forms. Rulings are in `scratchpad/spec_doc_id_amendment_1.md` (R1-R9:
+case-sensitive, digit required, hyphen yes / colon **no**, open code prefix for
+`FPCN`, no preference tie-break, key = uppercased alphanumerics with **no**
+prefix rule). Replacement regex measured **15/15** —
+`scratchpad/verify_doc_id_re_amended.py`.
+
+**Nothing scores doc_id.** Header ground truth is 3 notices (TYC, TI, IDT) x 3
+fields (mfr, pub_date, doc_level_ltb_date) = **the 9**. So "N/9" is FIELDS, not
+notices, and a corpus-gate run **cannot validate any doc_id work** — unit tests
+are its only proof. Memory:
+`nine-scored-header-fields-three-notices-no-doc-id`.
+
+**The pin condition is not blocked on the header work.** The one remaining
+header failure is TYC's mfr + pub_date, and both sit in **fire 3 — the only
+fire with the vision 408**, the path the ruling freezes. Fires 1 and 2 were
+exact.
+
+**Sequencing that needs Chris's call:** the gate scores the **pinned image**,
+and a build on a PR pushes no image, so measuring `da7c1ee` is
+**merge to `main` -> image -> pin -> three fires -> verdict**. The pin has to
+move before the fires can measure the code. Nothing merged; Chris was asleep.
+
+Report: `sessions/2026-10-20-report-7f-header-bound-at-90s-and-two-corrections-mfr-already-has-an-arm-and-nothing-scores-doc-id.md`
+
+**Lane 01's steward-edges question — ANSWERED, packet PLACED** in their tree:
+`invincible-agent/sessions/2026-10-20-packet-to-lane-01-steward-edges-shape-c-the-producer-writes-but-a-row-fact-is-not-revocable-yet.md`.
+Proposed **(c)**: my producer applies the correction **as data, never by
+re-extracting** (re-extraction is non-deterministic — the parts score moved on
+byte-identical input — so a re-emit would regress rows nobody touched; and a
+run_key is consumed permanently, so a re-ingest is not even an available
+trigger). **The blocker is mine and it is a schema gap:** per-row RDF puts
+`pcn:hasLastTimeBuyDate` / `pcn:hasReplacement` directly on the **shared**
+component IRI with **no notice in the triple**, and every write is additive
+(`MERGE` / `INSERT DATA`, **no DELETE anywhere**) — so a row fact cannot be
+attributed to a notice and cannot be withdrawn, and applying a correction today
+would leave the graph asserting **both** rows. Memory:
+`row-facts-are-not-notice-scoped-so-a-correction-cannot-be-withdrawn`.
+Asks back on them: **inline `row_edits` on the defect payload** (this repo has
+zero consumers of `dispatch_failure:*` and no reader for the decision record),
+and **name their consumers of those two predicates** before I move them to a
+row IRI. The Neo4j edge is already notice-scoped, so that leg can land first.
+
+Still open: **`mil.ttl` draft to 74**, needing the routing call below.
+
+## 2026-10-19 — THE REQUIRED GATE WAS RED ON REPORT AGE. PARTS GATE IS **MET** AT THE LIVE PIN. PR #144 OPEN, MERGE BLOCKED
 
 **PR #145 OPEN — directive (c), IDT per-row bboxes, SHIPPED as a word-layer
 locator.** Branch `7f/idt-per-row-word-bboxes`, based on `main` (not stacked, so

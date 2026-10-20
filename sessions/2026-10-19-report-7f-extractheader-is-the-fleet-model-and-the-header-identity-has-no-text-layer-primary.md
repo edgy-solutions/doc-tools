@@ -98,6 +98,20 @@ Two structural points for the ruling:
 1. **The post-passes fix precision, not recall.** They refuse, withdraw and
    corroborate. None of them can *produce* an `mfr` the model did not return —
    so a 408 cannot be repaired downstream.
+
+   > **CORRECTED 2026-10-20 — this point is WRONG for `mfr`.** There *is* a
+   > text-layer extractor, `mfr_from_document` (`:482`), wired as
+   > `_DOCUMENT_WINS = {"mfr": mfr_from_document}` (`:542`) and reached from
+   > inside `refuse_unsourced_header_values` **including when the model returned
+   > nothing at all** — its reason string is literally *"header.mfr recovered:
+   > the header pass returned none; written from the document's own 'X'"*. That
+   > call is unguarded by the header exception, so **on a 408 with a healthy
+   > text layer mfr is already written from the document today.** The error was
+   > mine: I read the pipeline as refusals only and did not follow the cascade
+   > *inside* the refusal. The claim stands for `doc_id`, `pub_date` and
+   > `revision`. The `mfr` row in the table above should read **YES**
+   > (contraction via `recover_mfr_from_document:260`, then document-wins,
+   > gated off on `text_layer_degraded`).
 2. **The one supplier arm is vision, not the text layer, and it is gated off on
    a healthy document.** `supply_header_from_regions`
    (`utils/sustainment_header_trust.py:578`) returns immediately unless
@@ -111,6 +125,17 @@ text-layer extractor for `mfr`/`doc_id`/`pub_date`/`revision` in this repo to
 promote. `ltb_candidates` is the shape to copy for a real text-layer extractor
 with offsets and a source, and `doc_type_from_titles` is the shape to copy for a
 derivation that already carries its own provenance.
+
+> **CORRECTED 2026-10-20.** Wrong for `mfr`, per the correction above:
+> `mfr_from_document` is exactly such an extractor and it is already promoted
+> over the model. So the ruling is **new work for `doc_id` only** — the field
+> with no machinery at all (absent from `HEADER_SOURCED_FIELDS`, and
+> `NoticeHeader` has no `doc_id_source` to adjudicate on). `mfr_from_document`,
+> not `ltb_candidates`, is the shape to copy, because its safety is
+> **uniqueness** rather than shape and it self-verifies through
+> `provenance.resolve_value`. Noted for the next reader: a first attempt at a
+> *shape*-based doc_id rule fabricated `PCN Date` out of TYC prose while missing
+> the real `PCN-24-210412` on the same line — see the 2026-10-20 report.
 
 ## 5. The nightly corpus-gate pod Error — same instrument, different cause
 
