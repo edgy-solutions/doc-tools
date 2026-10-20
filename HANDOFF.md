@@ -7451,3 +7451,35 @@ fingerprint was refused too. Scripts are staged at `/tmp/idem_fingerprint.py`
 and `/tmp/idem_relaunch.py` in `doc-tools-557cc96c6b-7v2z2`; the launch literal
 and the partition key (read off the live instance) are in the report. Chris has
 the launch line; AFTER is owed.
+
+### Correction, same night: the idempotency relaunch FAILED — my launcher, not the cluster
+
+Chris ran the `--launch` line at 00:07Z 10-20. GraphQL returned
+`LaunchRunSuccess` / `QUEUED` for run `5eb2b826-492a-4330-83db-f2d81863d27b`,
+and the run then **failed in `extract_rdf_from_xml`**, one second after
+`RESOURCE_INIT_SUCCESS`. **No second write happened; an AFTER fingerprint right
+now would be meaningless** (identical-to-BEFORE would read as a pass when
+nothing ran).
+
+Cause is mine: the asset takes its S3 path from **run config**, not from the
+partition key, and `scratchpad/idem_relaunch.py` sent a `dagster/partition` tag
+with no `runConfigData`. `resolve_xml_config`
+(`doc_tools/assets/xml_ingestion.py:146`) raises *"requires either
+(s3_bucket+s3_key) or file_url. Got neither."* `XmlIngestConfig`'s fields are
+`str = ""`, so the launch **validates** and fails at execution — which is why
+the mutation reported success. The op's own `Fetching XML from s3://...` line
+never printed, placing the raise before it; the traceback itself is in the
+Dagster event store, not the pod log.
+
+**Fixed in `scratchpad/idem_relaunch.py`** (untracked, lives only in the working
+tree): `launch()` now derives `obj_key = key.replace("__", "/")` and sends
+`{"ops": {"extract_rdf_from_xml": {"config": {"file_url":
+"s3://processing-artifacts/<obj_key>"}}}}`, printing the `file_url` first. The
+shape is copied from the sensor that normally launches the job
+(`dag_tools/.../s3_sensor/sensor_component.py:115,123-126`, where
+`partition_key = obj_key.replace("/", "__")`), so the inverse is exact.
+
+The POD still holds the OLD script, so the relaunch needs a `kubectl cp` first.
+A direct GraphQL launch carries no `run_key`, so the failed run consumed nothing
+and relaunching is free. Recorded as
+`a-launchrunsuccess-is-not-a-run-config-not-partition`.
