@@ -563,3 +563,48 @@ def test_the_run_id_prefers_the_accessor_dagster_has_not_deprecated(monkeypatch)
 
     # And the fallback still works for a context that has only the old one.
     assert semantic_assets._dagster_run_id(_FakeContext(run_id="old")) == "old"
+
+
+# --------------------------------------------------------------------------- #
+# The retry relaunch. Lane 1 asked for it and it needs NO new code -- but only
+# because of the wiring this pins.
+# --------------------------------------------------------------------------- #
+def test_the_retry_relaunch_reaches_the_gate_with_a_leaf_and_a_row():
+    """Why step 5 satisfies *"the relaunch must run as the listing's
+    `content_kind`"* without a second mechanism.
+
+    Lane 1 offered two ways: pass the listing's `content_kind` into the run,
+    or *"call `title_leaf` after the title read and run as the `content_kind`
+    it answers"* — adding that *"the second option is what your step 5 gives
+    you anyway."* It does, and it rests on three measured things:
+
+      1. the retry sensor targets `user_document_parser`, the parser instance
+         configured with `obtained_via="user-drop"`, so a relaunched run
+         WRITES `manifest["leaf"]` (the block is written only when
+         `obtained_via` is set);
+      2. `ingest_id` comes from the drop's SIDECAR, keyed off the same
+         `source_object_key` the retry listing supplies, so the relaunch
+         carries the same ingest_id and the gate has a row to address;
+      3. the parser posts `extracting` at parse start, upstream of the gate,
+         so the `title_leaf` call does not meet a 409 `not_extracting`.
+
+    Re-point the retry sensor at the vetted parser and (1) fails silently: no
+    leaf block, nothing to ask about, and the relaunch re-derives `pdf` — the
+    exact defect Lane 1 named, with no error anywhere. Hence this test.
+
+    Passing the listing's `content_kind` as WELL was deliberately not done. It
+    would make two authorities for the kind — the listing and the BFF's answer
+    — and they can disagree, because a correction lands on the row after the
+    listing was read. Lane 1's rule settles which wins: *"The answer is the
+    corrected leaf whatever the title says."*
+    """
+    import inspect
+
+    from doc_tools import definitions
+
+    assert definitions.user_document_parser.obtained_via == "user-drop"
+
+    src = _code_only(inspect.getsource(definitions))
+    block = src[src.index("ingest_retry_sensor = build_ingest_retry_sensor("):]
+    block = block[:block.index(")")]
+    assert "target_op=user_document_parser.name" in block
