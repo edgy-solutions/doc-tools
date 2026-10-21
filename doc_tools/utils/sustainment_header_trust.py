@@ -1107,6 +1107,54 @@ def refuse_field_label_echoes(header_d: dict) -> List[str]:
 _CODE_RE = re.compile(r"\b(pcn|pdn)\b")
 
 
+def title_signal(title: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """The signal ONE title carries, extracted from `doc_type_from_titles`' loop body
+    on 2026-10-21 so a second caller can reuse it without touching the measured walk.
+
+    This is a pure factoring: `doc_type_from_titles` below is the same function it was
+    (it now calls this per title and returns the first non-None `source`), and its 9/9
+    corpus measurement is a measurement of this code.
+
+    Returns `(doc_type_or_None, source_or_None, signal_or_None)`:
+      - `(None, None, None)` — this title says nothing about the type. The walk
+        continues past it; it is not evidence either way.
+      - `(None, "title-ambiguous", "ambiguous")` — it implicates BOTH types. All three
+        ambiguity branches implicate both, which is why the caller needs no detail
+        beyond the word: two codes, a code with the opposite keyword class, or both
+        keyword classes and no code.
+      - `("PCN"|"PDN", "title", "code")` — an explicit printed code, no opposing keyword.
+      - `("PCN"|"PDN", "title", "keyword")` — no code, one keyword class.
+
+    `signal` is the NEW half, and it exists for one reason: a code the vendor printed
+    and a keyword a vendor happened to use are not equally strong evidence, and the
+    ruling of 2026-10-21 asks for a score. The strength ORDER is the only claim made
+    here; turning it into a number is the caller's job (`doc_tools.utils.leaf_read`),
+    deliberately NOT this module's, so no scoring convention can drift into the walk.
+    """
+    low = title.lower()
+    codes = set(_CODE_RE.findall(low))
+    pdn_kw = any(t in low for t in norm._PDN_TERMS)
+    pcn_kw = any(t in low for t in norm._PCN_TERMS)
+
+    if not codes and not pdn_kw and not pcn_kw:
+        return None, None, None  # a title that says nothing about the type
+
+    if len(codes) >= 2:
+        return None, "title-ambiguous", "ambiguous"
+
+    if len(codes) == 1:
+        code = next(iter(codes)).upper()
+        opposite_kw = pdn_kw if code == "PCN" else pcn_kw
+        if opposite_kw:
+            return None, "title-ambiguous", "ambiguous"
+        return code, "title", "code"
+
+    # No code in THIS title: classify by keyword, and refuse if it says both.
+    if pdn_kw and pcn_kw:
+        return None, "title-ambiguous", "ambiguous"
+    return ("PDN" if pdn_kw else "PCN"), "title", "keyword"
+
+
 def doc_type_from_titles(titles: Sequence[str]) -> Tuple[Optional[str], str]:
     """Classify PCN vs PDN from the document's own title text — NOT from the header
     model's `doc_type` field, which flipped PCN/PDN/PCN across repeated fires on
@@ -1147,28 +1195,10 @@ def doc_type_from_titles(titles: Sequence[str]) -> Tuple[Optional[str], str]:
     for title in titles or []:
         if not title or not title.strip():
             continue
-        low = title.lower()
-        codes = set(_CODE_RE.findall(low))
-        pdn_kw = any(t in low for t in norm._PDN_TERMS)
-        pcn_kw = any(t in low for t in norm._PCN_TERMS)
-
-        if not codes and not pdn_kw and not pcn_kw:
-            continue  # a title that says nothing about the type is not evidence either way
-
-        if len(codes) >= 2:
-            return None, "title-ambiguous"
-
-        if len(codes) == 1:
-            code = next(iter(codes)).upper()
-            opposite_kw = pdn_kw if code == "PCN" else pcn_kw
-            if opposite_kw:
-                return None, "title-ambiguous"
-            return code, "title"
-
-        # No code in THIS title: classify by keyword, and refuse if it says both.
-        if pdn_kw and pcn_kw:
-            return None, "title-ambiguous"
-        return ("PDN" if pdn_kw else "PCN"), "title"
+        value, source, _signal = title_signal(title)
+        if source is None:
+            continue  # this title is not evidence either way; keep walking
+        return value, source
 
     return None, "no-title-evidence"
 
@@ -1216,9 +1246,32 @@ def headline_candidates(elements) -> List[str]:
     are NOT limited to page 1: Titles anywhere count, since two Diodes notices carry
     their classifying title on a later page.
     """
-    out: List[str] = []
+    return [text for _el, text, _i in headline_candidate_elements(elements)]
+
+
+def headline_candidate_elements(elements) -> List[Tuple[dict, str, int]]:
+    """`headline_candidates` with the ELEMENT each string came from, and its index in
+    the list as passed: `[(element, text, index), ...]` in document order.
+
+    Added 2026-10-21 for the leaf ruling's item 2, which wants an `evidence_ref` —
+    "the title crop the read used". A crop needs geometry, and geometry lives on the
+    element (`metadata.coordinates`), not on the string. So the read has to be able to
+    name WHICH element decided, and a string cannot be traced back to one: titles
+    repeat, and two elements with the same text have different boxes.
+
+    `headline_candidates` is now a projection of this function rather than a second
+    walk, on purpose. Two walks over the same rule WILL drift, and the failure that
+    drift produces is the quiet kind: an `evidence_ref` pointing at an element that is
+    not the one the decision was taken from, i.e. a crop that looks like provenance
+    and is not. The selection rule and its two measured bounds are documented on
+    `headline_candidates` above; this function is where they are implemented.
+
+    The index is the position in `elements` AS PASSED, including the entries this walk
+    skips, so a caller can address the element in its own copy of the list.
+    """
+    out: List[Tuple[dict, str, int]] = []
     seen_title = False
-    for el in elements or []:
+    for i, el in enumerate(elements or []):
         if not isinstance(el, dict):
             continue
         text = (el.get("text") or "").strip()
@@ -1226,7 +1279,7 @@ def headline_candidates(elements) -> List[str]:
             continue
         if el.get("type") == "Title":
             seen_title = True
-            out.append(text)
+            out.append((el, text, i))
         elif not seen_title and len(text) <= HEADLINE_MAX_CHARS:
-            out.append(text)
+            out.append((el, text, i))
     return out
