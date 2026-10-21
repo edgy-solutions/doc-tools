@@ -196,3 +196,55 @@ a look**, as I said this morning.
   `content_kind` is a hardcoded `null` or an absent key — it decides whether that fix
   is Lane 1's producer or a field nobody knows exists — and I have not, because nobody
   has said to.
+
+---
+
+## 7. Added later the same day: step 4 has landed, WRITE-ONLY
+
+`a6db36d` was the lift. Step 4 is now in too: the read **runs at the parse step** and
+its answer is stamped on the manifest as a top-level `"leaf"` block, sibling of
+ADR-0041's `"provenance"` and for the same reason — a consumer reads the leaf without
+reaching into any domain's metadata shape.
+
+**Nothing consumes it yet, deliberately.** `semantic_assets` still resolves the origin
+from the declared `content_kind` and still returns `origin_unresolved` for a
+format-level one. Holding extraction on the leaf is step 5; it moves the gate every
+ingest passes, and it is not landing in the same change as the thing that merely records
+the answer.
+
+It is at the parse step rather than downstream because that is where the ruling puts it
+and because the elements are in hand there. The invariant survives: the read is a
+deterministic text read, the parse asset still takes only S3, and
+`test_user_drop_runs_parse_only.py` still passes unchanged — which is what that file
+was written to prove about this exact lift.
+
+Four wiring tests (`test_ingress_user_stamp.py`, section F8) pin what the unit tests
+cannot see — that the read is reached and its answer stored:
+
+- the **PCN24_029 shape**: sidecar declares the format `pdf`, the document labels itself
+  in capitals, the manifest comes back `leaf: "pcn"`, `leaf_source: "title"`, with the
+  deciding title's box and its space named;
+- a **declared** sustainment kind is recorded as `declared` and the read does not
+  second-guess the door — the fixture's elements say PDN and the leaf stays `pcn`;
+- a document that says nothing records **the read having run and found nothing**, which
+  is not the same state as nobody having looked, and only the first can release a hold;
+- a **vetted sensor's manifest gains no block at all** — `obtained_via` is unset for
+  those, so their manifest is byte-for-byte what it was.
+
+Green: 47 on the leaf suite, 43 on `ingress_user_stamp` + `user_drop_runs_parse_only`.
+
+**One reading I had to take to write this, and it is the thing to overrule if it is
+wrong** (it is stated in `resolve_leaf`'s docstring so there is one place to change):
+**a format-level kind is not a leaf.** `pdf`, `cad`, `engineering-document`,
+`doors-export` and `xml` are registered kinds that declare no domain and select no
+extraction. A drop declaring one has told us its arrival SHAPE and has not told us what
+the document IS — which is the thing a leaf names — so it goes to the read. Only a
+domain-declaring kind counts as `declared`. If you intend `pdf` to BE a declared leaf,
+the read never runs for the case it was ordered for, so I do not think you do; but it is
+your enum and the whole behaviour turns on it.
+
+**Step 5 is not built**, and I would rather it waited for two things than went in today:
+your reading on the paragraph above, and the leaf read being seen working on one real
+document. It is the change that lets a title read put a user drop into a vetted domain
+graph, which is the hazard the 2026-10-02 ruling names — ordered by this ruling, so it
+is authorized, but it should be looked at by a human and not merged off my own say-so.

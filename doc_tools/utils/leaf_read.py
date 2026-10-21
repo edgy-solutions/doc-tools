@@ -169,7 +169,8 @@ class LeafRead:
     leaf: Optional[str]
     #: `LEAF_SOURCE_TITLE` when a leaf was read, else None. Never an outcome string.
     leaf_source: Optional[str]
-    #: The read's own outcome: "title", "title-ambiguous" or "no-title-evidence".
+    #: How the leaf was settled: "declared" (the drop carried one, no read ran),
+    #: "title", "title-ambiguous" or "no-title-evidence".
     outcome: str
     #: The deciding title's ref when a leaf was read, else None.
     evidence_ref: Optional[Dict[str, Any]] = None
@@ -190,6 +191,39 @@ class LeafRead:
             "evidence_ref": dict(self.evidence_ref) if self.evidence_ref else None,
             "candidates": [c.as_dict() for c in self.candidates],
         }
+
+
+OUTCOME_DECLARED = "declared"
+
+
+def resolve_leaf(declared_kind: Optional[str],
+                 elements: Optional[Sequence[dict]]) -> LeafRead:
+    """What the row should store for this drop: the declared leaf, or the read's.
+
+    This is the boundary half of the ruling's item 1 — *"the source is WRITTEN when
+    the leaf is written and stored on the row; never computed from the stored kind"*.
+    Only two of the three sources can arise here: `declared` when the drop carried a
+    leaf, `title` when the read produced one. `corrected` is Lane 1's, arrives through
+    the review route, and is never minted by an ingest.
+
+    MY READING OF ONE THING THE RULING DOES NOT SPELL OUT, stated here so it can be
+    overruled in one place: **a format-level kind is not a leaf.** `pdf`, `cad`,
+    `engineering-document`, `doors-export` and `xml` are registered kinds that declare
+    no domain, so they select no extraction and resolve to "origin unresolved" — the
+    live `PCN24_029` case. A drop declaring one has told us its arrival SHAPE and has
+    not told us what the document IS, which is the thing a leaf names. So those go to
+    the read; only a domain-declaring kind counts as `declared`.
+
+    The leaf returned for a declared drop is the `KIND_MAPPING` KEY as the drop spelled
+    it, never `entry.kind` — they are not the same string for every row
+    (`work-instructions` keys an entry whose `kind` is `work-instruction`), and the key
+    is what selects a row and what the door confirmed.
+    """
+    entry = content_kind.KIND_MAPPING.get(declared_kind or "")
+    if entry is not None and entry.domain_type:
+        return LeafRead(leaf=declared_kind, leaf_source=LEAF_SOURCE_DECLARED,
+                        outcome=OUTCOME_DECLARED)
+    return read_leaf_from_elements(elements)
 
 
 def evidence_ref_for_element(element: dict, element_index: int,
