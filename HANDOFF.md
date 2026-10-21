@@ -184,6 +184,74 @@ fraction — cortex's speck defect re-introduced one hop downstream. Also whethe
 steward route accepts `bboxes: []` (my new output for a row whose geometry had no
 divisor).
 
+**STEP 5 IS BUILT AT `5c602c3`, AND THE RETRY RELAUNCH NEEDS NO SECOND MECHANISM
+(`4661d54`).** `IngestStatusResource.title_leaf()` returns its answer (unlike `update()`,
+which is fire-and-forget by design) and is wired at the origin-unresolved gate — where
+Lane 1 said to put it. Body is exactly `{doc_type, doc_type_source, candidates?, run_id?}`,
+projected field by field from the manifest block (`leaf`->`doc_type`,
+`outcome`->`doc_type_source`), because **an extra key is a 422** and the block carries
+three keys the route has no slot for. 41 green on `tests/test_title_leaf_dispatch.py`.
+Packet placed:
+`sessions/2026-10-21-packet-to-lane-01-step-5-is-built-the-gate-holds-on-the-leaf-and-the-relaunch-needs-no-second-mechanism.md`.
+
+**THE INVARIANT THAT MATTERS MOST IN STEP 5: `asked` IS NOT `proceed`.** "Lane 1 held
+this document" and "I could not ask Lane 1" are the same silence with opposite
+consequences — a hold read as a failure extracts parts as a kind nobody granted, a 422
+read as a hold parks a document on the strength of my own bad body. So: **409/404 speak
+about the ROW** -> stop the run, post nothing further. **422/403/500/timeout/no
+token/unusable ingest_id speak about my REQUEST or their gateway** -> `asked=False`, fall
+through to today's `origin_unresolved`, where their 300 s backstop covers it. Do not
+"simplify" this into one boolean.
+
+**AND THE FALLTHROUGH IS THE SAME CODE, NOT A COPY OF IT.** The dispatch is a SEPARATE
+`if` on the same `kind_entry.domain_type is None` condition as the origin-unresolved
+branch: a grant reassigns `kind_entry` to the granted kind (which declares a domain, so
+the second test is False and the run continues into the ordinary domain path), a hold
+returns `awaiting_kind`, and a failure to ask touches nothing. So a gateway outage
+cannot change what a live drop does. `test_the_dispatch_is_a_SEPARATE_if_before_the_
+origin_unresolved_one` pins the two `if`s against being merged — merging them passes
+every other test in the repo. The gate's branches are source-read rather than executed
+because running `_build_knowledge_graph_impl` needs Neo4j, Weaviate and a plugin.
+
+**A GRANT IS HONOURED ONLY THROUGH THE REGISTRY.** `KIND_MAPPING` must hold the granted
+`content_kind` AND it must declare a domain, else `LEAF GRANT UNUSABLE` + fallthrough.
+Cannot bite today (their leaf space is pcn|pdn, both declaring sustainment) but WILL if
+they widen the BFF's leaves first — they have been told to tell me.
+
+**THE RETRY RELAUNCH IS COVERED BY STEP 5, measured on three things.** Lane 1: *"the
+second option is what your step 5 gives you anyway."* (1) `ingest_retry_sensor` targets
+`user_document_parser`, the instance with `obtained_via="user-drop"`, and the leaf block
+is written only when that is set -> a relaunch writes one. (2) `ingest_id` comes from the
+drop's SIDECAR (`document_parser.py:214`), keyed off the same `source_object_key` the
+listing supplies -> same row to address. (3) The parser posts `extracting` at parse
+start, upstream of the gate -> no 409 `not_extracting`. **(1) fails SILENTLY if the retry
+sensor is ever re-pointed at the vetted parser** (no leaf block, relaunch re-derives
+`pdf`, every other test green) — hence the test. **Deliberately did NOT also pass the
+listing's `content_kind`:** two authorities for the kind can disagree once a correction
+lands after the listing was read, and their rule is *"the answer is the corrected leaf
+whatever the title says."*
+
+**NEW QUESTION, AND IT IS THE FIELD I AM LEAST SURE OF: is `doc_type: null` accepted, or
+must the key be ABSENT?** An unconfident read has no leaf, so I send
+`doc_type: null` + `doc_type_source: "title-ambiguous"`. Their rule enumerates
+*"no-title-evidence, title-ambiguous, defaulted, absent"* as defaulted cases, which reads
+as optional — but null and absent differ to a schema that requires the key. Cost is
+bounded (a 422 -> fallthrough -> backstop), not a wrong extraction. If they say null is
+refused, omit the key.
+
+**TRAP RE-CONFIRMED THE HARD WAY: a source-reading test matches its own commentary.**
+`test_the_hold_posts_no_stage_and_returns_rather_than_raising` failed on the word "raise"
+inside my own comment *"nothing raises, nothing posts"*. `tests/test_ingest_id_and_domain_
+ruling.py` documents this at length and solves it with `tokenize`; this suite's
+`_code_only()` drops comment LINES, which is enough because the block holds no docstring.
+
+**AND: `context.run_id` IS DEPRECATED** ("Use context.run.run_id instead") and the
+warning fires on every parse — `document_parser.py:648` still calls it. A bare
+`getattr(context, "run_id", None)` would go quietly to None the day it is removed, and
+`run_id` is what Lane 1 correlates a held row against, so its loss would show as an
+unexplained gap on THEIR side. `_dagster_run_id()` prefers `context.run.run_id` and falls
+back. The parser's own call site is untouched and still warns.
+
 **WORD-LAYER HALF: MEASURED, NOT DONE, AND IT NEEDS ONE ANSWER.** The same ruling says
 producers convert *"layout pixels and word-layer points"*. The parts path writes row
 provenance at `sustainment_merge.py:227-236`. Measured: both row paths already carry
