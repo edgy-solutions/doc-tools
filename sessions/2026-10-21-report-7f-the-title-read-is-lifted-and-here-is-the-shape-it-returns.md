@@ -314,3 +314,86 @@ than changing units under a live card.
 
 ca's side (*"ca documents it on EvidenceRef"*) is the natural place for the two
 producers to be named, since the SDK's `EvidenceRef` is what both of mine project onto.
+
+---
+
+## 9. The second ruling: a null box crosses, and it inverted §3's answer
+
+The ruling, in full on the part that is mine:
+
+> *"bbox may be null; page may not. Null bbox means "stated on this page, no box we can
+> draw". The card jumps to the page with no outline and labels it "on page N, no box".
+> Derived fields carry no evidence_ref at all, as ruled. ca makes bbox Optional on
+> EvidenceRef."*
+
+**This answers, and inverts, the question §8 left open above.** `wire_evidence_ref`
+shipped an hour earlier with the guard `if not ref or ref.get("page") is None or not
+ref.get("bbox"): return None`, and a docstring that said in as many words: *"a ref
+without a box is not a locator. Whether a candidate may then travel with no
+`evidence_ref` at all is cortex's to say and is asked, not assumed."* The ruling says
+the page is the locator and the box only refines it, so dropping a boxless ref threw
+away the half that works. Landed:
+
+- A ref with a page and no box crosses as `{page, bbox: None}`. `bbox` is
+  **present and null, not omitted** — the same thing to a reader using `.get()`, a
+  different thing to a schema that requires the key, and ca is making it `Optional`
+  rather than removable.
+- The `note` now survives the projection. That matters for exactly one case: geometry
+  existed and had no divisor, so it could not be made unit-free. Under the first cut
+  that explanation died with the ref.
+- **Only a pageless ref yields no `evidence_ref`.** That is also the derived-field case
+  the same ruling settles: a derived value is on no page, so it arrives here pageless
+  and is refused by the same line, with no second rule to keep in sync.
+
+**Verified rather than assumed: the ruling's case is reachable.** `page` comes from
+`metadata.page_number` (`provenance.py:74`), not from `coordinates`, so a
+fast-strategy or non-PDF parse that has no geometry at all *still* yields a page. The
+boxless-but-paged ref is the normal no-coordinates outcome, not an edge case — which is
+why dropping it mattered.
+
+Three new tests cover it, and the one test that pinned the old behaviour
+(`test_a_crop_is_absent_rather_than_invented_when_the_parse_has_no_geometry`, which
+asserted `wire_evidence_ref(...) is None`) now asserts `{"page": 1, "bbox": None}`.
+
+## 10. Leaf types: the deferral is recorded with the number it will need
+
+> *"Leaf types: don't widen by hand. The allowed leaves are the content-kind registry's
+> domain-declaring kinds, read from the registry, never a literal list. Today that's pcn
+> and pdn on the PDF path. Make it registry-driven after the dry run; for Thursday
+> pcn|pdn stands."*
+
+Nothing widened, per the ruling. What is new is the measurement the deferred swap will
+need, taken now so it is not written from the prose later:
+
+`KIND_MAPPING` has **9 rows, and FOUR declare a domain** — `pcn` (sustainment), `pdn`
+(sustainment), `work-instructions` (manufacturing), `s1000d-data-module` (maintenance).
+So "domain-declaring kinds" **on its own is 4, not 2**, and the registry-driven version
+is not a no-op refactor of today's literal. The ruling's own qualifier *"on the PDF
+path"* is the second conjunct that cuts it back: `s1000d-data-module` arrives as XML and
+never reaches a title read, but **`work-instructions` is a PDF kind that the bare
+predicate would admit** — so a naive swap silently extends the title read to
+manufacturing. It must also key on the registry KEY rather than `entry.kind`, since
+`work-instructions` is the key whose kind is `work-instruction` and keying on the kind
+yields a leaf that resolves to no row.
+
+Both facts are recorded at `_DOC_TYPE_TO_LEAF` and locked by
+`test_the_bare_registry_predicate_is_WIDER_than_the_leaves_we_allow`, which asserts the
+literal stays a **strict** subset of the domain-declaring set. If that assertion ever
+reads equal, that is the signal the predicate can be swapped in as stated.
+
+## 11. The freeze, and what it closes
+
+> *"Freeze from 18:00: 204 is what OpenDDIL sees. Nothing rolls, primes or fires until
+> after the dry run, except a recovery."*
+
+Acknowledged, and it closes a sequence that was already blocked on a human: the
+header-identity merge -> image build -> pin bump -> three fires, plus any gate
+re-score. All of it rolls, primes or fires. Nothing in §9 or §10 does: both are code and
+tests on an unmerged branch, landed at 16:5x local, before the freeze either way. A
+recovery is the stated exception, and a recovery is a response to a live fault — not a
+re-run that would be convenient.
+
+**Green:** 82 on `test_leaf_read.py` + `test_kind_registry.py`, 63 on
+`test_ingress_user_stamp.py` + `test_user_drop_runs_parse_only.py` +
+`test_doc_type_from_title.py`, through the repo venv. No fire, no gate run, no roll, no
+pin moved.

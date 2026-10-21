@@ -104,6 +104,41 @@ written once (`title` -> `title`; everything else -> no leaf + the `awaiting_kin
 hold), and its real job is that **`declared`/`corrected` are unreachable from a read**.
 235 green across five groups.
 
+**THE SECOND RULING LANDED, AND IT INVERTED A GUARD I SHIPPED AN HOUR EARLIER.**
+*"bbox may be null; page may not. Null bbox means 'stated on this page, no box we can
+draw'. The card jumps to the page with no outline and labels it 'on page N, no box'.
+Derived fields carry no evidence_ref at all, as ruled."* `wire_evidence_ref` dropped a
+boxless ref WHOLE (`or not ref.get("bbox"): return None`, with a docstring that asked
+cortex this exact question). It now emits `{page, bbox: None, note?}` and refuses only
+a PAGELESS ref — which is the derived-field case in the same ruling, since a derived
+value is on no page. `bbox` is present-and-null, never omitted: identical to a `.get()`
+reader, different to a schema that requires the key. The note now survives the
+projection too, which matters for the one case that has something to say (geometry
+existed, no divisor, so it could not be made unit-free). Verified upstream: `page`
+comes from `metadata.page_number` (`provenance.py:74`), NOT from `coordinates`, so a
+fast-strategy parse with no geometry still yields a page — the ruling's case is
+reachable, not theoretical.
+
+**Leaf types are registry-driven AFTER the dry run; `pcn|pdn` stands for Thursday, by
+the ruling.** *"don't widen by hand... read from the registry, never a literal list."*
+Do not pre-empt this — and the measurement for when it lands is recorded at
+`_DOC_TYPE_TO_LEAF` and locked by a test: `KIND_MAPPING` has 9 rows and **FOUR** declare
+a domain (pcn, pdn, work-instructions/manufacturing, s1000d-data-module/maintenance).
+"Domain-declaring" alone is therefore 4, not 2. The ruling's own *"on the PDF path"*
+qualifier is the second conjunct that cuts it back: s1000d arrives as XML and never
+reaches a title read, but **work-instructions is a PDF kind the bare predicate would
+admit**, so the naive swap silently widens to manufacturing. It must also key on the
+registry KEY, not `entry.kind` (`work-instructions` -> kind `work-instruction`).
+`test_the_bare_registry_predicate_is_WIDER_than_the_leaves_we_allow` asserts the
+literal is a STRICT subset; if it ever reads equal, that is the signal to swap.
+
+**FREEZE FROM 18:00 (2026-10-21): *"204 is what OpenDDIL sees. Nothing rolls, primes or
+fires until after the dry run, except a recovery."*** This closes, for now, the
+header-identity merge -> image -> pin -> three-fires sequence and any gate re-score:
+all of it rolls, primes or fires. Code and tests on an unmerged branch do neither, and
+that is all that was done after it. A recovery is the only exception — and a recovery
+is a response to a live fault, not a convenient re-run.
+
 **WORD-LAYER HALF: MEASURED, NOT DONE, AND IT NEEDS ONE ANSWER.** The same ruling says
 producers convert *"layout pixels and word-layer points"*. The parts path writes row
 provenance at `sustainment_merge.py:227-236`. Measured: both row paths already carry
