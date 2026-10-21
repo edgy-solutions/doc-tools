@@ -918,3 +918,99 @@ def test_a_failure_before_the_stage_post_stamps_extraction_failed_and_reraises(m
             llm=MagicMock(), jena=MagicMock())
     assert [c[1] for c in calls] == ["failed"]
     assert calls[0][2]["reason_code"] == "extraction_failed"
+
+
+# --------------------------------------------------------------------------- #
+# F8 -- the leaf read runs at the parse step and lands on the manifest.
+#
+# Leaf ruling 2026-10-21, item 4: "before the title read, a pdf runs parse +
+# text layer only. The title read is the next step." These pin the WIRING --
+# that the read is actually reached and its answer actually stored -- which the
+# unit tests in tests/test_leaf_read.py cannot see. The read's own behaviour is
+# measured there.
+#
+# WRITE-ONLY at this commit: nothing consumes manifest["leaf"] yet. Holding
+# extraction on it is step 5 and is a separate change.
+# --------------------------------------------------------------------------- #
+def _patch_elements(monkeypatch, elements):
+    """Stand in for unstructured. The parse step's own extraction needs a real
+    file on disk; what these tests measure is what the step DOES with elements."""
+    monkeypatch.setattr(
+        "doc_tools.components.document_parser.extract_text_and_metadata",
+        lambda *a, **k: list(elements),
+    )
+
+
+def test_f8_the_title_read_runs_at_parse_and_the_leaf_lands_on_the_manifest(monkeypatch):
+    """The PCN24_029 shape end to end: a drop whose sidecar declares the FORMAT
+    `pdf` and whose document labels itself in capitals on page 1."""
+    _patch_elements(monkeypatch, [
+        {"type": "NarrativeText", "text": "Vendor Semiconductor Inc.",
+         "metadata": {"page_number": 1}},
+        {"type": "Title", "text": "PRODUCT CHANGE NOTICE",
+         "metadata": {"page_number": 1, "coordinates": {
+             "points": [[300, 200], [300, 260], [1400, 260], [1400, 200]],
+             "layout_width": 1700, "layout_height": 2200, "system": "PixelSpace"}}},
+    ])
+    sidecar = _live_sidecar(content_kind="pdf")
+    fake_client = _FakeS3Client()
+    fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
+
+    manifest = _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
+
+    leaf = manifest["leaf"]
+    assert (leaf["leaf"], leaf["leaf_source"], leaf["outcome"]) == ("pcn", "title", "title")
+    assert leaf["evidence_ref"]["text"] == "PRODUCT CHANGE NOTICE"
+    assert leaf["evidence_ref"]["bbox_space"] == "unstructured-layout-pixels"
+    assert leaf["candidates"] == []
+    # The block is a TOP-LEVEL sibling of provenance, not buried in metadata, so a
+    # consumer reads it without knowing a domain's metadata shape.
+    assert "leaf" not in manifest["metadata"]
+    # And the declared content_kind is untouched: the read RECORDS an answer here,
+    # it does not rewrite what the door said.
+    assert manifest["metadata"]["content_kind"] == "pdf"
+
+
+def test_f8_a_declared_sustainment_kind_is_recorded_as_declared(monkeypatch):
+    """The drop carried a leaf. The read must not second-guess the door -- the
+    elements here say PDN and the declared leaf stays pcn."""
+    _patch_elements(monkeypatch, [
+        {"type": "Title", "text": "Product Discontinuation Notice",
+         "metadata": {"page_number": 1}}])
+    sidecar = _live_sidecar(domain_type="sustainment", content_kind="pcn")
+    fake_client = _FakeS3Client()
+    fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
+
+    manifest = _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
+
+    assert manifest["leaf"]["leaf"] == "pcn"
+    assert manifest["leaf"]["leaf_source"] == "declared"
+    assert manifest["leaf"]["evidence_ref"] is None
+
+
+def test_f8_a_document_that_says_nothing_records_the_read_rather_than_nothing(monkeypatch):
+    """The distinction that makes a hold possible: "the read ran and found nothing"
+    is not the same state as "nobody looked", and only the first can release."""
+    _patch_elements(monkeypatch, [
+        {"type": "Title", "text": "Table of Contents", "metadata": {"page_number": 1}}])
+    sidecar = _live_sidecar(content_kind="pdf")
+    fake_client = _FakeS3Client()
+    fake_client.objects[(BUCKET, _LIVE_SIDECAR_KEY_2)] = json.dumps(sidecar).encode("utf-8")
+
+    manifest = _run_parser(_user_parser_kwargs(), _LIVE_DOC_KEY_2, fake_client=fake_client)
+
+    assert manifest["leaf"] == {
+        "leaf": None, "leaf_source": None, "outcome": "no-title-evidence",
+        "evidence_ref": None, "candidates": [],
+    }
+
+
+def test_f8_a_vetted_sensor_manifest_gains_no_leaf_block():
+    """obtained_via is unset for every vetted instance, and for those the manifest
+    is byte-for-byte what it was -- the same rule ADR-0041's provenance block holds
+    to, and the reason this block sits beside it."""
+    manifest = _run_parser(
+        dict(name="process_document_artifact", partition_name="pdf_files"),
+        "sustainment/inbound/testnotice/Test_Notice.pdf",
+    )
+    assert "leaf" not in manifest

@@ -325,6 +325,66 @@ def test_the_wire_shape_carries_the_ruled_keys():
         assert set(c) == {"leaf", "score", "evidence_ref"}
 
 
+# --------------------------------------------------------------------------- #
+# 6. The boundary: `declared` when the drop carried a leaf, `title` when read.
+# --------------------------------------------------------------------------- #
+def test_a_domain_declaring_kind_is_declared_and_no_read_runs():
+    """The drop carried a leaf (door or delegate). The title read must not second-
+    guess it: the door confirmed the kind, and the source is written as `declared`."""
+    elements = [_el("Title", "Product Discontinuation Notice")]
+    read = leaf_read.resolve_leaf("pcn", elements)
+
+    assert (read.leaf, read.leaf_source, read.outcome) == ("pcn", "declared", "declared")
+    # The elements SAY pdn. A declared leaf is not re-read, so it stays pcn.
+    assert read.candidates == ()
+    assert read.evidence_ref is None
+
+
+def test_the_declared_leaf_is_the_mapping_KEY_not_the_entrys_kind():
+    """`work-instructions` keys an entry whose `kind` is `work-instruction`. The row
+    stores the key — it is what the door confirmed and what selects a row."""
+    entry = content_kind.KIND_MAPPING["work-instructions"]
+    assert entry.kind == "work-instruction" and entry.kind != "work-instructions"
+    assert leaf_read.resolve_leaf("work-instructions", []).leaf == "work-instructions"
+
+
+@pytest.mark.parametrize(
+    "format_kind", ["pdf", "cad", "engineering-document", "doors-export", "xml"])
+def test_a_format_level_kind_is_not_a_leaf_and_goes_to_the_read(format_kind):
+    """MY READING, stated in `resolve_leaf` so it can be overruled in one place: a
+    registered kind that declares no domain has told us the arrival SHAPE, not what
+    the document IS. It selects no extraction — which is the live PCN24_029 case —
+    so it goes to the title read rather than counting as a declared leaf.
+    """
+    assert content_kind.KIND_MAPPING[format_kind].domain_type is None
+    read = leaf_read.resolve_leaf(
+        format_kind, [_el("Title", "PRODUCT CHANGE NOTICE", box=(1, 1, 2, 2))])
+    assert (read.leaf, read.leaf_source, read.outcome) == ("pcn", "title", "title")
+    assert read.evidence_ref["bbox"] == [1, 1, 2, 2]
+
+
+@pytest.mark.parametrize("declared", [None, "", "not-a-registered-kind"])
+def test_an_absent_or_unregistered_kind_goes_to_the_read(declared):
+    """An unregistered kind halts earlier, at the sidecar guard; this is only the
+    belt, and it must not treat the string as a leaf."""
+    read = leaf_read.resolve_leaf(declared, [_el("Title", "PRODUCT CHANGE NOTICE")])
+    assert (read.leaf, read.leaf_source) == ("pcn", "title")
+
+
+def test_the_pcn24_029_shape_end_to_end():
+    """The live case: a pdf-declared drop whose document labels itself in capitals.
+    Today it resolves `content_kind='pdf'`, returns origin-unresolved and writes
+    nothing. The read is what gives it an answer — and the answer is a leaf that
+    names a real extraction row."""
+    read = leaf_read.resolve_leaf("pdf", [
+        _el("NarrativeText", "Vendor Semiconductor Inc.", box=(100, 80, 600, 120)),
+        _el("Title", "PRODUCT CHANGE NOTICE", box=(300, 200, 1400, 260)),
+    ])
+    assert read.leaf in content_kind.KIND_MAPPING
+    assert content_kind.KIND_MAPPING[read.leaf].domain_type == "sustainment"
+    assert read.leaf_source == "title"
+
+
 def test_a_source_cannot_be_written_without_a_leaf():
     """The state that makes a column lie. Both set or both None, in every branch this
     module can take."""
