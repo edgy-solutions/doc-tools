@@ -1,5 +1,6 @@
 import logging
 import os
+from dataclasses import dataclass
 from typing import ClassVar, Optional
 
 import httpx
@@ -76,6 +77,94 @@ _DEFAULT_GATEWAY_URL = "http://iagent-cortex-bff:8090"
 #: This seam must NEVER stall an extraction waiting on Lane 1's gateway — a
 #: stage write is observability, not something the parse blocks on.
 _STAGE_POST_TIMEOUT_S = 10.0
+
+
+#: Lane 1's `POST /ingest/{id}/title_leaf` (live at rev 211/212, same
+#: `svc:doc-tools` token as `/stage`, else 403 `not_doc_tools`). Unlike a
+#: stage write this is a DECISION: the answer gates whether parts extraction
+#: runs at all, and as what kind. So it is not fire-and-forget, it returns a
+#: value, and its caller must be able to tell "Lane 1 held this document"
+#: from "I could not ask" — opposite consequences, identical silence.
+_TITLE_LEAF_TIMEOUT_S = 15.0
+
+#: `proceed: false` arrives with this stage. Lane 1's rule for it: stop
+#: before parts extraction, end the run SUCCESS, and post NO `review` and no
+#: `failed` — the document is waiting on a person, not broken.
+_AWAITING_KIND_STAGE = "awaiting_kind"
+
+#: The two answers Lane 1 gives by ending the conversation: 409
+#: `not_extracting` (the row already moved on) and 404 `ingest_not_found`.
+#: Their rule is the same for both — stop, and post no further stages for
+#: this run. Distinct from a 422 or a 500, which say nothing about the row
+#: and so must NOT be read as a hold.
+_TITLE_LEAF_STOP_CODES = frozenset({404, 409})
+
+
+@dataclass(frozen=True)
+class TitleLeafAnswer:
+    """What Lane 1 said about a document's leaf — or that it never answered.
+
+    `asked` is the load-bearing field, and it is not `proceed`. A run whose
+    `title_leaf` call never landed must behave exactly as it did before 204
+    went live: fall through to today's `origin_unresolved` return, where
+    Lane 1's 300 s manifest-`leaf` backstop covers it. That is what they
+    said the backstop is for — *"the backstop only covers a run that never
+    made it"*. Reading a transport failure as `proceed: false` would hold a
+    document nobody held; reading it as `proceed: true` would extract parts
+    as a kind nobody granted. Neither is recoverable from the log alone,
+    which is why the distinction is a field and not a convention.
+    """
+
+    asked: bool
+    proceed: bool = False
+    content_kind: Optional[str] = None
+    stage: Optional[str] = None
+    leaf: Optional[str] = None
+    leaf_source: Optional[str] = None
+    stop: bool = False
+    detail: str = ""
+
+    @property
+    def held(self) -> bool:
+        """Lane 1 answered, and the answer was "do not extract"."""
+        return self.asked and not self.proceed
+
+
+def _postable_candidates(candidates, logger) -> list:
+    """Drop the candidates Lane 1's live validator would 422 the call for.
+
+    One rule, theirs: *"Leave out a candidate with no box. If none remain,
+    send `[]`."* A candidate whose `evidence_ref.bbox` is null is the ruled
+    shape — `page` is the locator and the box is genuinely unknown — but 204
+    requires `0 <= x0 < x1 <= 1` and refuses it, and refuses it by failing
+    the WHOLE call rather than the one candidate. So the arithmetic that
+    decided this is: leaving one out costs one candidate, and sending it
+    costs the answer for the document.
+
+    This is the only place that narrowing happens, and it is temporary. When
+    Lane 1 accepts a null box, this function becomes the identity on a list
+    and the caller stops needing it.
+    """
+    if not candidates:
+        return []
+    kept, dropped = [], 0
+    for cand in candidates:
+        if not isinstance(cand, dict):
+            dropped += 1
+            continue
+        ref = cand.get("evidence_ref") or {}
+        if isinstance(ref, dict) and ref.get("bbox"):
+            kept.append(cand)
+        else:
+            dropped += 1
+    if dropped:
+        logger.info(
+            "title_leaf: left out %s of %s candidate(s) with no bbox — Lane "
+            "1's 204 422s a null box and fails the whole call for one. "
+            "Sending %s.",
+            dropped, len(candidates), len(kept),
+        )
+    return kept
 
 
 class IngestStatusResource(ConfigurableResource):
@@ -400,6 +489,176 @@ class IngestStatusResource(ConfigurableResource):
                 detail,
                 reason_code, reason, step, run_id, pin_digest,
             )
+
+    def title_leaf(
+        self,
+        ingest_id: Optional[str],
+        *,
+        doc_type: Optional[str],
+        doc_type_source: Optional[str],
+        candidates: Optional[list] = None,
+        run_id: Optional[str] = None,
+    ) -> "TitleLeafAnswer":
+        """Ask Lane 1 what leaf this document is, and whether to extract.
+
+        The body is exactly `{doc_type, doc_type_source, candidates?,
+        run_id?}`. **An extra key is a 422** (Lane 1's dispatch packet), so
+        it is built field by field here rather than handed through from the
+        manifest's richer `leaf` block, which carries `outcome` and
+        `evidence_ref` siblings the route does not accept.
+
+        `doc_type` and `doc_type_source` go out exactly as the header step
+        produced them. Lane 1's rule: *"Do not decide confidence yourself."*
+        Nothing here promotes, demotes or normalises a source — a
+        `title-ambiguous` read is sent as `title-ambiguous`, and what it
+        means is theirs to decide.
+
+        A candidate with no box is LEFT OUT, and an empty list is sent if
+        none remain — Lane 1's §1 rule, and still their rule today: 204
+        requires `0 <= x0 < x1 <= 1` and answers a null `bbox` with a 422.
+        The architect has since ruled a null `bbox` legal, carrying its page,
+        and `leaf_read.wire_evidence_ref` emits exactly that. So this filter
+        is a transport narrowing against a reader that cannot read the ruled
+        shape YET, not a disagreement with the ruling. It is the one
+        `_postable_candidates` call below, and it comes out in one commit
+        when Lane 1 says they accept a null box.
+
+        Returns a `TitleLeafAnswer` and raises nothing. Every failure path
+        answers `asked=False`, because the caller's correct response to "I
+        could not ask" is the behaviour it had before this route existed.
+        """
+        logger = logging.getLogger(__name__)
+
+        from doc_tools.utils.ingest_id import canonical_ingest_id
+
+        # `update()` lets this raise, and should: a stage write with an
+        # unusable id is a bug worth failing on. Here it must NOT raise. A
+        # manifest `ingest_id` can be absent or a path fragment, and failing
+        # the run over it would turn "we could not ask about the leaf" into a
+        # failed extraction — strictly worse than the pre-204 behaviour this
+        # falls back to.
+        try:
+            ingest_id = canonical_ingest_id(
+                ingest_id, where="IngestStatusResource.title_leaf()"
+            )
+        except Exception as exc:  # noqa: BLE001 — never fatal; see docstring
+            logger.warning(
+                "title_leaf: not asking — ingest_id=%r is not usable (%s: "
+                "%s). The run falls through to origin_unresolved and Lane "
+                "1's 300s manifest-leaf backstop covers it.",
+                ingest_id, type(exc).__name__, str(exc)[:200],
+            )
+            return TitleLeafAnswer(asked=False, detail="no usable ingest_id")
+
+        from doc_tools.utils.mesh_identity import stage_auth_headers
+
+        headers = stage_auth_headers()
+        if headers is None:
+            logger.warning(
+                "title_leaf: not asking for ingest_id=%s — no token minted "
+                "for svc:doc-tools. The route 403s `not_doc_tools` without "
+                "one, so sending it would buy a log line and the same "
+                "fallthrough.",
+                ingest_id,
+            )
+            return TitleLeafAnswer(asked=False, detail="no svc:doc-tools token")
+
+        body = {"doc_type": doc_type, "doc_type_source": doc_type_source}
+        postable = _postable_candidates(candidates, logger)
+        if candidates is not None:
+            body["candidates"] = postable
+        if run_id is not None:
+            body["run_id"] = run_id
+
+        base = os.getenv("IAGENT_GATEWAY_URL", _DEFAULT_GATEWAY_URL).rstrip("/")
+        url = f"{base}/ingest/{ingest_id}/title_leaf"
+
+        try:
+            response = httpx.post(
+                url, json=body, headers=headers, timeout=_TITLE_LEAF_TIMEOUT_S
+            )
+        except Exception as exc:  # noqa: BLE001 — never fatal; see docstring
+            logger.warning(
+                "title_leaf POST failed: ingest_id=%s url=%s %s: %s. "
+                "doc_type=%s doc_type_source=%s candidates=%s run_id=%s. "
+                "Falling through to origin_unresolved — the backstop covers "
+                "a run that never made it.",
+                ingest_id, url, type(exc).__name__, str(exc)[:200],
+                doc_type, doc_type_source, len(postable), run_id,
+            )
+            return TitleLeafAnswer(asked=False, detail=f"POST failed: {type(exc).__name__}")
+
+        if response.status_code in _TITLE_LEAF_STOP_CODES:
+            # Lane 1 answered, and the answer is about the ROW, not about my
+            # request: the row moved on (409 `not_extracting`) or there is no
+            # row (404 `ingest_not_found`). Their rule is stop, and post no
+            # further stages. `asked=True` so the caller holds instead of
+            # extracting, `stop=True` so it also stays off the stage seam.
+            logger.warning(
+                "title_leaf: Lane 1 says stop for ingest_id=%s status=%s "
+                "body=%s. No parts extraction, and no further stage posts "
+                "for this run.",
+                ingest_id, response.status_code, response.text[:200],
+            )
+            return TitleLeafAnswer(
+                asked=True, proceed=False, stop=True,
+                detail=f"HTTP {response.status_code}: {response.text[:120]}",
+            )
+
+        if not (200 <= response.status_code < 300):
+            # A 422, a 403 or a 500 says something about this REQUEST or
+            # about the gateway — nothing about whether the document is held.
+            # Reading it as a hold would strand a document on my own bad
+            # body, so it falls through like any other failure to ask.
+            logger.warning(
+                "title_leaf POST non-2xx: ingest_id=%s url=%s status=%s "
+                "body=%s. doc_type=%s doc_type_source=%s candidates=%s. "
+                "This is NOT a hold — falling through to origin_unresolved.",
+                ingest_id, url, response.status_code, response.text[:300],
+                doc_type, doc_type_source, len(postable),
+            )
+            return TitleLeafAnswer(
+                asked=False, detail=f"HTTP {response.status_code}",
+            )
+
+        try:
+            payload = response.json()
+        except Exception as exc:  # noqa: BLE001 — never fatal; see docstring
+            logger.warning(
+                "title_leaf: 2xx with an unreadable body for ingest_id=%s "
+                "(%s). A 200 I cannot parse is not an answer.",
+                ingest_id, type(exc).__name__,
+            )
+            return TitleLeafAnswer(asked=False, detail="unparseable 2xx body")
+        if not isinstance(payload, dict):
+            logger.warning(
+                "title_leaf: 2xx body is %s, not an object, for ingest_id=%s",
+                type(payload).__name__, ingest_id,
+            )
+            return TitleLeafAnswer(asked=False, detail="2xx body is not an object")
+
+        # `is True` deliberately. A missing `proceed`, a null one, or a
+        # truthy string must not open the gate on parts extraction; the only
+        # thing that does is Lane 1 saying so.
+        answer = TitleLeafAnswer(
+            asked=True,
+            proceed=payload.get("proceed") is True,
+            content_kind=payload.get("content_kind"),
+            stage=payload.get("stage"),
+            leaf=payload.get("leaf"),
+            leaf_source=payload.get("leaf_source"),
+            detail=str(payload.get("stage") or ""),
+        )
+        logger.info(
+            "title_leaf answered: ingest_id=%s proceed=%s content_kind=%s "
+            "stage=%s leaf=%s leaf_source=%s leaf_candidates=%s (sent "
+            "doc_type=%s doc_type_source=%s candidates=%s run_id=%s)",
+            ingest_id, answer.proceed, answer.content_kind, answer.stage,
+            answer.leaf, answer.leaf_source,
+            len(payload.get("leaf_candidates") or []),
+            doc_type, doc_type_source, len(postable), run_id,
+        )
+        return answer
 
 
 class JenaResource(ConfigurableResource):
