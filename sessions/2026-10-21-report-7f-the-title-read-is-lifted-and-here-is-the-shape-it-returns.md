@@ -248,3 +248,69 @@ your reading on the paragraph above, and the leaf read being seen working on one
 document. It is the change that lets a title read put a user drop into a vetted domain
 graph, which is the hazard the 2026-10-02 ruling names — ordered by this ruling, so it
 is authorized, but it should be looked at by a human and not merged off my own say-so.
+
+---
+
+## 8. The coordinate ruling landed (`da03911`), and the word-layer half is measured but not done
+
+The architect ruled on 2026-10-21: *"Crop coordinates: page fractions. [x0, y0, x1, y1]
+in 0..1, origin top-left, plus page. Unit-free, so no extra key, and the same
+everywhere evidence_ref appears. Producers convert layout pixels and word-layer points
+before writing."* Plus: *"doc_type_source -> leaf_source mapping, written once in 7f's
+step 5: title -> title; title-ambiguous -> no leaf, awaiting_kind with the candidates.
+Nothing else crosses."*
+
+### What landed
+
+- **`evidence_ref.bbox` is page fractions**, converted from the element's layout pixels
+  by the `layout_width`/`layout_height` that travel with it. **The space key is gone**,
+  as ruled. The divisor is kept beside the box as `layout_width`/`layout_height` plus
+  `bbox_source_space`, named as the space it came FROM — so the pixels stay recoverable
+  and nothing reads as the space the bbox is in.
+- **`page`, not `page_number`**, in the internal ref too, so `wire_evidence_ref` is a
+  projection and never a rename. A rename is where a key quietly stops being populated.
+- **`wire_evidence_ref`** emits exactly `{page, bbox, note?}`. It returns a copy, so a
+  consumer mutating what it was handed cannot rewrite the manifest block it came from.
+- **`leaf_source_for_outcome`** is the ruled mapping, written once. `no-title-evidence`
+  lands with `title-ambiguous`: both are reads that produced no leaf, and the hold is
+  the same. The function's real job is that **`declared` and `corrected` are
+  unreachable from any outcome** — a read minting either would be a provenance lie
+  about who decided.
+- **Two cases yield no box rather than a guess.** No divisor: the raw numbers would be
+  pixels labelled as fractions, a crop that is confidently wrong rather than absent. A
+  box past the page edge: clamped to the edge, which is what cutting a crop does
+  anyway, and the clamp is NOTED, because once the numbers are unit-free the note is
+  the only place a wrong-space box still shows.
+
+235 tests green through the repo venv across five groups (60 leaf, 43 wiring, 70
+title/witness/TI, 62 crop/provenance/registry).
+
+### The word-layer half: measured, and it is a units change under two live readers
+
+*"Producers convert layout pixels and word-layer points before writing"* also names the
+PARTS path, where a row's provenance is written into `review.json`
+(`sustainment_merge.py:227-236`). Measured, not assumed:
+
+- **It is mechanically possible.** Both row paths already carry their divisor — a
+  text-layer cell has `text_layer_page_dims`, and `resolve_value`'s positioned-index
+  path has `page_dims` (`provenance.py:129-130`).
+- **It cannot move the parts gate.** `scripts/pcn_corpus_gate.py` reads no `bbox`, no
+  `page_dims` and no provenance block at all. The 522/522 is untouched by this.
+- **It must NOT reach element geometry.** `crop_geometry` holds absolute thresholds in
+  PDF points (`_MAX_PLAUSIBLE_ROW_PTS = 72.0`, the measured 8.3pt extension) and
+  converts layout-to-raster by `layout_height / page.height`; `witness_regions`
+  converts by a single ratio. Fractions there would break the crop repair and the
+  clipping seal, which gates exit 0. So the conversion belongs **at the write
+  boundary** and the geometry stays in units behind it.
+
+**The one question that decides whether I do it now.** Converting row provenance
+changes the UNITS under readers that exist today — Lane 1's review card and cortex both
+read row evidence out of `review.json`, and the ruling's *"cortex draws crops from
+25f86b8 on"* pins their new reader to 203. So: **does anything draw row-level evidence
+geometry today, before 25f86b8 is pinned?** If nothing does, I convert at the write
+boundary now and it is invisible until their readers land. If something does, the
+conversion has to land in the same pin as 25f86b8, and I will hold it and say so rather
+than changing units under a live card.
+
+ca's side (*"ca documents it on EvidenceRef"*) is the natural place for the two
+producers to be named, since the SDK's `EvidenceRef` is what both of mine project onto.

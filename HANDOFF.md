@@ -90,6 +90,33 @@ second and illegal in the first. `LeafRead` keeps `leaf_source` and `outcome` as
 fields for exactly this reason — the mapping to send is `doc_type_source :=
 LeafRead.outcome`, `doc_type := leaf.upper()`, `candidates := [c.leaf ...]` lowercase.
 
+**THE CROP RULING LANDED — `da03911`.** The architect took the fractions
+recommendation: *"page fractions, [x0, y0, x1, y1] in 0..1, origin top-left, plus page.
+Unit-free, so no extra key, and the same everywhere evidence_ref appears."* So
+`evidence_ref.bbox` is fractions, **the space key is gone**, the divisor is kept beside
+it as `layout_width`/`layout_height` + `bbox_source_space` (the space it came FROM), and
+`page` replaces `page_number` so `wire_evidence_ref` — the projection onto the ruled
+`{page, bbox, note?}`, nothing else — is a subset and never a rename. No divisor means
+NO box plus a note (raw numbers would be pixels labelled as fractions); a box past the
+edge clamps and the clamp is noted, since once the numbers are unit-free the note is the
+only place a wrong-space box shows. `leaf_source_for_outcome` is the ruled mapping
+written once (`title` -> `title`; everything else -> no leaf + the `awaiting_kind`
+hold), and its real job is that **`declared`/`corrected` are unreachable from a read**.
+235 green across five groups.
+
+**WORD-LAYER HALF: MEASURED, NOT DONE, AND IT NEEDS ONE ANSWER.** The same ruling says
+producers convert *"layout pixels and word-layer points"*. The parts path writes row
+provenance at `sustainment_merge.py:227-236`. Measured: both row paths already carry
+their divisor (`text_layer_page_dims`; `provenance.py:129-130`), and
+`scripts/pcn_corpus_gate.py` reads **no bbox at all**, so converting cannot move
+522/522. But it must NOT reach element geometry — `crop_geometry` holds absolute PDF
+POINT thresholds (`_MAX_PLAUSIBLE_ROW_PTS = 72.0`, the 8.3pt extension) and converts
+layout->raster by a ratio, and the clipping seal gates exit 0 — so the conversion sits
+at the WRITE boundary with units intact behind it. **The question: does anything draw
+row-level evidence geometry today, before 25f86b8 is pinned?** If not, convert now,
+invisible until their readers land. If so, it lands in the same pin as 25f86b8. Asked
+in the report's §8; do not change units under a live review card without that answer.
+
 **Cortex's crop question is answered and needs the architect.** Element bboxes are
 uniformly unstructured LAYOUT pixels (`witness_regions.py:33-45`, space 2); the
 pixels-vs-points split in memory is **row** bboxes from the word layer, a different
