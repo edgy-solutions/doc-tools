@@ -277,7 +277,7 @@ def _build_knowledge_graph_impl(
 
     # See doc_tools/utils/content_kind.py for the mapping table + halt rule.
     from doc_tools.utils.content_kind import (
-        resolve_content_kind, UnclassifiableContentKindError,
+        resolve_content_kind, UnclassifiableContentKindError, KIND_MAPPING,
     )
 
     declared_domain = metadata.get("domain_type")
@@ -291,19 +291,31 @@ def _build_knowledge_graph_impl(
             f"domain_type={kind_entry.domain_type!r}"
         )
     except UnclassifiableContentKindError:
-        # SCOPED MIGRATION — unchanged by the ruling, and the reason the
-        # resolver's halt is not simply propagated for every domain. Today
-        # KIND_MAPPING holds exactly ONE row (work-instructions ->
-        # manufacturing) and new rows are reserved to the architect, so every
-        # other domain — maintenance, training, compliance, SUSTAINMENT and
-        # the whole PCN corpus — is unmigrated and has no row to resolve.
-        # Propagating the halt here would brick them all. A domain joins the
-        # resolver by GAINING KIND_MAPPING rows, not by this except clause
-        # getting narrower.
+        # SCOPED MIGRATION — the reason the resolver's halt is not simply
+        # propagated for every domain. A domain joins the resolver by GAINING
+        # KIND_MAPPING rows, not by this except clause getting narrower.
         #
-        # Manufacturing still HALTS, because it IS migrated: a manufacturing
-        # document whose kind does not resolve is a document whose registered
-        # kind is missing, and ADR-0021 §Precedence has no default for that.
+        # CORRECTED 2026-10-21: this comment used to say KIND_MAPPING held
+        # exactly ONE row (work-instructions -> manufacturing) and that
+        # "SUSTAINMENT and the whole PCN corpus" was unmigrated with no row to
+        # resolve. That has not been true for some time. Measured from
+        # doc_tools/utils/content_kind.py: NINE rows, of which FOUR declare a
+        # domain — work-instructions -> manufacturing, pcn -> sustainment,
+        # pdn -> sustainment, s1000d-data-module -> maintenance — and five are
+        # format-level with domain_type=None (pdf, cad, engineering-document,
+        # doors-export, xml). Training and compliance remain unmigrated.
+        #
+        # Manufacturing still HALTS, because a manufacturing document whose
+        # kind does not resolve is a document whose registered kind is missing,
+        # and ADR-0021 §Precedence has no default for that.
+        #
+        # SO THERE IS NOW AN ASYMMETRY, AND IT IS DELIBERATELY LEFT: sustainment
+        # and maintenance are migrated too, but an unresolvable drop on either
+        # still falls through to the declared-domain fallback below instead of
+        # halting. Whether the halt widens to every domain that has rows is the
+        # architect's call (reported 2026-10-21); it is not widened here,
+        # because doing it quietly would start failing live sustainment and
+        # maintenance drops that fall back successfully today.
         if declared_domain == "manufacturing":
             context.log.error(
                 "ADR-0021 content_kind resolution HALTED for manufacturing "
@@ -312,10 +324,13 @@ def _build_knowledge_graph_impl(
             )
             raise
         context.log.info(
-            f"ADR-0021: no KIND_MAPPING row for doc_id={doc_id!r} "
-            f"(declared domain {declared_domain!r} is unmigrated — one row "
-            f"exists, for manufacturing). Falling back to the manifest's "
-            f"declared domain. This is the scoped migration, not a default."
+            f"ADR-0021: no KIND_MAPPING row matches for doc_id={doc_id!r} "
+            f"(declared domain {declared_domain!r}; the table holds "
+            f"{len(KIND_MAPPING)} rows, of which "
+            f"{sorted({e.domain_type for e in KIND_MAPPING.values() if e.domain_type})} "
+            f"declare a domain). Falling back to the manifest's declared "
+            f"domain. This is the scoped migration, not a default: only the "
+            f"manufacturing path halts here."
         )
 
     if kind_entry is not None and kind_entry.domain_type is None:
