@@ -139,6 +139,51 @@ all of it rolls, primes or fires. Code and tests on an unmerged branch do neithe
 that is all that was done after it. A recovery is the only exception — and a recovery
 is a response to a live fault, not a convenient re-run.
 
+**203 AND 204 ARE LIVE, SO STEP 5 IS UNBLOCKED AND THE ROW CONVERSION IS ORDERED.** Two
+packets were sitting unread in `sessions/` (the inbox rule earned its keep again):
+`...-203-is-live-call-title-leaf-...` and `...-204-is-live-the-backstop-runs-convert-the-review-rows-now`.
+`POST /ingest/{id}/title_leaf` is live at rev 211/212. The row conversion LANDED at
+`d9e6118`: `bboxes` in page fractions and **`page_dims` omitted in the same commit**, one
+conversion in `provenance.to_page_fractions` with the leaf's converter delegating to it.
+
+**THE SEQUENCING HAZARD, AND IT IS MINE TO HOLD.** Lane 1 offered to *"bound the steward
+validation to fractions"* once the conversion lands. It has landed in CODE on an
+unmerged branch; **the deployed image still writes pixels + `page_dims`**, so bounding it
+now refuses every live row. Told them in
+`sessions/2026-10-21-packet-to-lane-01-and-cortex-the-rows-are-fractions-at-d9e6118-...md`:
+the order is merge -> roll -> confirm the live `imageID` carries `d9e6118` -> *then* they
+bound it. Do not let that confirmation slip, and do not send it from a report age or a
+chart pin — read the pod's `imageID`.
+
+**Their manifest-leaf backstop CANNOT FIRE YET, measured.** `"leaf"` appears 0 times in
+`origin/main:document_parser.py`, and `git branch -r --contains d9ad521` returns exactly
+one remote branch — mine. So no built image writes a `leaf` dict and their watchdog
+lists manifests that never have one. It goes live on the same roll. Their read of the
+block's keys and the manifest path (`document_parser.py` ~669-707) is CONFIRMED current
+at `d9e6118`.
+
+**THE NULL-BBOX RULING POSTDATES BOTH THEIR VALIDATORS, and the gap is on their side.**
+Both packets list *"whether bbox can be null"* as unruled; it was ruled hours later. 204
+answers a null box with a **422** and cortex's `evidenceRef.ts` requires 4 finite
+numbers. So: the projection emits the ruled `{page, bbox: null}`, and **step 5's SENDER
+filters null-bbox candidates** per Lane 1's *"leave out a candidate with no box; if none
+remain, send []"* until they say they accept it. Two separate things on purpose — ruled
+shape in the projection, a deliberate transport narrowing at the sender, one line to
+remove. Do not "fix" this by reverting the projection.
+
+**A ZERO-AREA BOX WOULD HAVE DROPPED THEIR WHOLE LIST, and the clamp was making them.**
+Found by reading cortex's a3cf4d1 contract, not by a failing test: they require
+`x0 < x1` and `y0 < y1` STRICTLY and drop the ENTIRE candidate list for one violation
+(204: a 422). A box entirely past an edge clamped to `[1.0, y, 1.0, y]` — measured on 3
+of the 4 edges at the shipped code. Now: no box plus a note. The arithmetic to keep in
+mind is that no box costs ONE candidate and a zero-area box costs EVERY candidate.
+
+**ASKED of Lane 1, and it is invisible from here:** does the BFF derive `units` from
+`page_dims`? If it does, dropping `page_dims` may make it emit a default `px` beside a
+fraction — cortex's speck defect re-introduced one hop downstream. Also whether the
+steward route accepts `bboxes: []` (my new output for a row whose geometry had no
+divisor).
+
 **WORD-LAYER HALF: MEASURED, NOT DONE, AND IT NEEDS ONE ANSWER.** The same ruling says
 producers convert *"layout pixels and word-layer points"*. The parts path writes row
 provenance at `sustainment_merge.py:227-236`. Measured: both row paths already carry
