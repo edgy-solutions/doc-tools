@@ -55,9 +55,52 @@ raster pixels only through `witness_regions.region_pixel_box`.
 **NEXT: step 5 only, and it is NOT built.** Hold parts extraction on the LEAF rather
 than on the domain. It is the change that lets a title read put a user drop into a
 vetted domain graph — the hazard the 2026-10-02 ruling names, ordered by this ruling so
-authorized, but it moves the gate every ingest passes. I am holding it for the
-architect's reading on the format-level-kind paragraph above plus one real document, and
-it goes to a **PR I will not merge unreviewed**.
+authorized, but it moves the gate every ingest passes. It goes to a **PR I will not
+merge unreviewed**.
+
+**Step 5 now has a specified shape and ONE blocker: Lane 1's 203 sha.** Their packet
+`2026-10-21-packet-to-7f-title-leaf-dispatch-...` rules it as
+`POST /ingest/{ingest_id}/title_leaf` called after the title read and BEFORE parts
+extraction, extracting as the `content_kind` the answer names (a declared or corrected
+leaf beats my title); `proceed: false` + `stage: awaiting_kind` means **stop before
+parts extraction and end the run SUCCESS** — a hold, not a failure. The route is not
+live ("it ships in 203"), so building against it now would be writing to a contract I
+cannot call. The dispatch sits at the gate in the next paragraph.
+
+**MEASURED, AND IT VOIDS LANE 1'S 203 BACKSTOP — a `pdf` row runs NO passes and posts
+NO `review`.** The gate is not a pass registry: it is
+`semantic_assets.py:336` (`kind_entry.domain_type is None`) returning at **382**, which
+is BEFORE plugin selection (517-542), before `process_fulltext` — the only place
+`ExtractHeader`/`ExtractParts` run — before `review.json` (769) and before the `review`
+post (842). So a `pdf` drop posts `extracting` (`document_parser.py:331`) and then
+nothing: RUN_SUCCESS with the row still at `extracting` until Lane 1's watchdog
+provisionally fails it on timeout. `run_passes_for_kind` has test callers only and is
+not consulted. Consequence: Lane 1's §5 backstop, which reads a `doc_type` out of
+`review.json` **at the `review` post**, has neither of those things on this path and is
+unreachable — told to them in
+`sessions/2026-10-21-packet-to-lane-01-and-cortex-the-pdf-row-runs-no-passes-...md`,
+where the better backstop offered is the `manifest["leaf"]` block step 4 already
+writes. I also cannot post `awaiting_origin` at all: `_WIRE_POSTABLE` is
+`{extracting, review, failed}` (`dagster_resources.py:69`).
+
+**`doc_type_source` (Lane 1's body) is NOT `leaf_source` (the architect's enum).** One
+word apart, disjoint vocabularies: `leaf_source` is closed `declared|title|corrected`;
+`doc_type_source` carries a read OUTCOME, where `title-ambiguous` is legal in the
+second and illegal in the first. `LeafRead` keeps `leaf_source` and `outcome` as two
+fields for exactly this reason — the mapping to send is `doc_type_source :=
+LeafRead.outcome`, `doc_type := leaf.upper()`, `candidates := [c.leaf ...]` lowercase.
+
+**Cortex's crop question is answered and needs the architect.** Element bboxes are
+uniformly unstructured LAYOUT pixels (`witness_regions.py:33-45`, space 2); the
+pixels-vs-points split in memory is **row** bboxes from the word layer, a different
+producer, so the leaf crop does not inherit it. The ruled `evidence_ref` is
+`{page, bbox, note?}` with **no other keys** — an extra key is a 422 at the BFF and
+makes cortex drop the whole candidate list, so my nine-key ref must stay internal and
+the wire gets a projection. Recommended to the architect: **bbox as page fractions
+(0..1, origin top-left)** — no new key, no DPI/PDF/page-size on either side, and the
+space is legible in the magnitudes. Points would need the MediaBox at the read site
+(the manifest records the raster's pixels, not points) and reintroduces
+`region_pixel_box`'s aspect check.
 
 **Two questions are still out to the architect** and the first blocks finishing step 5
 well: (1) does the read's leaf space widen past PCN/PDN to the other two
