@@ -42,10 +42,22 @@ populated only when there is no leaf; and `evidence_ref` **names its coordinate 
 every ref** (`unstructured-layout-pixels`), null when there is no box, converted to
 raster pixels only through `witness_regions.region_pixel_box`.
 
-**NEXT, and it is the part that needs a look:** step 4 emits the leaf and `leaf_source`
-at the boundary (`declared` from the sidecar, `title` from the read); step 5 holds parts
-extraction on the LEAF rather than on the domain. Step 5 moves the gate every ingest
-passes, so both go to a **PR I will not merge unreviewed**.
+- **Step 4 (`d9ad521`) — LANDED, WRITE-ONLY.** The read now runs AT THE PARSE STEP and
+  stamps `manifest["leaf"]` (top-level sibling of ADR-0041's `provenance`, only when
+  `obtained_via` is set, a raise is logged and skipped). **Nothing consumes it yet:**
+  `semantic_assets` still resolves the origin from the declared `content_kind` and still
+  returns `origin_unresolved` for a format-level one. `resolve_leaf` is the boundary and
+  carries ONE reading that is mine and flagged overrulable in one place — **a
+  format-level kind is NOT a leaf** (it names the arrival shape, not what the document
+  is), so `pdf`/`cad`/`engineering-document`/`doors-export`/`xml` go to the read. Four
+  wiring tests in `test_ingress_user_stamp.py` section **F8**.
+
+**NEXT: step 5 only, and it is NOT built.** Hold parts extraction on the LEAF rather
+than on the domain. It is the change that lets a title read put a user drop into a
+vetted domain graph — the hazard the 2026-10-02 ruling names, ordered by this ruling so
+authorized, but it moves the gate every ingest passes. I am holding it for the
+architect's reading on the format-level-kind paragraph above plus one real document, and
+it goes to a **PR I will not merge unreviewed**.
 
 **Two questions are still out to the architect** and the first blocks finishing step 5
 well: (1) does the read's leaf space widen past PCN/PDN to the other two
