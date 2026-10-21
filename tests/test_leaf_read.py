@@ -465,6 +465,30 @@ def test_a_box_past_the_page_edge_is_clamped_and_the_clamp_is_noted():
     assert bbox == [0.0, 0.0, 1.0, 1.0]
     assert "clamped" in note
 
+def test_a_box_clamped_to_NO_AREA_yields_no_box_because_it_would_drop_the_LIST():
+    """Found by reading cortex's a3cf4d1 contract, not by a failing assertion.
+
+    Their reader requires `x0 < x1` and `y0 < y1` STRICTLY, and a single bad item
+    drops the WHOLE candidate list; Lane 1's live 204 answers the same box with a 422.
+    Clamping a box that lies entirely past an edge collapses it to exactly that:
+    `[1.0, y, 1.0, y]`. So the clamp must refuse its own degenerate output -- a
+    zero-area box is worse than no box, because no box costs this candidate and a
+    zero-area one costs every candidate.
+    """
+    for box in ([1800, 200, 1900, 260],   # entirely right of the page
+                [300, -80, 1400, -10],    # entirely above the page
+                [-50, 200, -10, 260]):    # entirely left of the page
+        bbox, note = leaf_read._page_fractions(box, 1700, 2200)
+        assert bbox is None, f"{box} clamped to a degenerate box"
+        assert "no area" in note or "outside the page" in note
+    # An inverted box is refused by the same line: cortex requires x0 < x1, so a
+    # reversed pair is not a thin box, it is an unreadable one.
+    assert leaf_read._page_fractions([1400, 200, 300, 260], 1700, 2200)[0] is None
+    # And the ordinary over-the-edge case still clamps and still has area.
+    bbox, note = leaf_read._page_fractions([-10, 0, 1800, 2300], 1700, 2200)
+    assert bbox == [0.0, 0.0, 1.0, 1.0] and "clamped" in note
+
+
 
 def test_the_wire_ref_carries_the_RULED_KEYS_AND_NOTHING_ELSE():
     """An extra key is a 422 at Lane 1's BFF, and cortex drops the WHOLE candidate
