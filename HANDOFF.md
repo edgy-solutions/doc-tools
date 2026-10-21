@@ -184,6 +184,54 @@ fraction — cortex's speck defect re-introduced one hop downstream. Also whethe
 steward route accepts `bboxes: []` (my new output for a row whose geometry had no
 divisor).
 
+**THE ROW SEAL IS GREEN ON BOTH LEGS AT `6d88645`** — the architect's 2026-10-21 item 3
+(*"one fixture row through the converter, drawn by cortex's reader in both shapes, lands
+on the same cell"*). Items 1 and 2 of that ruling were already built at `d9e6118`.
+
+**It has TWO legs on purpose, and the split is not symmetric.** Leg A
+(`tests/test_row_fraction_seal.py`, 9 green) transcribes cortex's rule from their source
+at `2fb587c` and runs on every commit here. Leg B
+(`cortex-ui` `src/lib/rowFractionSeal.test.ts`, **placed uncommitted — theirs to
+commit**, 7 green via `npx vitest run`) runs the REAL reader through `readExtraction`.
+**Leg B is the authority; if they disagree, leg A is the thing that is wrong.** That is
+in leg A's docstring too, so a future reader of the test does not have to find this file.
+The numbers are a committed fixture produced BY the converter
+(`tests/fixtures/sustainment/row_fraction_seal.json`) and leg A fails if it goes stale —
+two independently-derived expectations would have let the legs drift while both stayed
+green.
+
+**THE REAL RISK THE SEAL SURFACED, AND IT IS AHEAD OF THE ROLL: `d9e6118` may be INERT.**
+The row this lane writes carries `bboxes` (plural) and `page_number` — never `bbox`,
+never `page`, and since `d9e6118` no `page_dims`. Cortex's `readEvidence` reads
+`evidence_ref.bbox` **singular** and never reads `bboxes` at all (it appears only in
+their type comment). So **the BFF renames or synthesizes all three keys.** If the BFF
+supplies its **own** `page_dims` rather than passing mine through, then dropping mine
+changes nothing, their reader takes the pixel branch, divides my fraction by 1700 and
+draws a sub-pixel speck in the page corner — well-formed, no error, nothing logged.
+**Neither leg of the seal can see this: the seal spans converter -> reader and the BFF
+sits in the middle of that span.** Asked as §3(a). **If the answer is "its own", the row
+half of `d9e6118` must NOT roll in its current form.**
+
+**This SUPERSEDES the `units` question in the block above.** Cortex's line 69 says the box
+is scaled by `page_dims` and `units` is carried but never needed — so `units` cannot
+cause the speck and `page_dims` is the only key that can. Withdrawn in favour of §3(a).
+
+**`page_dims` must be OMITTED, not nulled** — the switch is `Object.hasOwn`, so a null
+takes the PIXEL branch and is then refused as malformed, which reaches a steward as a
+card with no outline and nothing logged. Tested both sides. Do not "tidy" the omission
+into an explicit null.
+
+**The fixture divides inexactly on all four edges deliberately** (`223/1700`, `917/2200`,
+`661/1700`, `953/2200`), and a test guards that property. A tidy fixture would seal the
+half of the converter that was never in doubt and leave the rounding — where a units
+conversion actually goes wrong — untested. Measured worst drift 0.0008 / 0.0010 / 0.0016
+px at 850x1100 / 1024x1325 / 1700x2200; the bound is derived from `FRACTION_DIGITS`, not
+tuned until it passed, and a separate test asserts it stays sub-pixel so widening the
+tolerance cannot hide a real shift.
+
+Packet placed:
+`sessions/2026-10-21-packet-to-architect-cortex-and-lane-01-the-row-seal-is-green-on-both-legs-but-dropping-page-dims-only-works-if-the-bff-passed-mine-through.md`.
+
 **STEP 5 IS BUILT AT `5c602c3`, AND THE RETRY RELAUNCH NEEDS NO SECOND MECHANISM
 (`4661d54`).** `IngestStatusResource.title_leaf()` returns its answer (unlike `update()`,
 which is fire-and-forget by design) and is wired at the origin-unresolved gate — where
