@@ -149,6 +149,28 @@ def test_every_leaf_this_read_can_emit_is_a_sustainment_row():
         assert content_kind.KIND_MAPPING[leaf].domain_type == "sustainment"
 
 
+def test_the_bare_registry_predicate_is_WIDER_than_the_leaves_we_allow():
+    """ARCHITECT RULING 2026-10-21 (second): *"The allowed leaves are the content-kind
+    registry's domain-declaring kinds, read from the registry, never a literal list.
+    Today that's pcn and pdn on the PDF path. Make it registry-driven after the dry
+    run; for Thursday pcn|pdn stands."*
+
+    This test is the deferral made visible. "Domain-declaring" on its own is NOT
+    pcn|pdn today: it also admits work-instructions (manufacturing) and
+    s1000d-data-module (maintenance). So the registry-driven version is not a no-op
+    refactor of this literal -- it widens unless the ruling's own "on the PDF path"
+    qualifier is carried into the predicate. If this assertion ever flips to equal,
+    that is the signal the predicate can be swapped in as stated.
+    """
+    declaring = {k for k, e in content_kind.KIND_MAPPING.items()
+                 if getattr(e, "domain_type", None)}
+    allowed = set(leaf_read._DOC_TYPE_TO_LEAF.values())
+    assert allowed < declaring, (
+        "the literal must stay a STRICT subset; if it is now equal, read the ruling")
+    assert declaring - allowed, "and the gap is what the bare predicate would admit"
+
+
+
 def test_the_leaf_is_the_kind_key_not_the_doc_type():
     """Case is the whole difference between the two vocabularies, which is exactly why
     the mapping is explicit rather than `.lower()`."""
@@ -235,8 +257,9 @@ def test_a_crop_is_absent_rather_than_invented_when_the_parse_has_no_geometry():
     assert read.evidence_ref["bbox"] is None
     # No points at all: there is nothing to report, so no note is invented either.
     assert "note" not in read.evidence_ref
-    # And it does not cross: a ref with no box is not a locator.
-    assert leaf_read.wire_evidence_ref(read.evidence_ref) is None
+    # It DOES cross, per the second ruling: the page is the locator and the box only
+    # refines it, so the card navigates to page 1 and draws no outline.
+    assert leaf_read.wire_evidence_ref(read.evidence_ref) == {"page": 1, "bbox": None}
 
 
 # --------------------------------------------------------------------------- #
@@ -458,6 +481,45 @@ def test_the_wire_ref_carries_the_RULED_KEYS_AND_NOTHING_ELSE():
     # was handed would rewrite the manifest block it came from.
     wire["bbox"][0] = 9.9
     assert read.evidence_ref["bbox"][0] == 0.176471
+
+
+def test_a_null_bbox_crosses_WITH_its_page_rather_than_being_dropped():
+    """ARCHITECT RULING 2026-10-21 (second): *"bbox may be null; page may not. Null
+    bbox means 'stated on this page, no box we can draw'."*
+
+    The first cut of this projection dropped a boxless ref whole. That threw away the
+    half that works: the card can still jump to the page, and a candidate with a page
+    and no outline is strictly more locatable than one with no evidence_ref at all.
+    """
+    wire = leaf_read.wire_evidence_ref(
+        {"page": 3, "bbox": None, "element_id": "x", "layout_width": None})
+    assert wire == {"page": 3, "bbox": None}
+    # `bbox` is PRESENT and null, not omitted: an absent key and a null one are the
+    # same to a reader that uses .get(), but not to a schema that requires the key.
+    assert "bbox" in wire
+
+
+def test_a_boxless_ref_keeps_the_note_that_says_why_there_is_no_box():
+    """The no-divisor case is the one that has something to say: the geometry existed
+    and could not be made unit-free. Under the first cut that note died with the ref.
+    """
+    bbox, note = leaf_read._page_fractions([300, 200, 1400, 260], None, None)
+    assert bbox is None and note
+    wire = leaf_read.wire_evidence_ref({"page": 2, "bbox": bbox, "note": note})
+    assert wire["page"] == 2 and wire["bbox"] is None
+    assert "unit-free" in wire["note"]
+
+
+def test_only_a_PAGELESS_ref_fails_to_cross():
+    """*"page may not [be null]"* — so the page is the one load-bearing key, and a ref
+    without one is not a locator in any sense. This is also the derived-field case:
+    *"Derived fields carry no evidence_ref at all, as ruled."* A derived value is on
+    no page, so it arrives here pageless and is correctly refused.
+    """
+    assert leaf_read.wire_evidence_ref({"page": None, "bbox": [0.1, 0.1, 0.2, 0.2]}) is None
+    assert leaf_read.wire_evidence_ref({"bbox": [0.1, 0.1, 0.2, 0.2]}) is None
+    assert leaf_read.wire_evidence_ref(None) is None
+    assert leaf_read.wire_evidence_ref({}) is None
 
 
 def test_the_wire_ref_carries_a_note_when_there_is_one():
