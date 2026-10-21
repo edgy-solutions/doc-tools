@@ -1,8 +1,67 @@
 # HANDOFF — doc-tools/lane/7f
 
-Updated 2026-10-20. In-flight state only; durable findings live in project memory.
+Updated 2026-10-21. In-flight state only; durable findings live in project memory.
 
-## 2026-10-20 LATEST — ITEM 1 IS COMPLETE, BOTH PHASES. THE MIL DRAFT IS PLACED WITH 74. ONLY THE MERGE/PIN/FIRES REMAIN, AND THEY NEED A HUMAN
+## 2026-10-21 LATEST — THE LEAF RULING'S ITEM 4: STEPS 1-3 ARE DONE AND PUSHED. STEPS 4-5 ARE THE WRITE PATH AND GO TO A PR
+
+Two reports today, both committed:
+`sessions/2026-10-21-report-7f-the-title-read-is-locked-behind-the-decision-it-makes.md`
+(the measurement that reshaped the work) and
+`sessions/2026-10-21-report-7f-the-title-read-is-lifted-and-here-is-the-shape-it-returns.md`
+(the contract Lane 1 and cortex consume). Branch
+`7f/report-2026-10-19-required-gate-red-on-age`, pushed. **No live behaviour has
+changed; no merge, no roll, no pin, no fire.**
+
+**The finding that reshaped item 4:** the title read already existed and was already
+measured 9/9, and it had exactly ONE caller — inside the sustainment plugin, which is
+selected by `domain_type == "sustainment"`, which is what the leaf produces. You needed
+the leaf to run the plugin, the plugin held the read, the read makes the leaf. So item 4
+is a LIFT, not a build. A live drop fell into that hole two hours before the ruling
+(run `16f30b9a`, `PCN24_029.pdf`: green, wrote nothing).
+
+- **Step 1 (`6bf8985`)** — `tests/test_user_drop_runs_parse_only.py`, 8 tests pinning
+  "parse + text layer only" at two levels (resource keys; a source seal on the parser
+  module), plus two tests proving the ruled next step needs no resource so the lift
+  fits inside the invariant. Same commit corrected the stale `KIND_MAPPING` count in
+  `semantic_assets.py` that the manufacturing-only HALT rests on, **without** widening
+  the halt (that is the architect's).
+- **Steps 2-3 (`cd791ed`)** — `doc_tools/utils/leaf_read.py` (new) +
+  `tests/test_leaf_read.py` (36 tests). `read_leaf_from_elements(elements)` returns
+  `{leaf, leaf_source, outcome, evidence_ref, candidates}`. The DECISION is still
+  `doc_type_from_titles`, delegated not re-derived, so the 9/9 still measures what runs.
+  Under it, two pure factorings: `title_signal` (the per-title loop body, now also
+  naming the signal KIND for scoring) and `headline_candidate_elements` (the
+  element-carrying twin, with `headline_candidates` now a projection of it — one walk,
+  not two).
+
+**Four contract points a consumer must not get wrong**, all in §1-2 of the second
+report: `leaf` is the `KIND_MAPPING` key (`pcn`), **not** the read's `DocType` (`PCN`) —
+case is the whole difference; `leaf_source` is the ruled three only, and
+`title-ambiguous` / `no-title-evidence` are OUTCOMES, not sources; `candidates` is
+populated only when there is no leaf; and `evidence_ref` **names its coordinate space on
+every ref** (`unstructured-layout-pixels`), null when there is no box, converted to
+raster pixels only through `witness_regions.region_pixel_box`.
+
+**NEXT, and it is the part that needs a look:** step 4 emits the leaf and `leaf_source`
+at the boundary (`declared` from the sidecar, `title` from the read); step 5 holds parts
+extraction on the LEAF rather than on the domain. Step 5 moves the gate every ingest
+passes, so both go to a **PR I will not merge unreviewed**.
+
+**Two questions are still out to the architect** and the first blocks finishing step 5
+well: (1) does the read's leaf space widen past PCN/PDN to the other two
+domain-declaring kinds? — no keyword evidence for `work-instructions` or
+`s1000d-data-module` has been measured anywhere, so as built anything else returns no
+leaf; (2) item 3's re-extract rule — `pcn` and `pdn` declare IDENTICAL passes, so a
+pcn↔pdn correction re-runs extraction for the same output.
+
+**Unmeasured and stated as such:** the crop half has never run on a real document (no
+element fixtures with geometry in this tree; corpus PDFs are in MinIO), so on the nine
+notices it is unconfirmed that a `Title` element carries coordinates — indirect
+evidence from `witness_regions` is good but is not the same claim. Also still open:
+whether `PCN24_029`'s sidecar `content_kind` is a hardcoded null or an absent key
+(offered to Chris, no answer).
+
+## 2026-10-20 — ITEM 1 IS COMPLETE, BOTH PHASES. THE MIL DRAFT IS PLACED WITH 74. ONLY THE MERGE/PIN/FIRES REMAIN, AND THEY NEED A HUMAN
 
 Report: `sessions/2026-10-20-report-7f-item-1-is-complete-both-phases-and-the-mil-tbox-draft-is-placed-with-74.md`.
 Branch `7f/report-2026-10-19-required-gate-red-on-age` is **pushed**, 13 ahead of
