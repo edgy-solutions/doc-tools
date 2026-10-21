@@ -131,3 +131,53 @@ def resolve_value(source_snippet: Optional[str], index: List[dict],
     rec["bboxes"] = [c["bbox"] for c in chosen
                      if c["bbox"] and c["page_number"] == first["page_number"]]
     return rec
+
+
+# --------------------------------------------------------------------------- #
+# 3. bbox -> page fractions (the ruled evidence geometry)
+# --------------------------------------------------------------------------- #
+FRACTION_DIGITS = 6
+
+
+def to_page_fractions(bbox: Optional[List[float]],
+                      width: Optional[float],
+                      height: Optional[float]
+                      ) -> tuple:
+    """Any whole-page box -> page fractions, `[x0, y0, x1, y1]` each in `0..1`.
+
+    ARCHITECT RULING 2026-10-21: *"Crop coordinates: page fractions.
+    [x0, y0, x1, y1] in 0..1, origin top-left, plus page. Unit-free, so no extra
+    key, and the same everywhere evidence_ref appears. Producers convert layout
+    pixels and word-layer points before writing."*
+
+    ONE implementation on purpose. The ruling says *the same everywhere*, and two
+    copies of a unit conversion is how two producers end up disagreeing on a
+    boundary case -- which, here, is not a cosmetic difference: cortex drops the
+    WHOLE candidate list for one out-of-range box.
+
+    Returns `(bbox, note)`. Three cases yield NO box rather than a guess:
+
+    * **no divisor.** The numbers cannot be made unit-free, and emitting them raw
+      hands a consumer pixels labelled as fractions -- confidently wrong, which is
+      worse than absent.
+    * **outside the page.** Clamped to the edge, which is what cutting a crop does
+      anyway, and the clamp is NOTED: once the numbers are unit-free, the note is
+      the only place a wrong-space box still shows.
+    * **no area after clamping.** A box entirely past an edge collapses to
+      `[1.0, y, 1.0, y]`. Cortex requires `x0 < x1` and `y0 < y1` strictly and
+      drops the whole list for a violation; Lane 1's 204 answers it with a 422. So
+      a degenerate box costs every candidate where no box costs only this one.
+    """
+    if not bbox or len(bbox) != 4:
+        return None, None
+    if not width or not height:
+        return None, ("no page dimensions: the geometry could not be made "
+                      "unit-free, so no box is claimed")
+    raw = [bbox[0] / width, bbox[1] / height, bbox[2] / width, bbox[3] / height]
+    out = [round(min(1.0, max(0.0, v)), FRACTION_DIGITS) for v in raw]
+    if out[2] <= out[0] or out[3] <= out[1]:
+        return None, ("bbox lies outside the page, or has no area, so there is no "
+                      "box to draw")
+    clamped = any(v < 0.0 or v > 1.0 for v in raw)
+    return out, ("bbox extended past the page edge and was clamped" if clamped
+                 else None)
