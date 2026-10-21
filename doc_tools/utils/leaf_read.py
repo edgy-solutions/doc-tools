@@ -4,7 +4,10 @@ Ordered by the leaf ruling of 2026-10-21, item 4: *"before the title read, a pdf
 runs parse + text layer only. The title read is the next step; parts extraction
 waits on its leaf."* Item 2 of the same ruling sets this module's output shape:
 *"Candidates when not confident: [{leaf, score, evidence_ref}], best first, max 3;
-evidence_ref is the title crop the read used."*
+evidence_ref is the title crop the read used."* The same ruling, extended on 2026-10-21
+after this module was first written, fixes the crop's coordinates as PAGE FRACTIONS and
+the outcome-to-`leaf_source` mapping as this module's to own: see `_page_fractions` and
+`leaf_source_for_outcome`, which are the two places those two rulings live.
 
 WHY THIS MODULE EXISTS AT ALL, which is the finding that shaped it. The title read
 already existed and was already good — `sustainment_header_trust.doc_type_from_titles`,
@@ -40,7 +43,7 @@ sustainment signal returns NO leaf — which routes to candidates or to a hold, 
 a guess.
 """
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from doc_tools.utils import content_kind
 from doc_tools.utils import provenance
@@ -140,7 +143,29 @@ MAX_CANDIDATES = 3
 #: consumer cannot infer the space from the numbers. The sanctioned conversion to
 #: raster pixels is `witness_regions.region_pixel_box`, which checks that the two
 #: aspect ratios agree before trusting the ratio.
-BBOX_SPACE_LAYOUT_PIXELS = "unstructured-layout-pixels"
+#: ARCHITECT RULING 2026-10-21: *"Crop coordinates: page fractions. [x0, y0, x1, y1]
+#: in 0..1, origin top-left, plus page. Unit-free, so no extra key, and the same
+#: everywhere evidence_ref appears. Producers convert layout pixels and word-layer
+#: points before writing."*
+#:
+#: So there is NO space key here any more. The space used to need naming because the
+#: numbers could not be told apart — a row bbox is image pixels on one notice and PDF
+#: points on another, and a reader cannot infer which from the magnitudes. A fraction
+#: is self-describing: every value is <= 1, so a box that arrived in the wrong space
+#: is visible rather than silent, and a consumer needs no page size, no DPI and no PDF
+#: to place it.
+#:
+#: 6 decimals is ~1/1,000,000 of a page — about 0.0006pt on a letter page, far below
+#: any precision the text layer has. It is here so a manifest stays readable and a
+#: test can assert an exact value, not because the sixth digit means anything.
+_FRACTION_DIGITS = 6
+
+#: What the element's own geometry is in BEFORE this module converts it: unstructured
+#: LAYOUT pixels, relative to the element's `layout_width`/`layout_height`
+#: (`provenance.build_positioned_index` stores those as page_width/page_height, and
+#: `witness_regions.py:33-45` names all three spaces). Recorded as the divisor's
+#: provenance, so a reader can recover the pixels; never as a wire value.
+BBOX_SOURCE_SPACE_LAYOUT_PIXELS = "unstructured-layout-pixels"
 
 
 # --------------------------------------------------------------------------- #
@@ -193,7 +218,25 @@ class LeafRead:
         }
 
 
+# THE READ'S OUTCOMES — a different vocabulary from `leaf_source`, and the two are one
+# word apart in Lane 1's wire body, where the outcome is called `doc_type_source`.
+# `title-ambiguous` is a legal outcome and an ILLEGAL leaf_source; assigning either
+# field from the other is how an ambiguous read reaches a status row as a source cortex
+# refuses, which silently stops the chip being drawn. `leaf_source_for_outcome` is the
+# only sanctioned crossing.
+#
+# The three title values are produced by `header_trust.doc_type_from_titles`, not here;
+# they are named so the mapping reads as a mapping, and `test_leaf_read.py` asserts the
+# walk emits nothing outside this set, so a change over there fails a test rather than
+# falling through the mapping as "no leaf".
+OUTCOME_TITLE = "title"
+OUTCOME_TITLE_AMBIGUOUS = "title-ambiguous"
+OUTCOME_NO_TITLE_EVIDENCE = "no-title-evidence"
 OUTCOME_DECLARED = "declared"
+
+#: Every outcome a READ can return. `declared` is not one: it is what `resolve_leaf`
+#: records when the drop already carried a leaf and no read ran.
+READ_OUTCOMES = (OUTCOME_TITLE, OUTCOME_TITLE_AMBIGUOUS, OUTCOME_NO_TITLE_EVIDENCE)
 
 
 def resolve_leaf(declared_kind: Optional[str],
@@ -235,10 +278,15 @@ def evidence_ref_for_element(element: dict, element_index: int,
     `metadata.coordinates` — copied geometry math is how coordinate-space defects
     multiply.
 
-    `bbox_space` is present only when `bbox` is: naming a space for a box that does
-    not exist would let a consumer believe it had a location. A non-PDF source, or a
-    fast-strategy parse, legitimately has no coordinates, and that is a missing crop,
-    not an error.
+    The bbox is PAGE FRACTIONS, per the 2026-10-21 ruling — see `_page_fractions` for
+    the conversion and for the two cases that produce no box at all. A non-PDF source,
+    or a fast-strategy parse, legitimately has no coordinates, and that is a missing
+    crop, not an error: `bbox` is then `None` and `note` says why, so a consumer is
+    never handed a location that does not exist.
+
+    `page` is the ruled key name (`{page, bbox, note?}`), not `page_number`, so that
+    `wire_evidence_ref` is a projection of this dict and never a rename — a rename is
+    where a key quietly stops being populated.
 
     The text is carried RAW — the element's own stripped text, unfolded. A folded form
     would be the wrong thing twice: `fold_typography` collapses character runs and is
@@ -248,18 +296,100 @@ def evidence_ref_for_element(element: dict, element_index: int,
     """
     rec = provenance.build_positioned_index([element])
     loc = rec[0] if rec else {}
-    bbox = loc.get("bbox")
-    return {
+    bbox, note = _page_fractions(loc.get("bbox"), loc.get("page_width"),
+                                 loc.get("page_height"))
+    ref = {
         "element_id": element.get("element_id") or f"el_{element_index}",
         "element_index": element_index,
         "element_type": element.get("type"),
-        "page_number": loc.get("page_number"),
+        "page": loc.get("page_number"),
         "bbox": bbox,
-        "bbox_space": BBOX_SPACE_LAYOUT_PIXELS if bbox else None,
-        "page_width": loc.get("page_width"),
-        "page_height": loc.get("page_height"),
+        # The divisor, and what it was a divisor OF. Kept so the layout pixels are
+        # recoverable from the fractions; internal, and never put on the wire.
+        "layout_width": loc.get("page_width"),
+        "layout_height": loc.get("page_height"),
+        "bbox_source_space": BBOX_SOURCE_SPACE_LAYOUT_PIXELS,
         "text": text,
     }
+    if note:
+        ref["note"] = note
+    return ref
+
+
+def _page_fractions(bbox: Optional[Sequence[float]],
+                    width: Optional[float],
+                    height: Optional[float]
+                    ) -> Tuple[Optional[List[float]], Optional[str]]:
+    """Layout pixels -> page fractions, `[x0, y0, x1, y1]` each in `0..1`.
+
+    Both spaces frame the WHOLE page and both have their origin at the top left
+    (unstructured's PixelSpace counts y downward, which is why
+    `witness_regions.region_pixel_box` converts layout pixels to raster pixels with a
+    single ratio and no flip). So the conversion is a division, with no DPI, no PDF
+    and no page size needed by anyone downstream.
+
+    Two cases yield NO box, and both say so in `note` rather than guessing:
+
+    * **no divisor.** Points without `layout_width`/`layout_height` cannot be made
+      unit-free. Emitting the raw numbers would hand a consumer pixels labelled as
+      fractions — a crop that is confidently wrong, which is worse than one that is
+      absent, and exactly the failure the ruling's "unit-free" removes.
+    * **a box outside the page.** Clamped to the edge, which is what cutting a crop
+      does anyway, and the clamp is NOTED. A box a little over the edge is ordinary;
+      one wildly over it means the geometry was in another space before it got here,
+      and the note is the only place that is visible once the numbers are unit-free.
+    """
+    if not bbox or len(bbox) != 4:
+        return None, None
+    if not width or not height:
+        return None, ("no layout dimensions: the geometry could not be made "
+                      "unit-free, so no crop box is claimed")
+    raw = [bbox[0] / width, bbox[1] / height, bbox[2] / width, bbox[3] / height]
+    out = [round(min(1.0, max(0.0, v)), _FRACTION_DIGITS) for v in raw]
+    clamped = any(v < 0.0 or v > 1.0 for v in raw)
+    return out, ("bbox extended past the page edge and was clamped" if clamped
+                 else None)
+
+
+def wire_evidence_ref(ref: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Project an internal ref onto the RULED shape: `{page, bbox, note?}`, nothing else.
+
+    The ruled shape admits no other keys — an extra one is a 422 at Lane 1's BFF, and
+    cortex's candidate reader drops the WHOLE list when one item is invalid (their
+    2026-10-21 packet, §1). So the richer ref stays in the manifest, where no shape
+    contract binds it, and only these keys cross.
+
+    `None` when there is no page or no box, because a ref without a box is not a
+    locator. Whether a candidate may then travel with no `evidence_ref` at all is
+    cortex's to say and is asked, not assumed.
+    """
+    if not ref or ref.get("page") is None or not ref.get("bbox"):
+        return None
+    out = {"page": ref["page"], "bbox": list(ref["bbox"])}
+    if ref.get("note"):
+        out["note"] = ref["note"]
+    return out
+
+
+def leaf_source_for_outcome(outcome: Optional[str]) -> Optional[str]:
+    """The read's outcome -> the architect's `leaf_source` enum. Written ONCE, here.
+
+    ARCHITECT RULING 2026-10-21: *"doc_type_source -> leaf_source mapping, written
+    once in 7f's step 5: title -> title; title-ambiguous -> no leaf, awaiting_kind
+    with the candidates. Nothing else crosses."*
+
+    `None` means NO LEAF, and the row holds at `awaiting_kind` carrying the
+    candidates. `no-title-evidence` lands here too: the ruling names
+    `title-ambiguous` because that is the interesting case, but both are reads that
+    produced no leaf, and the hold is the same.
+
+    What this function exists to prevent: `declared` and `corrected` are never minted
+    by a READ. A declared leaf came off the drop and a corrected one came from a
+    person, so a title read inventing either would be a provenance lie about who
+    decided. They are therefore unreachable from any outcome, by construction rather
+    than by a reviewer's care.
+    """
+    return LEAF_SOURCE_TITLE if outcome == OUTCOME_TITLE else None
 
 
 def _score(signal: str, element_type: Optional[str]) -> float:
@@ -305,7 +435,8 @@ def read_leaf_from_elements(elements: Optional[Sequence[dict]]) -> LeafRead:
             # A DocType the mapping does not name. Refuse rather than pass it through:
             # see `leaf_for_doc_type`. `unmapped_leaf_targets` is the tested guard
             # against the other direction.
-            return LeafRead(leaf=None, leaf_source=None, outcome="no-title-evidence")
+            return LeafRead(leaf=None, leaf_source=None,
+                            outcome=OUTCOME_NO_TITLE_EVIDENCE)
         # The deciding element is the FIRST candidate carrying a signal, by
         # construction: the walk returns on the first non-None source, and an
         # ambiguous first signal returns no leaf — so a decided read is always the

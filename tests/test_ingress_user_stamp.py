@@ -1121,7 +1121,11 @@ def test_f8_the_title_read_runs_at_parse_and_the_leaf_lands_on_the_manifest(monk
     leaf = manifest["leaf"]
     assert (leaf["leaf"], leaf["leaf_source"], leaf["outcome"]) == ("pcn", "title", "title")
     assert leaf["evidence_ref"]["text"] == "PRODUCT CHANGE NOTICE"
-    assert leaf["evidence_ref"]["bbox_space"] == "unstructured-layout-pixels"
+    # PAGE FRACTIONS end to end (architect, 2026-10-21): what the manifest carries
+    # after a real parse, not what the unit under test returns in isolation.
+    assert leaf["evidence_ref"]["page"] == 1
+    assert leaf["evidence_ref"]["bbox"] == [0.176471, 0.090909, 0.823529, 0.118182]
+    assert "bbox_space" not in leaf["evidence_ref"]
     assert leaf["candidates"] == []
     # The block is a TOP-LEVEL sibling of provenance, not buried in metadata, so a
     # consumer reads it without knowing a domain's metadata shape.
