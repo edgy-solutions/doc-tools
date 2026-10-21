@@ -75,6 +75,27 @@ LEAF_SOURCES: Tuple[str, ...] = (
 # --------------------------------------------------------------------------- #
 # 2. DocType -> leaf, sealed against the mapping table
 # --------------------------------------------------------------------------- #
+# ARCHITECT RULING 2026-10-21 (second ruling): *"Leaf types: don't widen by hand. The
+# allowed leaves are the content-kind registry's domain-declaring kinds, read from the
+# registry, never a literal list. Today that's pcn and pdn on the PDF path. Make it
+# registry-driven after the dry run; for Thursday pcn|pdn stands."*
+#
+# So this literal stands for Thursday BY THE RULING, and widening it by hand is the
+# one thing forbidden. `unmapped_leaf_targets()` below is the half that is already
+# registry-bound: the literal cannot name a leaf the registry does not declare.
+#
+# MEASURED for the deferred swap, so it is not written from the ruling's prose:
+# `KIND_MAPPING` has 9 rows and FOUR declare a domain -- pcn (sustainment), pdn
+# (sustainment), work-instructions (manufacturing) and s1000d-data-module
+# (maintenance). "Domain-declaring" alone is therefore 4, not 2. The ruling's own
+# qualifier "on the PDF path" is what cuts it back: s1000d-data-module arrives as XML
+# and never reaches a title read, but work-instructions is a PDF kind and WOULD be
+# admitted by the bare predicate. The registry-driven version needs that second
+# conjunct or it silently widens to manufacturing the day it lands.
+#
+# And it must key on the registry KEY, not `entry.kind`: `work-instructions` is the
+# key whose kind is `work-instruction`, so keying on `.kind` yields a leaf that
+# resolves to no row.
 _DOC_TYPE_TO_LEAF: Dict[str, str] = {"PCN": "pcn", "PDN": "pdn"}
 
 
@@ -354,18 +375,25 @@ def _page_fractions(bbox: Optional[Sequence[float]],
 def wire_evidence_ref(ref: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Project an internal ref onto the RULED shape: `{page, bbox, note?}`, nothing else.
 
-    The ruled shape admits no other keys — an extra one is a 422 at Lane 1's BFF, and
+    The ruled shape admits no other keys -- an extra one is a 422 at Lane 1's BFF, and
     cortex's candidate reader drops the WHOLE list when one item is invalid (their
-    2026-10-21 packet, §1). So the richer ref stays in the manifest, where no shape
-    contract binds it, and only these keys cross.
+    2026-10-21 packet, section 1). So the richer ref stays in the manifest, where no
+    shape contract binds it, and only these keys cross.
 
-    `None` when there is no page or no box, because a ref without a box is not a
-    locator. Whether a candidate may then travel with no `evidence_ref` at all is
-    cortex's to say and is asked, not assumed.
+    ARCHITECT RULING 2026-10-21 (second ruling): *"bbox may be null; page may not.
+    Null bbox means 'stated on this page, no box we can draw'. The card jumps to the
+    page with no outline and labels it 'on page N, no box'."*
+
+    So the PAGE is the locator and the box only refines it. A ref that has a page and
+    no geometry crosses as `{page, bbox: None}` and the card still navigates; dropping
+    it, as this function first did, would have thrown away the half that works. Only a
+    ref with no page at all yields no evidence_ref -- which is also the derived-field
+    case the same ruling settles, since a derived field is on no page.
     """
-    if not ref or ref.get("page") is None or not ref.get("bbox"):
+    if not ref or ref.get("page") is None:
         return None
-    out = {"page": ref["page"], "bbox": list(ref["bbox"])}
+    bbox = ref.get("bbox")
+    out: Dict[str, Any] = {"page": ref["page"], "bbox": list(bbox) if bbox else None}
     if ref.get("note"):
         out["note"] = ref["note"]
     return out
