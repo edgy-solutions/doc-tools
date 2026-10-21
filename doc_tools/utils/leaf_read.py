@@ -179,7 +179,7 @@ MAX_CANDIDATES = 3
 #: 6 decimals is ~1/1,000,000 of a page — about 0.0006pt on a letter page, far below
 #: any precision the text layer has. It is here so a manifest stays readable and a
 #: test can assert an exact value, not because the sixth digit means anything.
-_FRACTION_DIGITS = 6
+_FRACTION_DIGITS = provenance.FRACTION_DIGITS  # the conversion lives there now
 
 #: What the element's own geometry is in BEFORE this module converts it: unstructured
 #: LAYOUT pixels, relative to the element's `layout_width`/`layout_height`
@@ -341,35 +341,22 @@ def _page_fractions(bbox: Optional[Sequence[float]],
                     width: Optional[float],
                     height: Optional[float]
                     ) -> Tuple[Optional[List[float]], Optional[str]]:
-    """Layout pixels -> page fractions, `[x0, y0, x1, y1]` each in `0..1`.
+    """Layout pixels -> page fractions. Delegates to the ONE conversion.
 
-    Both spaces frame the WHOLE page and both have their origin at the top left
-    (unstructured's PixelSpace counts y downward, which is why
-    `witness_regions.region_pixel_box` converts layout pixels to raster pixels with a
-    single ratio and no flip). So the conversion is a division, with no DPI, no PDF
-    and no page size needed by anyone downstream.
+    The rules (no divisor, clamp-and-note, refuse a degenerate box) live in
+    `provenance.to_page_fractions`, because the ruling says page fractions are
+    *"the same everywhere evidence_ref appears"* and the review rows convert through
+    the same function. A second copy here is how the leaf crop and the row crop
+    would end up disagreeing on a boundary case that costs the whole candidate list.
 
-    Two cases yield NO box, and both say so in `note` rather than guessing:
-
-    * **no divisor.** Points without `layout_width`/`layout_height` cannot be made
-      unit-free. Emitting the raw numbers would hand a consumer pixels labelled as
-      fractions — a crop that is confidently wrong, which is worse than one that is
-      absent, and exactly the failure the ruling's "unit-free" removes.
-    * **a box outside the page.** Clamped to the edge, which is what cutting a crop
-      does anyway, and the clamp is NOTED. A box a little over the edge is ordinary;
-      one wildly over it means the geometry was in another space before it got here,
-      and the note is the only place that is visible once the numbers are unit-free.
+    Why both spaces divide cleanly: the element bbox is in unstructured's LAYOUT
+    pixels and the layout frames the WHOLE page with its origin at the top left
+    (PixelSpace counts y downward, which is why `witness_regions.region_pixel_box`
+    goes layout -> raster with a single ratio and no flip). So this is a division,
+    with no DPI, no PDF and no page size needed by anyone downstream.
     """
-    if not bbox or len(bbox) != 4:
-        return None, None
-    if not width or not height:
-        return None, ("no layout dimensions: the geometry could not be made "
-                      "unit-free, so no crop box is claimed")
-    raw = [bbox[0] / width, bbox[1] / height, bbox[2] / width, bbox[3] / height]
-    out = [round(min(1.0, max(0.0, v)), _FRACTION_DIGITS) for v in raw]
-    clamped = any(v < 0.0 or v > 1.0 for v in raw)
-    return out, ("bbox extended past the page edge and was clamped" if clamped
-                 else None)
+    return provenance.to_page_fractions(
+        list(bbox) if bbox else None, width, height)
 
 
 def wire_evidence_ref(ref: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:

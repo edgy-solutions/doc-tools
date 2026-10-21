@@ -166,12 +166,44 @@ def clean_replacements(parts: List[dict]) -> List[dict]:
     return parts
 
 
+def _row_fractions(prov: dict) -> List[list]:
+    """A review item's `bboxes` in PAGE FRACTIONS, dropping any that cannot convert.
+
+    ARCHITECT RULING 2026-10-21: page fractions, *"the same everywhere evidence_ref
+    appears"* — which includes these rows. Lane 1 lifted the hold on 10-21 once
+    cortex `a3cf4d1` (which reads both forms) went live in 204.
+
+    `page_dims` is DROPPED by the caller in the same breath, and that is not
+    cosmetic: cortex reads the presence of `page_dims` as "this box is in pixels"
+    and would divide a fraction by 1700, drawing a speck in the page corner with no
+    error — a coincidence defect visible only on converted data (their a3cf4d1
+    packet, section 2). Converting the box and keeping the dims is therefore worse
+    than doing neither.
+
+    A box with no dims yields NOTHING rather than a bare pixel box: with the dims
+    gone there is no divisor on either side, so a pixel box would read as a
+    wildly out-of-range fraction and flag the row unreadable. It was already
+    unusable before this change — cortex's pixel form needs `page_dims` to scale —
+    so nothing that worked is lost.
+    """
+    dims = prov.get("page_dims") or {}
+    out = []
+    for box in prov.get("bboxes") or []:
+        frac, _note = provenance.to_page_fractions(
+            list(box) if box else None, dims.get("width"), dims.get("height"))
+        if frac:
+            out.append(frac)
+    return out
+
+
 def _review_item(field_path, value, source, region, prov=None, needs_review=False, reason=None):
     prov = prov or {}
     return {
         "field_path": field_path, "value": value, "source_snippet": source,
         "region": region, "page_number": prov.get("page_number"),
-        "bboxes": prov.get("bboxes", []), "page_dims": prov.get("page_dims"),
+        # Page fractions, and NO `page_dims` — see `_row_fractions`. The key is
+        # omitted, not nulled: cortex discriminates the two forms on its PRESENCE.
+        "bboxes": _row_fractions(prov),
         "match_method": prov.get("match_method", "derived" if region == "derived" else "not_found"),
         "match_confidence": prov.get("match_confidence", 0.0),
         "needs_review": needs_review, "review_reason": reason,
