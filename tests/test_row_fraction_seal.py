@@ -200,6 +200,79 @@ def new_shape():
 
 
 # --------------------------------------------------------------------------- #
+# The several-box row, added at cortex's request
+# --------------------------------------------------------------------------- #
+#: *"7f: please make one fixture in leg B's family a several-box row, so
+#: cortex's leg covers the union and its note."* (cortex packet, 2026-10-21 §5.)
+#:
+#: A two-line cell, and each edge of the union comes from a DIFFERENT box: x0
+#: and y1 from the second, y0 and x1 from the first. A transposed min/max would
+#: therefore change the result, which a fixture whose second box sits wholly
+#: inside the first could not detect. All eight edges divide inexactly.
+PIXEL_BBOXES_MULTI = [[223.0, 917.0, 661.0, 953.0],
+                      [189.0, 959.0, 587.0, 995.0]]
+
+MULTI_PROV = dict(FIXTURE_PROV, bboxes=[list(b) for b in PIXEL_BBOXES_MULTI])
+
+
+def multi_shape():
+    """The several-box row's wire ref, from the producer."""
+    return merge._row_wire_evidence_ref(MULTI_PROV, "text_layer_cell")
+
+
+def test_the_union_OUTLINE_covers_every_box_it_replaces_when_DRAWN():
+    """The union's point is what a steward sees, so assert it where they see
+    it: through the reader, in rendered pixels, not as four fractions.
+
+    cortex outlines the union for a multi-box row and captions the note. If the
+    outline failed to cover one of the lines, a steward reading a two-line cell
+    would see one line boxed and no sign the other existed -- and because the
+    outlined box is a REAL box, nothing about that looks like a bug.
+    """
+    for rendered in RENDER_SIZES:
+        drawn = draw(multi_shape(), rendered)
+        sx = rendered["width"] / PAGE_DIMS["width"]
+        sy = rendered["height"] / PAGE_DIMS["height"]
+        # Slack: the union is taken over rounded fractions, so against the raw
+        # pixel geometry it can fall one rounding quantum short.
+        slack_x = MAX_FRACTION_ERROR * rendered["width"]
+        slack_y = MAX_FRACTION_ERROR * rendered["height"]
+        for x0, y0, x1, y1 in PIXEL_BBOXES_MULTI:
+            assert drawn["left"] <= x0 * sx + slack_x
+            assert drawn["top"] <= y0 * sy + slack_y
+            assert drawn["left"] + drawn["width"] >= x1 * sx - slack_x
+            assert drawn["top"] + drawn["height"] >= y1 * sy - slack_y
+
+
+def test_the_multi_box_fixture_would_CATCH_a_transposed_union():
+    """Guards the fixture's design, not the code -- the same role as the
+    all-four-edges test above.
+
+    Every edge of this union comes from a different box, so each of the four
+    `min`/`max` choices is exercised. A later "tidying" of the fixture into two
+    neatly nested boxes would leave this file green while the union could take
+    its maximum from the wrong corner.
+    """
+    first, second = PIXEL_BBOXES_MULTI
+    assert second[0] < first[0], "x0 must come from the SECOND box"
+    assert first[1] < second[1], "y0 must come from the FIRST box"
+    assert first[2] > second[2], "x1 must come from the FIRST box"
+    assert second[3] > first[3], "y1 must come from the SECOND box"
+
+
+def test_the_several_box_row_carries_the_NOTE_cortex_captions():
+    """cortex's review-row reader has no `note` today (their packet §5): it
+    would outline the union as if it were one cell and the note would be lost
+    without a trace. They ship the `note` reader in the same release as this
+    conversion, so the two are paired -- which is worth pinning at this end,
+    because the producer cannot see a dropped caption.
+    """
+    ref = multi_shape()
+    assert ref["note"] == "2 boxes"
+    assert set(ref) == {"page", "bbox", "note"}
+
+
+# --------------------------------------------------------------------------- #
 # The seal
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("rendered", RENDER_SIZES,
@@ -306,3 +379,13 @@ def test_the_committed_fixture_matches_what_the_converter_produces_today():
         rendered = case["rendered"]
         assert draw(old_shape(), rendered) == pytest.approx(case["cell"],
                                                             abs=1e-9)
+
+    # The several-box half, which cortex's leg reads for the union and note.
+    multi = stored["multi_box"]
+    assert multi["pixel_bboxes"] == PIXEL_BBOXES_MULTI
+    assert multi["new_shape"] == multi_shape()
+    assert multi["fractions"] == merge._row_fractions(MULTI_PROV)
+    for case in multi["expected_union_cells"]:
+        assert draw(multi_shape(), case["rendered"]) == pytest.approx(
+            case["cell"], abs=MAX_FRACTION_ERROR * max(
+                case["rendered"]["width"], case["rendered"]["height"]) * 2)
