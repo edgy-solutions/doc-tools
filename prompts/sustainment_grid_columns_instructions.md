@@ -11,7 +11,7 @@ header_rows expects. `[row N]` is a ROW NAME, never a data column -- counting it
 would shift every column index by one and mispair the whole table.
 
 - affected_col: the index (the N in `cN`) of the column holding the affected / discontinued manufacturer part number. Null ONLY if no column in this table holds part numbers at all - a change-description, material, process or revision-history table. Null is a real answer; a guess is not. Every row of the column you name is emitted verbatim as a part number, so naming a description column invents parts that do not exist.
-- replacement_col: the index (the N in `cN`) of the column holding a recommended replacement / substitute part number, or null if this table has no replacement column at all.
+- replacement_col: the index (the N in `cN`) of the column holding a recommended replacement / substitute / ALTERNATIVE / alternate / successor part number, or null if this table has no replacement column at all. A column headed "Alternative Part Number" or "Alternate Part Number" is a REPLACEMENT column, never a second affected column: it holds what the vendor is offering, not what is being discontinued. Naming it as affected doubles the table and marks the offered parts as discontinued.
 - ltb_date_col: the index (the N in `cN`) of a column holding a PER-ROW last-time-buy date, or null if the table carries no per-row dates (a single document-level date is handled elsewhere).
 - header_rows: the `[row N]` numbers of rows that are headers, captions, titles, or blank/spacer rows rather than actual part rows. Empty list if every row is a part row.
 - reason: one sentence naming the evidence — in the grid text or the image — for your column assignment.
