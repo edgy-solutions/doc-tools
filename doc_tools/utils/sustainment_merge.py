@@ -186,19 +186,107 @@ def _row_fractions(prov: dict) -> List[list]:
     unusable before this change — cortex's pixel form needs `page_dims` to scale —
     so nothing that worked is lost.
     """
+    return _convert_row_boxes(prov)[0]
+
+
+def _convert_row_boxes(prov: dict) -> Tuple[List[list], Optional[str]]:
+    """The row's boxes in page fractions, plus the one note worth carrying.
+
+    Split out of `_row_fractions` so `wire_evidence_ref` can say WHY a row has
+    no box. Once the numbers are unit-free the note is the only place an absent
+    or wrong-space box still shows, so dropping it on the floor would make the
+    two indistinguishable: a row that never had geometry and a row whose
+    geometry could not be converted look identical without it.
+
+    Returns `(boxes, note)`. The note is the FIRST distinct reason among the
+    boxes that failed to convert, and is reported only when nothing converted —
+    a row that got a usable box does not need to explain the one it dropped.
+    """
     dims = prov.get("page_dims") or {}
-    out = []
+    out: List[list] = []
+    notes: List[str] = []
     for box in prov.get("bboxes") or []:
-        frac, _note = provenance.to_page_fractions(
+        frac, note = provenance.to_page_fractions(
             list(box) if box else None, dims.get("width"), dims.get("height"))
         if frac:
             out.append(frac)
+        elif note and note not in notes:
+            notes.append(note)
+    return out, (notes[0] if notes and not out else None)
+
+
+def _union(boxes: List[list]) -> list:
+    """The smallest box containing all of them, in the same space.
+
+    ARCHITECT RULING 2026-10-21: *"Rows with several boxes get bbox = their
+    union, with note 'n boxes'."* A union is the only single box that cannot
+    point at the WRONG cell: picking one of several (say `bboxes[0]`) outlines
+    a real box, so a steward reading a two-line cell would see one line
+    outlined and no indication the other exists.
+
+    Taken over the CONVERTED boxes, so it contains every box this row emits in
+    `bboxes` exactly. Against the raw pixel geometry it can fall short by half
+    a unit in the last fraction place (~0.001 px at a full render), because its
+    inputs are already rounded. That is deliberate: widening it would make the
+    union inconsistent with the `bboxes` beside it, which carry the same
+    quantum, and the shortfall is below the sub-pixel bound the row seal
+    states. Pinned by
+    ``test_row_wire_evidence_ref.py::test_the_union_can_fall_one_ROUNDING_QUANTUM_short_of_the_raw_geometry``.
+    """
+    return [min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes)]
+
+
+def _row_wire_evidence_ref(prov: dict, region) -> Optional[dict]:
+    """The row's `{page, bbox, note?}` — the ruled wire shape, written here.
+
+    ARCHITECT RULING 2026-10-21: *"7f emits `wire_evidence_ref {page, bbox,
+    note?}` on every row, in fractions, alongside its internal
+    bboxes/page_number ... The BFF serves 7f's wire_evidence_ref as is. No
+    renaming, no synthesizing, no page_dims of its own."*
+
+    So this is no longer an internal shape that something downstream reshapes:
+    it is the bytes cortex's reader receives, and its keys are exactly the
+    three the ruling names. An extra key is a 422 at the BFF and makes cortex
+    drop the whole list.
+
+    Two cases yield NO ref at all rather than a partial one:
+
+    * **a derived field.** *"Derived fields carry no evidence_ref at all, as
+      ruled"* — a derived value is on no page, so there is nothing to navigate
+      to and a `page` would be a fiction.
+    * **no page.** The same ruling: *"bbox may be null; page may not."* The
+      page is the locator and the box only refines it, so a ref without one
+      has nothing left to offer.
+
+    A row WITH a page and no box still gets a ref (`bbox: None`): the card
+    jumps to the page and labels it "on page N, no box". That half works and
+    is the normal no-coordinates outcome, since `page_number` comes from the
+    metadata rather than from the geometry.
+    """
+    if region == "derived":
+        return None
+    page = prov.get("page_number")
+    if page is None:
+        return None
+    boxes, note = _convert_row_boxes(prov)
+    out: dict = {"page": page, "bbox": None}
+    if len(boxes) == 1:
+        out["bbox"] = boxes[0]
+    elif boxes:
+        out["bbox"] = _union(boxes)
+        # Counts the boxes in the UNION, not the row's raw boxes: a box that
+        # failed to convert is not inside the outline being drawn, so counting
+        # it would overstate what the box covers.
+        note = f"{len(boxes)} boxes"
+    if note:
+        out["note"] = note
     return out
 
 
 def _review_item(field_path, value, source, region, prov=None, needs_review=False, reason=None):
     prov = prov or {}
-    return {
+    item = {
         "field_path": field_path, "value": value, "source_snippet": source,
         "region": region, "page_number": prov.get("page_number"),
         # Page fractions, and NO `page_dims` — see `_row_fractions`. The key is
@@ -209,6 +297,15 @@ def _review_item(field_path, value, source, region, prov=None, needs_review=Fals
         "needs_review": needs_review, "review_reason": reason,
         "approval_state": "pending",
     }
+    # The ruled wire shape, served VERBATIM by the BFF, alongside the internal
+    # `bboxes`/`page_number` above. Omitted entirely when there is no page or
+    # the field is derived — never written as null, because an absent
+    # `evidence_ref` is how the reader is told there is no evidence, while a
+    # null one is a malformed ref.
+    wire = _row_wire_evidence_ref(prov, region)
+    if wire is not None:
+        item["wire_evidence_ref"] = wire
+    return item
 
 
 def build_review_items(header: dict, parts: List[dict], index: List[dict],
