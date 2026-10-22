@@ -200,17 +200,22 @@ The numbers are a committed fixture produced BY the converter
 two independently-derived expectations would have let the legs drift while both stayed
 green.
 
-**THE REAL RISK THE SEAL SURFACED, AND IT IS AHEAD OF THE ROLL: `d9e6118` may be INERT.**
-The row this lane writes carries `bboxes` (plural) and `page_number` — never `bbox`,
-never `page`, and since `d9e6118` no `page_dims`. Cortex's `readEvidence` reads
-`evidence_ref.bbox` **singular** and never reads `bboxes` at all (it appears only in
-their type comment). So **the BFF renames or synthesizes all three keys.** If the BFF
-supplies its **own** `page_dims` rather than passing mine through, then dropping mine
-changes nothing, their reader takes the pixel branch, divides my fraction by 1700 and
-draws a sub-pixel speck in the page corner — well-formed, no error, nothing logged.
-**Neither leg of the seal can see this: the seal spans converter -> reader and the BFF
-sits in the middle of that span.** Asked as §3(a). **If the answer is "its own", the row
-half of `d9e6118` must NOT roll in its current form.**
+**RESOLVED, AND IT WAS NOT INERT: the BFF passes my geometry through, and now it does
+not even reshape it.** The seal surfaced a real risk I could not see from either leg —
+my row carries `bboxes` (plural) and `page_number`, while cortex's `readEvidence` reads
+`evidence_ref.bbox` **singular** and never reads `bboxes` at all — so the BFF was
+renaming all three keys, and if it had supplied its **own** `page_dims` instead of
+passing mine, dropping mine would have changed nothing and their reader would have
+divided my fraction by 1700 and drawn a sub-pixel speck. Two rulings on 2026-10-21
+closed it: *"Geometry belongs to the producer: the BFF never supplies or recomputes
+page_dims; it passes through what 7f wrote"*, and then *"The producer writes the wire
+shape; the BFF passes it verbatim."* So `d9e6118` stands and the row half rolls.
+
+**KEEP THE SHAPE OF THE BLIND SPOT, THOUGH — it will recur.** A seal can be green at
+both ends of a span it does not cover. Leg A is the converter and leg B is the reader;
+the BFF sat in the middle and neither leg could see it. The cure was not a better test
+at either end: ruling 3 **removed the middle step** rather than testing it, and Lane 1's
+third leg now covers what is left of the span.
 
 **This SUPERSEDES the `units` question in the block above.** Cortex's line 69 says the box
 is scaled by `page_dims` and `units` is carried but never needed — so `units` cannot
@@ -231,6 +236,80 @@ tolerance cannot hide a real shift.
 
 Packet placed:
 `sessions/2026-10-21-packet-to-architect-cortex-and-lane-01-the-row-seal-is-green-on-both-legs-but-dropping-page-dims-only-works-if-the-bff-passed-mine-through.md`.
+
+**THE WIRE SHAPE IS EMITTED FROM HERE NOW (`6d55a74`), SO THE BFF HAS NOTHING TO
+RESHAPE.** Ruling 3 of 2026-10-21. Every non-derived row carries
+`wire_evidence_ref {page, bbox, note?}` in page fractions, **alongside** the internal
+`bboxes`/`page_number` rather than in place of them, so old readers keep working until
+stored rows age out. 18 tests in `tests/test_row_wire_evidence_ref.py` pin it **key by
+key**, not by description, because both failure modes are non-local and silent at this
+end: an extra key is a 422 at the BFF, an out-of-range box drops cortex's whole list.
+Leg A's `new_shape()` now takes its bytes FROM the converter, so the modelled rename is
+gone rather than assumed correct.
+
+**The union is the only single box that cannot point at the WRONG cell.** Picking
+`bboxes[0]` outlines a *real* box, so a steward reading a two-line cell would see one
+line outlined with no sign the other exists — the failure would look like correct
+output. Two deliberate properties, each with a test, so neither is rediscovered as a
+mystery: it is taken over the **already-rounded** fractions, so it contains every box I
+emit in `bboxes` **exactly** while falling up to half a unit in the last place (5e-7 of
+a page, ~0.001 px at full render) short of the raw geometry — widening it would make it
+inconsistent with the `bboxes` beside it rather than more correct; and `note` counts the
+boxes **in the union**, not the row's raw boxes, so a box that converts to nothing is
+not claimed to be inside the outline. A box that cannot convert at all says why, because
+once the numbers are unit-free the note is the only place an absent box still shows.
+
+**The `units` question is WITHDRAWN** (it was already superseded above): the ruled wire
+shape carries no `units` key at all. The `bboxes: []` question still stands.
+
+**`work-instruction` IS SINGULAR NOW (`fb4f691`), AND THE RENAME COULD NOT BE A RENAME
+ALONE.** `content_kind` also **path-derives** a kind from S3 keys and live objects sit
+under `manufacturing/work-instructions/`, so dropping the plural outright fires
+ADR-0021's halt on a kind that IS registered — a hard failure on real documents caused
+by a spelling change. The plural is therefore a separate `_DEPRECATED_KIND_SPELLINGS`
+table consulted **last**, after both the key and the kind; it resolves to the canonical
+row and never echoes the plural back, so refusing it later is a one-line deletion.
+`_BY_KIND` is kept although key and kind now coincide: a future divergence is then a
+no-op instead of a production failure.
+
+**THE FINGERPRINT DOES NOT MOVE ACROSS THE RENAME — measured, both sides
+`sha256:0921201164a0999f`.** `registry_fingerprint()` hashes `(kind, passes)` and `kind`
+was already singular; only the key and `kind_source_value` were plural. So two code
+locations compare as EQUAL across the rename: no spurious drift alarm, but **the
+fingerprint cannot confirm the rename has rolled.** Confirm on the key or on
+`kind_source_value`.
+
+**A trap if anyone probes the alias:** the plural only reaches the registry when
+`domain_type` is declared alongside it. A bare S3 key derives nothing — path-derive
+needs the domain to know which segment to read after — so a probe with the key alone
+raises `UnclassifiableContentKindError` with `kind_source_value=None`, which looks
+exactly like a broken alias and is not one.
+
+**OPEN AND BLOCKING A RELEASE, NOT MINE TO CHOOSE: `allowed_leaves: [{leaf, label}]` has
+no `label` to read.** Ruling 2 item 1 has Lane 1 read it from my registry and cortex
+delete both hand-written lists in exchange. **There is no human-readable label on
+`ContentKindEntry`** — the only label-shaped thing is `domain_label_for_kind()`, which
+returns `domain_type.upper()` (`"MANUFACTURING"`): the *domain*, not the leaf, and four
+of nine kinds declare no domain at all. Asked in tonight's packet §3, with two options
+(an explicit `label` field from me, or a CamelCase derivation from
+`target_ontology_class`, whose local names are already `WorkInstruction`,
+`ProcessChangeNotification`, `CADArtifact`). Preference stated for the explicit field
+with someone else's wording, since a derived label is steward-facing copy nobody chose.
+**Neither half ships alone per the ruling, so this needs answering before that release
+is cut.**
+
+**LANE 1'S THIRD SEAL LEG — the contract, and two ways it could be weaker than it
+looks.** *"A 7f fixture row through the real BFF route comes out byte-equal to 7f's
+`wire_evidence_ref`, and with no `page_dims`."* The fixture is
+`tests/fixtures/sustainment/row_fraction_seal.json`, key `new_shape`. (1) **Byte-equal
+includes the ABSENCE of keys**: cortex switches on `Object.hasOwn`, so a `page_dims:
+null` added in the middle takes the pixel branch and is refused — assert the key is
+absent, not that its value is falsy. (2) Take the numbers from the file, not a copy,
+for the same reason leg A does: independently-derived expectations drift while both
+stay green.
+
+Packet placed:
+`sessions/2026-10-21-packet-to-architect-cortex-and-lane-01-the-wire-shape-is-emitted-the-kind-is-singular-and-allowed-leaves-has-no-label-to-read.md`.
 
 **STEP 5 IS BUILT AT `5c602c3`, AND THE RETRY RELAUNCH NEEDS NO SECOND MECHANISM
 (`4661d54`).** `IngestStatusResource.title_leaf()` returns its answer (unlike `update()`,
