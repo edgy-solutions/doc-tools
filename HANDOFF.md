@@ -2,7 +2,80 @@
 
 Updated 2026-10-21. In-flight state only; durable findings live in project memory.
 
-## 2026-10-21 LATEST — THE LEAF RULING'S ITEM 4: STEPS 1-3 ARE DONE AND PUSHED. STEPS 4-5 ARE THE WRITE PATH AND GO TO A PR
+## 2026-10-21 LATEST — THE FREEZE LIFTED FOR ONE CHANGE AND IT IS NOT MINE. MY SENSOR IS THE FLOOR UNDER IT
+
+The architect lifted the freeze for **one** change tonight, addressed to
+invincible-agent/lane/01 and cc'd here: the BFF leaf backstop (items 2 and 4 of the
+leaf ruling), rolled as **205 + that, nothing else**, with *"Freeze resumes after this
+roll."* Explicitly **not** tonight: *"7f's leaf-at-decision-point (Friday)."* So nothing
+of mine rolled, and my fraction conversion, `wire_evidence_ref` and the
+`work-instruction` rename stay on `7f/report-2026-10-19-required-gate-red-on-age` for
+the release that carries cortex `9be5963` (their pin confirmed in their own packet
+tonight; `63119e9` is that bundle plus one test — not to be switched to tonight).
+
+**THE CC WAS LOAD-BEARING: ITEM (a) RELAUNCHES THROUGH MY CODE LOCATION.** The backstop
+writes a *system retry row*, and what launches it is `ingest_retry_sensor` here — so
+four facts about tonight's change are only measurable from this tree. Packet:
+`sessions/2026-10-21-packet-to-lane-01-the-backstop-launches-through-my-sensor-and-its-floor-is-300s.md`,
+placed in invincible-agent.
+
+**The one that would have made a green change look red:** the order says *"Poll every
+60s, not the watchdog hour,"* and seal (d) is *"relaunched as the leaf within one
+poll."* But `_MINIMUM_INTERVAL_S = 300` (`ingest_retry_sensor.py:104`) is the default
+and `definitions.py:199` does not override it, so the **launch** is gated behind a 300s
+tick no matter how fast the BFF polls. Lane 1's poll dropping 300 → 60 moves the worst
+case from ~600s to **~360s**, not to ~60s. Sealing on 60s would fail on a correctly
+working system about five times in six, and roll rule 3 would then roll back something
+that was not the thing that was slow. Recommended seal: **6 minutes**, or seal on *"a
+run exists"* rather than a deadline. Reaching ~60s needs my interval lowered, which is
+a doc-tools roll and was not in scope tonight.
+
+**That constant's justification is now false, and I own it.** The comment reads *"A
+retry is human-initiated, so five minutes of latency costs nothing."* After item (a) a
+retry is machine-initiated with no human waiting. Revisit Friday with the leaf work —
+do not leave the comment standing as a reason.
+
+**A defect this change promotes from theoretical to live, also mine.** When a retry row
+carries `source_object_key`, it is validated for **shape only** (`:334-360`): `"/" in
+key`, then the prefix pattern `^ingress-user/pdf/[0-9a-f]{64}/[^/]+\.pdf$`. The 64 hex
+are **never compared to the digest in `ingest_id`** — that digest is extracted at `:329`
+and used only in the partition-set fallback branch. So a row naming document A with a
+well-formed key for B **parses B and reports success under A's id**. Harmless while a
+human typed the retry; tonight a machine starts writing these rows. Cross-check goes in
+Friday, ahead of the leaf work if Lane 1 wants it sooner.
+
+**Confirmed safe, and it is the shape that burned this pair once:** the `kind`
+pre-filter (`:296-304`) skips a row only when `kind in _available`, and
+`ingress_user_prefixes()` is measured to be exactly `{"pdf", "xml"}`. A leaf — `pcn`,
+`pdn`, `s1000d-data-module` — is not an ingress prefix, so it falls through to the key
+guard. A row carrying `kind: "pcn"` or `reason: "leaf_applied"` is **not** silently
+swallowed. (A bare `!= ingress_prefix` would have skipped all ten MRAD rows in silence;
+that was #135's near-miss.)
+
+**Roll rule 4 is the first live exercise of the PDF relaunch, ever.** Rule 4 drops a PCN
+— a PDF — so it runs `ingest_retry_sensor`, which has launched **0 runs in its life**
+across 109+ ticks, every one skipping `no ingest rows are awaiting a retry`. State it in
+two halves: **route present, yes** (109 of 109 ticks HTTP 200, zero 404s); **relaunch
+proven, no, for PDF** — only the xml sibling is proven live, on the MRAD rows. So a rule
+4 failure may be this never-exercised path and not tonight's BFF change. Read the tick
+reason before rolling back: a `refused` entry names the attempt/key guards, a `no ingest
+rows` skip means the row never arrived, and neither is the backstop being wrong. Rule 4
+is also the measurement that closes the clean proof I have owed since 2026-10-18 — ask
+for its tick reasons.
+
+**Lane 1 already does the `attempt+1` half right** (their 204 report's transition table
+is `received, attempt + 1` on every arm), so the run_key half is covered for the
+ordinary path. The residual: a row backstopped **twice** must not reuse the attempt,
+because a FAILED run's `run_key` is burned for ever with no time window — and `9d8e8a6f`
+is being recovered *by* the backstop after a run already finished, so its first key is
+burned and the recovery depends entirely on the new attempt minting a new key.
+
+**Still blocking my release, unchanged and not mine to choose:** whether `allowed_leaves`
+gets an explicit `label` from my registry, or Lane 1 supplies the label and reads only
+`leaf`. Cortex renders leaves *by label* in three places and deletes both hand-written
+lists in the same release.
+
+## 2026-10-21 — THE LEAF RULING'S ITEM 4: STEPS 1-3 ARE DONE AND PUSHED. STEPS 4-5 ARE THE WRITE PATH AND GO TO A PR
 
 Two reports today, both committed:
 `sessions/2026-10-21-report-7f-the-title-read-is-locked-behind-the-decision-it-makes.md`
