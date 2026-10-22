@@ -19,6 +19,41 @@ four facts about tonight's change are only measurable from this tree. Packet:
 `sessions/2026-10-21-packet-to-lane-01-the-backstop-launches-through-my-sensor-and-its-floor-is-300s.md`,
 placed in invincible-agent.
 
+**ROLL RULE 4 CANNOT PASS TONIGHT, AND THE MISSING PIECE IS MINE.** Rule 4 is *"Chris
+drops one PCN and picks PCN while it's extracting; it must reach review with no retry."*
+**Picking implies the drop declared no kind** — otherwise there is nothing to pick — and
+the relaunched run resolves its kind from the **S3 sidecar object and nothing else**
+(`document_parser.py:201-215`: `sidecar.get("content_kind")`). My sensor's run config
+carries **only** `file_url` (`:372-380`) and `content_kind` appears nowhere in
+`ingest_retry_sensor.py`, so the leaf the BFF writes **on the row** has no path into the
+run. Lane 1 named this in their own packet today (§3: *"the relaunched run must run as
+the listing's `content_kind`... your retry sensor passes no `content_kind` today"*) and
+handed it to me; steps 1-3 are pushed but NOT rolled, so neither the pass-through nor
+`title_leaf` is live in 205.
+
+**And it is worse than their predicted "runs as pdf with no parts":** for the row item
+(b) exists for there is **no pdf fallback** — `:259-275` **raises** on the ADR-0041
+guard when the sidecar has neither `domain_type` nor a registered `content_kind`. So the
+run FAILS, the pick never reaches extraction, and the failure **burns**
+`{ingest_id}-a{attempt}` for ever, so that attempt can never relaunch again.
+
+**Why this had to be said before the roll rather than after:** rule 3's remedy is *"helm
+rollback to rev 212 immediately"*, so rule 4 failing would revert a correct BFF change
+on account of an unbuilt doc-tools piece. Recommended and sent: roll as planned, and
+seal items (a)/(b) on what they own and what IS live — **a relaunch run exists under a
+new `run_key` within 6 minutes, no human act, and a no-leaf row is not relaunched** —
+which is seal (d) exactly. The *"reaches review as a PCN"* half belongs with my change.
+`9d8e8a6f`'s recovery still proves (a) if judged on the launch, not on what the run then
+extracts. Packet:
+`sessions/2026-10-21-packet-to-lane-01-roll-rule-4-cannot-pass-tonight-the-leaf-reaches-the-row-but-not-the-run.md`.
+
+**FRIDAY, with the leaf-at-decision-point — both halves of the same defect:** carry the
+retry listing's `content_kind` into the run and have the sidecar read **defer** to it
+(Lane 1's option 1; the corrected leaf must beat the title whatever the title says,
+their wording), plus the digest cross-check below. **Open question to Lane 1:** does the
+BFF rewrite the S3 sidecar on a pick, or only the row? Their §3 wording reads
+only-the-row, which is what makes the gap real.
+
 **The one that would have made a green change look red:** the order says *"Poll every
 60s, not the watchdog hour,"* and seal (d) is *"relaunched as the leaf within one
 poll."* But `_MINIMUM_INTERVAL_S = 300` (`ingest_retry_sensor.py:104`) is the default
