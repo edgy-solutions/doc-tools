@@ -32,11 +32,14 @@ pixel box on its `page_dims`, and both then go through the same `scaleBox`. So
 the conversion is correct exactly when it is the inverse of their scaling —
 which is an arithmetic claim, and testable here.
 
-NOT sealed here: the key mapping. This lane writes `page_number` and `bboxes`;
-cortex reads `evidence_ref.page` and `evidence_ref.bbox` (singular — `bboxes`
-appears in their type comment but `readEvidence` never reads it). The BFF
-renames between us, and what it derives `bbox` from is still an open question
-to Lane 1. The seal fixes the NUMBERS, which no rename changes.
+THE MIDDLE OF THE SPAN, which this file deliberately does NOT cover. When the
+seal was first written the row carried `page_number`/`bboxes` and the BFF
+turned them into cortex's `page`/`bbox`, so a reshaping step sat between the
+two legs and neither could see it. The architect closed that on 2026-10-21:
+the producer emits `wire_evidence_ref` and *"the BFF serves 7f's
+wire_evidence_ref as is"*, with Lane 1 adding a third leg proving a fixture row
+leaves their route byte-equal and with no `page_dims`. So the span is
+converter -> BFF -> reader and the three legs cover it; this file is the first.
 """
 import json
 import pathlib
@@ -180,14 +183,20 @@ def old_shape():
 
 
 def new_shape():
-    """What `d9e6118` writes, taken THROUGH the converter, not hand-computed.
+    """The row's `wire_evidence_ref`, taken FROM the producer, not hand-written.
 
     A hand-written expectation here would seal the fixture against itself and
     pass if the converter were deleted.
+
+    STRENGTHENED by the architect's producer-owns-the-wire-shape ruling
+    (2026-10-21): *"The BFF serves 7f's wire_evidence_ref as is. No renaming,
+    no synthesizing, no page_dims of its own."* Before that ruling this leg had
+    to MODEL a rename — the row carried `page_number`/`bboxes` and something
+    downstream turned them into `page`/`bbox`. Now the producer emits the wire
+    shape itself, so what this test draws is the bytes cortex receives, and the
+    modelled step is gone rather than merely assumed correct.
     """
-    boxes = merge._row_fractions(FIXTURE_PROV)
-    assert len(boxes) == 1, "the fixture row converts to exactly one box"
-    return {"page": FIXTURE_PROV["page_number"], "bbox": boxes[0]}
+    return merge._row_wire_evidence_ref(FIXTURE_PROV, "text_layer_cell")
 
 
 # --------------------------------------------------------------------------- #
