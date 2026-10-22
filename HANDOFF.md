@@ -19,6 +19,50 @@ four facts about tonight's change are only measurable from this tree. Packet:
 `sessions/2026-10-21-packet-to-lane-01-the-backstop-launches-through-my-sensor-and-its-floor-is-300s.md`,
 placed in invincible-agent.
 
+**ANSWERED 2026-10-22 — RULE 4 CAN PASS: ITEM (e) IS IN `7bd00941`, AND THE THREE
+COORDINATES AGREE.** Chris's answer was item (e): the BFF rewrites the sidecar before it
+relaunches. Confirmed in the diff, not taken on trust — `_apply_leaf_to_sidecar` with a
+real `put_object`, called **before** the row re-opens, and a 503 `sidecar_unwritable`
+refusal rather than a relaunch into a stale read. Measured agreement on every coordinate
+that has to match, because any one of them silently voids the fix:
+
+| | doc-tools reads | the BFF writes |
+| --- | --- | --- |
+| key | `{base_dir}/{sidecar_manifest_name}` = **`manifest.json`** (`definitions.py:66`) | `{object_prefix}manifest.json` |
+| bucket | from `file_url`, `processing-artifacts` | `_ARTIFACT_BUCKET = "processing-artifacts"` |
+| fields | `domain_type`, `content_kind` | both, plus `metadata.content_kind` |
+| component | `user_document_parser`, partition `user_pdf_files` | — the exact op the retry sensor targets |
+
+**My own earlier note said the sidecar was `metadata.json`. It is `manifest.json`.**
+`metadata.json` is a different, real object (`document_parser.py:408`), so the wrong
+name would have sent a reader to the wrong file. The conclusion was unaffected — the
+authority is the sidecar object either way — but the name is corrected here and in
+project memory.
+
+**THE ONE THING LEFT TO CHECK BEFORE CLICKING ROLL IS NOT (e): `7bd00941` IS NOT ON
+`master`.** `git branch -a --contains` puts it on **`lane/01-202`** (and its origin copy)
+only. So the image pinned for the roll has to be built from that branch — an image built
+from `master` does not contain (e), and rule 4 would then fail exactly as yesterday's
+packet predicted, for a reason that looks identical. This is
+[[branch-image-can-lack-a-fix-merged-after-the-cut]] in its live form: newest green is
+not newest code.
+
+**The 300s latency finding is unaffected by (e)** and still bounds rule 4: a relaunch
+appears up to ~6 minutes after the run goes silent, because the launch waits on
+`_MINIMUM_INTERVAL_S = 300` in this tree no matter how fast the BFF polls.
+
+**AND IT CANCELS THE FIX I HAD PLANNED — do not build the run-config pass-through.** With
+the sidecar maintained by the BFF, carrying the retry listing's `content_kind` into the
+run would create a **second authority for the same value**, which is the exact thing
+`document_parser.py` already refuses to do for `domain_type` (*"copying its domain here
+would create a second authority for the same value"*). One writer, one reader, one
+object. What remains owed from the two packets is only the **digest cross-check**
+(`source_object_key`'s 64 hex are never compared to `ingest_id`'s digest, `:334-360`).
+
+**DATE MOVE, from Chris:** the dry run is **Friday**, not Thursday, so 7f's
+leaf-at-decision-point (reading the leaf at the decision point) moves from Friday to
+**MONDAY**. Everything that was "Friday" in the blocks below means Monday.
+
 **ROLL RULE 4 CANNOT PASS TONIGHT, AND THE MISSING PIECE IS MINE.** Rule 4 is *"Chris
 drops one PCN and picks PCN while it's extracting; it must reach review with no retry."*
 **Picking implies the drop declared no kind** — otherwise there is nothing to pick — and
