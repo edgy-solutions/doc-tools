@@ -311,6 +311,48 @@ stay green.
 Packet placed:
 `sessions/2026-10-21-packet-to-architect-cortex-and-lane-01-the-wire-shape-is-emitted-the-kind-is-singular-and-allowed-leaves-has-no-label-to-read.md`.
 
+**CORTEX ASKED FOR A SEVERAL-BOX FIXTURE AND IT IS DONE (`9dbac32`).** Their packet of
+2026-10-21 §5: *"7f: please make one fixture in leg B's family a several-box row, so
+cortex's leg covers the union and its note."* `multi_box` in
+`tests/fixtures/sustainment/row_fraction_seal.json` carries the two pixel boxes, the
+emitted fractions, the union and the note. **The two boxes are chosen so each edge of
+the union comes from a DIFFERENT box** (x0,y1 from the second; y0,x1 from the first), so
+a transposed min/max changes the result — a fixture with the second box nested inside
+the first could not detect that. A test guards the property against a later tidying.
+Leg B gained two placed tests, **9 green** there now. The note caption is deliberately
+NOT among them: cortex's review-row reader has no `note` until their release, so it
+would sit red for reasons that are not a defect, and they said that seal is theirs.
+
+**MEASURED, and it was ruling 3's producer-side risk — invisible from this tree:**
+`note` is a NEW key on the wire. A strict reader would have turned **every** multi-box
+row's evidence malformed at once, with nothing logged at this end. It does not:
+`readEvidence` leaves extra keys unchecked (`cortex-ui` `promotionReview.ts:213`), so
+the row reads `ok` and the note is dropped silently. Pinned by a placed test rather than
+assumed.
+
+**THE GENERATOR IS TRACKED NOW, BESIDE THE FIXTURE** (`tests/fixtures/sustainment/
+gen_row_fraction_seal.py`). It was in `scratchpad/`, which holds **no tracked files** —
+so the fixture's own `_note` named a path only this machine had, on the one artifact two
+repos share. Also `cell()` now mirrors cortex's arithmetic rather than merely equalling
+it: `scaleBox` takes a scale factor first, and dividing first differs in the last bits
+(`223 / 1700 * 850` is 111.49999999999999; `223 * (850 / 1700)` is 111.5). Below any
+tolerance, but this file is the REFERENCE the other leg compares against.
+
+**THE LABEL GAP IS WORSE THAN A MISSING FIELD.** Cortex's §1: the picker shows
+`allowed_leaves` *"under each `label`"*, and *"a candidate, the chip and the review card
+show a leaf by its label from that list"* — **three** render sites, while cortex deletes
+`INGEST_LEAVES` and the `pcn | pdn` check in the same release. Their one no-label
+fallback (§2 edge 3) covers a leaf **not in** the list, shown verbatim and not offered;
+a leaf that **is** in the list with an empty label has **no fallback at all**. So the
+ruled trade risks exchanging two working hand-written lists for a picker of blanks.
+**This is the one thing blocking that release from my side, and it is not mine to
+choose.**
+
+**Cortex's §4 named my §3(a) gap from the other end:** *"Lane 1's new seal ... closes the
+gap that cortex's reader cannot see."* Same gap, both ends. Pairing restated there too:
+the conversion rolls with cortex `9be5963` or later, and `63119e9` (which carries leg B)
+is that bundle plus one test.
+
 **STEP 5 IS BUILT AT `5c602c3`, AND THE RETRY RELAUNCH NEEDS NO SECOND MECHANISM
 (`4661d54`).** `IngestStatusResource.title_leaf()` returns its answer (unlike `update()`,
 which is fire-and-forget by design) and is wired at the origin-unresolved gate — where
