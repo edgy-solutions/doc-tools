@@ -34,7 +34,7 @@ leaf for any future DocType member whose name happens not to be a kind.
 
 SCOPE, AND THE ONE QUESTION THIS MODULE DOES NOT ANSWER. The read decides PCN vs PDN
 — two of the four domain-declaring leaves. A pdf arriving with no declared kind could
-equally be a `work-instructions` or an `s1000d-data-module` drop, and this read cannot
+equally be a `work-instruction` or an `s1000d-data-module` drop, and this read cannot
 say so: no keyword evidence for either has been measured on any corpus. Widening the
 leaf space is the architect's call (asked 2026-10-21, §4b of that day's report) because
 inventing it from title keywords is the "choosing a vetted domain for unvetted content"
@@ -86,16 +86,20 @@ LEAF_SOURCES: Tuple[str, ...] = (
 #
 # MEASURED for the deferred swap, so it is not written from the ruling's prose:
 # `KIND_MAPPING` has 9 rows and FOUR declare a domain -- pcn (sustainment), pdn
-# (sustainment), work-instructions (manufacturing) and s1000d-data-module
+# (sustainment), work-instruction (manufacturing) and s1000d-data-module
 # (maintenance). "Domain-declaring" alone is therefore 4, not 2. The ruling's own
 # qualifier "on the PDF path" is what cuts it back: s1000d-data-module arrives as XML
-# and never reaches a title read, but work-instructions is a PDF kind and WOULD be
+# and never reaches a title read, but work-instruction is a PDF kind and WOULD be
 # admitted by the bare predicate. The registry-driven version needs that second
 # conjunct or it silently widens to manufacturing the day it lands.
 #
-# And it must key on the registry KEY, not `entry.kind`: `work-instructions` is the
-# key whose kind is `work-instruction`, so keying on `.kind` yields a leaf that
-# resolves to no row.
+# And it must key on the registry KEY, not `entry.kind`. The reason used to be that
+# they DIVERGED on one row -- `work-instructions` keyed an entry whose kind was
+# `work-instruction` -- and the spelling ruling of 2026-10-21 made every row's key and
+# kind coincide, so that example no longer demonstrates anything. THE RULE IS
+# UNCHANGED: the key is what selects a row and what the door confirmed, and `.kind` is
+# not guaranteed to be either. Keying on `.kind` is now merely a latent bug instead of
+# a visible one, which is the more dangerous of the two.
 _DOC_TYPE_TO_LEAF: Dict[str, str] = {"PCN": "pcn", "PDN": "pdn"}
 
 
@@ -279,9 +283,10 @@ def resolve_leaf(declared_kind: Optional[str],
     the read; only a domain-declaring kind counts as `declared`.
 
     The leaf returned for a declared drop is the `KIND_MAPPING` KEY as the drop spelled
-    it, never `entry.kind` — they are not the same string for every row
-    (`work-instructions` keys an entry whose `kind` is `work-instruction`), and the key
-    is what selects a row and what the door confirmed.
+    it, never `entry.kind`. Since the spelling ruling of 2026-10-21 every row's key and
+    kind coincide, so the two happen to be the same string today — but the key is what
+    selects a row and what the door confirmed, and nothing holds `.kind` to it. Reading
+    `.kind` here would be correct by coincidence.
     """
     entry = content_kind.KIND_MAPPING.get(declared_kind or "")
     if entry is not None and entry.domain_type:

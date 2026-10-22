@@ -50,8 +50,11 @@ class ManufacturingPlugin(AugmentationPlugin):
 
     # ADR-0021 Phase 2/3: the INSTANCE_OF target URI used by the Cypher MERGE
     # in ``to_graph_queries`` is now parameterized via the constructor. The
-    # default below matches ``KIND_MAPPING["work-instructions"].target_ontology_class``
-    # in ``doc_tools.utils.content_kind`` (the only row today) — a SELF-
+    # default below matches ``KIND_MAPPING["work-instruction"].target_ontology_class``
+    # in ``doc_tools.utils.content_kind`` (the only row whose domain is
+    # MANUFACTURING -- the table itself has nine, four of them domain-declaring;
+    # the same "only row today" slip is corrected at length in
+    # ``semantic_assets.py``) — a SELF-
     # CONSISTENT default, not a silent-default in the HALT-rule sense: the
     # constructor's fallback IS the table's only row. The dispatcher in
     # ``semantic_assets`` overrides this by passing

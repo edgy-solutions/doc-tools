@@ -376,7 +376,7 @@ def _build_knowledge_graph_impl(
         # "SUSTAINMENT and the whole PCN corpus" was unmigrated with no row to
         # resolve. That has not been true for some time. Measured from
         # doc_tools/utils/content_kind.py: NINE rows, of which FOUR declare a
-        # domain — work-instructions -> manufacturing, pcn -> sustainment,
+        # domain — work-instruction -> manufacturing, pcn -> sustainment,
         # pdn -> sustainment, s1000d-data-module -> maintenance — and five are
         # format-level with domain_type=None (pdf, cad, engineering-document,
         # doors-export, xml). Training and compliance remain unmigrated.
