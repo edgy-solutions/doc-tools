@@ -214,8 +214,12 @@ PHANTOM_OUTPUTS = (
 # their domains, as the rows the picker derives from. New rows remain the
 # architect's call.
 KIND_MAPPING: dict[str, ContentKindEntry] = {
-    "work-instructions": ContentKindEntry(
-        kind_source_value="work-instructions",
+    # RENAMED 2026-10-21 by architect ruling: *"Spelling: `work-instruction`,
+    # singular, like every other kind. The plural is the bug. 7f renames it in
+    # its registry."* The plural survives only as a READ alias — see
+    # `_DEPRECATED_KIND_SPELLINGS`, which is what keeps live S3 paths resolving.
+    "work-instruction": ContentKindEntry(
+        kind_source_value="work-instruction",
         kind="work-instruction",
         extractor_config="manufacturing_default",
         baml_function="ExtractWorkInstructions",
@@ -433,13 +437,17 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
 #:
 #: Why it exists. The picker's legal set is
 #: ``registered_kinds(registrations)``, i.e. the ``kind`` values — while
-#: ``KIND_MAPPING`` is keyed by ``kind_source_value``. For six of the seven
-#: rows the two spellings coincide. For the seventh they do NOT
-#: (``work-instructions`` → ``work-instruction``), so a picker offering the
-#: registered kind would send a value the mapping table has no key for, and
-#: ADR-0021's halt would fire on a kind that IS registered. Both spellings
-#: resolving to one row is what makes "the legal set IS the registered rows"
-#: true rather than nearly true. Pinned by
+#: ``KIND_MAPPING`` is keyed by ``kind_source_value``. Since the 2026-10-21
+#: spelling ruling the two coincide on EVERY row — ``work-instructions`` was
+#: the last divergence — so this index is now an identity map and nothing
+#: depends on it resolving a second spelling.
+#:
+#: It is kept anyway, deliberately. It costs one dict comprehension, and it is
+#: the thing that makes "the legal set IS the registered rows" true rather than
+#: nearly true: the next row added with a ``kind`` differing from its key
+#: resolves through here instead of halting on a kind that IS registered.
+#: Deleting it would make that future divergence a production failure rather
+#: than a no-op. Pinned by
 #: ``tests/test_kind_registry.py::test_the_registered_kind_spelling_also_resolves``.
 _BY_KIND: dict[str, ContentKindEntry] = {e.kind: e for e in KIND_MAPPING.values()}
 
@@ -464,11 +472,40 @@ def domain_label_for_kind(kind: str) -> Optional[str]:
     return entry.domain_type.upper().replace(" ", "_").replace("-", "_")
 
 
+#: Spellings this registry still ACCEPTS on read but no longer emits.
+#:
+#: ARCHITECT RULING 2026-10-21: *"Spelling: `work-instruction`, singular, like
+#: every other kind. The plural is the bug. 7f renames it in its registry; the
+#: BFF accepts the plural on read for one release, then refuses it."*
+#:
+#: The rename cannot be a rename ALONE, and this is the part that is easy to
+#: miss: ``content_kind`` also derives a kind from the S3 path (ADR-0021
+#: §Path-derived), and live objects sit under ``manufacturing/work-instructions/``.
+#: Those keys are already written. Drop the plural outright and every such drop
+#: derives a value no table has a key for, so ADR-0021's halt fires on a kind
+#: that IS registered — a hard failure on real documents, caused by a spelling
+#: change. So the plural is accepted here for the same one release the BFF
+#: grants it, and refused in the same beat they refuse it.
+_DEPRECATED_KIND_SPELLINGS: dict[str, str] = {
+    "work-instructions": "work-instruction",
+}
+
+
 def _lookup(kind_source_value: Optional[str]) -> Optional[ContentKindEntry]:
-    """One lookup over both spellings. ``None`` in → ``None`` out → HALT."""
+    """One lookup over both spellings. ``None`` in → ``None`` out → HALT.
+
+    Order matters: the canonical tables are consulted first, so the deprecated
+    spelling can never shadow a real key, and removing an alias can only ever
+    narrow what resolves.
+    """
     if not kind_source_value:
         return None
-    return KIND_MAPPING.get(kind_source_value) or _BY_KIND.get(kind_source_value)
+    hit = (KIND_MAPPING.get(kind_source_value)
+           or _BY_KIND.get(kind_source_value))
+    if hit is not None:
+        return hit
+    canonical = _DEPRECATED_KIND_SPELLINGS.get(kind_source_value)
+    return KIND_MAPPING.get(canonical) if canonical else None
 
 
 def _derive_from_path(s3_key: str, domain_type: Optional[str]) -> Optional[str]:

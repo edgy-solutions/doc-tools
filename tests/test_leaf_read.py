@@ -376,12 +376,57 @@ def test_a_domain_declaring_kind_is_declared_and_no_read_runs():
     assert read.evidence_ref is None
 
 
-def test_the_declared_leaf_is_the_mapping_KEY_not_the_entrys_kind():
-    """`work-instructions` keys an entry whose `kind` is `work-instruction`. The row
-    stores the key — it is what the door confirmed and what selects a row."""
-    entry = content_kind.KIND_MAPPING["work-instructions"]
-    assert entry.kind == "work-instruction" and entry.kind != "work-instructions"
-    assert leaf_read.resolve_leaf("work-instructions", []).leaf == "work-instructions"
+def test_the_declared_leaf_is_the_mapping_KEY_and_the_two_now_COINCIDE():
+    """The key/kind divergence this test was written for is GONE as of 2026-10-21.
+
+    It used to read `KIND_MAPPING["work-instructions"]` and assert its `kind`
+    was the singular — the one row where the table key and the registered kind
+    disagreed. The architect renamed the key (*"the plural is the bug"*), so
+    there is no longer a row that diverges and that assertion has no witness.
+
+    What is still worth pinning is the PROPERTY, not the old example: a row's
+    leaf is the mapping key, and nothing in the registry depends on the two
+    spellings differing. If a future row reintroduces a divergence, the
+    `_BY_KIND` test below is what catches it.
+    """
+    for key, entry in content_kind.KIND_MAPPING.items():
+        assert entry.kind_source_value == key, (
+            f"{key!r} is keyed by something other than its kind_source_value")
+        assert entry.kind == key, (
+            f"{key!r} diverges from its registered kind {entry.kind!r} — "
+            "legal, but it reintroduces the spelling split the 10-21 ruling "
+            "closed, so say so deliberately")
+    assert leaf_read.resolve_leaf("work-instruction", []).leaf == "work-instruction"
+
+
+def test_the_DEPRECATED_plural_still_resolves_because_live_s3_paths_carry_it():
+    """The rename cannot be a rename alone, and this is the half that bites.
+
+    `content_kind` also derives a kind from the S3 path, and live objects sit
+    under `manufacturing/work-instructions/`. Those keys are already written
+    and nothing rewrites them. Drop the plural outright and every such drop
+    derives a value no table has a key for, so ADR-0021's halt fires on a kind
+    that IS registered — a hard failure on real documents, caused by a spelling
+    change.
+
+    The architect granted the BFF one release of accepting the plural on read;
+    this is the same grace on this side, and it is deliberately a SEPARATE
+    table from the registry so that refusing it later is a deletion, not a
+    surgical edit.
+    """
+    entry = content_kind.resolve_content_kind(
+        {"content_kind": "work-instructions"}, "")
+    assert entry.kind == "work-instruction"
+    assert entry.kind_source_value == "work-instruction", (
+        "the alias must resolve to the CANONICAL row, not echo the plural back")
+    # And the path form, which is the case already on disk. Path-derive needs
+    # `domain_type` to know which segment to read AFTER (ADR-0021
+    # §Path-derived), so a bare key derives nothing at all — the plural only
+    # reaches the registry when the domain is declared alongside it.
+    by_path = content_kind.resolve_content_kind(
+        {"domain_type": "manufacturing"},
+        "manufacturing/work-instructions/M67/grenade-assembly.pdf")
+    assert by_path.kind == "work-instruction"
 
 
 @pytest.mark.parametrize(
