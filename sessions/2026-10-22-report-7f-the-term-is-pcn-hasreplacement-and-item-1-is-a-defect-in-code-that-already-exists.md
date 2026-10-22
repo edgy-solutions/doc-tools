@@ -145,6 +145,27 @@ just the doubling, ground truth needs a `pairs` field and the scorer a
 replacement arm — a scorer change, which I would rather do as its own piece than
 smuggle into a fixture.
 
+## 6b. The other arm has the same defect by omission, and I have not measured it
+
+Column roles are decided by **two arms**, and only one of them is the substring
+vocabulary above. The grid-forwarding arm asks the vision model, and its prompt
+(`prompts/sustainment_grid_columns_instructions.md`) defined `replacement_col`
+as *"a recommended replacement / substitute part number"* — it **never named
+alternative, alternate or successor**, the three wordings your ruling lists. So
+on Murata's header that arm was being asked about a vocabulary that does not
+include the word actually printed on the page.
+
+I have added those wordings, plus an explicit statement that an "Alternative
+Part Number" column is a replacement column and never a second affected one.
+
+**Flagging this as unmeasured, deliberately.** A prompt change here cannot be
+verified without a real vision fire, which the freeze holds until after the dry
+run — and a green test suite says nothing about prompt text in this repo. Treat
+it as the two arms made to agree on paper, with the measurement owed. Which arm
+actually produced HEMCG2-2683's 44 rows I cannot tell from here; the text-layer
+arm's defect is proven by construction, and this one is a gap I can see but have
+not shown firing.
+
 ## 7. Status
 
 The extraction fix is **committed on my branch and not rolled**, per *"after the

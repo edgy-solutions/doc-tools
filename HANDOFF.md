@@ -79,6 +79,17 @@ would score **identically green**. Measuring the pairing itself needs a `pairs`
 field plus a scorer arm; offered as its own piece rather than smuggled into a
 fixture.
 
+**THE OTHER ARM HAD THE SAME DEFECT BY OMISSION.** Column roles are decided by
+two arms and only the text-layer one is the substring vocabulary. The
+grid-forwarding prompt defined `replacement_col` as *"recommended replacement /
+substitute"* and **never named alternative / alternate / successor** — the three
+wordings the ruling lists — so on Murata's header the vision arm was asked about
+a vocabulary excluding the printed word. Added, with an explicit "an Alternative
+Part Number column is a replacement column, never a second affected one".
+**UNMEASURED and flagged as such:** a prompt change needs a vision fire, the
+freeze holds it, and a green suite says nothing about prompt text here. Which arm
+produced the 44 is not determinable from this tree.
+
 **NOT MEASURED AGAINST THE CORPUS.** That needs a fire, which the freeze holds
 until after the dry run. Nothing here touches 204.
 
