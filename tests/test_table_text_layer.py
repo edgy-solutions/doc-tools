@@ -9,6 +9,7 @@ The column logic is pure (grids of strings), so it tests without pdfplumber or a
 import pytest
 
 from doc_tools.utils.table_text_layer import (
+    REPLACEMENT_HEADERS,
     find_header_row, find_title_row, grid_outcome, header_pairing, looks_like_mpn,
     pair_columns, parts_from_grid, parts_from_pages, split_composite_cell,
     strip_enclosing_quotes,
@@ -307,6 +308,101 @@ def test_an_inherited_header_carries_the_alias_veto_too():
     cont = parts_from_grid([["AD7879ACPZ", "AD7879-FAMILY", "AD7879ACPZ-RL", "AD7879-FAM-RL"]],
                            inherited=inherited)
     assert [p["affected_mpn"] for p in cont] == ["AD7879ACPZ"]
+
+
+# --------------------------------------------------------------------------- #
+# REPLACEMENT PRECEDENCE. The replacement wording CONTAINS the affected vocabulary, the
+# same way the alias wording contains both. Murata HEMCG2-2683 is `Part Number |
+# Alternative Part Number`; "alternative part number" matches "alternative" AND "part
+# number", so the right column read as a SECOND AFFECTED COLUMN and 22 printed rows came
+# out as 44 discontinued parts with no replacement on any of them.
+# --------------------------------------------------------------------------- #
+
+_MURATA_HEADER = ["Part Number", "Alternative Part Number"]
+
+
+def test_a_column_matching_both_vocabularies_is_a_replacement_not_an_affected():
+    """Two affected columns and no replacement is the shape of the defect: `pair_columns`
+    returned [(0, None), (1, None)], which DOUBLES the table."""
+    assert pair_columns(_MURATA_HEADER) == [(0, 1)]
+
+
+def test_a_paired_two_column_table_emits_one_row_per_pair():
+    grid = [_MURATA_HEADER,
+            ["GRM155R71C104KA88D", "GRM033R61C104KE15D"],
+            ["GRM155R71C105KA12D", "GRM033R61C105KE15D"]]
+    parts = parts_from_grid(grid)
+    assert len(parts) == 2, "one row per PAIR, not one per cell"
+    assert [p["affected_mpn"] for p in parts] == ["GRM155R71C104KA88D",
+                                                  "GRM155R71C105KA12D"]
+    assert [p["replacement_mpn"] for p in parts] == ["GRM033R61C104KE15D",
+                                                     "GRM033R61C105KE15D"]
+    # The architect's rule, stated as an assertion: a replacement is never an affected
+    # part. It is what stops the offered part inheriting the notice's LTB date and
+    # reaching the graph as a discontinued component.
+    affected = {p["affected_mpn"] for p in parts}
+    assert not any(p["replacement_mpn"] in affected for p in parts)
+
+
+def test_the_precedence_holds_for_every_replacement_wording_in_the_vocabulary():
+    """Not a Murata quirk. Every replacement term spelled as a column -- "<term> Part
+    Number", "<term> Part No", "<term> Device" -- matched BOTH vocabularies, so each one
+    was its own instance of this defect waiting for a document to print it."""
+    for term in REPLACEMENT_HEADERS:
+        for spelling in (f"{term} Part Number", f"{term} Part No", f"{term} Device"):
+            header = ["Affected Part", spelling]
+            assert pair_columns(header) == [(0, 1)], (term, spelling)
+
+
+def test_an_inherited_header_carries_the_replacement_precedence_too():
+    """A continuation page of a paired two-column table must not resurrect the doubling
+    -- the same composition the alias veto needs."""
+    inherited = header_pairing([_MURATA_HEADER, ["A1", "A2"]])
+    assert inherited.pairs == [(0, 1)]
+    cont = parts_from_grid([["GRM188R61A106KE69D", "GRM188R61A107ME69D"]],
+                           inherited=inherited)
+    assert [p["affected_mpn"] for p in cont] == ["GRM188R61A106KE69D"]
+    assert cont[0]["replacement_mpn"] == "GRM188R61A107ME69D"
+
+
+def test_a_caption_naming_replacement_parts_still_names_its_table():
+    """THE SCOPING GUARD, and the reason the veto lives in `pair_columns` and not in
+    `_is_affected`. Diodes PCN 2683 pages 4 and 5 are captioned "...and No Replacement
+    Parts" and carry 144 genuine EOL devices; `find_title_row` reads that caption with
+    `_is_affected`. A global veto makes the caption invisible, the table declines, and
+    the fix for 22 parts loses 144. A header cell and a caption read the same words to
+    opposite ends."""
+    caption = "Table 4 - EOL Devices and No Replacement Parts"
+    grid = [[caption, None, None],
+            ["BYV34-400", "BYV34-500", "BYVB32-200-E3/81"]]
+    assert find_title_row(grid) == 0
+    parts = parts_from_grid(grid)
+    assert [p["affected_mpn"] for p in parts] == ["BYV34-400", "BYV34-500",
+                                                  "BYVB32-200-E3/81"]
+    assert all(p["replacement_mpn"] is None for p in parts)
+
+
+def test_a_customer_part_number_column_is_not_touched_by_the_precedence():
+    """Whether `Customer Part Number` is an affected column is a DEFERRED question with
+    both sides argued, and this fix must not close it by accident. It carries no
+    replacement wording, so the precedence never reaches it and its behaviour is
+    whatever it was -- which is the point of the test."""
+    assert pair_columns(["CUSTOMER PART NUMBER"]) == [(0, None)]
+    # MEASURED, and NOT the reading you would choose: with a customer column between
+    # them, the replacement pairs with the CUSTOMER part number. That follows from the
+    # pre-existing rule -- a replacement goes to the nearest affected column on its
+    # LEFT -- and it is visible with a plain `Replacement` header, which this fix does
+    # not touch at all, so it is not something the precedence introduced:
+    assert pair_columns(["Part Number", "CUSTOMER PART NUMBER",
+                         "Replacement"]) == [(0, None), (1, 2)]
+    # The precedence does change this header, because it is the only thing that makes
+    # the third column a replacement rather than a third affected column (it was
+    # [(0, None), (1, None), (2, None)] -- three affected, no pair). What it does NOT do
+    # is decide whether a customer column is an affected column; that is the deferred
+    # Customer-Part-Number question, still open, and the mis-pairing above is its live
+    # form. Recorded rather than changed, because closing it needs a ruling.
+    assert pair_columns(["Part Number", "CUSTOMER PART NUMBER",
+                         "Alternative Part Number"]) == [(0, None), (1, 2)]
 
 
 def test_an_mpn_containing_an_alias_WORD_is_not_dropped_as_a_header():

@@ -287,8 +287,28 @@ def pair_columns(header: Sequence[Optional[str]]) -> List[Tuple[int, Optional[in
     (before the next affected column) is unpaired, which is normal for process-change
     notices that list no replacements at all.
     """
-    affected = [i for i, c in enumerate(header) if _is_affected(c)]
+    # REPLACEMENT WINS A COLUMN THAT MATCHES BOTH, and that is not a tie-break: the
+    # replacement wording CONTAINS the affected vocabulary, exactly as the alias
+    # wording contains both. Murata HEMCG2-2683 is `Part Number | Alternative Part
+    # Number`, and "alternative part number" matches "alternative" AND "part number",
+    # so it used to read as a SECOND AFFECTED COLUMN: two unpaired affected columns,
+    # 22 printed rows emitted as 44 discontinued parts with no replacement on any of
+    # them. The 22 offered replacements then inherit the doc-level LTB date
+    # (`reconcile_ltb`) and reach the graph as `pcn:hasLastTimeBuyDate` on a SHARED
+    # component IRI that carries no reference to the asserting notice -- so the wrong
+    # fact cannot be withdrawn by re-ingesting. Not a Murata quirk: every replacement
+    # term in the vocabulary spelled "<term> Part Number" / "Part No" / "Device" --
+    # 24 header spellings -- matched both.
+    #
+    # Scoped to this function deliberately. The same veto inside `_is_affected` would
+    # also reach `find_title_row`, and Diodes PCN 2683 pages 4 and 5 are CAPTIONED
+    # "...and No Replacement Parts": vetoing there turns their caption into no caption
+    # and declines 144 genuine EOL devices. A header cell and a caption read the same
+    # words to opposite ends.
     replacement = [i for i, c in enumerate(header) if _is_replacement(c)]
+    _replacement_cols = set(replacement)
+    affected = [i for i, c in enumerate(header)
+                if _is_affected(c) and i not in _replacement_cols]
     pairs: List[Tuple[int, Optional[int]]] = []
     used: set = set()
     for idx, a in enumerate(affected):

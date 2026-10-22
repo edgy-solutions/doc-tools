@@ -2,6 +2,88 @@
 
 Updated 2026-10-21. In-flight state only; durable findings live in project memory.
 
+## 2026-10-22 LATEST — HEMCG2-2683: THE TERM EXISTS, ITEM 1 WAS ALREADY BUILT, AND THE FIXTURE IS BLOCKED ON THE DOCUMENT
+
+The architect's new packet (HEMCG2-2683, Murata, `7ff203e8` — a two-column
+`Part Number | Alternative Part Number` table extracted as 44 affected parts).
+Item 1 is mine, gated *"after the dry run"*, so the fix is **committed on this
+branch and not rolled**. Items 2 (Lane 1) and 3 (cortex) are theirs.
+
+**The vocabulary question is answered and needs no ruling: `pcn:hasReplacement`
+exists**, emitted at `sustainment.py:2149`, asserted by
+`test_plugin_graph_queries.py:210`. Caveat sent with the answer: the triple sits
+on a **shared component IRI with no reference to the asserting notice**
+(`pcn:subjectToNotice` has one, this does not), additive, no DELETE — so a wrong
+one cannot be withdrawn by re-ingesting. Item 2 is what starts writing these at
+volume.
+
+**ITEM 1 WAS ALREADY BUILT — WHAT THE ARCHITECT FOUND IS A DEFECT IN IT, NOT A
+MISSING FEATURE.** `replacement_mpn` is in `PartImpact`/`PartRow`,
+`replacement_col` in `GridColumnRoles`, the N-pairs-per-row logic in
+`pair_columns`, the review field in `sustainment_merge.py:383-397`, the graph
+relation at `sustainment.py:2149`. HEMCG2-2683 defeated that machinery rather
+than finding it absent — which changes how much is left for items 2 and 3, so it
+went in the packet first.
+
+**ROOT CAUSE, REPRODUCED.** The header vocabularies are SUBSTRING lists and the
+replacement wording CONTAINS the affected wording: `"alternative part number"`
+matches `"alternative"` AND `"part number"`, so `pair_columns` returned
+`[(0, None), (1, None)]` — **two unpaired affected columns**, and the emitter
+loops over pairs, so 22 printed rows came out as 44 discontinued parts with a
+replacement on **none** of them. **Not a Murata quirk: 24 header spellings**
+(every `REPLACEMENT_HEADERS` term as `<term> Part Number` / `Part No` /
+`Device`) matched both. The module had already solved this one level down —
+`ALIAS_HEADERS` vetoes both and is tested first, *"the alias wording CONTAINS
+them"* — and never generalised it.
+
+**"REPLACEMENTS NEVER INHERIT `ltb_date`" IS A LIVE DEFECT, NOT A GUARDRAIL.**
+Each of the 22 replacements is an `affected_mpn` today, so `reconcile_ltb`
+(`sustainment_merge.py:135`) gives it the **document-level LTB date**, and
+`sustainment.py:2144` writes `pcn:hasLastTimeBuyDate` + `pcn:subjectToNotice` on
+its component IRI. Murata's LTB date is being asserted on the parts Murata is
+*offering*. Asked Lane 1 to check whether HEMCG2-2683 was promoted before the
+fix rolls, because per the paragraph above the date triple names no notice and so
+cannot be withdrawn.
+
+**FIXED, AND THE SCOPING IS THE LOAD-BEARING PART.** `pair_columns` now gives
+replacement precedence for a column matching both → Murata is `[(0, 1)]`, 22
+rows, 22 replacements. **The veto is NOT in `_is_affected`,** where it looks like
+it belongs: `find_title_row` calls `_is_affected` on CAPTIONS, and Diodes PCN
+2683 pages 4/5 are captioned *"...and No Replacement Parts"* — measured, a global
+veto returns `None` there and **declines 144 genuine EOL devices**. The suite's
+own `_CAPTION` contains "Replacement Parts" too. A header cell and a caption read
+the same words to opposite ends; there is a test named as the scoping guard so the
+tempting simplification fails loudly. **8 suites, 212 tests green; 6 new tests.**
+
+**RECORDED, NOT CHANGED:** `Part Number | CUSTOMER PART NUMBER | Alternative Part
+Number` pairs the replacement with the **customer** column, because the
+pre-existing rule gives a replacement to the nearest affected column on its LEFT.
+It reproduces with a plain `Replacement` header, so the precedence did not cause
+it. That is the deferred Customer-Part-Number question in live form and it stays
+open — **not closed by side effect**, which was the standing constraint on it.
+
+**THE FIXTURE IS BLOCKED, ON TWO THINGS.** (a) I do not have the document, and
+ground truth's own rule is *"an MPN enters only if VERBATIM PRESENT in the source
+PDF's text layer"* — I will not write 22 MPNs unconfirmed against bytes. Asked
+for the MinIO manifest path or the PDF. (b) HEMCG2-2683 is **not** one of the 10
+scored notices, so it adds an 11th and **moves the parts denominator off 522**,
+which is currently met exactly — a gate-affecting change that belongs with the
+corpus measurement, after the dry run.
+
+**AND A LIMIT ON WHAT THE FIXTURE WOULD PROVE:** `pcn_score.py` scores
+**affected-MPN identity only**; there is no replacement arm in the scorer or the
+ground-truth schema (`{count, mpns, malformed, source, manifest}`). So the fixture
+DOES catch this defect — the 22 replacements score **spurious** pre-fix and the
+gate reds — but a run that dropped all 22 replacements instead of pairing them
+would score **identically green**. Measuring the pairing itself needs a `pairs`
+field plus a scorer arm; offered as its own piece rather than smuggled into a
+fixture.
+
+**NOT MEASURED AGAINST THE CORPUS.** That needs a fire, which the freeze holds
+until after the dry run. Nothing here touches 204.
+
+Packet: `sessions/2026-10-22-report-7f-the-term-is-pcn-hasreplacement-and-item-1-is-a-defect-in-code-that-already-exists.md`
+
 ## 2026-10-21 LATEST — THE FREEZE LIFTED FOR ONE CHANGE AND IT IS NOT MINE. MY SENSOR IS THE FLOOR UNDER IT
 
 The architect lifted the freeze for **one** change tonight, addressed to
