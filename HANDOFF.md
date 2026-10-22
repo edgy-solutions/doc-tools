@@ -1,8 +1,45 @@
 # HANDOFF — doc-tools/lane/7f
 
-Updated 2026-10-21. In-flight state only; durable findings live in project memory.
+Updated 2026-10-22. In-flight state only; durable findings live in project memory.
 
-## 2026-10-22 LATEST — HEMCG2-2683: THE TERM EXISTS, ITEM 1 WAS ALREADY BUILT, AND THE FIXTURE IS BLOCKED ON THE DOCUMENT
+## 2026-10-22 LATEST — THE INVENTORY IS REPORTED, THE BRANCH IS PUSHED, AND THE ARCHITECT ORDERED A THREE-STEP CLEANUP FOR AFTER THE DRY RUN
+
+**Pushed.** `origin/7f/report-2026-10-19-required-gate-red-on-age` head is
+**`4e074c1`**, **44 ahead of `origin/main`**, nothing unpushed. The 19 commits
+that existed only on this disk — including the HEMCG2-2683 pairing fix `e94c06b`
+and the grid-column prompt `fbc9932` — are now on origin. Pushing is not a roll;
+the freeze is untouched.
+
+**The inventory report:**
+`sessions/2026-10-22-report-7f-what-doc-tools-is-running-and-everything-not-rolled.md`
+(commit `4e074c1`), placed in `invincible-agent/sessions/`. Live digest
+`ac853308` = the image from `133714c` (#141), pinned by `c2a22cf` (#143), helm
+rev 53. Main is **one docs-only merge (#144) ahead** of the roll — there is no
+unrolled code.
+
+### Ordered, and ALL OF IT IS AFTER THE DRY RUN
+
+**(a) Close the rollbacks.** #73 plus every stale pin branch that would move the
+sandbox pin backwards off `ac853308`. ~20 of them: `chore/pin-*`, `pcn/pin-*`,
+`pin/*`, `chore/expect-image-6dc19712`, `chore/pin-sandbox-{0c46fdb,6023d27,78f8d10,877677c,c8dce84a}`,
+`chore/pin-e656fa5`, `pcn/pin-{4825646,49ed4a1}`, `pin/d16b4402`,
+`pin/f4d6440-instance-write`. **List what was closed** — a stale pin PR is a
+rollback waiting for a click.
+
+**(b) Split the 44 into reviewable PRs by topic**, each with its seal, each to
+Chris as a **code PR**, then roll them as **one doc-tools release on Monday**:
+leaf/title read · stage posting · evidence fractions · the rename · replacement
+pairing.
+
+**(c) Resolve all 41 unmerged branches** — merge, close or rebase each.
+**`pcn/grid-no-parts-column` conflicts with `fbc9932` by hand**: both edit
+`prompts/sustainment_grid_columns_instructions.md`.
+
+**(d) Work/d4 is Chris's.** He checks the Artifactory hop per §5 of the report
+when he upgrades work. Nothing for this lane there — no d4 context, no d4
+namespace, no d4 values file in `charts/`.
+
+## 2026-10-22 — HEMCG2-2683: THE TERM EXISTS, ITEM 1 WAS ALREADY BUILT, AND THE FIXTURE IS BLOCKED ON THE DOCUMENT
 
 The architect's new packet (HEMCG2-2683, Murata, `7ff203e8` — a two-column
 `Part Number | Alternative Part Number` table extracted as 44 affected parts).
@@ -95,7 +132,7 @@ until after the dry run. Nothing here touches 204.
 
 Packet: `sessions/2026-10-22-report-7f-the-term-is-pcn-hasreplacement-and-item-1-is-a-defect-in-code-that-already-exists.md`
 
-## 2026-10-21 LATEST — THE FREEZE LIFTED FOR ONE CHANGE AND IT IS NOT MINE. MY SENSOR IS THE FLOOR UNDER IT
+## 2026-10-21 — THE FREEZE LIFTED FOR ONE CHANGE AND IT IS NOT MINE. MY SENSOR IS THE FLOOR UNDER IT
 
 The architect lifted the freeze for **one** change tonight, addressed to
 invincible-agent/lane/01 and cc'd here: the BFF leaf backstop (items 2 and 4 of the
