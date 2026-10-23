@@ -2,7 +2,122 @@
 
 Updated 2026-10-22. In-flight state only; durable findings live in project memory.
 
-## 2026-10-22 LATEST — THE INVENTORY IS REPORTED, THE BRANCH IS PUSHED, AND THE ARCHITECT ORDERED A THREE-STEP CLEANUP FOR AFTER THE DRY RUN
+## 2026-10-22 LATEST — OVERNIGHT 10-23 ANSWERED: TWO THINGS READY FOR MONDAY, ITEM 2's PREMISE IS FALSE, AND THE SCRUBBER DESIGN AWAITS FOUR RULINGS
+
+**Reports:**
+- `sessions/2026-10-22-report-7f-overnight-10-23-docs-support-ready-to-roll-monday.md`
+- `sessions/2026-10-22-design-7f-batch-fixture-scrubber-ledger-allowlist-and-shape-tokeniser.md`
+
+Both placed in `invincible-agent/sessions/` as `*-from-7f-*`. Placed, not committed.
+
+**Remote head `12f5438`, 46 ahead of `origin/main`, 0 unpushed.** Item 1 of the
+overnight packet is closed. Verified with `git branch -r --contains HEAD`.
+
+**Monday's roll list is exactly two things, both unmeasured against a real
+document because measuring either needs a fire and the freeze forbids it:**
+
+1. **`12f5438`** — `detail` on every `failed` stage post. Two broken sites in
+   `doc_tools/assets/semantic_assets.py`: Phase 5b's `extraction_empty` (~997,
+   the one Lane 1's packet named) and the wrapper's `extraction_failed` stamp
+   (~1180, **not in the packet — found by my own seal**). Both now pass
+   `detail=` the same string they pass as `reason`. Sealed twice: a wire test
+   through the real `IngestStatusResource` (confirmed RED first, and its log is
+   how site 2 surfaced) and `test_NO_failed_post_anywhere_omits_detail`, which
+   `ast.parse`s both modules and asserts the rule at the source. The commit
+   message says "tests/… 36"; the file collects **37** (35 defs, one
+   parametrized three ways) — the 36 was measured before the AST test landed.
+2. **`e94c06b` + `fbc9932`** — replacement-over-affected precedence, plus the
+   grid-column prompt naming alternative/alternate/successor. Still needs a
+   vision fire.
+
+**The fix unsticks future runs only.** The rows already at `extracting` at work
+need a re-run after it deploys, and a re-run MUST mint a new `run_key`.
+
+**Item 2 (split `7ac6caa` into a PR) has a false premise and I reported rather
+than built.** `7ac6caa` is already an ancestor of `origin/main`, of `133714c`
+(the sandbox) and of `809963c` (work): `git name-rev` gives
+`remotes/origin/main~133^2~11`, merged in `38f3d39` "Merge pull request #1".
+GitHub reports that PR `mergedAt: null` because the merge was pushed, not
+clicked — which is why a `--first-parent` ancestry walk finds nothing.
+
+The restated seal holds both halves in `ontology_assets.py` on `origin/main`:
+`_universal_referent_value` (`:160`) returns `True`/`None` and never `False`
+(Cypher `SET c.p = null` removes the property, so absence IS false), and the
+readback at ~`:2154-2200` compares `landed_flagged` to `expected_flagged` and
+raises in **both** directions. 14 tests pass.
+
+**One real gap there, awaiting a ruling:** the partition comparison is guarded
+by `readback_ok`. A readback that throws leaves it `False`, skips the
+comparison, logs a WARNING, and the asset **succeeds** — so a broken partition
+and an unreachable Neo4j are indistinguishable from the exit status. No test
+covers it. If a failed readback should fail the asset, that is a small PR.
+
+
+**Lane 1's SECOND packet of 10-22** (`...the-bff-rewrites-the-sidecar-before-a-leaf-relaunch-and-a-failed-post-with-no-detail-never-lands.md`)
+confirms the same `detail` defect live at rev 213 on a second document (run
+`98ed1df5`, `ADI_PCN_24_0003 Form`) and states the worse consequence: the row
+sits at `extracting` until the BFF's watchdog times it out, so **the dropper
+sees `timeout`, not `extraction_empty`** — the one reason_code that IS
+retryable. It is retried, extracts zero again, mislabeled again. `12f5438`
+breaks that loop.
+
+**Two questions it sends back, both answered in the report from the tree:**
+
+1. *Is the 22-run burst expected on every code-location restart?* **Yes, and the
+   restart does not cause it.** `ingest_retry_sensor.py` appends one
+   `RunRequest` per row from `_fetch_retry_rows` (`:272`-`:371`) with **no batch
+   cap**; `_MINIMUM_INTERVAL_S = 300` (`:104`) sets tick frequency, not tick
+   size. The whole accumulated route is released in one tick. With 2 slots and a
+   ~15 min PCN, N rows drain in about `N/2 x 15` min — which is why their
+   relaunch passed the BFF's **600 s received-timeout while still QUEUED**. A
+   queued run and a dead run look the same to that timeout. **Proposed, NOT
+   built: cap RunRequests per tick to about the slot count.** Held because retry
+   latency vs that 600 s timeout is a cross-lane contract — if Lane 1 wants the
+   cap, the timeout probably moves with it. Ruling wanted.
+2. *A 6-minute end-to-end seal.* **It bounds detection, not completion, and the
+   two were conflated.** The 300 s floor bounds re-open→run-start (measured
+   2m50s; the BFF's own leg 15 s). The run is 14m43s for 44 rows, of which
+   **11m19s is `build_user_knowledge_graph`** (77%). Seal the detection leg at 6
+   minutes; an end-to-end seal needs a part-row-derived bound or should not
+   exist.
+
+**Accepted, no action:** the sidecar is rewritten ONLY at a relaunch, so sensor
+and parser need no change. `reason` on `GET /ingest/retries` is additive;
+`run_key` is still `{id}-a{attempt}` (built at `ingest_retry_sensor.py:371`).
+**The `bbox: null` hold STANDS** — cortex is on `a3cf4d1`, where a null bbox
+drops the whole candidate list; keep omitting a boxless candidate until Lane 1
+says `9be5963` is live (expected Friday, chart 0.4.62).
+**Scrubber design: four rulings block any code** (§5 of the design). The two
+that change its shape: (1) is the manufacturer name allowlisted or scrubbed —
+`mfr` is a scored header field, so scrubbing it makes the mfr arm measure the
+scrubber; my recommendation is allowlist it, since the sensitive party in a PCN
+is the recipient and the issuer published the notice; (2) does a scrubbed
+fixture enter the SCORED corpus — it moves the parts denominator off 522, which
+is met exactly at `ac853308`. (3) may the unredacted mapping live in MinIO at
+all; (4) are dates allowlisted — I have them allowlisted, LTB is date-semantic.
+
+Design spine, so it is not re-derived: extraction reads **shapes, not
+meanings**, so a shape change makes the fixture test the scrubber and no change
+scrubs nothing. Hence shape-for-shape substitution, an allowlist that wins over
+it (headers, captions, dates, units/packages — allowlist by VOCABULARY, scrub
+by SHAPE), and a ledger carrying originals only as `len=N sha256:XXXXXXXX`,
+because a ledger listing the originals re-identifies the document it exists to
+make committable. The leak test runs on the **rendered** text layer, and the
+scrubber **refuses** a document whose parts table is image-borne rather than
+shipping it half-scrubbed.
+
+**Still owed to Lane 1:** the `ADI_PCN_24_0003_Rev_-` zero-row question. Their
+header-only-branch hypothesis is explicitly unmeasured; `review_reasons` is the
+evidence, and it needs the document from MinIO.
+
+**The deferred cleanup is unchanged and ordered** — (a) close #73 and the ~20
+stale pin branches, each with the digest it would have set (**a stale pin PR is
+a rollback waiting for a click**; do this one first); (b) split the 46 commits
+into topic PRs by leaf/title read, stage posting, evidence fractions, the
+rename, replacement pairing; (c) merge/close/rebase the 41 branches, with
+`pcn/grid-no-parts-column` vs `fbc9932` merged by hand.
+
+## 2026-10-22 — THE INVENTORY IS REPORTED, THE BRANCH IS PUSHED, AND THE ARCHITECT ORDERED A THREE-STEP CLEANUP FOR AFTER THE DRY RUN
 
 **Pushed.** `origin/7f/report-2026-10-19-required-gate-red-on-age` head is
 **`4e074c1`**, **44 ahead of `origin/main`**, nothing unpushed. The 19 commits
@@ -1093,7 +1208,7 @@ Report for the architect and Lane 1 (this pin's four merges, the F2 recording,
 the publisher contract, and the S1000D answer):
 `sessions/2026-10-16-report-7f-four-merges-one-pin-and-the-s1000d-premise-corrected.md`
 
-## 2026-10-18 LATEST — ROW B READ (SUPERSEDE HOLDS BOTH WAYS). #141 PINNED AND LIVE (helm rev 52 + 53)
+## 2026-10-18 — ROW B READ (SUPERSEDE HOLDS BOTH WAYS). #141 PINNED AND LIVE (helm rev 52 + 53)
 
 Report: `sessions/2026-10-18-report-7f-tiebreak-row-b-the-supersede-holds-both-ways-and-the-141-pin-is-live.md`
 Packet placed (not committed): `invincible-agent/sessions/2026-10-18-packet-to-lane-01-row-b-read-the-supersede-holds-both-ways-and-the-pdf-retry-route-exists-unproven.md`
