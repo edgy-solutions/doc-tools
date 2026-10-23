@@ -2,7 +2,122 @@
 
 Updated 2026-10-23. In-flight state only; durable findings live in project memory.
 
-## 2026-10-23 LATEST — v0.2.0 IS RELEASED ON 133714c. THE IMAGE RETAG IS BLOCKED ON A PUSH CREDENTIAL AND NOTHING ELSE
+## 2026-10-23 LATEST — CUTTING THE RELEASE REBUILT THE IMAGE AND MOVED BOTH TAGS OFF THE GATED DIGEST. PR #146 IS THE DIRECTIVE AND THE REPAIR. ONE DISPATCH AFTER IT MERGES
+
+**Report:** `sessions/2026-10-23-report-7f-cutting-the-release-rebuilt-the-image-and-the-ci-versioning-pr-is-the-repair.md`
+**PR:** #146 `7f/ci-version-tag-from-release` @ `f37240b`, based on `main`, CI run `39971577104`.
+
+**WHAT BROKE.** Publishing the `v0.2.0` release fired the existing
+`push: tags: ['v*']` trigger two seconds later. Run `39961818782` spent
+**36m1s rebuilding `133714c`** and pushed the result under BOTH of the build
+step's tags (`tags:` is version + `github.sha`):
+
+| reference | before | after |
+| --- | --- | --- |
+| `v0.2.0` | 404 | `sha256:9883b5d3...` |
+| `133714c0652179187eb2cdca8b3c6d5881ecb3c5` | `sha256:ac853308...` | **`sha256:9883b5d3...`** |
+
+Two failures in one run: (1) `v0.2.0` names bytes no gate saw — `corpus-gate`
+and `corpus-gate-verdict` were RED in that same run while `build-and-push` went
+green, because the gate is not in its `needs`; (2) the commit-sha tag, the ONLY
+commit<->digest evidence (labels map empty), was moved off the pinned digest.
+Root cause in one line: **the build is not reproducible — same commit,
+different bytes — so a rebuild on a tag can never be a no-op.**
+
+**NOTHING DEPLOYED CHANGED.** Sandbox pins `ac853308` by digest; a digest is
+immutable; only tags moved. `ac853308` still pulls, just not by any tag. Work's
+`92c3e384` likewise unaffected.
+
+**PROVENANCE RECOVERED, from a run log not a tag.** Run `39090288904`
+(2026-10-18T02:29:51Z, headSha `133714c`): `exporting manifest list
+sha256:ac853308...` and `pushing manifest for ...:133714c...@sha256:ac853308...`.
+`ac853308` appears 12x and is the most frequent digest in it.
+
+**WHAT #146 SHIPS** (the architect's items 1-4, plus the repair):
+- `release: published` is a trigger; the commit comes from the **API**
+  (`repos/.../commits/<tag>`), not `github.sha`, because a release is normally
+  cut on the commit a cluster runs, not on a branch head.
+- New job **`resolve-release-image`** reads the commit-sha tag for a digest and
+  emits `needs_build`. Image exists -> build is gated OFF and
+  **`tag-release-image`** adds the version tag with `docker buildx imagetools
+  create` under `GITHUB_TOKEN`. No image -> the build pushes both tags.
+  **`imagetools create` preserves the index digest** — `--dry-run` on
+  `ac853308` returns all four children intact. The resolve job **has no `if:`
+  and must not get one**: a skipped `needs` job skips the dependent, which
+  would skip `build-and-push` on every push to `main`.
+- **`scripts/verify_release_tag.py`** (promoted out of `scratchpad/`) asserts
+  the version tag AND the commit-sha tag against the expected digest — keeping
+  one right while moving the other is this exact failure with a green tick.
+  Controls (truncated digest; well-shaped digest nobody pushed) run FIRST and
+  if either resolves it prints no verdict and exits 3. Exits: 0 match,
+  1 mismatch/missing, 2 UNDETERMINED (never read as evidence), 3 controls broken.
+- Labels `.revision`, `.version`, `.source` on every build from here. Limit
+  stated in the file: a retag copies an index untouched, so a retagged OLD
+  digest gets no `.version`.
+- **Repair path**, which the directive could not anticipate: the release path
+  finds a digest BY READING the commit-sha tag, and that tag is what was
+  overwritten, so re-publishing `v0.2.0` would cement `9883b5d3`.
+  `workflow_dispatch` now takes optional `version` + `digest` (both default
+  empty, so a plain dispatch is the plain rebuild it always was); a supplied
+  digest is asserted to EXIST with the controls before any tag points at it,
+  and the run warns loudly when it disagrees with the sha tag. The retag names
+  both tags — a no-op everywhere except the repair, where it IS the repair.
+- Commit sha reduced to **one authority** (the resolve job) feeding checkout
+  ref, sha tag, `DOC_TOOLS_VERSION` build-arg and `.revision`; the meta step
+  **refuses a sha that is not 40 hex**, because an empty interpolation stamps
+  `doc-tools@`, which is not the `unstamped` sentinel and blends into the corpus.
+- Tests: `tests/test_verify_release_tag.py`, 22 offline tests — 15 on the
+  script through a fake registry at the one socket seam, 7 pinning the
+  **workflow wiring** (tag ref cannot rebuild; resolver has no `if:`; retag
+  names two tags; verify asserts both refs; both labels; `release: published`;
+  dispatch inputs default empty). **All five break-on-purpose mutations caught.**
+  Suite: 1791 passed, 17 skipped, 7 deselected.
+
+**NEXT ACTION, mine, the moment #146 merges** — one dispatch, no credential on
+any laptop:
+
+```
+gh workflow run build-container.yml --ref main \
+  -f version=v0.2.0 \
+  -f digest=sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5
+```
+
+Then verify (read-only, anonymous, runnable by anyone):
+
+```
+.venv/Scripts/python scripts/verify_release_tag.py \
+  --expect sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5 \
+  v0.2.0 133714c0652179187eb2cdca8b3c6d5881ecb3c5
+```
+
+Green there is what **removes the correction banner** from the published v0.2.0
+release notes. The notes already carry a `CORRECTION, 2026-10-23` banner with
+the resolves-to table, "pin the digest not the tag until this banner is gone",
+and the recovered provenance; `release: edited` is not a trigger, so that edit
+fired no build (confirmed by `gh run list`).
+
+**TIME-CRITICAL, OWED TO LANE 1:** **do NOT cut the 17 `v0.5.0` tags until
+`invincible-agent` has an equivalent of #146.** If its build workflow triggers
+on `tags:` and its `tags:` list includes `${{ github.sha }}` — ours did, and
+the two workflows share an ancestry — cutting that release rebuilds 17 images
+from `67d6e9f6`, tags `v0.5.0` onto bytes helm rev 215 does NOT run, and moves
+17 commit-sha tags off the digests roll 206 pins. Order is: merge the workflow
+change, THEN cut the release.
+
+**DELIBERATELY NOT DONE: the corpus gate is untouched.** It still runs on a
+release ref (`changes` fails open to `charts=true`) and can red out there on
+report age alone, as it did. It gates nothing in the retag path. Narrowing a
+gate's scope is an exemption and not mine to take — **flagged in #146 for
+Chris's call.**
+
+**Also owed to Lane 1 (pre-existing, CI-invisible):**
+`tests/test_overlay_kind_drift.py::test_the_shared_kinds_declare_the_same_passes`
+is RED locally on a clean `origin/main` — `doors-export` declares
+`identity.identity_from_doors_text` here, `identity.document_identity` in the
+`openddil-lab` overlay. It SKIPS in CI (reads the sibling checkout), so only a
+two-checkout machine sees it. Not touched by #146.
+
+## 2026-10-23 — v0.2.0 IS RELEASED ON 133714c (SUPERSEDED IN PART BY THE BLOCK ABOVE: publishing it FIRED A REBUILD that moved both tags; the credential request is WITHDRAWN, the registry write is in CI now)
 
 **Report:** `sessions/2026-10-23-report-7f-v0-2-0-released-on-133714c-and-the-image-retag-is-blocked-on-a-credential.md`
 
@@ -36,7 +151,7 @@ why the release succeeded (`repo`) and the push did not. **Nothing was mutated;
    the tag `133714c0652179187eb2cdca8b3c6d5881ecb3c5` -> `sha256:ac853308...`,
    measured today. That IS the gap item 4 of the directive closes.
 
-**New tool, reusable: `scratchpad/verify_release_tag.py`.** Read-only,
+**New tool, reusable: `scripts/verify_release_tag.py`** (promoted there in #146). Read-only,
 anonymous. Runs the short/fake controls FIRST and refuses to report if either
 resolves, then asserts each reference against an expected digest, exit 1 on
 mismatch. Current state: controls ok (both 404), `v0.2.0` 404, commit-sha tag

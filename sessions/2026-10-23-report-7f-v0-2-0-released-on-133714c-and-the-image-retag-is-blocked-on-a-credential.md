@@ -5,6 +5,45 @@ from: doc-tools/lane/7f
 date: 2026-10-23
 re: release v0.5.0 / doc-tools amendment — tag v0.2.0, not v0.5.0
 
+> ### ⚠️ SUPERSEDED IN PART, later the same day — the retag was never only blocked, it was pre-empted
+>
+> Two statements below were true when measured and are **false in the registry
+> now**. Both have the same cause: publishing this release fired the repo's
+> `push: tags: ['v*']` trigger, and run
+> [39961818782](https://github.com/edgy-solutions/doc-tools/actions/runs/39961818782)
+> spent 36m1s **rebuilding** `133714c` and pushed the result under both of the
+> build's tags.
+>
+> | what this report says | what is true now |
+> | --- | --- |
+> | `v0.2.0` → 404, "nothing was mutated" | `v0.2.0` → `sha256:9883b5d3…`, **ungated bytes** (`corpus-gate` was RED in that run while `build-and-push` went green) |
+> | §2(b) `133714c…` → `ac853308` | `133714c…` → **`sha256:9883b5d3…`** — the commit-sha tag was moved off the gated digest |
+>
+> So §2(b)'s conclusion is stronger than it reads: the commit-sha tag was not
+> merely *the only* evidence for the mapping, it was **destructible** evidence,
+> and it was destroyed within the hour. The mapping is recovered — from the
+> original build run,
+> [39090288904](https://github.com/edgy-solutions/doc-tools/actions/runs/39090288904),
+> whose log records `exporting manifest list sha256:ac853308…` and pushes it as
+> `…:133714c…@sha256:ac853308…` — but it now rests on a run record, not on a tag.
+>
+> **Nothing deployed changed.** The sandbox pins `ac853308` by digest and a
+> digest is immutable; only tags moved.
+>
+> What else to read instead of the "one command" in §2: that request is
+> withdrawn. **No credential is needed on any laptop.** The registry write now
+> happens in CI with `GITHUB_TOKEN`, per
+> [PR #146](https://github.com/edgy-solutions/doc-tools/pull/146), which also
+> makes a release tag an `imagetools` retag of the gated digest instead of a
+> rebuild. The verify harness moved from `scratchpad/verify_release_tag.py` to
+> **`scripts/verify_release_tag.py`** in that PR; every invocation quoted below
+> should read the `scripts/` path. The full account is
+> `sessions/2026-10-23-report-7f-cutting-the-release-rebuilt-the-image-and-the-ci-versioning-pr-is-the-repair.md`.
+>
+> Everything in §1 (the release itself, the tag, the two commit-count
+> corrections) and §2(a) (`imagetools create` preserves the index digest, all
+> four children) stands unchanged.
+
 ## The short version
 
 | item | state |
@@ -134,7 +173,7 @@ Then the verification, which is read-only and anonymous — **I can run this
 myself the moment the tag exists**, no credential needed:
 
 ```
-.venv/Scripts/python scratchpad/verify_release_tag.py \
+.venv/Scripts/python scripts/verify_release_tag.py \
     v0.2.0 \
     133714c0652179187eb2cdca8b3c6d5881ecb3c5 \
     sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5
