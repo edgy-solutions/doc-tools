@@ -806,9 +806,19 @@ def _build_knowledge_graph_impl(
                 context.log.info(
                     f"ingest stage for {doc_id}: failed:extraction_empty "
                     f"(part rows={rows}, review-contract document)")
+                # `detail` IS NOT OPTIONAL ON A `failed` POST, and omitting it
+                # did not degrade the post -- it cancelled it. The guard in
+                # IngestStatusResource.update refuses `failed` with a blank
+                # detail (Lane 1's own rule at ingest_status.update_status),
+                # the `except` below logged the ValueError, and the run went
+                # on to report SUCCESS. Measured at work by Lane 1 on MAR053
+                # (packet 2026-10-22): every document that sealed
+                # `extraction_empty` sat at `extracting` with no review task,
+                # because this POST never happened. `reason` is the detail --
+                # one string, so the two fields cannot drift apart.
                 status.update(
                     ingest_id, "failed", reason_code="extraction_empty",
-                    reason=reason, extracted_count=_count,
+                    reason=reason, detail=reason, extracted_count=_count,
                     extracted_total=_total, extraction_ref=_ref,
                 )
                 # Recorded only on a SUCCESSFUL POST: the wrapper reads it to
@@ -982,9 +992,16 @@ def make_build_knowledge_graph(
             if _iid:
                 try:
                     from doc_tools.utils.dagster_resources import IngestStatusResource
+                    # Same defect as the `extraction_empty` post above, and
+                    # NOT in Lane 1's packet -- found by the seal, which went
+                    # red on both. A `failed` post with no `detail` is
+                    # refused, so this stamp has never landed either: the
+                    # graph-asset failure it exists to record left the row at
+                    # `extracting` exactly as before it was written.
+                    _stamp = f"{type(e).__name__}: {e}"[:500]
                     IngestStatusResource().update(
                         _iid, "failed", reason_code="extraction_failed",
-                        reason=f"{type(e).__name__}: {e}"[:500],
+                        reason=_stamp, detail=_stamp,
                     )
                 except Exception as stamp_err:
                     context.log.error(f"Failed to stamp failed stage: {stamp_err}")
