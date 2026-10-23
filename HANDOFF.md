@@ -1,8 +1,73 @@
 # HANDOFF — doc-tools/lane/7f
 
-Updated 2026-10-22. In-flight state only; durable findings live in project memory.
+Updated 2026-10-23. In-flight state only; durable findings live in project memory.
 
-## 2026-10-22 LATEST — OVERNIGHT 10-23 ANSWERED: TWO THINGS READY FOR MONDAY, ITEM 2's PREMISE IS FALSE, AND THE SCRUBBER DESIGN AWAITS FOUR RULINGS
+## 2026-10-23 LATEST — v0.2.0 IS RELEASED ON 133714c. THE IMAGE RETAG IS BLOCKED ON A PUSH CREDENTIAL AND NOTHING ELSE
+
+**Report:** `sessions/2026-10-23-report-7f-v0-2-0-released-on-133714c-and-the-image-retag-is-blocked-on-a-credential.md`
+
+Release v0.5.0 directive + the doc-tools amendment (tag **v0.2.0**, not v0.5.0;
+doc-tools keeps its own line from v0.1.0 of Apr 15).
+
+**DONE: the GitHub release.** Tag `v0.2.0`, title "Measured Extraction", on
+`133714c0652179187eb2cdca8b3c6d5881ecb3c5`, not a draft, not a prerelease,
+Latest, published 2026-10-23T13:30:44Z.
+https://github.com/edgy-solutions/doc-tools/releases/tag/v0.2.0
+`git rev-list -n1 v0.2.0` confirms the tag target.
+
+**BLOCKED: the GHCR image retag.** `docker buildx imagetools create -t
+...:v0.2.0 ...@sha256:ac853308...` returns **401 unauthorized** on the manifest
+PUT. This machine's `gh` token has `gist, read:org, repo, workflow` — **no
+`write:packages`** — and docker holds no ghcr.io login. That split is exactly
+why the release succeeded (`repo`) and the push did not. **Nothing was mutated;
+`v0.2.0` is a clean 404 on GHCR.** I did not hunt for a credential.
+
+**Two things the failed attempt nonetheless established:**
+
+1. **The method preserves the index digest**, which was the real risk — a retag
+   tool that re-serializes an index yields a DIFFERENT digest and the tag then
+   points at equivalent bytes, not the pinned object. `--dry-run` returns all
+   **four** children intact (amd64 `766a1beb`, arm64 `f62bf415`, plus both
+   attestation manifests with `vnd.docker.reference`), and the real run's log
+   names what it PUTs: `pushing sha256:ac853308... to ...:v0.2.0`. So the tag
+   WILL resolve to the pin, and both platforms resolve.
+2. **`ac853308` carries NO OCI labels at all** (read its config blob: `labels:`
+   empty). So the commit<->digest mapping rests entirely on **tag resolution**:
+   the tag `133714c0652179187eb2cdca8b3c6d5881ecb3c5` -> `sha256:ac853308...`,
+   measured today. That IS the gap item 4 of the directive closes.
+
+**New tool, reusable: `scratchpad/verify_release_tag.py`.** Read-only,
+anonymous. Runs the short/fake controls FIRST and refuses to report if either
+resolves, then asserts each reference against an expected digest, exit 1 on
+mismatch. Current state: controls ok (both 404), `v0.2.0` 404, commit-sha tag
+MATCH, exit 1 — correctly red until the retag lands. **I can run the
+verification myself the moment the tag exists; it needs no credential.**
+
+**Two corrections to the amendment, both carried into the notes:**
+- **472 commits to `133714c`, not 474.** 474 is to `main` (`809963c`), two
+  merges further on, and those two touch no file under `doc_tools/`,
+  `prompts/`, `baml_src/`, `registry/` or `scripts/`.
+- **Two of the seven named areas are NOT in `133714c`**, so the notes say so
+  rather than claim them: **evidence refs** (`git grep -c evidence_ref 133714c`
+  finds it only in session REPORTS, no module; on HEAD it is in five modules —
+  row provenance ships as absolute page+bbox, the page-fraction wire shape does
+  not) and **steward corrections** (the only `steward` in that tree is a prose
+  comment at `ontology_assets.py:1123`). Also not in v0.2.0: `12f5438` (the
+  `detail` fix) and `e94c06b`/`fbc9932` (replacement precedence).
+
+**Held deliberately, both code PRs for the Monday batch, not slipped in beside a
+release:** (a) the `org.opencontainers.image.revision` / `.version` labels on
+`build-container.yml` — one labels block, one workflow; (b) a
+`workflow_dispatch` retag job using the Actions `GITHUB_TOKEN` with
+`packages: write`, which would need no human credential and would leave the run
+record the release note's "build run URL" column wants. A dispatchable workflow
+must be on the default branch first, so it has to merge before it can be used.
+
+**Flagged to Lane 1 for the v0.5.0 values-keys section:** doc-tools' sandbox
+values pin the image in **two** places, `digest:` and the gate's
+`expectImage:`, and they move in two separate rolls BY DESIGN. Supply one and
+not the other and the gate compares the file against itself.
+## 2026-10-22 — OVERNIGHT 10-23 ANSWERED: TWO THINGS READY FOR MONDAY, ITEM 2's PREMISE IS FALSE, AND THE SCRUBBER DESIGN AWAITS FOUR RULINGS
 
 **Reports:**
 - `sessions/2026-10-22-report-7f-overnight-10-23-docs-support-ready-to-roll-monday.md`
