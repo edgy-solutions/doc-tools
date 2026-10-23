@@ -2,7 +2,87 @@
 
 Updated 2026-10-23. In-flight state only; durable findings live in project memory.
 
-## 2026-10-23 LATEST — CUTTING THE RELEASE REBUILT THE IMAGE AND MOVED BOTH TAGS OFF THE GATED DIGEST. PR #146 IS THE DIRECTIVE AND THE REPAIR. ONE DISPATCH AFTER IT MERGES
+## 2026-10-23 LATEST — THE ADI SALVAGE IS COMMITTED (`9550736`), AND ITEM 3 IS CONFIRMED: A `content_kind=pcn` DROP RUNS BOTH PASSES IN ONE RUN
+
+**Report:** `sessions/2026-10-23-report-7f-the-adi-salvage-is-in-and-a-pcn-drop-runs-both-passes-in-one-run.md`
+**Packet it answers:** `sessions/2026-10-23-packet-from-lane-01-pcn-24-0003-loses-1577-parts-because-a-contact-table-takes-the-table-branch.md` (placed by Lane 01, committed here per the owning-lane rule).
+**Commits, both on `7f/report-2026-10-19-required-gate-red-on-age`:** `9550736` (the ADI fixes), `241ebb9` (the batch-fixture design reconciled). **No PR opened yet** — see the PR decision below.
+
+**ADI_PCN_24_0003, (a)-(d), all four.** New `doc_tools/utils/parts_text_list.py` (127 lines,
+deterministic, no I/O / BAML / S3 / vision) plus `doc_tools/plugins/sustainment.py` (+63/-5), with
+`tests/test_parts_text_list.py` (89) and `tests/test_sustainment_zero_part_flag.py` (190).
+
+- (a) a parts pass that **ran** and emitted 0 parts now sets `needs_review`, reason names `n_tables`
+  and `grid_no_parts_col`;
+- (b) the salvage is a **post-chain `if not parts_d:` block**, not a reorder of the elif chain —
+  which is what makes it corpus-neutral (see below);
+- (c) `AFFECTED_HEADING_RE` replaces the eight-string `_AFFECTED_LABELS`, allowing one word inside
+  the label ("Affected **ADI** Models"); all eight legacy labels still match, asserted;
+- (d) `parse_family_model` + `caption_part_count`, shortfall at `SHORTFALL_TOLERANCE = 0.9` and never
+  when rows ≥ the caption.
+
+**WHY IT CANNOT MOVE 522/522 — the argument to re-use, not re-derive.** `latest.json` fires 1 and 3
+report gt 522 / exact 522 / **missing 0** over ten documents, so no scored document has an empty
+`parts_d`, so a block keyed on `not parts_d` is unreachable from the scored corpus. A reorder of the
+chain would NOT have had that property. `table_text_layer.py` is untouched on purpose — its
+vocabulary earns the 522 and widening it doubled a Murata notice once.
+
+**THE BANNER IS NOT THE FLAG.** `needs_review` fires whenever a pass ran and emitted nothing; the
+`PARTS MAY BE MISSING` doc_flag fires only when the text also advertises a parts list, because a
+banner is a hard refusal downstream. The flag reads `stats`, not the branch taken, and
+`test_a_header_only_notice_that_ran_no_pass_is_NOT_flagged` is the false-positive control. Do not
+"simplify" that condition to the branch.
+
+**Measured on the branch:** new file 4 passed; default suite **1 failed, 1954 passed, 12 skipped, 7
+deselected**; `-m corpus_gate` **2 failed, 5 passed**. The one default failure is the pre-existing
+`doors-export` drift in `test_overlay_kind_drift.py` (ours `identity.identity_from_doors_text` vs the
+`openddil-lab` overlay's `identity.document_identity`) — **still owed to Lane 01**. The two
+corpus_gate reds are report age + the header arm, which is what this branch is named for.
+
+**NOT MEASURED:** a real drop. The freeze holds through Friday's dry run, so nothing here has met the
+live pipeline or the actual ADI PDF. If the dry run should exercise this shape, that is a fire request.
+
+**ITEM 3 CONFIRMED, from the tree at `241ebb9`, three links:**
+1. `KIND_MAPPING["pcn"]` (`doc_tools/utils/content_kind.py:232`) declares `domain_type="sustainment"`,
+   and the leaf-ask is gated on `domain_type is None` (`doc_tools/assets/semantic_assets.py:429`) — so
+   a declared pcn drop never asks Lane 1 for a leaf and never returns `awaiting_kind`.
+2. `semantic_assets.py:739` calls `plugin.process_fulltext` **once**; `sustainment.py:1308` → `:1339`
+   calls `_extract_header` (`:1378`) then `b.ExtractParts` (`:891`) in the same body, synchronously.
+3. `define_asset_job` at `doc_tools/components/document_parser.py:844` selects the parser **and** the
+   downstream graph asset, so parse → header → parts is one run from one `RunRequest`.
+
+**THE CAVEAT TO CARRY:** the declared `passes` tuple is not what executes — `passes.dispatch.run_passes_for_kind`
+is imported only by `doc_tools/assets/doors_ingestion.py:20`. If sustainment ever moves onto the
+dispatcher, "one run" has to be re-confirmed there. And the claim is about a drop that **arrives
+with** `content_kind=pcn`: a format-level kind (`pdf`, `xml`, `cad`, `engineering-document`,
+`doors-export`, all `domain_type=None`) does reach the leaf ask and a hold there needs a second run.
+The chip on the card stays for corrections, as ruled.
+
+**THE PR DECISION, STILL OPEN.** `12f5438` is **not** on `origin/main` — `git branch -r --contains 12f5438`
+returns only `origin/7f/report-2026-10-19-required-gate-red-on-age` — so Monday's roll is cut from
+THIS branch, and the ADI work landed here rather than on a fresh branch off `main`. Consequence, and
+it is the known trap: a PR from this branch is **stacked**, and a stacked PR dispatches no CI at all
+(no failure, no skip, no run record). Either rebase onto `main` before expecting a verdict, or carry
+it into the post-dry-run split of this branch's commits into topic PRs, which the architect already
+ordered.
+
+**BATCH FIXTURE — design reconciled, build next week.** All four rulings answered in
+`sessions/2026-10-22-design-7f-batch-fixture-...md` §5. Two went against the design: the manufacturer
+leaves as a **class** plus the agreement result (the objection does not bite — the comparison runs at
+the site before the scrubber, so what leaves is a verdict), and one-way applies **outside the site**,
+so §4.3's seal becomes a CI round-trip test on synthetic inputs. Order of work is the directive's:
+scrubber + tests → **the ledger schema PR Chris reviews first** → CLI → truth mode → scorecard →
+generator. Five generic questions go in that schema PR. The shape corpus gets its own denominator and
+never enters the 522.
+
+**STILL OPEN FROM BEFORE, unchanged by this session:** the ADI PDF as corpus document eleven (moves
+the denominator — architect's call); a report on what the header pass needs for `effective_date` and
+`change_type`; `readback_ok`; the retry-sensor batch cap; whether to scope the corpus gate off release
+refs; and after #146 merges, the one dispatch
+(`gh workflow run build-container.yml --ref main -f version=v0.2.0 -f digest=sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5`),
+then `scripts/verify_release_tag.py` and removing the correction banner from the release notes.
+
+## 2026-10-23 — CUTTING THE RELEASE REBUILT THE IMAGE AND MOVED BOTH TAGS OFF THE GATED DIGEST. PR #146 IS THE DIRECTIVE AND THE REPAIR. ONE DISPATCH AFTER IT MERGES
 
 **Report:** `sessions/2026-10-23-report-7f-cutting-the-release-rebuilt-the-image-and-the-ci-versioning-pr-is-the-repair.md`
 **PR:** #146 `7f/ci-version-tag-from-release` @ `f37240b`, based on `main`, CI run `39971577104`.
