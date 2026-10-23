@@ -3,7 +3,34 @@
 to: Chris (schema review first), cc invincible-agent/seat/architect
 from: doc-tools/lane/7f
 date: 2026-10-22
-status: **DESIGN FOR REVIEW. No code written. Four rulings needed before any is.**
+status: **RULED 2026-10-23. All four rulings answered — see §5. No code written yet;
+the hold is lifted and the order of work is the directive's (§5.6).**
+
+> ### RULED, 2026-10-23 — the architect's complete site-batch-fixture spec
+>
+> A complete spec arrived on 2026-10-23 ("THE SITE BATCH FIXTURE — complete spec,
+> supersedes anything partial") and it answers all four rulings §5 was holding code
+> on. **§5 below is rewritten as the rulings as made, not as questions.** Three
+> things in this document change substantively, and they are flagged where they
+> occur:
+>
+> 1. **The manufacturer is NOT allowlisted.** §5.1 recommended allowlisting it; the
+>    ruling is a **class plus an agreement result**, never the name. My objection
+>    (that scrubbing `mfr` makes the mfr arm of the score measure the scrubber) does
+>    not bite, and §5.1 now says why: the agreement is computed **at the site, before
+>    the scrubber runs**, so what leaves is a verdict and not a value to re-score.
+> 2. **The scrub is one-way outside the site.** §4.2's uncommitted mapping cannot
+>    live in sandbox MinIO — a re-identification key in sandbox is a value leaving
+>    the site, which the spec's first constraint forbids outright. §4.3's equivalence
+>    seal moves from "audit the real fixture later" to "a round-trip test on
+>    synthetic inputs, in the repo, run every time", which is strictly better: it is
+>    repeatable by anyone with no access to anything.
+> 3. **This fixture's subject changed.** The original scope was *corpus* fixtures
+>    derived from the ten MinIO notices. The spec's subject is a **site batch run**:
+>    a large private document set run through the live pipeline at the site, of which
+>    only measurements leave. The shape fixture becomes a downstream artifact
+>    (§5.5) rather than the point. The tokeniser (§2) and the allowlist (§3) are
+>    unchanged and are still the load-bearing parts.
 
 ## 0. Why this exists, in one paragraph
 
@@ -217,27 +244,133 @@ leak test fails CLOSED on any page whose text-layer retention is below a
 threshold, i.e. the scrubber refuses a document it cannot read rather than
 shipping one it did not scrub.
 
-## 5. Four rulings I need before writing code
+## 5. The four rulings, as made — 2026-10-23
 
-1. **Is the manufacturer name allowlisted or scrubbed?** `mfr` is one of the
-   three scored header fields. Scrub it and the mfr arm of the score measures
-   the scrubber. Keep it and the fixture names the vendor — which for a
-   *published* PCN is arguably not sensitive at all, since the vendor published
-   it. **My recommendation: allowlist the manufacturer, scrub the customer.**
-   The sensitive party in a PCN is the recipient, not the issuer.
-2. **Are dates allowlisted?** I have them allowlisted above because LTB
-   extraction is date-semantic, and because `tyc-ltb` and the 2024-06-06/07
-   contested boundary are live corpus questions. If a date is considered
-   identifying, LTB scoring has to come off scrubbed fixtures entirely — say so
-   and I will design for that instead.
-3. **May the unredacted mapping be kept in MinIO, or is a scrub one-way?** A
-   one-way scrub is safer and makes the equivalence seal (§4.3) unrepeatable
-   after the fact. Keeping it makes the fixture auditable forever and puts a
-   re-identification key next to the source.
-4. **Does a scrubbed fixture enter the SCORED corpus?** It moves the parts
-   denominator off 522, which is currently met exactly at `ac853308`. If the
-   answer is yes, these land with the corpus measurement after the dry run, not
-   before.
+The hold is lifted. Each ruling is recorded with what it changes here, because two
+of the four went against this document.
+
+### 5.1 The manufacturer — RULED AGAINST THIS DESIGN, and the ruling is better
+
+**Not allowlisted.** It leaves as a **class** — `semiconductor-major` /
+`connector` / `passive` / `other` — plus its **agreement result**, and never as a
+name. The class map itself is private and stays at the site.
+
+§5's original objection was that scrubbing `mfr` makes the mfr arm of the score
+measure the scrubber rather than the extractor. **That objection does not apply to
+this design**, and the reason is the whole trick: the comparison happens **at the
+site, inside the CLI, before the scrubber runs**. What leaves is
+`match | mismatch | missed | extra` — a verdict computed against the real value, by
+the pipeline, on the real document. The scrubber never sits between the extractor
+and the thing it is scored against. It sits between the *verdict* and the *export*,
+where it has nothing left to distort.
+
+What it costs: a mismatch can no longer be *diagnosed* off the export alone. We
+learn that the mfr arm disagreed on N documents of class `connector`, not which
+string it produced. The shape-tokenised mismatched pair (spec §C) is the mitigation
+and it is enough to tell a misformat from a wrong vendor — which is exactly the
+distinction the live `ti-mfr-misformats-5-of-6` finding turns on.
+
+### 5.2 Dates — RULED AS DESIGNED
+
+**Allowlisted, and compared as dates, not as strings.** A date keeps being a date
+through the tokeniser (spec §D). LTB scoring therefore survives the scrub intact,
+which is what §3.1 needed: `tyc-ltb` and the contested 2024-06-06/07 boundary stay
+answerable from a scrubbed export.
+
+### 5.3 The mapping — ONE-WAY OUTSIDE THE SITE
+
+The spec's first constraint is absolute: *"No document, value, filename or site
+identifier ever leaves."* A re-identification key in sandbox MinIO would be a value
+leaving the site, so **§4.2's uncommitted mapping cannot live in sandbox.** Any
+mapping exists only at the site, under the site's control, or not at all.
+
+This is a real loss and it lands on §4.3: the equivalence seal cannot be re-run
+later against the real bytes by anyone off-site. In exchange it becomes something
+better — the spec requires *"a test [that proves] no raw value survives a round
+trip"*, which runs in CI on **synthetic** inputs, every time, for everyone. A seal
+that only one machine can verify once is weaker than a test anybody can run always.
+
+**One generic question for the schema PR** (§5.7): does the site want a mapping
+retained at the site at all, or should the tokeniser be one-way everywhere including
+there? One-way everywhere is simpler and I would default to it.
+
+### 5.4 The scored corpus — RULED AS DESIGNED
+
+**A shape fixture never enters the 522.** Spec §F: the generated fixtures go in a
+**separate shape corpus with its own denominator**. The parts denominator stays 522
+over ten documents, which is what `scripts/pcn_ground_truth.json` asserts at
+startup and what the gate reads.
+
+### 5.5 What the complete spec adds beyond this document
+
+Recorded here so the schema PR has one source. The spec is the authority; this is
+the delta against the design above.
+
+- **The CLI** is `scripts/pcn_batch.py --dir --truth --map --out`, dropping every
+  PDF through the door as the `svc:batch` persona (Lane 1 provides it), waiting for
+  each row to reach a terminal stage (`review` / `awaiting_kind` / `failed` /
+  `promoted`) with a timeout, collecting the entry, and **running the scrubber
+  last**. Re-runnable: already-ledgered documents are skipped unless `--rerun`.
+- **The column map is config and is NOT committed.** The repo ships an example map
+  with generic keys only (`part_number`, `manufacturer`, `notice_id`,
+  `notice_date`, `effective_date`, `change_type`, `replacement`, `ltb_date`,
+  `ignore: []`); the site's real map is a private overlay per ADR-0042 §C3/C4.
+  **The scrubber refuses every field not on the allowlist, including everything on
+  the `ignore:` list** — so a site-internal workflow column cannot leave even by
+  being named in config.
+- **The ledger entry** is one per document, keyed on the **sha256 of the bytes**
+  (which reveals nothing), carrying: `file` (page count, bytes, text layer y/n,
+  filename **shape** only), `kind` (declared / title / not_identified, with title
+  candidates as shapes), `trail` (every stage with timestamp, attempts, final
+  stage, `reason_code`, Dagster run status, traceback text), `review`
+  (`needs_review`, `review_reasons`, flagged count, every `crops_*` rate, part
+  count, bbox quality counts, `obtained_via` counts), `tables` (count; per table
+  the column **header text**, row count, and whether parts came from
+  table / text / image), `log` (the `[Sustainment]` lines, values shape-tokenised),
+  `edits` (steward corrections as counts by op and field), and `truth`.
+- **Truth mode** joins on `notice_id`, then part number within a notice, with a
+  fallback join on the **PDF hash**. Compared: `mpn` (normalised the way instance
+  resolution normalises), `mfr`, `notice_id`, `notice_date`, `ltb_date`,
+  `replacement_mpn`. Outcome per field: match / mismatch / missed / extra.
+  Mismatched pairs export as shapes.
+- **Two roadmap gaps, recorded and not compared:** `effective_date` and
+  `change_type` as a category. I owe a report on what the header pass would need to
+  extract each — neither is in `ExtractHeader`'s output today, so both are a
+  prompt-and-schema change, not a scoring change.
+- **The site's own part identifier is ignored**, and noted as the future source of
+  `customer_part_map`. Not compared, not exported.
+- **The scorecard** (`scorecard.md`) reports counts by terminal stage and reason;
+  precision and recall **per compared field, per manufacturer class, and per layout
+  class** (ruled table / text columns / image table / attachment); the top ten
+  failure reasons; and the roadmap gaps with counts.
+- **The shape-fixture generator** is the LAST item, not the first: it takes a
+  ledger entry and emits a synthetic PDF with the same layout — headings, table
+  columns, token shapes, page structure — and fake values.
+
+### 5.6 Order of work, as directed
+
+1. **the scrubber and its tests** (including the round-trip proof of §5.3);
+2. **the ledger schema — a PR Chris reviews first**, since it is what leaves the
+   site;
+3. the CLI; 4. truth mode; 5. the scorecard; 6. the generator.
+
+Lane 1 in parallel: `GET /ingest/{id}/ledger` (trail + review fields + run status +
+edits for one ingest, gated like `/extraction`) and the `svc:batch` drop persona.
+**Build next week; Chris runs it at the site once the schema PR is merged.** The
+ADI_PCN_24_0003 fixes are Monday's roll and come first.
+
+### 5.7 Questions for Chris, in the schema PR, generic wording only
+
+As directed, plus one of mine from §5.3:
+
+1. **Date formats** in the record — what does the sheet actually print, and is it
+   consistent across columns?
+2. **One row per affected part, confirmed?** The join in §5.5 assumes it.
+3. **The change-type vocabulary** — the closed set of values the column takes.
+4. **The manufacturer class map's buckets** — are
+   `semiconductor-major` / `connector` / `passive` / `other` the right four?
+5. **Mine:** should the tokeniser be one-way **everywhere**, including at the site,
+   or does the site retain a mapping locally? (§5.3)
 
 ## 6. Worked examples
 
