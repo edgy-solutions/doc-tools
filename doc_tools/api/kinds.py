@@ -27,9 +27,21 @@ The second arm is the one a USER DROP feeds, and it accepts a class, which the
 first arm refuses by contract. So the two sets disagree on
 ``s1000d-data-module``: arm 1 excludes it, arm 2 routes it. MEASURED, NOT
 ARGUED -- ten ODMRAD data modules completed all five stages of
-``xml_graph_sync_job`` on 2026-10-16 (8 triples to Jena, 2 chunks to Weaviate,
-Neo4j synced, per run). Serving arm 1 alone would tell Lane 1's door that an
-S1000D data module cannot be processed, ten minutes after ten of them were.
+``xml_graph_sync_job`` on 2026-10-16 (2 chunks to Weaviate and Neo4j synced,
+per run, with `triplesLoaded` 8 at the NEO4J stage). Serving arm 1 alone would
+tell Lane 1's door that an S1000D data module cannot be processed, ten minutes
+after ten of them were.
+
+THAT `8` IS NOT A COUNT OF WHAT THE PARSER EMITTED, and an earlier version of
+this line said "8 triples to Jena", which is where the premise "the S1000D
+parser writes 8 identity triples per module" came from. `upload_to_jena`
+(`assets/semantic_assets.py:911`) logs the graph URI and NO triple count; the
+only count in this pipeline is Neo4j's `triplesLoaded`, returned by
+`n10s.rdf.import.fetch` (`:1058-1068`), i.e. after n10s mapping. Measured the
+same day, the builder emits 5 / 9 / 11 / 12 / 14 / 48 triples over the six MRAD
+fixtures and matches `invincible-agent`'s `tests/fixtures/s1000d_mrad/mrad.ttl`
+99-for-99. Two instruments at two stages; naming one with the other's stage is
+what made a non-defect look like one.
 
 So ``kinds`` is the union MINUS the hold list, and ``arms`` is published
 alongside it unfiltered: a door that needs to know WHICH path a kind takes can
