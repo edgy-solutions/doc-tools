@@ -212,7 +212,10 @@ The fixture lives in `tests/fixtures/training/`:
 
 ## 10. Known gaps (not promised by v2)
 
-- **A slide with no text gets no Slide node and no Weaviate object** (the generic page loop skips empty pages). Its `pages/page_{n}.png` still exists. So `Slide.number` values can have gaps, and the workbench must tolerate that. wb may counter this in a packet.
+- **A slide with no text gets a Slide node with `text` `""` and no Weaviate object, unless it is the last slide.** Unstructured emits a `PageBreak` element after every slide but the last. So a blank or image-only slide mid-deck still has an element on its page, but a blank or image-only *final* slide has none and gets no Slide node at all. The result is that `Slide.number` has no interior gaps but can stop short of the deck's slide count, and the workbench must tolerate that. This was measured on the fixtures `empty-blank-slide` (p5), `image-multi-per-slide` (p4) and `image-only-deck` (p5). Whether such a slide gets `pages/page_{n}.png` is step e's to state. wb may counter this in a packet.
+- **Speaker notes are slide text.** Unstructured emits a slide's notes as `NarrativeText` elements on that slide, ahead of its body in reading order. A slide whose only text is its notes is a text slide (fixture `empty-whitespace-and-notes`, p3 and p4).
+- **Hidden slides are ingested like any other.** No Slide property marks them (fixture `long-with-hidden-slides`, p30, p31 and p90).
+- **A re-ingest of the same bytes adds a second outline.** Section ids are positions in the outline the LLM returned (`{Course.id}_s0_s1`), and the write is a MERGE. So a second run that samples a differently shaped outline leaves both under the Course (fixtures `dup-same-bytes-a`/`-b`: 15 Sections, 8 titles). This is step g's to close.
 - **docx page numbers.** Unstructured gives docx a `page_number` only if the file has `w:lastRenderedPageBreak`; otherwise everything lands on page 1. pptx (slide index) and pdf are exact. docx is best-effort in v2.
 - **`Slide.pedagogical_intent` is not written.** The facet is empty.
 - **No lineage between revisions** of the same course (§3).

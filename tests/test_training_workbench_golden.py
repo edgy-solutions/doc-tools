@@ -247,10 +247,192 @@ def test_teaches_salience_is_on_the_edge():
                    for q in edge_queries), t
 
 
-@pytest.mark.xfail(strict=True, reason="lane tr step c")
-def test_ids_and_versioned_layout():
-    """Real test checks course props, slide ids and the minio prefix/current.json/keys_required in golden."""
-    pytest.fail("not built: lane tr step c — the step's PR replaces this body with a real assertion against golden")
+PIPELINE_VERSION = "doc-tools@steptest"
+BUCKET = GOLDEN["drop"]["bucket"]
+
+
+def _sub(value):
+    """Golden placeholders -> this run's pipeline version."""
+    return value.replace("<pipeline_version>", PIPELINE_VERSION)
+
+
+def _parse_drop(client, monkeypatch, key=None, body=None):
+    """Run the real parser (real extraction) on the fixture drop in a fake S3."""
+    from dagster import build_asset_context
+    from dag_tools.components.s3_sensor.file_component import S3FileConfig
+
+    from doc_tools.components.document_parser import DocumentParserComponent
+    from tests.test_document_parser_versioning import _FakeS3Resource
+
+    monkeypatch.setenv("DOC_TOOLS_VERSION", PIPELINE_VERSION)
+    # Page PNGs are lane tr step e's; the PDF rasteriser has nothing to do on a deck.
+    monkeypatch.setattr("doc_tools.components.document_parser.rasterize_pdf_pages",
+                        lambda *a, **k: [])
+    meta_key, deck_key = GOLDEN["drop"]["keys_in_order"]
+    client.put_object(Bucket=BUCKET, Key=meta_key, Body=META.read_bytes())
+    client.put_object(Bucket=BUCKET, Key=deck_key, Body=DECK.read_bytes())
+    defs = DocumentParserComponent(
+        name="process_document_artifact", partition_name="pdf_files").build_defs(None)
+    asset_def = next(iter(defs.assets))
+    ctx = build_asset_context(partition_key=deck_key)
+    cfg = S3FileConfig(file_url=f"s3://{BUCKET}/{deck_key}")
+    return asset_def(ctx, config=cfg, s3=_FakeS3Resource(client))
+
+
+def _graph_run(manifest, client, monkeypatch, augment_calls=None):
+    """Run the graph asset with fake neo4j/weaviate and a stubbed plugin/LLM.
+
+    Returns (neo4j execute_query calls as (query, params), chunk_ids indexed)."""
+    from unittest.mock import MagicMock
+
+    from dagster import build_asset_context
+
+    from doc_tools.assets import semantic_assets as sa
+    from doc_tools.config import IngestionConfig
+    from doc_tools.plugins.training import TrainingPlugin
+    from tests.test_document_parser_versioning import _FakeS3Resource
+
+    indexed = []
+    monkeypatch.setattr(sa, "_ensure_weaviate_collection", lambda *a, **k: None)
+    monkeypatch.setattr(sa, "_index_chunk",
+                        lambda _c, _n, props: indexed.append(props) or "written")
+
+    def _augment(self, section, config):
+        if augment_calls is not None:
+            augment_calls.append(section.node_id)
+        raise RuntimeError("plugin/LLM stubbed out")
+
+    monkeypatch.setattr(TrainingPlugin, "augment", _augment)
+    monkeypatch.setattr(TrainingPlugin, "process_fulltext", lambda *a, **k: [])
+    neo4j = MagicMock()
+    config = IngestionConfig(graph_node_label="Document", graph_child_label="Chunk",
+                             vector_collection_name="DocumentChunk", bucket=BUCKET)
+    try:
+        sa.build_knowledge_graph(
+            build_asset_context(), config, manifest, s3=_FakeS3Resource(client),
+            neo4j=neo4j, weaviate=MagicMock(), llm=MagicMock(), jena=MagicMock())
+    except Exception:  # noqa: BLE001 -- the writes under test precede any later stage
+        pass
+    calls = neo4j.get_client.return_value.execute_query.call_args_list
+    return [(c.args[0], c.args[1]) for c in calls], indexed
+
+
+def _labels(query, var):
+    m = re.search(rf"\({var}((?::\w+)+)\s*\{{id", query)
+    return set(m.group(1).split(":")[1:])
+
+
+def test_ids_and_versioned_layout(monkeypatch):
+    from tests.test_document_parser_versioning import _FakeS3Client
+
+    client = _FakeS3Client()
+    manifest = _parse_drop(client, monkeypatch)
+    mi = GOLDEN["minio"]
+
+    # Pages (`pages/page_<n>.png`) are lane tr step e's; everything else is step c's.
+    written = {k for (_b, k) in client.write_order}
+    for key in mi["keys_required"]:
+        if "/pages/" in key:
+            continue
+        assert _sub(key) in written, key
+
+    current_key = mi["current_json_key"]
+    assert current_key in written
+    pointer = json.loads(client.objects[(BUCKET, current_key)])
+    want = {k: _sub(v) for k, v in mi["current_json"].items()}
+    from datetime import datetime
+    datetime.fromisoformat(pointer.pop("updated_at"))
+    want.pop("updated_at")
+    assert pointer == want
+
+    assert manifest["doc_id"] == manifest["ingest_id"] == INGEST_ID
+    assert manifest["current_key"] == current_key
+    stored = json.loads(client.objects[(BUCKET, _sub(mi["prefix"]) + "manifest.json")])
+    assert stored["doc_id"] == stored["ingest_id"] == INGEST_ID
+    assert stored["current_key"] == current_key
+    # Nothing landed under the old filename-keyed layout.
+    assert not any("/generated/hydraulics_fixture_pptx/" in k for k in written)
+
+    # --- the graph asset, fed that manifest and the text.json it wrote ---
+    calls, indexed = _graph_run(manifest, client, monkeypatch)
+    parent_q, parent_p = calls[0]
+    assert _labels(parent_q, "n") | set(re.findall(r"SET n:(\w+)", parent_q)) == \
+        set(GOLDEN["neo4j"]["course"]["labels"])
+    for k in ("id", "title", "filename", "current_key"):
+        assert parent_p[k] == GOLDEN["neo4j"]["course"]["props"][k], k
+
+    slide_calls = [(q, p) for q, p in calls if "MERGE (child:" in q]
+    assert [p["id"] for _q, p in slide_calls] == [s["id"] for s in SLIDES]
+    for (q, p), golden in zip(slide_calls, SLIDES):
+        assert _labels(q, "child") == {"Chunk", "Slide", "TRAINING"}
+        assert p["text"] == golden["text"]
+        for edge in GOLDEN["neo4j"]["course_slide_edges"]:
+            assert f"MERGE (parent)-[:{edge}]->(child)" in q, edge
+    # The figure chunk still written for the embedded image is lane tr step f's to remove.
+    assert [o["chunk_id"] for o in indexed if "_fig_" not in o["chunk_id"]] == SLIDE_IDS
+
+
+def test_a_text_less_slide_still_gets_a_slide_node_and_no_weaviate_object(monkeypatch):
+    from tests.test_document_parser_versioning import _FakeS3Client
+
+    cid = "sha256:" + "b" * 64
+    text_key = f"training/generated/{'b' * 64}/{PIPELINE_VERSION}/text.json"
+    elements = [
+        {"type": "Title", "text": "Has text", "metadata": {"page_number": 1}},
+        {"type": "Image", "text": "  ", "metadata": {"page_number": 2}},
+        {"type": "PageBreak", "text": "", "metadata": {"page_number": 2}},
+    ]
+    client = _FakeS3Client()
+    client.put_object(Bucket=BUCKET, Key=text_key, Body=json.dumps(elements).encode())
+    manifest = {"doc_id": cid, "ingest_id": cid, "filename": "empty_slide.pptx",
+                "text_location": text_key, "metadata": {"domain_type": "training"},
+                "current_key": f"training/generated/{'b' * 64}/current.json"}
+    augmented = []
+    calls, indexed = _graph_run(manifest, client, monkeypatch, augment_calls=augmented)
+
+    # No metadata.json title: the Course title falls back to the filename stem.
+    assert calls[0][1]["title"] == "empty_slide"
+    slides = {p["id"]: p for q, p in calls if "MERGE (child:" in q}
+    assert list(slides) == [f"{cid}_p1", f"{cid}_p2"]
+    assert slides[f"{cid}_p1"]["text"] == "[Title] Has text"
+    assert slides[f"{cid}_p2"]["text"] == ""
+    assert [o["chunk_id"] for o in indexed] == [f"{cid}_p1"]
+    assert augmented == [f"{cid}_p1"]
+
+
+def test_a_non_training_drop_keeps_the_filename_keyed_layout(monkeypatch):
+    from dagster import build_asset_context
+    from dag_tools.components.s3_sensor.file_component import S3FileConfig
+
+    from doc_tools.components.document_parser import DocumentParserComponent
+    from tests.test_document_parser_versioning import (
+        _FakeS3Client, _FakeS3Resource, _fake_extract_text_and_metadata,
+        _fake_rasterize_pdf_pages,
+    )
+
+    monkeypatch.setattr("doc_tools.components.document_parser.extract_text_and_metadata",
+                        _fake_extract_text_and_metadata)
+    monkeypatch.setattr("doc_tools.components.document_parser.rasterize_pdf_pages",
+                        _fake_rasterize_pdf_pages)
+    monkeypatch.setattr("doc_tools.utils.crop_geometry.repair_table_crops", lambda *a, **k: 0)
+    monkeypatch.setenv("DOC_TOOLS_VERSION", PIPELINE_VERSION)
+    key = "sustainment/inbound/testnotice/Test_Notice.pdf"
+    client = _FakeS3Client()
+    asset_def = next(iter(DocumentParserComponent(
+        name="process_document_artifact", partition_name="pdf_files").build_defs(None).assets))
+    manifest = asset_def(build_asset_context(partition_key=key),
+                         config=S3FileConfig(file_url=f"s3://{BUCKET}/{key}"),
+                         s3=_FakeS3Resource(client))
+
+    gen = "sustainment/inbound/testnotice/generated/Test_Notice_pdf"
+    written = {k for (_b, k) in client.write_order}
+    assert {f"{gen}/{PIPELINE_VERSION}/manifest.json", f"{gen}/{PIPELINE_VERSION}/text.json",
+            f"{gen}/current.json"} <= written
+    assert not any(k.startswith("training/") for k in written)
+    assert manifest["doc_id"] == "Test_Notice"
+    assert manifest["current_key"] == f"{gen}/current.json"
+    pointer = json.loads(client.objects[(BUCKET, f"{gen}/current.json")])
+    assert pointer["prefix"] == f"{gen}/{PIPELINE_VERSION}/"
 
 
 @pytest.mark.xfail(strict=True, reason="lane tr step e")
