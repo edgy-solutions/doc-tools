@@ -291,3 +291,45 @@ def test_the_dispatch_repair_inputs_default_to_empty(workflow):
     assert inputs["digest"]["default"] == ""
     assert inputs["version"]["required"] is False
     assert inputs["digest"]["required"] is False
+
+
+def test_the_retag_job_checks_out_the_commit_its_tooling_lives_in(workflow):
+    """The repair job cannot check out the release's source commit.
+
+    MEASURED, run 40054727136: the first dispatch repair (v0.2.0 ->
+    sha256:ac853308...) resolved and skipped the build correctly, then died
+    with `can't open file '.../scripts/verify_release_tag.py'` because it had
+    checked out 133714c -- the commit v0.2.0 names, two merges BEFORE the
+    script existed. A job that runs this workflow's own tooling against an
+    arbitrarily old tree can never repair a tag older than itself, which is
+    every tag it exists for. `github.workflow_sha` keeps the YAML and the
+    script it calls in one commit.
+    """
+    steps = _jobs(workflow)["tag-release-image"]["steps"]
+    checkouts = [s for s in steps if str(s.get("uses", "")).startswith("actions/checkout")]
+    assert len(checkouts) == 1, "one checkout, so there is one answer to which tree this runs"
+    ref = checkouts[0].get("with", {}).get("ref", "")
+    assert "workflow_sha" in ref, (
+        "tag-release-image checks out %r; a release commit older than "
+        "scripts/verify_release_tag.py then has no script to run" % (ref,)
+    )
+    assert "resolve-release-image" not in ref
+
+    # And the build job must keep the opposite ref, for the opposite reason.
+    build = [
+        s
+        for s in _jobs(workflow)["build-and-push"]["steps"]
+        if str(s.get("uses", "")).startswith("actions/checkout")
+    ]
+    assert len(build) == 1
+    assert "resolve-release-image.outputs.sha" in build[0]["with"]["ref"], (
+        "build-and-push must build the release's own source commit"
+    )
+
+
+def test_the_retag_job_runs_scripts_only_from_the_repo_root(workflow):
+    """Every repo path this job names comes out of that one checkout."""
+    steps = _jobs(workflow)["tag-release-image"]["steps"]
+    runs = " ".join(s.get("run", "") for s in steps)
+    assert "verify_release_tag.py" in runs
+    assert "scripts/verify_release_tag.py" in runs
