@@ -2072,6 +2072,14 @@ class SustainmentPlugin(AugmentationPlugin):
                 continue
             notice = aug.notice
             section_id = sec.node_id or f"section_{sec.page_start}_{sec.title}"
+            # ONE key for BOTH stores, normalized with the SAME function the Jena
+            # IRI uses. doc_id is normalized at finalization, but the path fallback
+            # can still deliver a fragment ('inbound/adi_23_0120'), and until now
+            # the IRI normalized while the Neo4j :SustainmentNotice id took doc_id
+            # VERBATIM -- so the same notice was keyed two ways and never joined
+            # across the two stores. Both :SustainmentNotice MERGE sites below (the
+            # edge query and the ADR-0041 provenance query) use this, and so does the IRI.
+            notice_graph_key = norm.normalize_doc_id(notice.doc_id)
 
             cypher_queries.append({
                 "query": f"""
@@ -2134,7 +2142,7 @@ class SustainmentPlugin(AugmentationPlugin):
             cypher_queries.append({
                 "query": edge_cypher,
                 "params": {
-                    "section_id": section_id, "notice_id": notice.doc_id,
+                    "section_id": section_id, "notice_id": notice_graph_key,
                     "pub_date": notice.pub_date, "mfr": notice.mfr,
                     # "" not None: the graph stores the brand-vs-owner pair as two
                     # properties, and a Cypher null would DROP the property entirely,
@@ -2167,7 +2175,7 @@ class SustainmentPlugin(AugmentationPlugin):
                         n.provenance_ingest_id = $ingest_id
                     """,
                     "params": {
-                        "notice_id": notice.doc_id,
+                        "notice_id": notice_graph_key,
                         "obtained_via": provenance.get("obtained_via", ""),
                         "authoritative_source": provenance.get("authoritative_source", ""),
                         "as_of": provenance.get("as_of", ""),
@@ -2183,15 +2191,14 @@ class SustainmentPlugin(AugmentationPlugin):
                 })
 
             # --- JENA SPARQL/RDF ---
-            # notice.doc_id is already normalized at finalization; normalize again
-            # here (idempotent) so the graph IRI keys on the SAME canonical slug as
-            # review.json / the workflow id. safe_mpn below still keeps '#' reel
-            # codes, '/' and ',' verbatim as provenance join keys -- it is NOT
-            # regex-stripped -- but it now percent-encodes the characters an
-            # IRIREF forbids. A bare space->_ replace left OCR ditto quotes and
-            # wrapped-cell newlines in the IRI, which 400s the whole INSERT DATA;
-            # see safe_iri_ref_component for the measured case.
-            safe_notice_id = safe_iri_ref_component(norm.normalize_doc_id(notice.doc_id))
+            # The IRI keys on notice_graph_key, the SAME canonical slug the two
+            # Neo4j MERGE sites use and the same one review.json / the workflow id
+            # carry. safe_mpn below still keeps '#' reel codes, '/' and ',' verbatim
+            # as provenance join keys -- it is NOT regex-stripped -- but it now
+            # percent-encodes the characters an IRIREF forbids. A bare space->_
+            # replace left OCR ditto quotes and wrapped-cell newlines in the IRI,
+            # which 400s the whole INSERT DATA; see safe_iri_ref_component.
+            safe_notice_id = safe_iri_ref_component(notice_graph_key)
             if str(notice.doc_type).upper() == "PDN":
                 notice_class = "pcn:ProductDiscontinuationNotice"
             else:

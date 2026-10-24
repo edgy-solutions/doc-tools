@@ -345,3 +345,43 @@ def test_a_legal_mpn_iri_is_byte_identical_so_join_keys_do_not_fork():
     assert "http://internal/components/BYVB32-200-E3/81" in body
     assert "http://internal/components/090-44310-31" in body
     assert "%" not in body, "a legal notice must emit NO percent-escapes at all"
+
+
+def test_a_path_fragment_doc_id_keys_both_stores_identically():
+    """The Neo4j :SustainmentNotice id and the Jena IRI must be the SAME key.
+
+    doc_id is normalized at finalization, but the path fallback can still deliver a
+    fragment ('inbound/adi_23_0120'). The Jena IRI normalized it while the Neo4j
+    MERGE took doc_id VERBATIM, so the same notice was keyed two ways and the two
+    stores never joined. Asserted as an EQUALITY between the two emitted keys, not
+    against a hardcoded slug, so the invariant survives a change to the normalizer.
+    """
+    from doc_tools.utils import sustainment_normalize as norm
+
+    sec = BaseSection(title="Notice", level=0, page_start=0, content="", node_id="doc-1")
+    notice = SustainmentNotice(
+        doc_id="inbound/adi_23_0120", doc_type="PDN", pub_date="2026-04-28",
+        mfr="Acme", categories=["Discontinuation"], summary="",
+        impacted_parts=[PartImpact(affected_mpn="MPN-A", replacement_mpn=None, ltb_date=None)],
+    )
+    node = DocumentNode(base_extraction=sec,
+                        domain_augmentation=SustainmentAugmentation(notice=notice))
+    config = SimpleNamespace(graph_node_label="Document", graph_child_label="Section")
+
+    cypher, sparql = SustainmentPlugin(domain_type="sustainment").to_graph_queries(
+        [node], config, provenance={"obtained_via": "ingress-user", "ingested_at": "",
+                                    "derived_from": ""})
+    body = " ".join(sparql)
+    expected = norm.normalize_doc_id("inbound/adi_23_0120")
+
+    # EVERY Cypher site that keys a notice -- the edge query and the ADR-0041
+    # provenance query -- not just the first one found.
+    keyed = [q["params"]["notice_id"] for q in cypher if "notice_id" in q.get("params", {})]
+    assert len(keyed) >= 2, "expected both :SustainmentNotice MERGE sites to key a notice"
+    assert set(keyed) == {expected}, keyed
+
+    # The raw fragment must appear in NEITHER store.
+    assert "inbound/adi_23_0120" not in body
+    assert "inbound/adi_23_0120" not in " ".join(q["query"] for q in cypher)
+    assert "http://internal/sustainment/doc/%s" % expected in body
+    assert "/" not in expected, "a normalized key must not still carry a path separator"
