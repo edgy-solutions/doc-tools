@@ -2,7 +2,7 @@
   "schema": 1,
   "verdict": "fail",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-18T11:25:31Z",
+  "generated_at": "2026-10-24T09:50:14Z",
   "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
   "measured_pin_note": null,
   "image_identity": {
@@ -23,9 +23,9 @@
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-10-18T07:00:18Z",
-      "ended_at": "2026-10-18T08:27:25Z",
-      "elapsed_s": 5226.9,
+      "started_at": "2026-10-24T07:00:24Z",
+      "ended_at": "2026-10-24T07:57:39Z",
+      "elapsed_s": 3435.0,
       "log": "fire1.log",
       "totals": {
         "gt": 522,
@@ -71,16 +71,16 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 430039,
+      "log_bytes": 434020,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-10-18T08:27:25Z",
-      "ended_at": "2026-10-18T09:56:28Z",
-      "elapsed_s": 5343.4,
+      "started_at": "2026-10-24T07:57:39Z",
+      "ended_at": "2026-10-24T08:53:18Z",
+      "elapsed_s": 3339.3,
       "log": "fire2.log",
       "totals": {
         "gt": 522,
@@ -126,16 +126,16 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 432679,
+      "log_bytes": 438136,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-10-18T09:56:28Z",
-      "ended_at": "2026-10-18T11:25:31Z",
-      "elapsed_s": 5342.8,
+      "started_at": "2026-10-24T08:53:18Z",
+      "ended_at": "2026-10-24T09:50:14Z",
+      "elapsed_s": 3415.1,
       "log": "fire3.log",
       "totals": {
         "gt": 522,
@@ -181,7 +181,7 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 434187,
+      "log_bytes": 436831,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     }
@@ -194,19 +194,19 @@
       3
     ],
     "fires_missing": [],
-    "agreement": false,
+    "agreement": true,
     "documents": 10,
     "errors": 0,
     "not_applicable": 0,
     "rates": {
       "needs_review": {
-        "count": 8,
+        "count": 3,
         "denominator": 10,
-        "fire": 3,
+        "fire": 1,
         "by_fire": {
-          "1": 7,
-          "2": 7,
-          "3": 8
+          "1": 3,
+          "2": 3,
+          "3": 3
         }
       },
       "crops_failed": {
@@ -269,7 +269,7 @@
       "not_applicable": 0,
       "rates": {
         "needs_review": {
-          "count": 7,
+          "count": 3,
           "denominator": 10
         },
         "crops_failed": {
@@ -301,7 +301,7 @@
       "not_applicable": 0,
       "rates": {
         "needs_review": {
-          "count": 7,
+          "count": 3,
           "denominator": 10
         },
         "crops_failed": {
@@ -333,7 +333,7 @@
       "not_applicable": 0,
       "rates": {
         "needs_review": {
-          "count": 8,
+          "count": 3,
           "denominator": 10
         },
         "crops_failed": {
@@ -526,9 +526,9 @@
         "pending": []
       },
       "2": {
-        "exact": 5,
+        "exact": 8,
         "fields_scored": 9,
-        "clean": false,
+        "clean": true,
         "observed": true,
         "unobserved": [],
         "pending": []
@@ -542,25 +542,65 @@
         "pending": []
       }
     },
-    "failing_notices": [
-      "IDT_PDN_OV-19-05.pdf"
-    ]
+    "failing_notices": []
   },
   "header_agreement": {
     "exit": 1,
     "notices": {
+      "TYC-PCN-24-210412.pdf": {
+        "verdict": "DISAGREE",
+        "fields": {
+          "mfr": "'TE Connecvity' | 'TE' | 'TE'",
+          "mfr_source": "'TE Connecvity' | 'TE' | 'TE'",
+          "doc_level_ltb_date_source": "'-2024' | '-2024' | '06-JUN-2024'"
+        }
+      },
+      "Diodes_PCN_2683_Rev1_EOL.pdf": {
+        "verdict": "DISAGREE",
+        "fields": {
+          "doc_id": "'PCN-2683' | 'PCN #: 2683' | 'PCN #: 2683'"
+        }
+      },
+      "EOL-36_BYV34-400,-BYV34-500.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "ADI_PDN_23_0120.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "PCN23-002.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "PCN24-029.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "onsemi_Generic_IPCN25300X.pdf": {
+        "verdict": "DISAGREE",
+        "fields": {
+          "mfr": "'ONSEM.' | 'onsemi' | 'onsemi'",
+          "mfr_source": "'ONSEM.' | 'onsemi' | 'onsemi'"
+        }
+      },
       "onsemi_Generic_PD26044X1.pdf": {
+        "verdict": "agree",
+        "fields": {}
+      },
+      "TI_PCN_20210316000.pdf": {
+        "verdict": "DISAGREE",
+        "fields": {
+          "mfr": "'TEXAS INSTRUMENTS' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'",
+          "mfr_source": "'TEXAS INSTRUMENTS' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'"
+        }
+      },
+      "IDT_PDN_OV-19-05.pdf": {
         "verdict": "agree",
         "fields": {}
       }
     },
-    "absent": [
-      "ADI_PDN_23_0120.pdf",
-      "Diodes_PCN_2683_Rev1_EOL.pdf",
-      "EOL-36_BYV34-400,-BYV34-500.pdf",
-      "IDT_PDN_OV-19-05.pdf",
-      "TI_PCN_20210316000.pdf"
-    ],
+    "absent": [],
     "not_measured": []
   },
   "identity": {
@@ -591,27 +631,21 @@
     "filenames": 10,
     "distinct_notices": 10,
     "collapses": [],
-    "incomplete_identity": [
-      "Diodes_PCN_2683_Rev1_EOL.pdf",
-      "PCN23-002.pdf",
+    "incomplete_identity": [],
+    "identity_half_unstable": [
       "onsemi_Generic_IPCN25300X.pdf"
     ],
-    "identity_half_unstable": [
-      "ADI_PDN_23_0120.pdf",
-      "Diodes_PCN_2683_Rev1_EOL.pdf",
-      "EOL-36_BYV34-400,-BYV34-500.pdf",
-      "IDT_PDN_OV-19-05.pdf"
-    ],
-    "revision_half_unstable": []
+    "revision_half_unstable": [
+      "Diodes_PCN_2683_Rev1_EOL.pdf"
+    ]
   },
   "blocking": [
-    "header agreement: 5 notice(s) ABSENT in >=1 fire (ADI_PDN_23_0120.pdf, Diodes_PCN_2683_Rev1_EOL.pdf, EOL-36_BYV34-400,-BYV34-500.pdf, IDT_PDN_OV-19-05.pdf, TI_PCN_20210316000.pdf) \u2014 an instrument gap, not a value disagreement; there is no declaration exemption for it (see header_agreement.log)",
-    "ADI_PDN_23_0120.pdf: identity half (mfr/doc_id) is unstable across fires and needs_review is not True in all three fires",
-    "Diodes_PCN_2683_Rev1_EOL.pdf: identity half (mfr/doc_id) is unstable across fires and needs_review is not True in all three fires",
-    "EOL-36_BYV34-400,-BYV34-500.pdf: identity half (mfr/doc_id) is unstable across fires and needs_review is not True in all three fires",
-    "IDT_PDN_OV-19-05.pdf: written header does not match ground truth \u2014 fire 2: doc_level_ltb_date (absent), pub_date (absent) (pcn_ground_truth.json notices[IDT_PDN_OV-19-05.pdf].headers)"
+    "Diodes_PCN_2683_Rev1_EOL.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log",
+    "onsemi_Generic_IPCN25300X.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log",
+    "onsemi_Generic_IPCN25300X.pdf: identity half (mfr/doc_id) is unstable across fires and needs_review is not True in all three fires"
   ],
   "exempted": [
-    "IDT_PDN_OV-19-05.pdf: identity-half instability (mfr/doc_id differ across fires) exempted \u2014 needs_review=True in all three fires"
+    "TI_PCN_20210316000.pdf: header disagreement exempted \u2014 needs_review=True in all three fires",
+    "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires"
   ]
 }
