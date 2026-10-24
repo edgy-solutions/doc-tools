@@ -16,6 +16,7 @@ from doc_tools.plugins.training import TrainingPlugin
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
 from doc_tools.plugins.sustainment import SustainmentPlugin
 from doc_tools.utils.ingest_rates import render_rates, summarize_rates
+from doc_tools.utils.graph_overlay import overlay_for
 from doc_tools.utils.provenance_stamp import (
     PROVENANCE_FIELDS, provenance_params, provenance_set_fragment,
 )
@@ -618,6 +619,10 @@ def _build_knowledge_graph_impl(
             
     # --- PASS 1: CREATE NODES ---
     
+    # Overlay names (training: Course/Slide/HAS_SLIDE) come from data; None for
+    # every other domain, which keeps the generic structure only.
+    overlay = overlay_for(domain_type)
+
     # Create Parent Node
     #
     # THE PROVENANCE INVARIANT LIVES HERE (architect ruling 2026-10-02). This
@@ -636,6 +641,18 @@ def _build_knowledge_graph_impl(
         title = manifest.get("filename", doc_id)
         set_clause = "SET n.title = $title"
         parent_params = {"id": doc_id, "title": title}
+        if overlay:
+            # Contract section 4.1: title is metadata.json's, else the filename stem;
+            # filename is a label only; current_key is the pointer's S3 key.
+            filename = manifest.get("filename", "")
+            title = (metadata.get("title") or "").strip() or os.path.splitext(filename)[0] or doc_id
+            set_clause = (
+                f"SET n:{overlay.parent_label}, n.title = $title, "
+                f"n.filename = $filename, n.current_key = $current_key"
+            )
+            parent_params.update(
+                {"title": title, "filename": filename, "current_key": manifest.get("current_key")}
+            )
         if provenance:
             set_clause += ", " + provenance_set_fragment("n")
             parent_params.update(provenance_params(provenance))
@@ -750,9 +767,18 @@ def _build_knowledge_graph_impl(
 
     # Process each page/chunk
     for page_num, texts in pages.items():
-        chunk_text = "\n".join(texts)
-        if not chunk_text.strip(): continue
-            
+        if overlay:
+            # Contract section 4.1: one line per element, elements with no text left
+            # out. A slide with NO text still gets its Slide node (text ""), but no
+            # plugin pass and no Weaviate object.
+            chunk_text = "\n".join(
+                f"[{el.get('type', 'Text')}] {el.get('text')}"
+                for el in page_elements.get(page_num, []) if (el.get("text") or "").strip()
+            )
+        else:
+            chunk_text = "\n".join(texts)
+            if not chunk_text.strip(): continue
+
         chunk_id = f"{doc_id}_p{page_num}"
         elements = page_elements.get(page_num, [])
         layout_style = detect_layout(elements)
@@ -764,21 +790,28 @@ def _build_knowledge_graph_impl(
         section = BaseSection(title=f"Page {page_num}", level=1, page_start=page_num, content=chunk_text, node_id=chunk_id)
         
         # 2. Augment via Domain Plugin
-        try:
-            node = plugin.augment(section, config)
-            document_nodes.append(node)
-        except Exception as e:
-            context.log.error(f"Plugin augmentation failed for chunk {chunk_id}: {e}")
+        if chunk_text.strip():
+            try:
+                node = plugin.augment(section, config)
+                document_nodes.append(node)
+            except Exception as e:
+                context.log.error(f"Plugin augmentation failed for chunk {chunk_id}: {e}")
 
         # Neo4j baseline chunk creation
         try:
+            # Overlay labels/edge are interpolated only after overlay_for() has
+            # checked them as plain identifiers; None leaves the query as it was.
+            child_extra = f":{overlay.child_label}" if overlay else ""
+            overlay_edge = (
+                f"\n                MERGE (parent)-[:{overlay.edge}]->(child)" if overlay else ""
+            )
             neo4j_client.execute_query(
                 f"""
                 MATCH (parent:{node_label}:{domain_label} {{id: $parent_id}})
-                MERGE (child:{child_label}:{domain_label} {{id: $id}})
+                MERGE (child:{child_label}{child_extra}:{domain_label} {{id: $id}})
                 SET child.number = $page_num, child.text = $text, child.asset_type = $asset_type,
                     child.layout_style = $layout_style, child.elements = $elements_json
-                MERGE (parent)-[:HAS_CHILD]->(child)
+                MERGE (parent)-[:HAS_CHILD]->(child){overlay_edge}
                 """,
                 {"parent_id": doc_id, "id": chunk_id, "page_num": page_num, "text": chunk_text[:500], "asset_type": file_ext, "layout_style": layout_style, "elements_json": json.dumps(elements)}
             )
@@ -786,6 +819,8 @@ def _build_knowledge_graph_impl(
             context.log.error(f"Neo4j baseline chunk creation failed: {e}")
 
         # Vector Indexing (Per Chunk, v4 API)
+        if not chunk_text.strip():
+            continue  # text-less slide: node written above, no Weaviate object
         try:
             verdict = _index_chunk(weaviate_client, collection_name, {
                 "text": chunk_text, "doc_id": doc_id, "chunk_id": chunk_id, "domain": domain_label,

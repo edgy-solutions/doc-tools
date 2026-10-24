@@ -401,6 +401,18 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             with open(file_path, "w") as f:
                                 f.write("mock document content")
 
+                    # Training contract section 3/5: the ingest id (sidecar's, else minted
+                    # from the bytes) IS the doc_id, and it addresses the generated root,
+                    # so the filename and folder are labels only. Every other domain keeps
+                    # the `{base_dir}/generated/{base_name}` layout and filename-stem id.
+                    gen_root = f"{base_dir}/generated/{filename.replace('.', '_')}"
+                    if domain == "training":
+                        if ingest_id is None:
+                            with open(file_path, "rb") as f:
+                                ingest_id = mint_ingest_id(f.read())
+                        doc_id = ingest_id
+                        gen_root = f"training/generated/{ingest_id.removeprefix('sha256:')}"
+
                     # Fetch metadata.json
                     doc_metadata = {}
                     try:
@@ -460,12 +472,11 @@ class DocumentParserComponent(Component, Resolvable, Model):
                                     context.log.warning(f"Crop geometry repair failed (continuing with original crops): {geom_err}")
 
                             # Upload images via Boto3
-                            base_name = filename.replace('.', '_')
                             if os.path.exists(temp_extract_dir):
                                 for img_filename in os.listdir(temp_extract_dir):
                                     img_local_path = os.path.join(temp_extract_dir, img_filename)
                                     if os.path.isfile(img_local_path):
-                                        object_name = f"{base_dir}/generated/{base_name}/{version}/images/{img_filename}"
+                                        object_name = f"{gen_root}/{version}/images/{img_filename}"
                                         ext = os.path.splitext(img_filename)[1].lower()
                                         ctype = "image/jpeg" if ext in [".jpg", ".jpeg"] else "image/png"
                                         try:
@@ -496,7 +507,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                                     dpi=int(os.getenv("DOC_PARSER_PAGE_RENDER_DPI", "300")),
                                 )
                                 for p in rendered:
-                                    object_name = f"{base_dir}/generated/{base_name}/{version}/images/{p['basename']}"
+                                    object_name = f"{gen_root}/{version}/images/{p['basename']}"
                                     try:
                                         s3_client.upload_file(
                                             Filename=p["path"], Bucket=bucket, Key=object_name,
@@ -523,8 +534,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             extraction_metadata = {k: v for k, v in first_meta.items() if k not in ["coordinates", "page_number", "image_path"]}
                     
                         # Store text.json via Boto3
-                        base_name = filename.replace('.', '_')
-                        text_object_name = f"{base_dir}/generated/{base_name}/{version}/text.json"
+                        text_object_name = f"{gen_root}/{version}/text.json"
                         text_json = json.dumps(elements, indent=2)
                         s3_client.put_object(
                             Bucket=bucket, 
@@ -564,7 +574,6 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         **self.config,
                         **doc_metadata,
                     }
-                    base_name = filename.replace('.', '_')
                     manifest = {
                         "doc_id": doc_id,
                         "filename": filename,
@@ -578,7 +587,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         "extraction_metadata": extraction_metadata,
                         "embedded_images": embedded_images_map,
                         "pages": pages_list,  # full-page renders: {page, s3_url, basename, width, height, dpi}
-                        "text_location": f"{base_dir}/generated/{base_name}/{version}/text.json",
+                        "text_location": f"{gen_root}/{version}/text.json",
                         # DECLARED, not left to be read off the key's path.
                         # This manifest is the artifact the `review` stage
                         # POST names as its `extraction_ref`, and Lane 1
@@ -598,6 +607,9 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         # `extracted_count` unit). `manifest_key` is set below,
                         # once the key is computed, before the put_object.
                         "element_count": len(elements) if elements else 0,
+                        # The S3 key of the mutable pointer, declared so the graph asset can
+                        # stamp it on the Course without rebuilding the path (contract section 5).
+                        "current_key": f"{gen_root}/current.json",
                     }
 
                     # ADR-0041 — when this instance is configured with obtained_via
@@ -709,7 +721,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     # Store manifest.json via Boto3, under the versioned prefix. This
                     # file is NEVER overwritten by a later reprocess — a different
                     # DOC_TOOLS_VERSION lands at a different key entirely.
-                    manifest_object_name = f"{base_dir}/generated/{base_name}/{version}/manifest.json"
+                    manifest_object_name = f"{gen_root}/{version}/manifest.json"
                     # This object's own bucket-relative key, declared (see
                     # `element_count` above); the value is exactly what the
                     # removed `review` POST passed as `extraction_ref`.
@@ -729,10 +741,11 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     # simply absent), and never points at a half-written version.
                     # Readers fall back to the legacy unversioned manifest.json when
                     # this file doesn't exist at all (pre-versioning corpus).
-                    current_object_name = f"{base_dir}/generated/{base_name}/current.json"
+                    current_object_name = f"{gen_root}/current.json"
                     current_pointer = {
                         "pipeline_version": version,
                         "manifest_key": manifest_object_name,
+                        "prefix": f"{gen_root}/{version}/",
                         "updated_at": datetime.now(timezone.utc).isoformat(),
                     }
                     s3_client.put_object(
