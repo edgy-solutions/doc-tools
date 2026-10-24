@@ -338,3 +338,55 @@ def test_build_review_items_flags_and_provenance():
 def test_validate_count_mismatch():
     assert merge.validate_count({"summary": "~19 devices"}, 19) is None
     assert "implies" in merge.validate_count({"summary": "~19 devices"}, 12)
+
+
+# --------------------------------------------------------------------------- #
+# The 2026-10-21 page-fractions ruling, on the REVIEW ROWS
+# --------------------------------------------------------------------------- #
+def test_a_review_items_bbox_is_page_fractions_and_page_dims_IS_GONE():
+    """ARCHITECT RULING 2026-10-21: page fractions, *"the same everywhere
+    evidence_ref appears"*. Lane 1 lifted the hold on the rows once cortex a3cf4d1
+    went live in 204.
+
+    The dropped `page_dims` is the load-bearing half. Cortex reads its PRESENCE as
+    "this box is in pixels": a fraction beside a stale 612x792 would be divided
+    again and drawn as a speck in the page corner, with no error and nothing to
+    distinguish it from a real tiny box there. So converting the box while keeping
+    the dims is worse than converting nothing.
+    """
+    els = [_el("NarrativeText", "Last Time Buy: 2024-12-05 applies to all.", 1,
+               [[61.2, 79.2], [550.8, 79.2], [550.8, 158.4], [61.2, 158.4]])]
+    idx = provenance.build_positioned_index(els)
+    ocr_norm = provenance._norm("Last Time Buy: 2024-12-05 applies to all.")
+    items, _r = merge.build_review_items(
+        {"doc_level_ltb_date": "2024-12-05",
+         "doc_level_ltb_date_source": "Last Time Buy: 2024-12-05"},
+        [], idx, ocr_norm)
+    it = {i["field_path"]: i for i in items}["header.doc_level_ltb_date"]
+
+    assert "page_dims" not in it, "the key is OMITTED, not nulled: cortex reads its presence"
+    # 61.2/612 = 0.1, 79.2/792 = 0.1, 550.8/612 = 0.9, 158.4/792 = 0.2
+    assert it["bboxes"] == [[0.1, 0.1, 0.9, 0.2]]
+    for box in it["bboxes"]:
+        assert all(0.0 <= v <= 1.0 for v in box), "a fraction is self-describing"
+    assert it["page_number"] == 1, "the page is untouched: only the box changed units"
+
+
+def test_a_row_box_with_no_dims_yields_NO_box_rather_than_a_bare_pixel_box():
+    """With `page_dims` gone there is no divisor on either side, so a pixel box left
+    behind would read as a wildly out-of-range fraction and flag the row unreadable.
+    It was already unusable before the conversion — cortex's pixel form needs
+    `page_dims` to scale — so dropping it loses nothing that worked.
+    """
+    assert merge._row_fractions(
+        {"bboxes": [[10, 10, 300, 30]], "page_dims": None}) == []
+    assert merge._row_fractions(
+        {"bboxes": [[10, 10, 300, 30]]}) == []
+    # A degenerate box goes the same way, and for the reason the leaf does it: cortex
+    # requires x0 < x1 strictly and drops what it cannot read.
+    assert merge._row_fractions(
+        {"bboxes": [[700, 100, 800, 200]], "page_dims": {"width": 612, "height": 792}}) == []
+    # And a good box among a bad one survives on its own.
+    assert merge._row_fractions(
+        {"bboxes": [[700, 100, 800, 200], [61.2, 79.2, 550.8, 158.4]],
+         "page_dims": {"width": 612, "height": 792}}) == [[0.1, 0.1, 0.9, 0.2]]

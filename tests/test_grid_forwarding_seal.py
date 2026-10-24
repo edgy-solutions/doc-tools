@@ -238,7 +238,7 @@ def test_persisted_text_layer_declines_omit_grid_but_extract_parts_receives_it(p
 
     captured = {}
 
-    def spy_extract_parts(tables, manifest, s3_client, full_text, tl_declines=None):
+    def spy_extract_parts(tables, manifest, s3_client, full_text, tl_declines=None, bucket=None):
         captured["tl_declines"] = tl_declines
         return [], {"n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
                     "crops_truncated": 0, "crops_near_cap": 0, "crops_row_short": 0,

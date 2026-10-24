@@ -149,6 +149,28 @@ def test_every_leaf_this_read_can_emit_is_a_sustainment_row():
         assert content_kind.KIND_MAPPING[leaf].domain_type == "sustainment"
 
 
+def test_the_bare_registry_predicate_is_WIDER_than_the_leaves_we_allow():
+    """ARCHITECT RULING 2026-10-21 (second): *"The allowed leaves are the content-kind
+    registry's domain-declaring kinds, read from the registry, never a literal list.
+    Today that's pcn and pdn on the PDF path. Make it registry-driven after the dry
+    run; for Thursday pcn|pdn stands."*
+
+    This test is the deferral made visible. "Domain-declaring" on its own is NOT
+    pcn|pdn today: it also admits work-instructions (manufacturing) and
+    s1000d-data-module (maintenance). So the registry-driven version is not a no-op
+    refactor of this literal -- it widens unless the ruling's own "on the PDF path"
+    qualifier is carried into the predicate. If this assertion ever flips to equal,
+    that is the signal the predicate can be swapped in as stated.
+    """
+    declaring = {k for k, e in content_kind.KIND_MAPPING.items()
+                 if getattr(e, "domain_type", None)}
+    allowed = set(leaf_read._DOC_TYPE_TO_LEAF.values())
+    assert allowed < declaring, (
+        "the literal must stay a STRICT subset; if it is now equal, read the ruling")
+    assert declaring - allowed, "and the gap is what the bare predicate would admit"
+
+
+
 def test_the_leaf_is_the_kind_key_not_the_doc_type():
     """Case is the whole difference between the two vocabularies, which is exactly why
     the mapping is explicit rather than `.lower()`."""
@@ -181,10 +203,19 @@ def test_a_confident_read_names_the_leaf_the_source_and_the_deciding_title():
     assert ref["element_id"] == "abc123"
     assert ref["element_index"] == 1
     assert ref["text"] == "PRODUCT CHANGE NOTICE"
-    assert ref["page_number"] == 1
-    assert ref["bbox"] == [300, 200, 1400, 260]
-    assert ref["bbox_space"] == leaf_read.BBOX_SPACE_LAYOUT_PIXELS
-    assert (ref["page_width"], ref["page_height"]) == (1700, 2200)
+    assert ref["page"] == 1
+    # PAGE FRACTIONS (architect, 2026-10-21): the layout box (300, 200, 1400, 260)
+    # over a 1700x2200 layout. Asserted as the literal values a consumer receives, not
+    # as the arithmetic that produced them — a test that recomputes the conversion
+    # passes when the conversion is wrong in both places.
+    assert ref["bbox"] == [0.176471, 0.090909, 0.823529, 0.118182]
+    assert all(0.0 <= v <= 1.0 for v in ref["bbox"])
+    assert "note" not in ref  # nothing to say: the box is on the page
+    # The divisor is kept so the pixels stay recoverable, and it is named as the
+    # space it came FROM, never as the space the bbox is in.
+    assert (ref["layout_width"], ref["layout_height"]) == (1700, 2200)
+    assert ref["bbox_source_space"] == leaf_read.BBOX_SOURCE_SPACE_LAYOUT_PIXELS
+    assert "bbox_space" not in ref  # the ruling removed it: a fraction is unit-free
 
 
 def test_the_deciding_title_is_the_headline_not_the_later_caption():
@@ -218,13 +249,17 @@ def test_a_headline_the_partitioner_typed_as_narrative_text_still_reads():
 
 def test_a_crop_is_absent_rather_than_invented_when_the_parse_has_no_geometry():
     """A non-PDF source or a fast-strategy parse has no coordinates. That is a missing
-    crop, not an error — and `bbox_space` must not name a space for a box that does not
-    exist, or a consumer will believe it has a location.
+    crop, not an error — and nothing may stand in for the box, or a consumer will
+    believe it has a location.
     """
     read = leaf_read.read_leaf_from_elements([_el("Title", "PRODUCT CHANGE NOTICE")])
     assert read.leaf == "pcn"
     assert read.evidence_ref["bbox"] is None
-    assert read.evidence_ref["bbox_space"] is None
+    # No points at all: there is nothing to report, so no note is invented either.
+    assert "note" not in read.evidence_ref
+    # It DOES cross, per the second ruling: the page is the locator and the box only
+    # refines it, so the card navigates to page 1 and draws no outline.
+    assert leaf_read.wire_evidence_ref(read.evidence_ref) == {"page": 1, "bbox": None}
 
 
 # --------------------------------------------------------------------------- #
@@ -243,8 +278,9 @@ def test_an_ambiguous_headline_offers_both_leaves_and_no_leaf():
     # ask, not to rank one above the other.
     assert len({c.score for c in read.candidates}) == 1
     for c in read.candidates:
-        assert c.evidence_ref["bbox"] == [300, 200, 1400, 260]
-        assert c.evidence_ref["bbox_space"] == leaf_read.BBOX_SPACE_LAYOUT_PIXELS
+        assert c.evidence_ref["bbox"] == [0.176471, 0.090909, 0.823529, 0.118182]
+        assert c.evidence_ref["bbox_source_space"] == (
+            leaf_read.BBOX_SOURCE_SPACE_LAYOUT_PIXELS)
 
 
 def test_a_later_printed_code_outranks_the_ambiguous_headline_that_refused():
@@ -360,7 +396,10 @@ def test_a_format_level_kind_is_not_a_leaf_and_goes_to_the_read(format_kind):
     read = leaf_read.resolve_leaf(
         format_kind, [_el("Title", "PRODUCT CHANGE NOTICE", box=(1, 1, 2, 2))])
     assert (read.leaf, read.leaf_source, read.outcome) == ("pcn", "title", "title")
-    assert read.evidence_ref["bbox"] == [1, 1, 2, 2]
+    # This test is about the routing, so the box is only checked for being a real
+    # unit-free locator; the conversion itself is pinned to literal values above.
+    assert len(read.evidence_ref["bbox"]) == 4
+    assert all(0.0 <= v <= 1.0 for v in read.evidence_ref["bbox"])
 
 
 @pytest.mark.parametrize("declared", [None, "", "not-a-registered-kind"])
@@ -396,3 +435,157 @@ def test_a_source_cannot_be_written_without_a_leaf():
     ):
         read = leaf_read.read_leaf_from_elements(elements)
         assert (read.leaf is None) == (read.leaf_source is None)
+
+
+# --------------------------------------------------------------------------- #
+# 7. The 2026-10-21 coordinate ruling, and the one sanctioned crossing.
+#
+# ARCHITECT: *"Crop coordinates: page fractions. [x0, y0, x1, y1] in 0..1, origin
+# top-left, plus page. Unit-free, so no extra key, and the same everywhere
+# evidence_ref appears."* And: *"doc_type_source -> leaf_source mapping, written once
+# in 7f's step 5: title -> title; title-ambiguous -> no leaf, awaiting_kind with the
+# candidates. Nothing else crosses."*
+# --------------------------------------------------------------------------- #
+def test_a_box_with_no_divisor_yields_no_box_and_says_why():
+    """The hazard the ruling removes. Points with no `layout_width` cannot be made
+    unit-free, and emitting the raw numbers would hand a consumer PIXELS labelled as
+    fractions — a crop that is confidently wrong, which is worse than one absent.
+    """
+    bbox, note = leaf_read._page_fractions([300, 200, 1400, 260], None, None)
+    assert bbox is None
+    assert "unit-free" in note
+
+
+def test_a_box_past_the_page_edge_is_clamped_and_the_clamp_is_noted():
+    """A box a little over the edge is ordinary and clamping is what cutting a crop
+    does anyway. One WILDLY over it means the geometry was in another space before it
+    arrived, and once the numbers are unit-free the note is the only place that shows.
+    """
+    bbox, note = leaf_read._page_fractions([-10, 0, 1800, 2300], 1700, 2200)
+    assert bbox == [0.0, 0.0, 1.0, 1.0]
+    assert "clamped" in note
+
+def test_a_box_clamped_to_NO_AREA_yields_no_box_because_it_would_drop_the_LIST():
+    """Found by reading cortex's a3cf4d1 contract, not by a failing assertion.
+
+    Their reader requires `x0 < x1` and `y0 < y1` STRICTLY, and a single bad item
+    drops the WHOLE candidate list; Lane 1's live 204 answers the same box with a 422.
+    Clamping a box that lies entirely past an edge collapses it to exactly that:
+    `[1.0, y, 1.0, y]`. So the clamp must refuse its own degenerate output -- a
+    zero-area box is worse than no box, because no box costs this candidate and a
+    zero-area one costs every candidate.
+    """
+    for box in ([1800, 200, 1900, 260],   # entirely right of the page
+                [300, -80, 1400, -10],    # entirely above the page
+                [-50, 200, -10, 260]):    # entirely left of the page
+        bbox, note = leaf_read._page_fractions(box, 1700, 2200)
+        assert bbox is None, f"{box} clamped to a degenerate box"
+        assert "no area" in note or "outside the page" in note
+    # An inverted box is refused by the same line: cortex requires x0 < x1, so a
+    # reversed pair is not a thin box, it is an unreadable one.
+    assert leaf_read._page_fractions([1400, 200, 300, 260], 1700, 2200)[0] is None
+    # And the ordinary over-the-edge case still clamps and still has area.
+    bbox, note = leaf_read._page_fractions([-10, 0, 1800, 2300], 1700, 2200)
+    assert bbox == [0.0, 0.0, 1.0, 1.0] and "clamped" in note
+
+
+
+def test_the_wire_ref_carries_the_RULED_KEYS_AND_NOTHING_ELSE():
+    """An extra key is a 422 at Lane 1's BFF, and cortex drops the WHOLE candidate
+    list when one item is invalid. So the projection is the contract: the nine-key
+    internal ref must not leak a single key past it.
+    """
+    read = leaf_read.read_leaf_from_elements(
+        [_el("Title", "PRODUCT CHANGE NOTICE", box=(300, 200, 1400, 260))])
+    wire = leaf_read.wire_evidence_ref(read.evidence_ref)
+    assert set(wire) == {"page", "bbox"}
+    assert wire["page"] == 1 and wire["page"] >= 1
+    assert wire["bbox"] == [0.176471, 0.090909, 0.823529, 0.118182]
+    # The projection must not alias the internal list: a consumer mutating what it
+    # was handed would rewrite the manifest block it came from.
+    wire["bbox"][0] = 9.9
+    assert read.evidence_ref["bbox"][0] == 0.176471
+
+
+def test_a_null_bbox_crosses_WITH_its_page_rather_than_being_dropped():
+    """ARCHITECT RULING 2026-10-21 (second): *"bbox may be null; page may not. Null
+    bbox means 'stated on this page, no box we can draw'."*
+
+    The first cut of this projection dropped a boxless ref whole. That threw away the
+    half that works: the card can still jump to the page, and a candidate with a page
+    and no outline is strictly more locatable than one with no evidence_ref at all.
+    """
+    wire = leaf_read.wire_evidence_ref(
+        {"page": 3, "bbox": None, "element_id": "x", "layout_width": None})
+    assert wire == {"page": 3, "bbox": None}
+    # `bbox` is PRESENT and null, not omitted: an absent key and a null one are the
+    # same to a reader that uses .get(), but not to a schema that requires the key.
+    assert "bbox" in wire
+
+
+def test_a_boxless_ref_keeps_the_note_that_says_why_there_is_no_box():
+    """The no-divisor case is the one that has something to say: the geometry existed
+    and could not be made unit-free. Under the first cut that note died with the ref.
+    """
+    bbox, note = leaf_read._page_fractions([300, 200, 1400, 260], None, None)
+    assert bbox is None and note
+    wire = leaf_read.wire_evidence_ref({"page": 2, "bbox": bbox, "note": note})
+    assert wire["page"] == 2 and wire["bbox"] is None
+    assert "unit-free" in wire["note"]
+
+
+def test_only_a_PAGELESS_ref_fails_to_cross():
+    """*"page may not [be null]"* — so the page is the one load-bearing key, and a ref
+    without one is not a locator in any sense. This is also the derived-field case:
+    *"Derived fields carry no evidence_ref at all, as ruled."* A derived value is on
+    no page, so it arrives here pageless and is correctly refused.
+    """
+    assert leaf_read.wire_evidence_ref({"page": None, "bbox": [0.1, 0.1, 0.2, 0.2]}) is None
+    assert leaf_read.wire_evidence_ref({"bbox": [0.1, 0.1, 0.2, 0.2]}) is None
+    assert leaf_read.wire_evidence_ref(None) is None
+    assert leaf_read.wire_evidence_ref({}) is None
+
+
+def test_the_wire_ref_carries_a_note_when_there_is_one():
+    ref = {"page": 2, "bbox": [0.0, 0.0, 1.0, 1.0], "note": "clamped",
+           "element_id": "x", "layout_width": 1700}
+    assert leaf_read.wire_evidence_ref(ref) == {
+        "page": 2, "bbox": [0.0, 0.0, 1.0, 1.0], "note": "clamped"}
+
+
+def test_only_title_crosses_to_a_leaf_source():
+    """*"title -> title; title-ambiguous -> no leaf ... Nothing else crosses."*"""
+    assert leaf_read.leaf_source_for_outcome(
+        leaf_read.OUTCOME_TITLE) == leaf_read.LEAF_SOURCE_TITLE
+    assert leaf_read.leaf_source_for_outcome(
+        leaf_read.OUTCOME_TITLE_AMBIGUOUS) is None
+    # Named only as `title-ambiguous` in the ruling because that is the interesting
+    # case, but a read with no evidence is equally a read that produced no leaf.
+    assert leaf_read.leaf_source_for_outcome(
+        leaf_read.OUTCOME_NO_TITLE_EVIDENCE) is None
+
+
+@pytest.mark.parametrize("never", ["declared", "corrected", "ingest",
+                                   "extraction-title", "defaulted", None, ""])
+def test_declared_and_corrected_are_UNREACHABLE_from_a_read(never):
+    """A declared leaf came off the drop and a corrected one came from a person. A
+    title read minting either would be a provenance lie about who decided, so it is
+    unreachable by construction rather than by a reviewer's care.
+    """
+    assert leaf_read.leaf_source_for_outcome(never) is None
+
+
+def test_the_walk_emits_no_outcome_the_mapping_does_not_name():
+    """The drift guard. `doc_type_from_titles` owns these strings; if one changes over
+    there, this fails rather than falling through the mapping as a silent "no leaf".
+    """
+    seen = set()
+    for titles, _expected_leaf in [
+        (["PRODUCT CHANGE NOTICE"], "pcn"),
+        (["PCN / PDN Combined Change and End-of-Life Notice"], None),
+        (["Table of Contents"], None),
+        ([], None),
+    ]:
+        seen.add(header_trust.doc_type_from_titles(titles)[1])
+    assert seen <= set(leaf_read.READ_OUTCOMES)
+    assert leaf_read.OUTCOME_DECLARED not in seen
