@@ -866,6 +866,110 @@ def test_no_review_json_for_a_review_contract_document_seals_too(monkeypatch):
     assert calls[0][2]["reason_code"] == "extraction_empty"
 
 
+def _drive_stage_on_the_wire(monkeypatch, review):
+    """Drive the same path through the REAL `IngestStatusResource.update`.
+
+    The two seals above replace `update` with a double, so the guard INSIDE it
+    -- a `failed` post requires a non-blank `detail` -- never runs, and a call
+    the guard would REFUSE records as a successful post. Lane 1 measured the
+    consequence at work (MAR053, packet 2026-10-22): the POST raised, the
+    `except` logged it, the run still reported SUCCESS, and the row sat at
+    `extracting` with no review task. A double that stands in for the thing
+    enforcing the contract cannot witness a breach of it.
+
+    Here only the token mint and the HTTP transport are stubbed, so every
+    guard is live and the assertion is `a request was SENT`.
+    """
+    import contextlib
+
+    import doc_tools.utils.dagster_resources as dr
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
+    from doc_tools.plugins.sustainment import SustainmentPlugin
+
+    aug = SimpleNamespace(review=review, needs_review=True,
+                          review_reasons=["header pass failed: boom"], stats={})
+    node = SimpleNamespace(domain_augmentation=aug)
+    monkeypatch.setattr(SustainmentPlugin, "process_fulltext",
+                        lambda self, *a, **k: [node])
+    monkeypatch.setattr(SustainmentPlugin, "augment", lambda self, *a, **k: node)
+    monkeypatch.setattr("doc_tools.utils.mesh_identity.stage_auth_headers",
+                        lambda *a, **k: {"Authorization": "Bearer stub-not-a-token"})
+
+    sent = []
+
+    def _post(url, json=None, headers=None, timeout=None):
+        sent.append({"url": url, "body": json})
+        return SimpleNamespace(status_code=200, text="")
+
+    monkeypatch.setattr(dr.httpx, "post", _post)
+    with contextlib.suppress(Exception):
+        build_knowledge_graph(
+            build_asset_context(), _bkg_config(), _stage_manifest(),
+            s3=MagicMock(), neo4j=MagicMock(), weaviate=MagicMock(),
+            llm=MagicMock(), jena=MagicMock(),
+        )
+    return sent
+
+
+def test_the_zero_row_seal_REACHES_THE_WIRE_not_just_the_double(monkeypatch):
+    sent = _drive_stage_on_the_wire(
+        monkeypatch, {"review_items": [{"field_path": "header.mfr"}]})
+    assert len(sent) == 1, (
+        "failed:extraction_empty was never POSTed. The call site omitted "
+        "`detail` and the guard in IngestStatusResource.update refuses a "
+        "`failed` post without one, so nothing reached Lane 1 and the row "
+        "stays at `extracting` while the run reports SUCCESS."
+    )
+    body = sent[0]["body"]
+    assert body["stage"] == "failed"
+    assert body["reason_code"] == "extraction_empty"
+    assert (body.get("detail") or "").strip(), (
+        "the POST carried no `detail`; Lane 1's route requires one on a "
+        "terminal negative stage"
+    )
+
+
+def test_NO_failed_post_anywhere_omits_detail():
+    """The generalisation, because the wire seal above reaches ONE call site.
+
+    Driving the asset found two broken posts, not the one Lane 1's packet
+    named: `extraction_empty` in Phase 5b and `extraction_failed` in the
+    wrapper's except. Both had been refused since they were written. A
+    behavioural test per site would have to arrange each site's own failure,
+    and the next `failed` post added would start out unsealed, so the rule is
+    asserted against the source: a `failed` update call must pass `detail`.
+    """
+    import ast
+    import pathlib
+
+    roots = [
+        pathlib.Path("doc_tools/assets/semantic_assets.py"),
+        pathlib.Path("doc_tools/components/document_parser.py"),
+    ]
+    offenders = []
+    for path in roots:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for call in ast.walk(tree):
+            if not isinstance(call, ast.Call):
+                continue
+            fn = call.func
+            if not (isinstance(fn, ast.Attribute) and fn.attr == "update"):
+                continue
+            literals = [
+                a.value for a in call.args
+                if isinstance(a, ast.Constant) and isinstance(a.value, str)
+            ]
+            if "failed" not in literals:
+                continue
+            if not any(k.arg == "detail" for k in call.keywords):
+                offenders.append(f"{path}:{call.lineno}")
+    assert not offenders, (
+        "a `failed` ingest-stage post with no `detail` is REFUSED by the "
+        "guard in IngestStatusResource.update, so the stage is never "
+        f"recorded and the row sits at `extracting`: {offenders}"
+    )
+
+
 def test_a_document_with_no_review_contract_is_posted_review_not_sealed(monkeypatch):
     calls = _drive_stage(monkeypatch, None, with_review_attr=False)
     assert [c[1] for c in calls] == ["review"]
