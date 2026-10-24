@@ -37,3 +37,16 @@ requires, by the owning lane.
   — `pyproject.toml` and `uv.lock` are here. Never a bare `python`/`py` from
   `PATH` or another checkout's venv: this repo has already had a conclusion
   inverted by a stale interpreter reading a stale file successfully.
+
+  And run the suite **from PowerShell**, redirecting to a log:
+  `& .\.venv\Scripts\python.exe -m pytest tests/ -q > pytest.log; Get-Content pytest.log -Tail 5`.
+  A system interpreter loads a different `python-magic`/libmagic pairing and
+  blocks for ever at import (`magic/compat.py`): no output, one core pegged,
+  and the process outlives the session — on 2026-10-02 four of these had been
+  running for one to two days. The venv interpreter under the Bash tool hangs
+  in collection the same way and prints nothing; from PowerShell the suite
+  finishes in well under a minute. Every module pays for this because
+  `doc_tools/__init__.py` imports the Dagster defs, which pull `unstructured`,
+  which pulls `python-magic`. **A run that produces no output is an
+  interpreter-and-shell problem before it is a code problem** — kill it rather
+  than leaving it running. (From #64, which this supersedes.)
