@@ -2,7 +2,47 @@
 
 Updated 2026-10-23. In-flight state only; durable findings live in project memory.
 
-## 2026-10-23 LATEST — THE SPLIT IS DONE: FIVE TOPIC PRs OPEN (#147-#151), TWO BRANCHES HELD ON A DEPENDENCY, AND THE DOORS-EXPORT PACKET IS PLACED
+## 2026-10-23 LATEST — ITEM 3 ANSWERED: A ZERO-ROW NOTICE **DOES** GET ITS NOTICE NODE. THREE OF THEM ARE IN SANDBOX, AND ONE HAS NO RDF IRI
+
+**Packet placed (not committed):** `invincible-agent/sessions/2026-10-23-packet-to-lane-01-from-7f-a-zero-row-notice-does-get-its-notice-node-three-of-them-are-in-sandbox-now.md`; our copy is in `sessions/` under the same name. It answers the architect's item 3 (§A) and item 4's CI-job half (§B).
+
+**NOT A CODE READING — READ-ONLY AGAINST THE DEPLOYED GRAPH** from the sandbox `doc-tools` pod. Of
+27 `SustainmentNotice` nodes in Neo4j, **three have no `Component` at all**, each with its
+`GOVERNED_BY` parent: `PCN-24_0003` (ADI, `needs_review=false` — the silent loss, visible in the
+graph), `diodes_2683` and `inbound/adi_23_0120` (both `needs_review=true`, both with empty `mfr`
+and `pub_date`). **So the empty-confirm path HAS an anchor and item 3 is NOT a 208 blocker.**
+
+**WHY IT SURVIVES, AND WHY THAT IS STRUCTURAL.** In `to_graph_queries` the notice `MERGE` and the
+`GOVERNED_BY` edge come **before** `UNWIND $impacted_parts`, so they run on the single input row
+and an empty `UNWIND` only zeroes the clauses after it. The RDF side types the notice IRI before
+the per-part loop (already sealed by `test_sustainment_pcn_uses_process_change_class`, which runs
+with `impacted_parts=[]`). Nothing short-circuits first: the zero-row path posts
+`failed:extraction_empty` and **falls through to the graph sink in the same function**
+(`_build_knowledge_graph_impl`); its only early returns are the `awaiting_kind` and
+`origin_unresolved` kind/leaf gates, neither a row-count gate. Identical to `main` — `git diff
+main` on the emission is zero lines.
+
+**THE ONE REAL GAP: THE ANCHOR IS ASYMMETRIC.** 27 Neo4j nodes vs 26 Jena IRIs, compared on
+`normalize_doc_id`. **`inbound/adi_23_0120` has a Neo4j node and NO Jena IRI** — a substring scan
+of `SUSTAINMENT_INSTANCES` for `adi`/`0120` returns only `PDN-23_0120`, so it is a real absence,
+not a spelling difference. (`diodes_bbox`/`diodes_tier1` are in Jena only; our own probe runs.)
+Cause unestablished and **7f owns it**: every Cypher and every SPARQL write is wrapped in its own
+`try/except` that logs `context.log.error` and continues, so a failed triple write and a green run
+are compatible states.
+
+**AND THE ID TRAP:** Neo4j keys the node on `notice.doc_id` **verbatim** (hence a path fragment,
+`inbound/adi_23_0120`) while the IRI normalizes it. Told Lane 1 to anchor on the Neo4j node and to
+look it up by the `doc_id` extraction actually wrote, never by notice number.
+
+**§B, FOR LANE 1's DRIFT CI JOB — MEASURED, AND CHEAP:** `tests/test_overlay_kind_drift.py`
+imports only `json`/`os`/`pathlib`/`pytest`/`yaml` and reads `registry/content_kinds/*.yaml` plus
+`registry/content_kind_domains.json` — **no `doc_tools` import, no BAML, no libmagic, no `uv`**.
+`pip install pytest pyyaml` is the whole environment and it runs in **0.34s** (`1 failed, 6 passed`
+against their overlay today, naming `doors-export` only). `IAGENT_CONTENT_KIND_OVERLAY_DIR` wants
+the **leaf** dir (`.../overlays/openddil-lab/content_kinds`), and a set-but-unresolvable path
+**fails** instead of skipping — so a mistyped job cannot look green.
+
+## 2026-10-23 — THE SPLIT IS DONE: FIVE TOPIC PRs OPEN (#147-#151), TWO BRANCHES HELD ON A DEPENDENCY, AND THE DOORS-EXPORT PACKET IS PLACED
 
 **Report:** `sessions/2026-10-23-report-7f-the-split-is-five-prs-open-two-held-and-the-doors-packet-is-placed.md`
 **Packet placed (not committed) in the peer tree:** `invincible-agent/sessions/2026-10-23-packet-to-lane-01-from-7f-the-doors-export-passes-drift-is-one-overlay-line-and-ci-skips-the-test.md`; our copy is in `sessions/` under the same name.
