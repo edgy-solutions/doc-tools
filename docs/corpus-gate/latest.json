@@ -2,18 +2,18 @@
   "schema": 1,
   "verdict": "fail",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-24T09:50:14Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+  "generated_at": "2026-10-24T17:26:12Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
   "measured_pin_note": null,
   "image_identity": {
-    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
-    "measured_digest": "sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
+    "measured_digest": "sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
     "checked": true,
     "comparisons": [
       {
         "source": "pods",
-        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
-        "expected_digest": "sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
+        "expected_digest": "sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
         "result": "match"
       }
     ],
@@ -23,9 +23,9 @@
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-10-24T07:00:24Z",
-      "ended_at": "2026-10-24T07:57:39Z",
-      "elapsed_s": 3435.0,
+      "started_at": "2026-10-24T15:04:22Z",
+      "ended_at": "2026-10-24T15:49:28Z",
+      "elapsed_s": 2705.7,
       "log": "fire1.log",
       "totals": {
         "gt": 522,
@@ -71,27 +71,39 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 434020,
+      "log_bytes": 437141,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 2,
-      "exit": 0,
-      "started_at": "2026-10-24T07:57:39Z",
-      "ended_at": "2026-10-24T08:53:18Z",
-      "elapsed_s": 3339.3,
+      "exit": 1,
+      "started_at": "2026-10-24T15:49:28Z",
+      "ended_at": "2026-10-24T16:38:58Z",
+      "elapsed_s": 2969.8,
       "log": "fire2.log",
       "totals": {
         "gt": 522,
-        "exact": 522,
+        "exact": 521,
         "spurious": 0,
-        "missing": 0,
+        "missing": 1,
         "malformed": 0,
         "ruled_out": 0,
-        "emitted": 522
+        "emitted": 521
       },
-      "defects": {},
+      "defects": {
+        "onsemi_Generic_IPCN25300X.pdf": {
+          "count": 19,
+          "exact": 18,
+          "emitted": 18,
+          "clean": false,
+          "missing": [
+            "NSR02F30NXT5G"
+          ],
+          "spurious": [],
+          "malformed": []
+        }
+      },
       "seal_checked": true,
       "seal_totals": {
         "n_tables": 37,
@@ -126,16 +138,16 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 438136,
+      "log_bytes": 448672,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-10-24T08:53:18Z",
-      "ended_at": "2026-10-24T09:50:14Z",
-      "elapsed_s": 3415.1,
+      "started_at": "2026-10-24T16:38:58Z",
+      "ended_at": "2026-10-24T17:26:12Z",
+      "elapsed_s": 2834.0,
       "log": "fire3.log",
       "totals": {
         "gt": 522,
@@ -181,7 +193,7 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 436831,
+      "log_bytes": 447411,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     }
@@ -194,18 +206,18 @@
       3
     ],
     "fires_missing": [],
-    "agreement": true,
+    "agreement": false,
     "documents": 10,
     "errors": 0,
     "not_applicable": 0,
     "rates": {
       "needs_review": {
-        "count": 3,
+        "count": 4,
         "denominator": 10,
-        "fire": 1,
+        "fire": 2,
         "by_fire": {
           "1": 3,
-          "2": 3,
+          "2": 4,
           "3": 3
         }
       },
@@ -240,12 +252,12 @@
         }
       },
       "crops_row_short": {
-        "count": 0,
+        "count": 1,
         "denominator": 10,
-        "fire": 1,
+        "fire": 2,
         "by_fire": {
           "1": 0,
-          "2": 0,
+          "2": 1,
           "3": 0
         }
       },
@@ -301,7 +313,7 @@
       "not_applicable": 0,
       "rates": {
         "needs_review": {
-          "count": 3,
+          "count": 4,
           "denominator": 10
         },
         "crops_failed": {
@@ -317,7 +329,7 @@
           "denominator": 10
         },
         "crops_row_short": {
-          "count": 0,
+          "count": 1,
           "denominator": 10
         },
         "text_layer_degraded": {
@@ -518,7 +530,7 @@
     "observed": true,
     "fires": {
       "1": {
-        "exact": 7,
+        "exact": 8,
         "fields_scored": 9,
         "clean": true,
         "observed": true,
@@ -526,7 +538,7 @@
         "pending": []
       },
       "2": {
-        "exact": 8,
+        "exact": 7,
         "fields_scored": 9,
         "clean": true,
         "observed": true,
@@ -550,15 +562,17 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "mfr": "'TE Connecvity' | 'TE' | 'TE'",
-          "mfr_source": "'TE Connecvity' | 'TE' | 'TE'",
-          "doc_level_ltb_date_source": "'-2024' | '-2024' | '06-JUN-2024'"
+          "mfr": "'TE Connecvity' | 'TE' | 'TE Connecvity'",
+          "mfr_source": "'TE Connecvity' | 'TE' | 'TE Connecvity'",
+          "pub_date_source": "'10-Jun-2024' | '10-Jun-2024' | '6/10/24, 11:28 AM'",
+          "doc_level_ltb_date": "'2024-06-06' | '2024-06-06' | None",
+          "doc_level_ltb_date_source": "'06-JUN-2024' | '-2024' | None"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "doc_id": "'PCN-2683' | 'PCN #: 2683' | 'PCN #: 2683'"
+          "doc_id": "'PCN #: 2683' | 'PCN-2683' | 'PCN-2683'"
         }
       },
       "EOL-36_BYV34-400,-BYV34-500.pdf": {
@@ -578,11 +592,8 @@
         "fields": {}
       },
       "onsemi_Generic_IPCN25300X.pdf": {
-        "verdict": "DISAGREE",
-        "fields": {
-          "mfr": "'ONSEM.' | 'onsemi' | 'onsemi'",
-          "mfr_source": "'ONSEM.' | 'onsemi' | 'onsemi'"
-        }
+        "verdict": "agree",
+        "fields": {}
       },
       "onsemi_Generic_PD26044X1.pdf": {
         "verdict": "agree",
@@ -591,8 +602,8 @@
       "TI_PCN_20210316000.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "mfr": "'TEXAS INSTRUMENTS' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'",
-          "mfr_source": "'TEXAS INSTRUMENTS' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'"
+          "mfr": "'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS' | 'TEXAS INSTRUMENTS'",
+          "mfr_source": "'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS' | 'TEXAS INSTRUMENTS'"
         }
       },
       "IDT_PDN_OV-19-05.pdf": {
@@ -632,17 +643,14 @@
     "distinct_notices": 10,
     "collapses": [],
     "incomplete_identity": [],
-    "identity_half_unstable": [
-      "onsemi_Generic_IPCN25300X.pdf"
-    ],
+    "identity_half_unstable": [],
     "revision_half_unstable": [
       "Diodes_PCN_2683_Rev1_EOL.pdf"
     ]
   },
   "blocking": [
-    "Diodes_PCN_2683_Rev1_EOL.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log",
-    "onsemi_Generic_IPCN25300X.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log",
-    "onsemi_Generic_IPCN25300X.pdf: identity half (mfr/doc_id) is unstable across fires and needs_review is not True in all three fires"
+    "fire 2: pcn_corpus_run.py exited 1 \u2014 parts/crop-seal gate not met (see fire2.log)",
+    "Diodes_PCN_2683_Rev1_EOL.pdf: header fields disagree across fires and needs_review is not True in all three fires (undeclared silent write) \u2014 see header_agreement.log"
   ],
   "exempted": [
     "TI_PCN_20210316000.pdf: header disagreement exempted \u2014 needs_review=True in all three fires",
