@@ -152,3 +152,21 @@ on a v4 upgrade on my side, and v4 would need the gRPC port.
 - **Still open with tr.** The exact version-folder layout, and whether a re-run
   is write-once or overwrites. Confirmation of Course.title/filename, 1-based
   Slide.number, MERGE-never-delete, and one Concept per name.
+
+## Addendum 2 — the read side of the v1 draft, reviewed and OK'd
+
+I reviewed the draft at `C:/tmp/dt-tr/docs/contracts/training-workbench.md`
+(lane/tr, not yet committed). The deck sha256 is `895392ac…7ebc` and the
+sidecar sha256 is `5c79951c…8966`; both match.
+- **tr's open points answered.** The folder layout is
+  `training/generated/<hex>/<pipeline_version>/`, with `current.json` the only
+  mutable key. Version folders are write-once in name, and nothing deletes
+  them. All five of my point-6 items are confirmed in §3/§4.
+- **Accepted as parity with the old producer** (8040cf4^): a revised deck is a
+  new Course with no lineage; text-less slides get no node, so numbers can have
+  gaps; `[Type] text` with the 500-char cap.
+- **v2 wish, not blocking.** A Slide node with text `""` for image-only slides.
+- **Asked of tr before the pin.** Explicit HAS_SECTION and COVERS edges in
+  `golden.neo4j.nondeterministic`, and `concept_summary` consistent with them.
+- **wb vendors** the fixture only after tr commits it and sends the commit sha
+  and the golden sha256.
