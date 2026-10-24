@@ -12,7 +12,7 @@ from doc_tools.utils.table_text_layer import (
     REPLACEMENT_HEADERS,
     find_header_row, find_title_row, grid_outcome, header_pairing, looks_like_mpn,
     pair_columns, parts_from_grid, parts_from_pages, split_composite_cell,
-    strip_enclosing_quotes,
+    strip_enclosing_quotes, word_boxes_for_mpns,
 )
 
 # The real page-3 shape: a CAPTION, then a header declaring THREE (EOL, Replacement) pairs.
@@ -890,3 +890,49 @@ def test_dates_and_labels_are_not_mpns():
     assert not looks_like_mpn("Jun 22, 2021")
     assert not looks_like_mpn("Proposed 1st Ship Date:")
     assert looks_like_mpn("090-44310-31")
+
+
+class _WordPage:
+    """Stub page: width/height in points and a fixed extract_words()."""
+    def __init__(self, words, width=612.0, height=792.0, raises=False):
+        self.width, self.height, self._words, self._raises = width, height, words, raises
+
+    def extract_words(self):
+        if self._raises:
+            raise RuntimeError("unreadable page")
+        return self._words
+
+
+def _w(text, x0=10.0, top=20.0, x1=60.0, bottom=30.0):
+    return {"text": text, "x0": x0, "top": top, "x1": x1, "bottom": bottom}
+
+
+def test_word_box_single_match_in_points_with_page_dims():
+    page = _WordPage([_w("IDT1", 1, 2, 3, 4), _w("other")])
+    out = word_boxes_for_mpns([(1, page)], ["IDT1"])
+    assert out == {"IDT1": {"page_number": 1, "bbox": [1.0, 2.0, 3.0, 4.0],
+                            "page_dims": {"width": 612.0, "height": 792.0}}}
+
+
+def test_word_box_duplicate_gets_no_entry_even_across_pages():
+    p1, p2 = _WordPage([_w("IDT1")]), _WordPage([_w("IDT1"), _w("IDT2")])
+    out = word_boxes_for_mpns([(1, p1), (2, p2)], ["IDT1", "IDT2"])
+    assert "IDT1" not in out
+    assert out["IDT2"]["page_number"] == 2
+
+
+def test_word_box_absent_and_inexact_get_no_entry():
+    page = _WordPage([_w("idt1"), _w("IDT10")])
+    assert word_boxes_for_mpns([(1, page)], ["IDT1", "MISSING"]) == {}
+
+
+def test_word_box_trailing_punctuation_still_matches():
+    page = _WordPage([_w("IDT1,"), _w("IDT2.")])
+    out = word_boxes_for_mpns([(1, page)], ["IDT1", "IDT2"])
+    assert set(out) == {"IDT1", "IDT2"}
+
+
+def test_word_box_unreadable_page_does_not_lose_the_other_page():
+    bad, good = _WordPage([], raises=True), _WordPage([_w("IDT1")])
+    out = word_boxes_for_mpns([(1, bad), (2, good)], ["IDT1"])
+    assert out["IDT1"]["page_number"] == 2

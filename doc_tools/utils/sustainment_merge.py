@@ -234,12 +234,26 @@ def build_review_items(header: dict, parts: List[dict], index: List[dict],
                 "match_method": "text_layer_cell",
                 "match_confidence": 1.0,
             }
+        elif p.get("text_layer_word_bbox"):
+            # A PER-ROW word box (exact single-match from the PDF word layer) for rows
+            # with no cell geometry: better than resolve_value's enclosing-table box.
+            prov = {
+                "found": True,
+                "page_number": p.get("text_layer_word_page"),
+                "bboxes": [p["text_layer_word_bbox"]],
+                "page_dims": p.get("text_layer_word_page_dims"),
+                "match_method": "text_layer_word",
+                "match_confidence": 1.0,
+            }
         else:
             prov = provenance.resolve_value(amp_src, index, prefer_region="table")
         # A text-layer value came OUT of the document, so it cannot be a hallucination —
         # the OCR-verbatim check exists to catch vision transcription/invention and does
         # not apply. (It would also false-positive: the OCR text stream and the table cell
         # can tokenize differently.)
+        # The bypass is DELIBERATELY keyed on tl_bbox only: a word box is a locator for a
+        # value the vision pass still READ, so it must not suppress the verbatim check.
+        # needs_review is load-bearing for a corpus-gate exemption.
         in_ocr = True if tl_bbox else ((provenance._norm(amp) in ocr_text_norm) if amp else False)
         reason = None
         if not in_ocr:
@@ -260,6 +274,11 @@ def build_review_items(header: dict, parts: List[dict], index: List[dict],
                 rprov = {"found": True, "page_number": p.get("text_layer_page"),
                          "bboxes": [rep_bbox], "page_dims": p.get("text_layer_page_dims"),
                          "match_method": "text_layer_cell", "match_confidence": 1.0}
+            elif p.get("text_layer_word_replacement_bbox"):
+                rprov = {"found": True, "page_number": p.get("text_layer_word_page"),
+                         "bboxes": [p["text_layer_word_replacement_bbox"]],
+                         "page_dims": p.get("text_layer_word_page_dims"),
+                         "match_method": "text_layer_word", "match_confidence": 1.0}
             else:
                 rprov = provenance.resolve_value(
                     p.get("replacement_mpn_source") or p["replacement_mpn"], index, prefer_region="table")
