@@ -364,13 +364,18 @@ class TrainingPlugin(AugmentationPlugin):
                 }
             })
             
-            # Map Concepts -> (Section)-[:TEACHES]->(Concept)
+            # Map Concepts -> (Section)-[:TEACHES {salience}]->(Concept)
+            # Salience is on the edge; the Concept merges on name alone, one
+            # node per name across courses (contract training-workbench §4).
             for raw_concept in aug.concepts:
                 concept_id = f"concept_{raw_concept.name.replace(' ', '_')}"
                 edge_cypher = f"""
                 MERGE (s:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
-                MERGE (c:Concept:{self.domain_label} {{id: $concept_id, name: $c_name, salience: $c_salience}})
-                MERGE (s)-[:TEACHES]->(c)
+                MERGE (c:Concept:{self.domain_label} {{name: $c_name}})
+                ON CREATE SET c.id = $concept_id
+                SET c.domain = $c_domain
+                MERGE (s)-[t:TEACHES]->(c)
+                SET t.salience = $c_salience
                 """
                 cypher_queries.append({
                     "query": edge_cypher,
@@ -378,6 +383,7 @@ class TrainingPlugin(AugmentationPlugin):
                         "section_id": section_id,
                         "concept_id": concept_id,
                         "c_name": raw_concept.name,
+                        "c_domain": self.domain_label,
                         "c_salience": raw_concept.salience
                     }
                 })

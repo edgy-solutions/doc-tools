@@ -207,7 +207,6 @@ def test_training_kind_row_and_sensor():
     assert resolve_content_kind({**meta, "domain_type": "training"}, deck_key) is row
 
 
-@pytest.mark.xfail(strict=True, reason="lane tr step d")
 def test_teaches_salience_is_on_the_edge():
     from doc_tools.plugins.models import BaseSection, DocumentNode
     from doc_tools.plugins.training import Concept, SlideAugmentation, TrainingPlugin
