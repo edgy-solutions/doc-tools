@@ -42,6 +42,11 @@ REASON_CODES: frozenset[str] = frozenset({
     # PROPERTY: the deployed IngestStageUpdateRequest has no `retryable`
     # field, so this side can only NAME the code.
     "extraction_empty",
+    # A store write failed (Neo4j cypher / Pass 2 roll-up, or Jena SPARQL).
+    # Raised from semantic_assets.py, posted as the run's last act with the
+    # failed store(s) named in `detail`. Must be listed: dagster_resources
+    # coerces any code outside this set to `unexpected_error`.
+    "graph_write",
     # The watchdog (packet: `failed:timeout`). LANE 1 EMITS THIS, NOT US: see
     # RESERVED_TO_LANE_1. Kept here so it is RECOGNISED, never emitted.
     "timeout",

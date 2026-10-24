@@ -176,6 +176,32 @@ def _index_chunk(client, name: str, properties: dict) -> str:
 _PART_FIELD_RE = re.compile(r"^parts\[(\d+)\]\.[A-Za-z0-9_]+$")
 
 
+class GraphWriteError(RuntimeError):
+    """A domain graph write (Neo4j cypher / Pass 2 roll-up, or Jena SPARQL) failed.
+
+    Raised by `_build_knowledge_graph_impl` AFTER the `failed:graph_write` stage
+    post and the client close, so the asset fails in Dagster whether or not the
+    document has an ingest_id.
+    """
+
+
+def _graph_write_detail(failures: dict, attempted: dict) -> str:
+    """One-line, <=500-char account of which stores failed and how many writes.
+
+    `failures` maps store name -> list of stringified exceptions; `attempted`
+    maps store name -> writes attempted. Only stores that failed are named, in
+    sorted order, e.g. `graph write failed: jena (1 of 3 queries), neo4j (2 of
+    5 queries); first error: RuntimeError: boom`. The cap matches the
+    wrapper's `[:500]` stamp.
+    """
+    parts = [
+        f"{store} ({len(errs)} of {attempted.get(store, len(errs))} queries)"
+        for store, errs in sorted(failures.items()) if errs
+    ]
+    first = next((errs[0] for _, errs in sorted(failures.items()) if errs), "")
+    return f"graph write failed: {', '.join(parts)}; first error: {first}"[:500]
+
+
 def _part_row_count(review_payload) -> int:
     """Distinct part indices over review_payload["review_items"]; 0 if none."""
     items = (review_payload or {}).get("review_items") or []
@@ -981,6 +1007,76 @@ def _build_knowledge_graph_impl(
     except Exception as e:
         context.log.error(f"Failed to write review.json: {e}")
 
+    # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
+    #
+    # ADR-0041, AND THE ONE RESIDUAL OF THE INVARIANT, NAMED.
+    #
+    # The Neo4j stamp is universal as of 2026-10-02 — it rides the parent
+    # MERGE above, for every domain. This thread is about the RDF side, which
+    # is not: SustainmentPlugin is still the only to_graph_queries() that
+    # emits the PROV-term triples (PROV_DERIVED_FROM / PROV_GENERATED_AT into
+    # <http://internal/{DOMAIN}_INSTANCES>), and triples are emitted per
+    # plugin because there is no generic RDF write to hang them on the way
+    # there is a generic Cypher one. The other four signatures do not accept
+    # the kwarg, so it is passed conditionally — same _extra-dict pattern
+    # already used for process_fulltext above.
+    #
+    # Net position after this change: a provenance-bearing document in ANY
+    # domain is distinguishable from vetted content in Neo4j, and only a
+    # sustainment one is distinguishable in Jena. Widening the other four
+    # plugins is the remaining work; it is a residual of the invariant, not a
+    # contradiction of it, and it is written down here rather than left for a
+    # reader to discover from a missing triple.
+    _graph_extra = {}
+    if domain_type == "sustainment":
+        _graph_extra = {"provenance": provenance}
+    context.log.info(f"Generating domain graph queries from {len(document_nodes)} augmented nodes...")
+    cypher_queries, sparql_queries = plugin.to_graph_queries(
+        document_nodes, config, doc_id=doc_id, image_prefix=image_prefix, **_graph_extra
+    )
+    
+    # Failures are accumulated per STORE, not per query: every write is still
+    # attempted, and the verdict (posted after the last write) names the store.
+    _graph_failures: dict[str, list[str]] = {}
+    _graph_attempted: dict[str, int] = {}
+
+    def _record_graph_failure(store: str, e: Exception) -> None:
+        _graph_failures.setdefault(store, []).append(f"{type(e).__name__}: {e}")
+
+    for idx, c_query in enumerate(cypher_queries):
+        _graph_attempted["neo4j"] = _graph_attempted.get("neo4j", 0) + 1
+        try:
+            neo4j_client.execute_query(c_query["query"], c_query.get("params", {}))
+        except Exception as e:
+            context.log.error(f"Failed executing domain cypher query {idx}: {e}")
+            _record_graph_failure("neo4j", e)
+            
+    if sparql_queries:
+        context.log.info(f"SPARQL Queries to emit to Jena: {len(sparql_queries)}")
+        for idx, s_query in enumerate(sparql_queries):
+            _graph_attempted["jena"] = _graph_attempted.get("jena", 0) + 1
+            try:
+                # Runtime instance triples go to the domain's INSTANCE graph, never the
+                # vocabulary graph (AGENTS.md "Domain Semantic Graph") — prime DROPs the
+                # latter on every re-ingest, so instance data would be wiped if it shared it.
+                jena_client.execute_update(
+                    s_query, graph_uri=f"http://internal/{plugin.domain_label}_INSTANCES"
+                )
+            except Exception as e:
+                context.log.error(f"Failed executing domain SPARQL query {idx}: {e}")
+                _record_graph_failure("jena", e)
+
+    # --- PASS 2: LINK & ROLL-UP ---
+    _graph_attempted["neo4j"] = _graph_attempted.get("neo4j", 0) + 1
+    try:
+        context.log.info(f"Executing Pass 2 Roll-up for {type(plugin).__name__}...")
+        plugin.execute_pass2_rollup(neo4j_client, doc_id, config)
+    except Exception as e:
+        context.log.error(f"Pass 2 Roll-up failed: {e}")
+        _record_graph_failure("neo4j", e)
+
+    _graph_detail = _graph_write_detail(_graph_failures, _graph_attempted) if _graph_failures else ""
+
     # Phase 5b: the ingest stage POST (`review`, or `failed:extraction_empty`).
     # It lives HERE, not in document_parser.py, because the row count Lane 1
     # serves comes from review.json, which only exists at this point. Posting
@@ -991,6 +1087,16 @@ def _build_knowledge_graph_impl(
     # element was detected), so a seal on `extracted_count == 0` catches
     # neither. No ingest_id means no Lane 1 row to address: the vetted
     # sustainment/inbound/ path has no ingest_id and stays unposted.
+    #
+    # WHY IT LIVES AFTER THE GRAPH WRITES (architect ruling, 2026-10-23): "The
+    # stage post is a run's last act, after every store write has either
+    # succeeded or failed; stages never move backwards." Before this the post
+    # sat in front of the cypher loop, the SPARQL loop and the Pass 2 roll-up,
+    # each of which logs-and-continues on error, so `review` could be posted
+    # for a document the graph did not hold. A failed graph write now posts
+    # `failed:graph_write` with the store(s) named and `review` is never posted
+    # for it; no degraded marker, because a half-written document is not a
+    # state a steward can act on.
     if manifest.get("ingest_id"):
         ingest_id = manifest["ingest_id"]
         try:
@@ -1011,7 +1117,22 @@ def _build_knowledge_graph_impl(
             _total = len(manifest.get("pages") or []) or None
             _ref = manifest.get("manifest_key")
             status = IngestStatusResource()
-            if rows_are_review_unit and rows == 0:
+            if _graph_failures:
+                context.log.error(
+                    f"ingest stage for {doc_id}: failed:graph_write "
+                    f"({_graph_detail})")
+                # `reason` and `detail` are one string: a `failed` post with a
+                # blank `detail` is refused (see the extraction_empty note
+                # below), so the two cannot be allowed to drift apart.
+                status.update(
+                    ingest_id, "failed", reason_code="graph_write",
+                    reason=_graph_detail, detail=_graph_detail,
+                    extracted_count=_count, extracted_total=_total,
+                    extraction_ref=_ref,
+                )
+                if posted is not None:
+                    posted["stage"] = "failed"
+            elif rows_are_review_unit and rows == 0:
                 first = (review_payload or {}).get("review_reasons") or []
                 reason = "extraction produced zero part rows"
                 if first:
@@ -1051,60 +1172,8 @@ def _build_knowledge_graph_impl(
         except Exception as e:  # a stage write must never fail an extraction
             context.log.error(f"Failed to post ingest stage for {doc_id}: {e}")
 
-    # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
-    #
-    # ADR-0041, AND THE ONE RESIDUAL OF THE INVARIANT, NAMED.
-    #
-    # The Neo4j stamp is universal as of 2026-10-02 — it rides the parent
-    # MERGE above, for every domain. This thread is about the RDF side, which
-    # is not: SustainmentPlugin is still the only to_graph_queries() that
-    # emits the PROV-term triples (PROV_DERIVED_FROM / PROV_GENERATED_AT into
-    # <http://internal/{DOMAIN}_INSTANCES>), and triples are emitted per
-    # plugin because there is no generic RDF write to hang them on the way
-    # there is a generic Cypher one. The other four signatures do not accept
-    # the kwarg, so it is passed conditionally — same _extra-dict pattern
-    # already used for process_fulltext above.
-    #
-    # Net position after this change: a provenance-bearing document in ANY
-    # domain is distinguishable from vetted content in Neo4j, and only a
-    # sustainment one is distinguishable in Jena. Widening the other four
-    # plugins is the remaining work; it is a residual of the invariant, not a
-    # contradiction of it, and it is written down here rather than left for a
-    # reader to discover from a missing triple.
-    _graph_extra = {}
-    if domain_type == "sustainment":
-        _graph_extra = {"provenance": provenance}
-    context.log.info(f"Generating domain graph queries from {len(document_nodes)} augmented nodes...")
-    cypher_queries, sparql_queries = plugin.to_graph_queries(
-        document_nodes, config, doc_id=doc_id, image_prefix=image_prefix, **_graph_extra
-    )
-    
-    for idx, c_query in enumerate(cypher_queries):
-        try:
-            neo4j_client.execute_query(c_query["query"], c_query.get("params", {}))
-        except Exception as e:
-            context.log.error(f"Failed executing domain cypher query {idx}: {e}")
-            
-    if sparql_queries:
-        context.log.info(f"SPARQL Queries to emit to Jena: {len(sparql_queries)}")
-        for idx, s_query in enumerate(sparql_queries):
-            try:
-                # Runtime instance triples go to the domain's INSTANCE graph, never the
-                # vocabulary graph (AGENTS.md "Domain Semantic Graph") — prime DROPs the
-                # latter on every re-ingest, so instance data would be wiped if it shared it.
-                jena_client.execute_update(
-                    s_query, graph_uri=f"http://internal/{plugin.domain_label}_INSTANCES"
-                )
-            except Exception as e:
-                context.log.error(f"Failed executing domain SPARQL query {idx}: {e}")
-
-    # --- PASS 2: LINK & ROLL-UP ---
-    try:
-        context.log.info(f"Executing Pass 2 Roll-up for {type(plugin).__name__}...")
-        plugin.execute_pass2_rollup(neo4j_client, doc_id, config)
-    except Exception as e:
-        context.log.error(f"Pass 2 Roll-up failed: {e}")
-
+    # Closed on every path, including the failure one below: the raise must not
+    # leak the clients.
     try:
         neo4j_client.close()
     except Exception:
@@ -1115,6 +1184,13 @@ def _build_knowledge_graph_impl(
         weaviate_client.close()
     except Exception:
         pass
+
+    # Outside the `ingest_id` guard on purpose: the vetted sustainment/inbound/
+    # path has no ingest_id and no Lane 1 row, and the asset must still fail.
+    # Outside the POST's `except Exception` too, so a swallowed POST error
+    # cannot swallow this.
+    if _graph_failures:
+        raise GraphWriteError(_graph_detail)
 
     return {"doc_id": doc_id, "status": "processed", "node_label": node_label, "collection": collection_name}
 
@@ -1185,11 +1261,14 @@ def make_build_knowledge_graph(
             )
         except Exception as e:
             if posted.get("stage") is not None:
-                # A `failed` after a stage was posted is a backwards move on a
-                # row a steward may already hold (Lane 1 409s it or overrides
-                # it), and the extraction a steward reviews is complete by the
-                # time the stage is posted -- the sinks that failed are
-                # downstream of it. The asset still fails loudly in Dagster
+                # The stage post is the impl's LAST act (after every store
+                # write), so a failure arriving with a stage already posted is
+                # either the `failed:graph_write` stamp the impl just made --
+                # already the right code, and overwriting it with
+                # `extraction_failed` would be wrong -- or a failure after the
+                # post. Either way a second `failed` would be a backwards move
+                # on a row a steward may already hold (Lane 1 409s it or
+                # overrides it). The asset still fails loudly in Dagster
                 # (re-raised); only the stage overwrite is suppressed.
                 context.log.warning(
                     f"Graph build failed after stage {posted['stage']!r} was "

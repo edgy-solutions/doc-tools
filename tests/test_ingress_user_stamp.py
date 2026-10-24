@@ -818,6 +818,15 @@ def _drive_stage(monkeypatch, review, *, with_review_attr=True):
     monkeypatch.setattr(SustainmentPlugin, "process_fulltext",
                         lambda self, *a, **k: [node])
     monkeypatch.setattr(SustainmentPlugin, "augment", lambda self, *a, **k: node)
+    # The stage POST now follows the graph writes (architect ruling: the post
+    # is a run's last act), so the stub nodes must get through graph generation
+    # and the roll-up for the POST to be reached at all. Measured: with them
+    # unpatched, to_graph_queries raises on the SimpleNamespace nodes and no
+    # POST is made.
+    monkeypatch.setattr(SustainmentPlugin, "to_graph_queries",
+                        lambda self, *a, **k: ([], []))
+    monkeypatch.setattr(SustainmentPlugin, "execute_pass2_rollup",
+                        lambda self, *a, **k: None)
 
     calls = []
     monkeypatch.setattr(
@@ -892,6 +901,15 @@ def _drive_stage_on_the_wire(monkeypatch, review):
     monkeypatch.setattr(SustainmentPlugin, "process_fulltext",
                         lambda self, *a, **k: [node])
     monkeypatch.setattr(SustainmentPlugin, "augment", lambda self, *a, **k: node)
+    # The stage POST now follows the graph writes (architect ruling: the post
+    # is a run's last act), so the stub nodes must get through graph generation
+    # and the roll-up for the POST to be reached at all. Measured: with them
+    # unpatched, to_graph_queries raises on the SimpleNamespace nodes and no
+    # POST is made.
+    monkeypatch.setattr(SustainmentPlugin, "to_graph_queries",
+                        lambda self, *a, **k: ([], []))
+    monkeypatch.setattr(SustainmentPlugin, "execute_pass2_rollup",
+                        lambda self, *a, **k: None)
     monkeypatch.setattr("doc_tools.utils.mesh_identity.stage_auth_headers",
                         lambda *a, **k: {"Authorization": "Bearer stub-not-a-token"})
 
@@ -996,13 +1014,51 @@ def test_no_ingest_id_posts_nothing(monkeypatch):
     assert calls == []
 
 
-def test_a_failure_after_the_stage_post_does_not_stamp_failed(monkeypatch):
-    # The stubbed nodes make graph generation raise AFTER the review POST.
-    # The wrapper must not stamp `failed` onto a row already at `review`.
+def test_a_clean_run_posts_review_once_and_never_stamps_extraction_failed(monkeypatch):
+    # The graph writes now run BEFORE the post, so none can fail after it: a
+    # clean run posts exactly one `review` and never an `extraction_failed`.
     review = {"review_items": [{"field_path": "parts[0].mpn"}]}
     calls = _drive_stage(monkeypatch, review)
     assert [c[1] for c in calls] == ["review"]
     assert not any(c[2].get("reason_code") == "extraction_failed" for c in calls)
+
+
+def test_a_failed_graph_write_posts_graph_write_and_never_review(monkeypatch):
+    # A cypher query that raises: every write is still attempted, the stage
+    # posted is `failed:graph_write` naming neo4j, `review` is never posted,
+    # and the asset fails (GraphWriteError) with no second `failed` stamp.
+    from doc_tools.assets.semantic_assets import GraphWriteError, build_knowledge_graph
+    from doc_tools.plugins.sustainment import SustainmentPlugin
+    from doc_tools.utils.dagster_resources import IngestStatusResource
+
+    aug = SimpleNamespace(review={"review_items": [{"field_path": "parts[0].mpn"}]},
+                          needs_review=True, review_reasons=[], stats={})
+    node = SimpleNamespace(domain_augmentation=aug)
+    monkeypatch.setattr(SustainmentPlugin, "process_fulltext", lambda self, *a, **k: [node])
+    monkeypatch.setattr(SustainmentPlugin, "augment", lambda self, *a, **k: node)
+    monkeypatch.setattr(SustainmentPlugin, "to_graph_queries",
+                        lambda self, *a, **k: ([{"query": "Q1"}, {"query": "Q2"}], []))
+    monkeypatch.setattr(SustainmentPlugin, "execute_pass2_rollup", lambda self, *a, **k: None)
+    calls = []
+    monkeypatch.setattr(
+        IngestStatusResource, "update",
+        lambda self, ingest_id, stage, **kw: calls.append((ingest_id, stage, kw)))
+    neo4j = MagicMock()
+    def _exec(query, params=None):
+        if query in ("Q1", "Q2"):  # only the domain writes fail; the MERGEs pass
+            raise RuntimeError("neo4j down")
+
+    neo4j.get_client.return_value.execute_query.side_effect = _exec
+    with pytest.raises(GraphWriteError):
+        build_knowledge_graph(
+            build_asset_context(), _bkg_config(), _stage_manifest(),
+            s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
+            llm=MagicMock(), jena=MagicMock())
+    assert [c[1] for c in calls] == ["failed"]
+    kw = calls[0][2]
+    assert kw["reason_code"] == "graph_write"
+    assert kw["detail"] and kw["detail"] == kw["reason"]
+    assert "neo4j" in kw["detail"] and "jena" not in kw["detail"]
 
 
 def test_a_failure_before_the_stage_post_stamps_extraction_failed_and_reraises(monkeypatch):
