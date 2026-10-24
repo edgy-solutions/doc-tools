@@ -2077,6 +2077,30 @@ class SustainmentPlugin(AugmentationPlugin):
                 "params": {"section_id": section_id, "title": sec.title},
             })
 
+            # `ltb_date` IS SET, NEVER MERGED ON — AND THAT IS NOT COSMETIC.
+            #
+            # Neo4j refuses a MERGE whose relationship pattern carries a null
+            # property, and a null LTB date is one of this corpus's commonest
+            # extraction outcomes. Measured 2026-10-24 in the sandbox Dagster
+            # event log: 10 of 39 retained build_knowledge_graph runs died here
+            # with
+            #   Neo.ClientError.Statement.SemanticError - Cannot merge the
+            #   following relationship because of null property value for
+            #   'ltb_date': (c)-[:REPLACED_BY {ltb_date: null}]->(alt)
+            # spread over 5 documents, 2026-07-23 to 2026-10-02. Note what is
+            # lost: this is ONE query, so the error takes the whole statement
+            # with it - GOVERNED_BY and every SUBJECT_TO edge for the notice,
+            # not merely the one replacement row that had no date. The guard
+            # beside it tests `replacement_mpn`; nothing tested `ltb_date`.
+            #
+            # So the date is a PROPERTY OF the relationship, not part of its
+            # identity: MERGE on the endpoints, then SET. This does change the
+            # MERGE key - two rows naming the same (affected, replacement) pair
+            # with different dates used to make two edges and now make one,
+            # last-write-wins - which is the right reading of "A is replaced by
+            # B", and a null SET removes the property rather than storing a
+            # null. Sealed by
+            # tests/test_plugin_graph_queries.py::test_a_null_ltb_date_is_not_merged_into_the_replaced_by_pattern
             edge_cypher = f"""
             MERGE (p:{config.graph_node_label}:{self.domain_label} {{id: $section_id}})
             MERGE (n:SustainmentNotice:{self.domain_label} {{id: $notice_id}})
@@ -2094,7 +2118,8 @@ class SustainmentPlugin(AugmentationPlugin):
             WITH n, c, part
             FOREACH (r IN CASE WHEN part.replacement_mpn IS NOT NULL AND part.replacement_mpn <> "" THEN [1] ELSE [] END |
                 MERGE (alt:Component:{self.domain_label} {{mpn: part.replacement_mpn}})
-                MERGE (c)-[:REPLACED_BY {{ltb_date: part.ltb_date}}]->(alt)
+                MERGE (c)-[rep:REPLACED_BY]->(alt)
+                SET rep.ltb_date = part.ltb_date
             )
             """
             parts_params = [

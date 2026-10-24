@@ -211,6 +211,46 @@ def test_sustainment_to_graph_queries():
     assert sp.count("pcn:hasLastTimeBuyDate") == 1        # only MPN-A has an LTB date
 
 
+def test_a_null_ltb_date_is_not_merged_into_the_replaced_by_pattern():
+    """A part with a replacement but NO LTB date must not put a null in a MERGE.
+
+    Neo4j raises Neo.ClientError.Statement.SemanticError on a MERGE whose
+    relationship pattern carries a null property, and that aborts the whole
+    statement -- GOVERNED_BY and every SUBJECT_TO edge for the notice go with
+    it. Measured 2026-10-24: 10 of 39 retained build_knowledge_graph runs died
+    exactly here, all of them recorded SUCCESS because the write was swallowed.
+
+    The case the older fixture never reached: it has (replacement=None,
+    ltb=None), which the `replacement_mpn` guard skips, and (replacement,
+    ltb) which is fine. It has no row with a replacement and a null date --
+    the only shape that reaches the MERGE with a null.
+    """
+    sec = BaseSection(title="Sustainment Notice", level=0, page_start=0, content="", node_id="doc-9")
+    notice = SustainmentNotice(
+        doc_id="PCN-NULLTB", doc_type="PCN", pub_date="2026-05-01", mfr="Acme",
+        categories=["Discontinuation"], summary="Replacement named, no LTB date.",
+        impacted_parts=[
+            PartImpact(affected_mpn="MPN-D", replacement_mpn="MPN-E", ltb_date=None),
+        ],
+    )
+    node = DocumentNode(base_extraction=sec,
+                        domain_augmentation=SustainmentAugmentation(notice=notice))
+    config = SimpleNamespace(graph_node_label="Document", graph_child_label="Section")
+
+    cypher, _ = SustainmentPlugin(domain_type="sustainment").to_graph_queries([node], config)
+    edge_q = [q for q in cypher if "impacted_parts" in q["params"]][0]
+    q = edge_q["query"]
+
+    # The row that triggers it is present and carries a null date...
+    assert edge_q["params"]["impacted_parts"] == [
+        {"affected_mpn": "MPN-D", "replacement_mpn": "MPN-E", "ltb_date": None}
+    ]
+    # ...and the date is set as a property, never merged on.
+    assert "REPLACED_BY {ltb_date" not in q, "a null ltb_date in the MERGE pattern aborts the statement"
+    assert "[rep:REPLACED_BY]->(alt)" in q
+    assert "SET rep.ltb_date = part.ltb_date" in q
+
+
 def test_sustainment_pcn_uses_process_change_class():
     sec = BaseSection(title="Notice", level=0, page_start=0, content="", node_id="doc-2")
     notice = SustainmentNotice(
