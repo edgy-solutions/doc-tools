@@ -262,44 +262,113 @@ class TestTheDegradedGate:
         assert needs_review is True
 
 
-class TestTheArmsOwnShapeTests:
-    """A SEPARATE DEFECT, measured while sealing the ruling, recorded here because the
-    next person to read 24_0003's `header.mfr not written` will otherwise conclude the
-    page prints no manufacturer.
+class TestTheGazetteerReadsTheNamesTheHeuristicRefuses:
+    """AMENDED 2026-10-24, same day. This class first pinned a DEFECT: the arm refused
+    `Analog Devices` (`devices` is in `_FURNITURE_WORDS`) and `ON Semiconductor` (`on`
+    is in `_CONNECTIVE_WORDS`), both named by the arm's own `_MAX_NAME_TOKENS` comment
+    as names the ceiling covers. It was left unfixed in the precedence PR because the
+    obvious fix is not local: dropping `devices` makes the heading `Devices Affected`
+    name-shaped, which on a page that also prints a brand heading leaves TWO surviving
+    candidates, and the uniqueness rule then REFUSES — so loosening the lists can take
+    an `mfr` the corpus writes today and blank it.
 
-    `_is_name_shaped` refuses `Analog Devices`, because `devices` is in
-    `_FURNITURE_WORDS`, and `ON Semiconductor`, because `on` is in `_CONNECTIVE_WORDS`.
-    The arm's own comments name both as names it covers (`_MAX_NAME_TOKENS`: "Three
-    tokens covers `Analog Devices, Inc.`, `Texas Instruments Incorporated`,
-    `ON Semiconductor` and `TT Electronics`"), so this is a contradiction between the
-    code and its stated intent, not a judgement that was made and written down.
-
-    NOT FIXED IN THE PRECEDENCE PR, deliberately. Dropping `devices` makes the heading
-    `Devices Affected` name-shaped, which on a page that also prints a brand heading
-    leaves TWO surviving candidates, and the uniqueness rule then REFUSES -- so the fix
-    can take an `mfr` the corpus writes today and blank it. That is a corpus measurement,
-    not a drive-by. The tests below assert the behaviour AS IT IS so that changing it is
-    deliberate and arrives with that measurement.
+    The ruling that followed does not loosen them. A name is matched against a
+    GAZETTEER of known manufacturers first, and the shape heuristic applies only where
+    the gazetteer does not match. So the assertions below are the same three names and
+    the same heading, read the other way round: the heuristic still refuses all four
+    strings (it was not touched), the gazetteer accepts the three manufacturers, and
+    `Devices Affected` is refused by BOTH arms — which is the whole point of fixing it
+    this way rather than by editing the lists.
     """
 
     @pytest.mark.parametrize("name", ["Analog Devices", "Analog Devices, Inc.",
                                       "ON Semiconductor"])
-    def test_these_real_manufacturer_names_are_refused_today(self, name):
-        assert trust._is_name_shaped(name) is False, (
-            f"{name!r} is now name-shaped: good, but the uniqueness rule has to be "
-            "re-measured against the corpus before this is shipped")
+    def test_the_gazetteer_accepts_the_three_names_the_heuristic_refused(self, name):
+        assert trust._is_gazetteer_name(name) is True
+        # And the heuristic is UNCHANGED: it still refuses them. This is the evidence
+        # that the furniture and connective lists were not loosened to get here.
+        assert trust._is_name_shaped(name) is False
 
-    @pytest.mark.parametrize("name", ["TE Connectivity", "Texas Instruments"])
-    def test_and_these_are_accepted_so_the_test_above_is_not_vacuous(self, name):
+    @pytest.mark.parametrize("heading", ["Devices Affected", "Products Affected",
+                                         "Change Detail", "Products"])
+    def test_a_section_heading_is_refused_by_both_arms(self, heading):
+        """The refusal the lists were protecting, kept. `Devices Affected` shares a word
+        with `Analog Devices`, so a containment-style gazetteer would have read a
+        manufacturer out of a section heading; the match is whole-string on the
+        collapsed key, which is why it does not."""
+        assert trust._is_gazetteer_name(heading) is False
+        assert trust._is_name_shaped(heading) is False
+
+    @pytest.mark.parametrize("name", ["TE Connectivity", "Texas Instruments",
+                                      "Vishay Intertechnology", "Renesas"])
+    def test_the_heuristic_is_still_the_whole_rule_for_everything_else(self, name):
+        """Not vacuous, and not retired: two gazetteer entries and two vendors that are
+        NOT in it are all name-shaped on their own. A vendor the gazetteer has never
+        heard of is read exactly as before."""
         assert trust._is_name_shaped(name) is True
 
-    def test_the_consequence_a_page_that_names_adi_yields_nothing(self):
-        """The whole arm, not just the predicate: a page printing `Analog Devices` as a
-        standalone heading and again in its narrative still yields no manufacturer."""
+    @pytest.mark.parametrize("form,expected", [
+        ("Texas Instruments Incorporated", True),
+        ("Integrated Device Technology, Inc.", True),
+        ("SEMELAB PLC", True),
+        # The suffix is tolerated on a KEY THAT IS IN THE GAZETTEER, never as a licence
+        # for the stem in front of it: `devices` is not a manufacturer.
+        ("Devices Inc", False),
+        ("Affected Products Ltd", False),
+    ])
+    def test_a_corporate_suffix_is_not_part_of_the_identity(self, form, expected):
+        assert trust._is_gazetteer_name(form) is expected
+
+    def test_the_consequence_the_page_that_names_adi_now_yields_adi(self):
+        """The whole arm, not just the predicate, and the reversal of what this class
+        used to assert: a page printing `Analog Devices` as a standalone heading — BESIDE
+        the `Devices Affected` heading that made the list edit unsafe — now yields the
+        manufacturer. Measured: it returned `(None, None)` before the gazetteer."""
         els = _elements()
         els[1] = _el("Analog Devices", "Title")
+        els.append(_el("Devices Affected", "Title"))
         els[3] = _el("Customers with further questions should contact their Analog "
                      "Devices field sales engineer, who will coordinate the transition.")
+        value, source = trust.mfr_from_document(provenance.build_positioned_index(els))
+        assert value == "Analog Devices"
+        assert source == "Analog Devices"
+
+    def test_the_onsemi_name_the_connective_rule_refused(self):
+        """`ON Semiconductor` is the other half of the defect: `on` is a connective."""
+        els = _elements()
+        els[1] = _el("ON Semiconductor", "Title")
+        els.append(_el("Products Affected", "Title"))
+        assert trust.mfr_from_document(provenance.build_positioned_index(els)) == (
+            "ON Semiconductor", "ON Semiconductor")
+
+    def test_a_gazetteer_hit_replaces_the_candidate_set_rather_than_joining_it(self):
+        """THE SAFETY HALF, and it is a behaviour change in its own right. The IDT notice
+        is issued by `Integrated Device Technology, Inc.` and prints `Renesas`, its
+        acquirer, which the corpus's ground truth records under `not:`. Both are
+        standalone-name shaped — `Renesas` to the heuristic, IDT to the gazetteer — and
+        two unrelated keys REFUSE. Because the gazetteer pass runs first and replaces the
+        candidate set, the heading we would accept is the only candidate and the arm
+        reads it."""
+        els = _elements()
+        els[1] = _el("Integrated Device Technology, Inc.", "Title")
+        els.append(_el("Renesas", "Title"))
+        value, _ = trust.mfr_from_document(provenance.build_positioned_index(els))
+        assert value == "Integrated Device Technology, Inc"
+        # The control: dropped from the gazetteer, `Renesas` alone is still read, so the
+        # assertion above is about the ORDER of the two passes and not about `Renesas`
+        # being unreadable.
+        alone = _elements()
+        alone[1] = _el("Renesas", "Title")
+        assert trust.mfr_from_document(
+            provenance.build_positioned_index(alone))[0] == "Renesas"
+
+    def test_two_gazetteer_names_on_one_page_still_refuse(self):
+        """The residual, stated: uniqueness is still the safety. A notice printing two
+        manufacturers we would each accept has not made a statement this arm may
+        resolve on its behalf."""
+        els = _elements()
+        els[1] = _el("Analog Devices", "Title")
+        els.append(_el("TE Connectivity", "Title"))
         assert trust.mfr_from_document(provenance.build_positioned_index(els)) == (
             None, None)
 

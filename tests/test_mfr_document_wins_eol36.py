@@ -204,11 +204,38 @@ def test_a_second_unrelated_name_refuses_rather_than_choosing():
     """Two names that are not truncations of each other mean the document is ambiguous
     about who issued it, and an ambiguous document gets an empty field. Guessing between
     rival readings is the failure mode this whole change exists to remove — it must not be
-    reintroduced by the step that replaced it."""
-    index = provenance.build_positioned_index([
+    reintroduced by the step that replaced it.
+
+    AMENDED AND NARROWED 2026-10-24 by the gazetteer ruling: a manufacturer is matched
+    against a gazetteer of known names FIRST, and the shape heuristic applies only where
+    the gazetteer does not match. The two readings therefore have to be AT THE SAME TIER
+    for this judgement to bite, and both cases below now are — two gazetteer names, and
+    two heuristic survivors.
+
+    The pair this test used to assert, `SEMELAB` beside `Vishay`, is no longer ambiguous
+    TO THE ARM: `Semelab` is a name the corpus has accepted as an answer and `Vishay` is
+    a string that merely survived rejection, so the gazetteer pass resolves the page and
+    the heuristic is never reached. That is a real behaviour change and it is asserted
+    here rather than left implied. It is also the half of the ruling that makes the IDT
+    notice readable — `Integrated Device Technology, Inc.` printed beside `Renesas`, its
+    acquirer, which the corpus's ground truth records under `not:`.
+    """
+    both_known = provenance.build_positioned_index([
+        _el("SEMELAB"), _el("TE Connectivity"),
+        _el("Some body text", etype="NarrativeText"),
+    ])
+    assert mfr_from_document(both_known) == (None, None)
+
+    both_unknown = provenance.build_positioned_index([
+        _el("Vishay Intertechnology"), _el("Kemet Electronics"),
+        _el("Some body text", etype="NarrativeText"),
+    ])
+    assert mfr_from_document(both_unknown) == (None, None)
+
+    known_beside_unknown = provenance.build_positioned_index([
         _el("SEMELAB"), _el("Vishay"), _el("Some body text", etype="NarrativeText"),
     ])
-    assert mfr_from_document(index) == (None, None)
+    assert mfr_from_document(known_beside_unknown) == ("SEMELAB", "SEMELAB")
 
 
 def test_a_name_shaped_heading_that_is_not_actually_in_the_text_is_not_written():

@@ -479,6 +479,109 @@ def _is_name_shaped(form: str) -> bool:
     return True
 
 
+# --------------------------------------------------------------------------- #
+# THE GAZETTEER — a name we already know is a name
+# --------------------------------------------------------------------------- #
+# The heuristic above is a pure REJECTION predicate, and it rejects two real
+# manufacturers this corpus is issued notices by. Measured 2026-10-24, at the
+# predicate and again through the whole arm:
+#
+#     _is_name_shaped("Analog Devices")       -> False   # `devices` is furniture
+#     _is_name_shaped("Analog Devices, Inc.") -> False
+#     _is_name_shaped("ON Semiconductor")     -> False   # `on` is a connective
+#
+# Both contradict the `_MAX_NAME_TOKENS` comment directly above, which names all four of
+# `Analog Devices, Inc.`, `Texas Instruments Incorporated`, `ON Semiconductor` and
+# `TT Electronics` as names the ceiling covers: two of the four never reach the ceiling.
+# The cost is not abstract. ADI `PCN-24_0003`'s review.json says `header.mfr not
+# written: the header pass returned none and the document does not name one itself` — a
+# sentence that reads as a statement about the PAGE and is half a statement about this
+# predicate, so anyone debugging the header gate from that line looks at the wrong half.
+#
+# EDITING THE LISTS IS NOT THE FIX, and this is the whole reason the order is reversed
+# instead. Dropping `devices` makes the heading `Devices Affected` name-shaped; dropping
+# `on` does the same for any `ON <noun>` heading. Uniqueness is this arm's safety, so a
+# looser predicate does not yield a better answer — it yields a SECOND candidate on a
+# page that also prints a brand heading, and two candidates REFUSE. The obvious fix can
+# blank an `mfr` the corpus writes today.
+#
+# A GAZETTEER ENTRY CANNOT FABRICATE ANYTHING. The arm still reads only what the
+# document PRINTS, as a standalone element of its own, whole. The entry decides whether
+# a printed string is allowed to be a candidate; it never supplies the value. That is
+# what makes a list of names admissible here at all, in a module whose every other test
+# is answerable off the string the page printed.
+#
+# SEEDED FROM THIS CORPUS, AND DELIBERATELY SMALL. These are the manufacturers the ten
+# notices are issued by, in the forms the pages and `scripts/pcn_ground_truth.json`
+# print. It is the set the registry extends as more vendors arrive, not a vendor
+# database: a list long enough to hold two companies that share a word buys back
+# exactly the ambiguity the uniqueness rule exists to refuse. `Renesas` is deliberately
+# ABSENT though it is printed on the IDT notice — the corpus's ground truth names
+# `Integrated Device Technology, Inc.` there and records Renesas, its acquirer, under
+# `not:`. The gazetteer is the set of names we would ACCEPT as an answer, not every
+# company the pages mention.
+_GAZETTEER_NAMES = (
+    "Analog Devices",
+    "Diodes Incorporated",
+    "Integrated Device Technology",
+    "ON Semiconductor",
+    "onsemi",
+    "Semelab",
+    "TE Connectivity",
+    "Texas Instruments",
+    "TT Electronics",
+)
+
+# A corporate suffix is not part of the identity: the page prints `Analog Devices,
+# Inc.`, the ground truth says `Integrated Device Technology, Inc.`, and `SEMELAB PLC`
+# beside `SEMELAB` is one company printed twice. Tolerated as a suffix OF THE KEY, so
+# the gazetteer stays one entry per manufacturer. The arm still returns the verbatim
+# printed form, suffix included — this decides candidacy only.
+_CORPORATE_SUFFIX_KEYS = (
+    "incorporated", "inc", "corporation", "corp", "company", "co", "llc", "ltd",
+    "limited", "plc", "gmbh", "ag", "sa", "nv", "bv", "kk",
+)
+
+_GAZETTEER_KEYS = frozenset(_name_key(n) for n in _GAZETTEER_NAMES)
+
+
+def _is_gazetteer_name(form: str) -> bool:
+    """Is this printed string, WHOLE, a manufacturer the gazetteer knows?
+
+    Whole-string on the collapsed key, with corporate suffixes tolerated. Never a
+    containment test, and that is load-bearing: `Devices Affected` must not match
+    because `Devices` is in `Analog Devices`, and a substring rule would read a
+    manufacturer out of the middle of a heading — the reading `_STANDALONE_NAME_TYPES`
+    exists to prevent.
+    """
+    key = _name_key(form)
+    if not key:
+        return False
+    if key in _GAZETTEER_KEYS:
+        return True
+    for suffix in _CORPORATE_SUFFIX_KEYS:
+        if key.endswith(suffix) and key[:-len(suffix)] in _GAZETTEER_KEYS:
+            return True
+    return False
+
+
+def _standalone_candidates(index: List[dict], accept) -> Tuple[Dict[str, int],
+                                                              Dict[str, int]]:
+    """The printed forms `accept` admits, counted, with the position each was first seen
+    at. THE WHOLE ELEMENT IS THE CANDIDATE — see `_STANDALONE_NAME_TYPES`."""
+    counts: Dict[str, int] = {}
+    first_seen: Dict[str, int] = {}
+    for position, el in enumerate(index):
+        if el.get("type") not in _STANDALONE_NAME_TYPES:
+            continue
+        form = (el.get("text") or "").strip().strip(_NAME_EDGE_PUNCT).strip()
+        if not accept(form):
+            continue
+        counts[form] = counts.get(form, 0) + 1
+        first_seen.setdefault(form, position)
+    return counts, first_seen
+
+
 def mfr_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
     """The manufacturer THE DOCUMENT prints as one of its own headings, read without
     reference to anything the model said.
@@ -500,16 +603,20 @@ def mfr_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
     model's `mfr` failed the document check or was never produced. A model value the
     document prints verbatim is already the document's answer and stands untouched.
     """
-    counts: Dict[str, int] = {}
-    first_seen: Dict[str, int] = {}
-    for position, el in enumerate(index):
-        if el.get("type") not in _STANDALONE_NAME_TYPES:
-            continue
-        form = (el.get("text") or "").strip().strip(_NAME_EDGE_PUNCT).strip()
-        if not _is_name_shaped(form):
-            continue
-        counts[form] = counts.get(form, 0) + 1
-        first_seen.setdefault(form, position)
+    # THE GAZETTEER PASS RUNS FIRST, AND IT REPLACES THE CANDIDATE SET rather than
+    # adding to it: where the document prints a manufacturer we already know is one, a
+    # heading that merely survives the shape heuristic is not competing with it. That is
+    # both what the ruling asks for — the heuristic applies only where the gazetteer does
+    # not match — and the safer half of it, because a known name printed beside an
+    # unknown one no longer refuses on uniqueness. Where the gazetteer matches nothing,
+    # the heuristic is the whole rule and this is the function it has always been.
+    #
+    # TWO GAZETTEER NAMES ON ONE PAGE STILL REFUSE. That is the residual, and it is the
+    # right one: a notice printing two manufacturers we would each accept has not made a
+    # statement this function may resolve on the document's behalf.
+    counts, first_seen = _standalone_candidates(index, _is_gazetteer_name)
+    if not counts:
+        counts, first_seen = _standalone_candidates(index, _is_name_shaped)
 
     if not counts:
         return None, None
