@@ -68,6 +68,7 @@ def row(slug, g, m, nw):
         f"{len(nd['teaches'])} on {nd['salience_location']} (d)" if nd["teaches"] else "0 (no concepts)",
         f"{pages}/{n_pptx} (e)" if pages != n_pptx else f"{pages}/{n_pptx}",
         f"{len(nd['sections']['nodes'])} (g)",
+        f"{len(nd['edges']['section_slide'])} (g)",
         yn(nw_ok) if nwr else "not measured",
     ]
 
@@ -75,7 +76,7 @@ def row(slug, g, m, nw):
 HEAD = ["deck", "pptx slides", "Slide nodes", "text-less", "ids §3", "layout §5", "current.json §5",
         "labels §4", "title", "business_unit", "HAS_CHILD+HAS_SLIDE", "no empty lines",
         "Weaviate text obj / text slides", "_fig_ obj", "vec 768", "TEACHES salience",
-        "pages/ pngs", "sections", "never_written"]
+        "pages/ pngs", "sections", "section→slide edges", "never_written"]
 
 
 def main(fx, measure_path, nw_paths, out):
