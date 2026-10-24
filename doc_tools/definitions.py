@@ -14,7 +14,7 @@ from doc_tools.components.processable_kinds_publisher import (
 from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion, doors_ingestion
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.partitions import ontology_partitions, design_files_partition, iads_files_partition, xml_files_partition
-from doc_tools.utils.content_kind import ingress_user_prefixes
+from doc_tools.utils.content_kind import ingress_user_prefixes, inbound_suffix_pattern, KIND_MAPPING
 import os
 from dag_tools.utils.k8s import resolve_k8s_resource_tags
 
@@ -119,6 +119,29 @@ sustainment_sensor = S3SensorComponent(
     }
 )
 _sustainment_sensor_defs = sustainment_sensor.build_defs(None)
+
+# Training course drops. The KIND comes from the PATH (contract section 2,
+# ADR-0021): training/course/<folder>/<deck> -> domain training, kind course.
+# The sidecar carries neither. s3_filter is generated from the course row's
+# file_suffixes, never written by hand.
+training_sensor = S3SensorComponent(
+    name="training_sensor",
+    bucket="processing-artifacts",
+    prefix="training/course/",
+    partition_name="pdf_files",
+    target_job=f"{document_parser.name}_job",
+    target_op=document_parser.name,
+    filter_patterns=["archive/", "metadata.json", "generated/"],
+    s3_filter=inbound_suffix_pattern(KIND_MAPPING["course"]),
+    s3_resource={
+        "endpoint_url": EnvVar("S3_ENDPOINT_URL"),
+        "aws_access_key_id": EnvVar("AWS_ACCESS_KEY_ID"),
+        "aws_secret_access_key": EnvVar("AWS_SECRET_ACCESS_KEY"),
+        "use_ssl": os.getenv("MINIO_SECURE", "false").lower() == "true",
+        "verify": False
+    }
+)
+_training_sensor_defs = training_sensor.build_defs(None)
 
 # ADR-0041 — watches the ingress-user inbox, dynamically registers each new
 # object into the user_pdf_files partition set, and targets the SEPARATE
@@ -555,7 +578,7 @@ defs = Definitions(
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
     assets=list(_document_parser_defs.assets) + list(_user_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
     jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job, doors_ingest_job],
-    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ingress_user_xml_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors) + [ingest_retry_sensor, ingest_retry_sensor_xml, processable_kinds_publisher_sensor],
+    sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_training_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ingress_user_xml_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors) + [ingest_retry_sensor, ingest_retry_sensor_xml, processable_kinds_publisher_sensor],
     resources={
         "io_manager": s3_io_manager,
         "s3": S3Resource(
@@ -585,6 +608,7 @@ defs = Definitions(
         ),
         **_pdf_sensor_defs.resources,
         **_sustainment_sensor_defs.resources,
+        **_training_sensor_defs.resources,
         **_ingress_user_sensor_defs.resources,
         **_ingress_user_xml_sensor_defs.resources,
         **_ontology_sensor_defs.resources,
@@ -599,6 +623,7 @@ del _document_parser_defs
 del _user_document_parser_defs
 del _pdf_sensor_defs
 del _sustainment_sensor_defs
+del _training_sensor_defs
 del _ingress_user_sensor_defs
 del _ingress_user_xml_sensor_defs
 del _ontology_sensor_defs

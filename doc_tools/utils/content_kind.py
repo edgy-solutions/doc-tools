@@ -105,7 +105,9 @@ class ContentKindEntry:
     ingress_prefix: Optional[str] = None
 
     #: Lowercase filename extensions, dot included, that the seam accepts for this
-    #: prefix. Empty when ``ingress_prefix`` is None.
+    #: prefix. With no ``ingress_prefix`` a row MAY still declare suffixes, and they then
+    #: gate that kind's own inbound sensor (``course``). With an
+    #: ``ingress_prefix`` they are required.
     file_suffixes: tuple[str, ...] = ()
 
     #: ``ContentKindRegistration.identity_field`` -- the field whose value
@@ -202,6 +204,8 @@ PHANTOM_OUTPUTS = (
     # document behind it, which is what that comment asks for: the S1000D
     # 3xx planning types, which no shipping row can classify.
     "mesh:XMLArtifact",
+    # No TTL declares a training class yet; owed by Lane 1 (packet to follow).
+    "training:Course",
 )
 
 
@@ -272,6 +276,20 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         # sides at once or not at all. Packet dated 2026-10-08 asks for that.
         passes=("s1000d.S1000dGraphBuilder",),
         outputs=("mil:DataModule",),
+    ),
+    # The training-domain course kind (2026-10-23 restore-training directive,
+    # lane tr). Reached by PATH: training/course/<folder>/<deck> (ADR-0021).
+    "course": ContentKindEntry(
+        kind_source_value="course",
+        kind="course",
+        extractor_config="training_default",
+        baml_function="ExtractConcepts",
+        target_ontology_class="http://edgy-solutions.com/ontology/training#Course",
+        domain_type="training",
+        passes=("core.baml::ExtractOutline", "training.baml::ExtractConcepts"),
+        outputs=("training:Course",),
+        file_suffixes=(".pptx", ".pdf", ".docx"),
+        ingress_prefix=None,
     ),
     # ── Format-level kinds: NO DOMAIN (origin resolved by evidence) ────────
     "pdf": ContentKindEntry(
@@ -564,6 +582,20 @@ def ingress_user_key_pattern(entry: ContentKindEntry) -> str:
     return (
         rf"^ingress-user/{re.escape(entry.ingress_prefix)}/[0-9a-f]{{64}}/[^/]+\.{group}$"
     )
+
+
+def inbound_suffix_pattern(entry: ContentKindEntry) -> str:
+    r"""Sensor ``s3_filter`` for a path-derived kind, GENERATED from its suffixes.
+
+    dag_tools applies the filter with ``re.match`` against the full key, so
+    this is anchored by match semantics: ``(?i)^.*\.(ext|ext)$``.
+    """
+    import re
+
+    if not entry.file_suffixes:
+        raise ValueError(f"content kind {entry.kind!r} declares no file_suffixes")
+    exts = "|".join(re.escape(s.lstrip(".")) for s in entry.file_suffixes)
+    return rf"(?i)^.*\.({exts})$"
 
 
 def ingress_user_prefixes() -> dict[str, str]:

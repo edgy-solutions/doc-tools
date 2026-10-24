@@ -59,6 +59,13 @@ RULED_DOMAINS = {
     # by the SAME clause ("a file format is not an origin") and a row pinned by
     # nothing is a row that can drift to a domain nobody granted it.
     "cad": None,
+    # Not from the 2026-10-02 ruling either — the `course` row is the
+    # architect's 2026-10-23 restore-training directive (ADR-0059, lane tr),
+    # and its NAME is Chris's 2026-10-23 ruling: "a kind names the document,
+    # not the domain" (a course deck in the training domain, the way a PCN is a
+    # notice in sustainment). Unlike cad it declares a domain, and the drop
+    # path `training/course/` carries it (contract v2).
+    "course": "training",
 }
 
 
@@ -106,7 +113,7 @@ def test_an_unregistered_kind_still_halts():
         resolve_content_kind({"content_kind": "pcn-notice"}, "")
 
 
-def test_no_live_sensor_prefix_path_derives_onto_a_new_row():
+def test_only_the_training_course_prefix_path_derives_onto_a_row():
     """Why adding these rows changes nothing for the live corpus.
 
     ``_derive_from_path`` returns the segment AFTER the domain segment. The
@@ -117,6 +124,11 @@ def test_no_live_sensor_prefix_path_derives_onto_a_new_row():
     EXPLICIT ``metadata.content_kind``, which only the ``/ingest`` door sets.
     That is the measurement behind claiming this PR is inert for the gate, so
     it is pinned rather than asserted in prose.
+
+    The one deliberate exception: the training sensor on ``training/course/``
+    path-derives onto the ``course`` row on purpose (contract v2, 2026-10-23).
+    It is pinned with a positive control so the derivation cannot silently
+    stop working while the negative half stays green.
     """
     from doc_tools.utils.content_kind import _derive_from_path
 
@@ -126,6 +138,14 @@ def test_no_live_sensor_prefix_path_derives_onto_a_new_row():
         resolve_content_kind(
             {"domain_type": "sustainment"}, "sustainment/inbound/x.pdf"
         )
+    assert (
+        _derive_from_path("training/course/hydraulics-fixture/deck.pptx", "training")
+        == "course"
+    )
+    assert (
+        resolve_content_kind({"domain_type": "training"}, "training/course/x/d.pptx")
+        is KIND_MAPPING["course"]
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -265,6 +285,10 @@ def test_the_phantom_outputs_are_exactly_the_two_owed_by_lane_1():
     Lane 1's TTL and the leaf lands there ("7f registers the row now and it
     resolves when the TTL lands"). Asserting the set EXACTLY means a third
     phantom cannot arrive unannounced.
+
+    The name and the "two" above are stale: the set now has more members,
+    each announced in ``PHANTOM_OUTPUTS`` with its owner (``training:Course``
+    is Lane 1's, 2026-10-23). The set equality is what holds, not the count.
     """
     declared_curies = {
         "mfg:WorkInstruction",

@@ -60,3 +60,15 @@ def test_every_processable_pass_resolves_or_is_baml():
             hits = dispatch.resolve_python_pass(name)
             assert hits and len(hits) == 1, name
             assert callable(hits[0][1]) and not isinstance(hits[0][1], type), name
+
+
+def test_inbound_suffix_pattern_matches_course_suffixes_only():
+    import re
+
+    pat = ck.inbound_suffix_pattern(ck.KIND_MAPPING["course"])
+    for ok in ("training/course/f/deck.pptx", "training/course/f/d.PDF", "training/course/f/d.docx"):
+        assert re.match(pat, ok), ok
+    for bad in ("training/course/f/d.pptx.bak", "training/course/f/d.txt", "training/course/f/pptx"):
+        assert not re.match(pat, bad), bad
+    with pytest.raises(ValueError):
+        ck.inbound_suffix_pattern(ck.KIND_MAPPING["work-instructions"])
