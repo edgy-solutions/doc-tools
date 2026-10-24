@@ -667,6 +667,45 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             ingest_id, where=f"manifest for doc_id={doc_id!r}"
                         )
 
+                    # Leaf ruling 2026-10-21, item 4: "before the title read, a pdf
+                    # runs parse + text layer only. The title read is the next step."
+                    # This IS that next step, and it is here rather than downstream
+                    # for the reason the ruling orders it here: the elements are in
+                    # hand, and the read is a DETERMINISTIC TEXT READ — no model, no
+                    # resource, no network. The parse step still takes only S3, which
+                    # `tests/test_user_drop_runs_parse_only.py` pins from both sides.
+                    #
+                    # Stamped as a TOP-LEVEL sibling of "provenance", same as
+                    # ADR-0041's block and for the same reason: a consumer reads the
+                    # leaf without reaching into domain-specific metadata shape. And
+                    # only when obtained_via is configured — for every vetted sensor
+                    # the manifest is byte-for-byte what it was.
+                    #
+                    # WRITE-ONLY FOR NOW, DELIBERATELY. Nothing reads this block yet:
+                    # `semantic_assets` still resolves the origin from the declared
+                    # content_kind and still returns "origin unresolved" for a
+                    # format-level one. Holding extraction on the LEAF is step 5, it
+                    # moves the gate every ingest passes, and it is not landing in the
+                    # same change as the thing that merely records the answer.
+                    if self.obtained_via:
+                        try:
+                            from doc_tools.utils.leaf_read import resolve_leaf
+
+                            leaf = resolve_leaf(content_kind_from_path, elements)
+                            manifest["leaf"] = leaf.as_dict()
+                            context.log.info(
+                                f"LEAF {leaf.leaf!r} source={leaf.leaf_source!r} "
+                                f"outcome={leaf.outcome!r} "
+                                f"candidates={[c.leaf for c in leaf.candidates]} "
+                                f"(doc_id={doc_id!r}, declared content_kind="
+                                f"{content_kind_from_path!r})"
+                            )
+                        except Exception as e:  # noqa: BLE001
+                            # A read that fails must not cost the drop its parse
+                            # artifacts. The absence of the block is the signal; a
+                            # half-written one would be worse than none.
+                            context.log.error(f"Leaf read failed for {doc_id!r}: {e}")
+
                     # Store manifest.json via Boto3, under the versioned prefix. This
                     # file is NEVER overwritten by a later reprocess — a different
                     # DOC_TOOLS_VERSION lands at a different key entirely.

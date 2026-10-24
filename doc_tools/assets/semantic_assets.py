@@ -203,6 +203,82 @@ def _extraction_payload(document_nodes, doc_id: str, domain_type: str) -> dict:
     return {"doc_id": doc_id, "domain_type": domain_type, "augmentations": augmentations}
 
 
+def _ask_lane1_for_the_leaf(context, manifest: dict):
+    """Step 5's dispatch: ask Lane 1 what this format-level drop actually IS.
+
+    The leaf ruling's item 4 put the title read in the parse step, which wrote
+    `manifest["leaf"]` and read nothing. This is the half that acts on it, and
+    it sits at the ORIGIN-UNRESOLVED gate because that is the gate a
+    format-level drop stops at today — Lane 1's own answer to where it
+    belongs: *"Your title dispatch should sit at that gate."*
+
+    Returns a `TitleLeafAnswer`, always, or None when there was nothing to
+    ask about (no `ingest_id`, or no `leaf` block — the vetted path and every
+    pre-leaf image). A None and an `asked=False` answer mean the same thing to
+    the caller and are kept distinct only so the log says which.
+
+    THE BODY IS BUILT FIELD BY FIELD, from the final-shape packet's table:
+
+      * `leaf`    -> `doc_type`        (the BFF lowercases it, so the read's
+                                       own `pcn` and a header's `PCN` both
+                                       work; nothing is re-cased here)
+      * `outcome` -> `doc_type_source` (sent as read. Confidence is THEIRS:
+                                       *"Do not decide confidence yourself"*,
+                                       and their rule is `doc_type_source ==
+                                       "title"` with a pcn/pdn doc_type)
+      * `candidates`                   (objects `{leaf, score, evidence_ref}`,
+                                       max 3, score in [0,1] — all three
+                                       already true of the producer)
+      * `run_id`                       (the Dagster run, for their log)
+
+    `leaf_source` is NOT sent: *"leaf_source is the BFF's to write. You send
+    none."* `outcome` and `evidence_ref` are not sent at top level either —
+    the route has no slot for a confident read's evidence, and an extra key
+    is a 422. So this is a projection of the block, never the block.
+    """
+    ingest_id = manifest.get("ingest_id")
+    leaf_block = manifest.get("leaf")
+    if not ingest_id or not isinstance(leaf_block, dict):
+        context.log.info(
+            "title_leaf: not asking for doc_id=%r — ingest_id=%s leaf_block=%s. "
+            "No Lane 1 row to address, or no title read on this manifest (the "
+            "vetted path runs none, and no image before the leaf work wrote "
+            "the block).",
+            manifest.get("doc_id"), bool(ingest_id), type(leaf_block).__name__,
+        )
+        return None
+
+    from doc_tools.utils.dagster_resources import IngestStatusResource
+
+    # Instantiated inline, exactly as the `review`/`failed` posts below and
+    # the parser's own `extracting` post do. Not a Dagster resource, because
+    # the asset is shared with the vetted path, which has no gateway at all.
+    return IngestStatusResource().title_leaf(
+        ingest_id,
+        doc_type=leaf_block.get("leaf"),
+        doc_type_source=leaf_block.get("outcome"),
+        candidates=leaf_block.get("candidates") or [],
+        run_id=_dagster_run_id(context),
+    )
+
+
+def _dagster_run_id(context) -> "str | None":
+    """The run id, preferring the accessor Dagster has not deprecated.
+
+    `context.run_id` warns on every call now ("Use context.run.run_id
+    instead") and is slated for removal. A bare `getattr(context, "run_id",
+    None)` would therefore go quietly to None the day it goes away, and
+    `run_id` is what Lane 1 correlates a held row against in their log — so
+    its loss would show up as an unexplained gap on their side, not as an
+    error on mine.
+    """
+    run = getattr(context, "run", None)
+    rid = getattr(run, "run_id", None)
+    if rid:
+        return rid
+    return getattr(context, "run_id", None)
+
+
 def _build_knowledge_graph_impl(
     context: AssetExecutionContext,
     config: IngestionConfig,
@@ -277,7 +353,7 @@ def _build_knowledge_graph_impl(
 
     # See doc_tools/utils/content_kind.py for the mapping table + halt rule.
     from doc_tools.utils.content_kind import (
-        resolve_content_kind, UnclassifiableContentKindError,
+        resolve_content_kind, UnclassifiableContentKindError, KIND_MAPPING,
     )
 
     declared_domain = metadata.get("domain_type")
@@ -291,19 +367,31 @@ def _build_knowledge_graph_impl(
             f"domain_type={kind_entry.domain_type!r}"
         )
     except UnclassifiableContentKindError:
-        # SCOPED MIGRATION — unchanged by the ruling, and the reason the
-        # resolver's halt is not simply propagated for every domain. Today
-        # KIND_MAPPING holds exactly ONE row (work-instructions ->
-        # manufacturing) and new rows are reserved to the architect, so every
-        # other domain — maintenance, training, compliance, SUSTAINMENT and
-        # the whole PCN corpus — is unmigrated and has no row to resolve.
-        # Propagating the halt here would brick them all. A domain joins the
-        # resolver by GAINING KIND_MAPPING rows, not by this except clause
-        # getting narrower.
+        # SCOPED MIGRATION — the reason the resolver's halt is not simply
+        # propagated for every domain. A domain joins the resolver by GAINING
+        # KIND_MAPPING rows, not by this except clause getting narrower.
         #
-        # Manufacturing still HALTS, because it IS migrated: a manufacturing
-        # document whose kind does not resolve is a document whose registered
-        # kind is missing, and ADR-0021 §Precedence has no default for that.
+        # CORRECTED 2026-10-21: this comment used to say KIND_MAPPING held
+        # exactly ONE row (work-instructions -> manufacturing) and that
+        # "SUSTAINMENT and the whole PCN corpus" was unmigrated with no row to
+        # resolve. That has not been true for some time. Measured from
+        # doc_tools/utils/content_kind.py: NINE rows, of which FOUR declare a
+        # domain — work-instructions -> manufacturing, pcn -> sustainment,
+        # pdn -> sustainment, s1000d-data-module -> maintenance — and five are
+        # format-level with domain_type=None (pdf, cad, engineering-document,
+        # doors-export, xml). Training and compliance remain unmigrated.
+        #
+        # Manufacturing still HALTS, because a manufacturing document whose
+        # kind does not resolve is a document whose registered kind is missing,
+        # and ADR-0021 §Precedence has no default for that.
+        #
+        # SO THERE IS NOW AN ASYMMETRY, AND IT IS DELIBERATELY LEFT: sustainment
+        # and maintenance are migrated too, but an unresolvable drop on either
+        # still falls through to the declared-domain fallback below instead of
+        # halting. Whether the halt widens to every domain that has rows is the
+        # architect's call (reported 2026-10-21); it is not widened here,
+        # because doing it quietly would start failing live sustainment and
+        # maintenance drops that fall back successfully today.
         if declared_domain == "manufacturing":
             context.log.error(
                 "ADR-0021 content_kind resolution HALTED for manufacturing "
@@ -312,11 +400,101 @@ def _build_knowledge_graph_impl(
             )
             raise
         context.log.info(
-            f"ADR-0021: no KIND_MAPPING row for doc_id={doc_id!r} "
-            f"(declared domain {declared_domain!r} is unmigrated — one row "
-            f"exists, for manufacturing). Falling back to the manifest's "
-            f"declared domain. This is the scoped migration, not a default."
+            f"ADR-0021: no KIND_MAPPING row matches for doc_id={doc_id!r} "
+            f"(declared domain {declared_domain!r}; the table holds "
+            f"{len(KIND_MAPPING)} rows, of which "
+            f"{sorted({e.domain_type for e in KIND_MAPPING.values() if e.domain_type})} "
+            f"declare a domain). Falling back to the manifest's declared "
+            f"domain. This is the scoped migration, not a default: only the "
+            f"manufacturing path halts here."
         )
+
+    # ----------------------------------------------------------------------
+    # STEP 5 — HOLD EXTRACTION ON THE LEAF.
+    #
+    # Deliberately a SEPARATE `if` on the same condition as the
+    # origin-unresolved branch below, rather than an edit inside it. The
+    # three outcomes then fall out of one reassignment:
+    #
+    #   * Lane 1 grants a leaf -> `kind_entry` becomes that kind, which
+    #     DECLARES a domain, so the test below is False and the run
+    #     continues into the ordinary domain path. Parts extraction runs as
+    #     the kind the BFF named.
+    #   * Lane 1 holds the row -> this block returns `awaiting_kind`.
+    #   * The call could not be made -> `kind_entry` is untouched and the
+    #     branch below runs verbatim. That matters more than it looks: the
+    #     pre-204 behaviour is not re-implemented here, it is literally the
+    #     same code, so a gateway outage cannot change what a drop does.
+    # ----------------------------------------------------------------------
+    if kind_entry is not None and kind_entry.domain_type is None:
+        leaf_answer = _ask_lane1_for_the_leaf(context, manifest)
+        if leaf_answer is not None and leaf_answer.proceed and leaf_answer.content_kind:
+            # "Run parts extraction AS `content_kind`, the kind the BFF
+            # names, not the one your sidecar names." The grant may also be a
+            # leaf the row already held — declared at the drop or corrected
+            # by a person — and both BEAT this run's title read, so the
+            # answer is adopted without being checked against it.
+            granted = KIND_MAPPING.get(leaf_answer.content_kind)
+            if granted is not None and granted.domain_type:
+                context.log.info(
+                    f"LEAF GRANTED for doc_id={doc_id!r}: Lane 1 answered "
+                    f"proceed=True content_kind={leaf_answer.content_kind!r} "
+                    f"(leaf={leaf_answer.leaf!r} leaf_source="
+                    f"{leaf_answer.leaf_source!r}). Extraction runs as that "
+                    f"kind, domain {granted.domain_type!r} — the "
+                    f"origin-unresolved return below is skipped because the "
+                    f"origin is now resolved by EVIDENCE (the document's own "
+                    f"title, or a human's correction), which is exactly what "
+                    f"the 2026-10-02 ruling said it would take."
+                )
+                kind_entry = granted
+            else:
+                # Not a 422 and not my call to widen: the BFF's leaf space
+                # and this registry's domain-declaring rows are two lists,
+                # and the ruling says the registry is the authority on what a
+                # leaf may be. A grant this registry cannot honour is
+                # reported and the drop stays where it was.
+                context.log.error(
+                    f"LEAF GRANT UNUSABLE for doc_id={doc_id!r}: Lane 1 "
+                    f"granted content_kind={leaf_answer.content_kind!r}, "
+                    f"which is not a KIND_MAPPING row that declares a domain "
+                    f"(the domain-declaring keys are "
+                    f"{sorted(k for k, e in KIND_MAPPING.items() if e.domain_type)}). "
+                    f"Extraction does NOT run: picking a plugin for a kind "
+                    f"with no declared domain is the hazard ADR-0021 "
+                    f"§Precedence has no default for. Falling through to "
+                    f"origin_unresolved."
+                )
+        elif leaf_answer is not None and leaf_answer.held:
+            # Lane 1's rule for this, verbatim: "Stop before parts
+            # extraction. End the run SUCCESS. Post no `review` and no
+            # `failed`." So this is a RETURN with a status, like
+            # origin_unresolved — nothing raises, nothing posts, and the
+            # parse artifacts the drop already has are what the dropper sees.
+            # The row is waiting on a person to pick a kind, which is not a
+            # failure of this run.
+            context.log.info(
+                f"AWAITING KIND for doc_id={doc_id!r}: Lane 1 answered "
+                f"proceed=False stage={leaf_answer.stage!r} "
+                f"({leaf_answer.detail!r}). No parts extraction, no domain "
+                f"graph, no chunks, no triples, and NO further stage post — "
+                f"a `review` or `failed` here would overwrite a row that is "
+                f"correctly parked for the dropper's picker. Run ends "
+                f"SUCCESS."
+            )
+            return {
+                "doc_id": doc_id,
+                "status": leaf_answer.stage or "awaiting_kind",
+                "content_kind": kind_entry.kind,
+                "node_label": node_label,
+                "collection": collection_name,
+                # The caller's seal on "post nothing further for this run".
+                # `stop` is set only for Lane 1's 409/404, where the row has
+                # moved on or never existed; `awaiting_kind` posts nothing
+                # either way, so this is carried for the log and for the
+                # wrapper, not as a second rule.
+                "post_no_further_stages": True,
+            }
 
     if kind_entry is not None and kind_entry.domain_type is None:
         # ------------------------------------------------------------------
