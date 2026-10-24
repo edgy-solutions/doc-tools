@@ -711,6 +711,163 @@ _DOCUMENT_WINS = {"mfr": mfr_from_document}
 
 
 # --------------------------------------------------------------------------- #
+# 2b-quater. TEXT-LAYER PRIMACY — the arm reads FIRST, the model corroborates
+#
+# The architect's header identity precedence of 2026-10-24, for `doc_id`, `mfr`,
+# `pub_date` and `doc_level_ltb_date` ALIKE:
+#
+#   1. A text-layer value, when the arm yields one, IS the written value. The
+#      header (model) pass corroborates it; a disagreement keeps the text-layer
+#      value and sets `needs_review` with BOTH values in the reason.
+#   2. The model pass fills only what the text layer did not yield, and every
+#      model-filled field marks `needs_review=true`.
+#   3. A model `AbortError` with a text-layer value present is not a failure of
+#      the field; with none present the field is absent and `needs_review=true`,
+#      never a filename.
+#
+# WHY THIS IS NOT `_DOCUMENT_WINS` ABOVE. That cascade is MODEL-FIRST: the
+# document is asked only once the model's value has failed the verbatim check or
+# was never produced. So a model `mfr` that is printed SOMEWHERE in the document
+# passes and is kept, even where the document's own heading names a different
+# manufacturer — the two readings never meet. Under the ruling the order is
+# inverted: the arm reads first and the model's value becomes corroboration.
+# The behaviour that changes is exactly that case, and it is the one the
+# "document-wins" residuals were always instances of. The ruling is explicit that
+# they are "the general rule, not exceptions", which supersedes the reading that
+# two cases are too few to generalise from.
+#
+# WHICH FIELDS HAVE AN ARM, measured rather than assumed. `mfr` has
+# `mfr_from_document`; `doc_id` has `doc_id_from_document`, wired in the plugin
+# (see below). `pub_date` and `doc_level_ltb_date` have NO text-layer arm in this
+# module, so for them clause 1 is vacuous and clause 2 governs: a model-filled
+# date marks `needs_review`. That is a true reading of the ruling -- "when the arm
+# yields one" -- and NOT a gap quietly left open:
+#
+#   Writing a pub_date arm is not a drive-by. `TYC-PCN-24-210412` returned
+#   `2024-06-10` and PASSED the verbatim check, because that date really is
+#   printed -- it is the portal's PRINT STAMP, not the issue date. An arm that
+#   reads the first date-shaped run off the header block would make that wrong
+#   answer authoritative instead of merely corroborated, which is strictly worse
+#   than having no arm. Same for `doc_level_ltb_date`, where the inherited
+#   doc-level dates are the known trap. Those two arms are their own measured
+#   step, with their own seals.
+#
+# `doc_id` IS NOT REGISTERED HERE, and that is deliberate: its arm already runs in
+# `doc_tools.plugins.sustainment` (the 2026-10-20 ruling, doc_id's half), where the
+# KEY fallback, `normalize_doc_id`, `doc_id_raw` and `doc_id_origin` all live. Its
+# precedence cannot be lifted into this module without moving the key invariant
+# with it -- doc_id must never be null -- so the plugin keeps the arm and this
+# ruling's clauses 1 and 2 are applied to it there, beside it.
+# --------------------------------------------------------------------------- #
+
+#: The four fields the precedence ruling names. Order is the ruling's.
+HEADER_IDENTITY_FIELDS = ("doc_id", "mfr", "pub_date", "doc_level_ltb_date")
+
+#: The fields this module reads text-layer-first. See the section comment for why
+#: `doc_id` is absent (it runs in the plugin) and why the two dates are.
+_TEXT_LAYER_PRIMARY = {"mfr": mfr_from_document}
+
+
+def _identity_values_agree(field: str, a, b) -> bool:
+    """Field-appropriate equality for the corroboration check.
+
+    `mfr` compares on `_name_key`, the same normalization the recovery arm uses,
+    so `onsemi` and `ONSEMI` are not reported as a disagreement a human then has
+    to dismiss. Everything else compares on the stripped string: a date that
+    differs at all differs.
+    """
+    if field == "mfr":
+        return _name_key(a) == _name_key(b)
+    return str(a).strip() == str(b).strip()
+
+
+def apply_text_layer_primacy(header_d: dict, index: List[dict],
+                             text_layer_degraded: bool = False):
+    """Give the text-layer arm precedence over the model's value, per the ruling.
+
+    MUTATES `header_d` IN PLACE. Returns `(reasons, needs_review, arms)`:
+    reason strings for the doc-level narrative, whether any clause of the ruling
+    forces a human review, and a per-field instrument dict.
+
+    Call BEFORE `refuse_unsourced_header_values`, so a value this writes is then
+    corroborated by the ordinary verbatim path like any other. This grants no
+    exemption from that check; it only decides WHICH reading is the candidate.
+
+    GATED OFF on a measured-degraded text layer, for the same reason
+    `_DOCUMENT_WINS` is: a damaged layer cannot be trusted to SPELL a name
+    (`TYC-PCN-24-210412` prints `TE Connecvity`), so making it primary there would
+    promote a misspelling from "refused" to "authoritative". On those documents
+    the region witness supplies the value and the model's reading stands.
+    """
+    reasons: List[str] = []
+    needs_review = False
+    arms: dict = {}
+    for field in HEADER_IDENTITY_FIELDS:
+        if field == "doc_id":
+            continue  # its arm is the plugin's; see the section comment
+        arm = None if text_layer_degraded else _TEXT_LAYER_PRIMARY.get(field)
+        model_value = header_d.get(field)
+        doc_value, doc_source = arm(index) if arm else (None, None)
+        agrees = None
+        if doc_value:
+            header_d[field] = doc_value
+            header_d[f"{field}_source"] = doc_source
+            origin = "document"
+            if model_value:
+                agrees = _identity_values_agree(field, model_value, doc_value)
+                if not agrees:
+                    # CLAUSE 1. Both values in the reason, because the whole point
+                    # of the review is for a human to see the two readings that
+                    # disagreed -- naming only the winner leaves them re-deriving
+                    # what was discarded.
+                    reasons.append(
+                        f"header.{field} taken from the text layer "
+                        f"('{_clip(doc_value)}', printed at "
+                        f"'{_clip(doc_source)}'); the header pass said "
+                        f"'{_clip(model_value)}', not used"
+                    )
+                    needs_review = True
+            else:
+                # NOT a clause of the ruling, and NOT a review: the field is the
+                # text layer's own reading, which clause 1 makes authoritative.
+                # It is in the record because it is the only place a reader can
+                # see WHICH ARM wrote the value -- the record `_DOCUMENT_WINS`
+                # used to leave when it recovered a field the model had left
+                # empty, and which moving the arm in front of the model would
+                # otherwise have quietly removed (measured: it dropped the one
+                # reason tests/test_mfr_survives_a_cut_header.py reads for).
+                reasons.append(
+                    f"header.{field} taken from the text layer the document "
+                    f"prints ('{_clip(doc_value)}', printed at "
+                    f"'{_clip(doc_source)}'); the header pass supplied no "
+                    f"value for it"
+                )
+        elif model_value:
+            # CLAUSE 2. Written, and flagged BECAUSE it is the model's alone: no
+            # text-layer reading stands behind it. The verbatim refusal still runs
+            # after this and can still drop it; a value that survives both is
+            # model-filled, which is what the flag says.
+            origin = "model"
+            reasons.append(
+                f"header.{field} filled by the header pass "
+                f"('{_clip(model_value)}'); the text layer does not yield this "
+                f"field" + ("" if arm else " (no text-layer arm for it)")
+            )
+            needs_review = True
+        else:
+            origin = None
+        arms[field] = {
+            "origin": origin,
+            "document_value": doc_value,
+            "model_value": model_value,
+            "agrees": agrees,
+            "has_text_layer_arm": bool(_TEXT_LAYER_PRIMARY.get(field)),
+            "gated_off_degraded": bool(text_layer_degraded),
+        }
+    return reasons, needs_review, arms
+
+
+# --------------------------------------------------------------------------- #
 # 2c-bis. THE REGION WITNESS AS A SUPPLIER
 #
 # Everything else in this module is a FILTER: it can empty a field the document

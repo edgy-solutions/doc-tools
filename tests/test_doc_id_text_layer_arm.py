@@ -2,8 +2,15 @@
 
 `doc_id_from_document` (phase A) reads the notice number the document prints. These tests
 drive the real `_extract_fulltext` wiring: precedence (document, then model, then the
-pipeline key), the degraded-layer gate, the disagreement reason that must NOT force review
-(`needs_review` is a corpus-gate exemption), and the identity triple reading `doc_id_origin`.
+pipeline key), the degraded-layer gate, the disagreement reason, and the identity triple
+reading `doc_id_origin`.
+
+AMENDED 2026-10-24 by the architect's header identity precedence ruling. Two tests here
+asserted that a doc_id disagreement, and a model-filled doc_id, must NOT force review --
+because `needs_review` is a corpus-gate EXEMPTION. The ruling reverses both (clauses 1
+and 2) and accepts that cost. The reversal is written into those two tests rather than
+edited out of them. The ruling's four fields together are sealed in
+tests/test_header_identity_precedence.py.
 
 Fixture copied from tests/test_second_witness_wiring.py (same reasoning as that file).
 """
@@ -102,7 +109,19 @@ def test_document_yields_document_wins(monkeypatch):
     assert aug.review["doc_id_raw"] == PRINTED
 
 
-def test_disagreement_document_wins_reports_and_does_not_force_review(monkeypatch):
+def test_disagreement_document_wins_reports_AND_forces_review(monkeypatch):
+    """REVERSED by the architect's precedence ruling of 2026-10-24, clause 1: a
+    disagreement "keeps the text-layer value and sets `needs_review` with both values in
+    the reason".
+
+    This test asserted the opposite until that ruling, and the reason it gave is still
+    true rather than mistaken: `needs_review=True` is consumed by the corpus gate as an
+    EXEMPTION, so a flag raised on an UNSCORED field can exempt a notice whose SCORED
+    fields are wrong. The ruling accepts that cost in exchange for a human seeing the
+    two readings that disagreed. Recorded here, and not quietly reversed, because the
+    next person to read a flagged notice beside a green gate will need to know which of
+    the two it was.
+    """
     aug = _run(monkeypatch, "PCN-99-000001", printed=PRINTED)
     arm = aug.stats["doc_id_arm"]
     assert arm["origin"] == "document"
@@ -114,13 +133,17 @@ def test_disagreement_document_wins_reports_and_does_not_force_review(monkeypatc
     # The display field follows the claim that WON. A payload showing the model's
     # number beside a doc_id keyed on the document's is the exact split this reads for.
     assert aug.review["doc_id_raw"] == PRINTED
-    # The block must not set review: needs_review is a corpus-gate exemption. The healthy
-    # fixture needs no review otherwise, so any True here came from this block.
+    # Clause 1. The healthy fixture needs no review otherwise, so the True came from
+    # this block -- the baseline proves it rather than the comment asserting it.
     baseline = _run(monkeypatch, None, printed=PRINTED)
-    assert aug.needs_review == baseline.needs_review
+    assert baseline.needs_review is False
+    assert aug.needs_review is True
 
 
-def test_document_silent_model_yields_origin_model(monkeypatch):
+def test_document_silent_model_yields_origin_model_AND_forces_review(monkeypatch):
+    """Clause 2 of the same ruling: "the model pass fills only what the text layer did
+    not yield, and every model-filled field marks needs_review=true". The value is
+    still WRITTEN -- clause 2 flags, it does not blank."""
     aug = _run(monkeypatch, "PCN-99-000001")
     arm = aug.stats["doc_id_arm"]
     assert arm["origin"] == "model"
@@ -128,7 +151,10 @@ def test_document_silent_model_yields_origin_model(monkeypatch):
     assert arm["agrees"] is None
     assert aug.notice.doc_id == norm.normalize_doc_id("PCN-99-000001")
     assert aug.review["doc_id_raw"] == "PCN-99-000001"
-    assert not _doc_id_reasons(aug)
+    reasons = _doc_id_reasons(aug)
+    assert len(reasons) == 1
+    assert "filled by the header pass" in reasons[0]
+    assert aug.needs_review is True
 
 
 def test_neither_yields_key_only_and_no_identity_claim(monkeypatch):
