@@ -328,7 +328,14 @@ version is live), and says reuse rather than rebuild for the vector step:
 - **The graph-write ruling (this week, own PR)** — a failed graph write in
   *either* store fails the asset and posts `failed:graph_write` with the store
   named; then find why `inbound/adi_23_0120`'s triple write failed, and
-  re-ingest it.
+  re-ingest it. **The read-only diagnosis is done**
+  (`scratchpad/graph_write_diagnosis.md`): the swallow is *per query, not per
+  store* (`semantic_assets.py:1047-1064`), pass 2 repeats it at `:1066`, and
+  `:1085` returns `status="processed"` unconditionally — that last line is the
+  "went green" half. `jena_client.execute_update` is not at fault; it raises
+  correctly. **One question below has to be answered before the PR, and it is
+  not the lane's to answer.**
+
 - **The id normalization (own PR, after that)** — one key, both stores,
   normalized at the write with the same function the IRI uses, plus a migration
   for the 27 existing nodes.
@@ -343,3 +350,67 @@ version is live), and says reuse rather than rebuild for the vector step:
   nightly holds the cure; its branch is never rebased, so its own PR cannot
   merge. Worth a decision this week: whether to scope the corpus gate off
   release refs, or to fix the nightly's rebase.
+
+### The one question the graph-write PR cannot answer in the lane
+
+Making the write loops raise does **not** post `failed:graph_write`, and the
+reason is a deliberate rule the ruling collides with head-on.
+
+There is already an error boundary that would stamp `failed` for free — the
+wrapper at `semantic_assets.py:1144-1186`. But its first branch is
+
+```python
+if posted.get("stage") is not None:
+    context.log.warning("Graph build failed after stage ... not stamping failed: ...")
+    raise
+```
+
+and `posted["stage"]` is assigned in Phase 5b at `:1005`/`:1015`, with **no def
+boundary between `:560` and `:1087`** — so the ordering is unconditional: a
+graph-write failure *always* arrives with a stage already posted. A naive
+"raise instead of swallow" therefore yields a red asset, **no**
+`failed:graph_write`, and a row parked in `review` — which is `adi_23_0120`'s
+present state reached by another road.
+
+The suppression is not an oversight. The comment at `:1152-1158` records that
+a `failed` after a posted stage is *"a backwards move on a row a steward may
+already hold (Lane 1 409s it or overrides it)"*, the reasoning being that the
+extraction a steward reviews is complete, because the sinks that failed are
+downstream of it.
+
+| the ruling | the rule already in the tree |
+| --- | --- |
+| a failed graph write **posts** `failed:graph_write` | a `failed` after a posted stage is a backwards move, suppressed on purpose |
+
+Both are defensible, and "no run ends silently" is precisely about the case
+where the row looks fine and the store does not. Three resolutions, ranked as I
+see them:
+
+1. **Order the graph writes ahead of the Phase 5b stage post.** Largest diff,
+   needs nothing from Lane 1, and it makes the suppression rule *true* again
+   rather than arguing with it. My preference.
+2. Post `failed:graph_write` anyway from the write site and let Lane 1 409 or
+   override it — honours the ruling, accepts the backwards move.
+3. Post a *non-failed* degraded marker so the steward sees a missing graph
+   without the row moving backwards. No such stage or field exists today, and
+   Lane 1 422s `failure_fields_without_failed` for failure-only fields on any
+   other stage (`gateway.py:12788`), so this one is a Lane 1 change too.
+
+**Surfaced rather than decided.** Everything else in the PR is inside this
+lane, including the reason code: `graph_write` is absent from our own
+`REASON_CODES` (`ingest_failure.py:25`) and an unknown code is **coerced to
+`unexpected_error`**, non-raising, via a module logger that does not reliably
+reach the run log — so forgetting it fails silently. I checked the far link
+before writing a packet asking Lane 1 to accept the code, and **no packet is
+needed**: `gateway.py:12795` checks a shape only
+(`REASON_CODE_RE = ^[a-z][a-z0-9_]{0,63}$`), there is no enumerated set on that
+side, and `gateway.py:12744` says in terms that *"the vocabulary is doc-tools'
+to own."*
+
+One more site, found 40 lines above the ruling's and **not** folded into this
+PR: `:609-618` logs a *warning* on a failed MinIO text read and substitutes
+`[{"type": "Text", "text": "Mock extracted text", ...}]`. The whole graph is
+then built from that literal, every downstream write succeeds, and nothing
+records that the content was invented. That needs its own decision — fail the
+asset, or post a degraded marker — because it is a call about whether a
+text-load failure is ever tolerable.
