@@ -2,7 +2,52 @@
 
 Updated 2026-10-23. In-flight state only; durable findings live in project memory.
 
-## 2026-10-23 LATEST — THE ADI SALVAGE IS COMMITTED (`9550736`), AND ITEM 3 IS CONFIRMED: A `content_kind=pcn` DROP RUNS BOTH PASSES IN ONE RUN
+## 2026-10-23 LATEST — THE SPLIT IS DONE: FIVE TOPIC PRs OPEN (#147-#151), TWO BRANCHES HELD ON A DEPENDENCY, AND THE DOORS-EXPORT PACKET IS PLACED
+
+**Report:** `sessions/2026-10-23-report-7f-the-split-is-five-prs-open-two-held-and-the-doors-packet-is-placed.md`
+**Packet placed (not committed) in the peer tree:** `invincible-agent/sessions/2026-10-23-packet-to-lane-01-from-7f-the-doors-export-passes-drift-is-one-overlay-line-and-ci-skips-the-test.md`; our copy is in `sessions/` under the same name.
+
+**Open: #147** detail= on every failed post (33 passed) · **#148** ADI text-list salvage (21) ·
+**#149** replacement precedence + grid prompt (82) · **#150** leaf at the decision point (131) ·
+**#151** header bound + `doc_id` from the document (81). All cut from `origin/main`, all code-only.
+
+**THE PATHSPEC IS THE POINT.** Each commit was re-applied with
+`git diff $c^ $c -- doc_tools tests prompts scripts charts | git apply --index -`, which **excludes
+`sessions/` and `HANDOFF.md`**. Six topic PRs touching this file would have conflicted six ways.
+Reuse the technique; do not "fix" it by including the docs.
+
+**TOPICS 4 AND 5 ARE PUSHED WITH NO PR, AND THAT IS DELIBERATE — TWICE OVER.**
+`7f/evidence-ref-page-fractions` (155 passed) and `7f/work-instruction-singular` (82 passed) are
+built and tested. (i) The order is **forced to 6 → 4 → 5**: `doc_tools/utils/leaf_read.py` is
+*created* by topic 6 (`cd791ed`) and *modified* by topic 4 (`da03911`, `ee2422f`, `d9e6118`) and
+topic 5 (`1ac8d40`) — measured, `1ac8d40` would not apply on a topic-5 branch cut from `main`.
+The architect's "(when ready)" on topic 6 inverts the real dependency. (ii) A **stacked PR
+dispatches no CI at all**, so a stacked review has no verdict to show Chris. **Next action: as
+#150 merges, rebase 4 onto `main` and open it; then 5.**
+
+**#151 IS A SEVENTH TOPIC THE DIRECTIVE DID NOT NAME.** The 2026-10-20 header-identity ruling
+(`da7c1ee`, `27add3e`, `80a7f30`, `3a59052`) is code and belongs to none of the six — a strict
+six-way split **orphans it** on a branch about to be retired. Flagged on the PR for the architect
+to close if it was meant to be held.
+
+**THE DOORS-EXPORT DRIFT IS ONE OVERLAY LINE, AND CI CANNOT SEE IT.** The red test is
+`tests/test_overlay_kind_drift.py::test_the_shared_kinds_declare_the_same_passes`. Of the four
+shared kinds only `doors-export` drifts (`engineering-document`, `pdf`, `xml` all agree); their
+overlay says `identity.document_identity`, ours says `identity.identity_from_doors_text`. The fix
+is documentary on their side: `src/iagent/content_kinds.py` never reads `passes`, neither symbol
+exists anywhere in `invincible-agent/src`, and the SDK's `passes` is free-form strings validated
+only for uniqueness. **The test resolves the overlay from `IAGENT_CONTENT_KIND_OVERLAY_DIR` else a
+sibling checkout, and `pytest.skip`s otherwise — so it SKIPS in single-repo CI and a green CI run
+is no evidence the drift is fixed.** It is red only in a local full suite with both trees side by
+side. Every PR body says so, so no reviewer mistakes it for that PR's breakage.
+
+**STILL OWED ON THIS DIRECTIVE:** v0.2.1 cut by the new release job and pinned into Monday's 207 —
+**blocked on #146 merging first**, because cutting a release on the old `v*` trigger **rebuilds and
+overwrites both tags**. Then topics 4 and 5. Then, on a word, one docs-only PR for the ~25 report
+and HANDOFF commits still on `7f/report-2026-10-19-required-gate-red-on-age` — no topic PR carries
+them.
+
+## 2026-10-23 — THE ADI SALVAGE IS COMMITTED (`9550736`), AND ITEM 3 IS CONFIRMED: A `content_kind=pcn` DROP RUNS BOTH PASSES IN ONE RUN
 
 **Report:** `sessions/2026-10-23-report-7f-the-adi-salvage-is-in-and-a-pcn-drop-runs-both-passes-in-one-run.md`
 **Packet it answers:** `sessions/2026-10-23-packet-from-lane-01-pcn-24-0003-loses-1577-parts-because-a-contact-table-takes-the-table-branch.md` (placed by Lane 01, committed here per the owning-lane rule).
