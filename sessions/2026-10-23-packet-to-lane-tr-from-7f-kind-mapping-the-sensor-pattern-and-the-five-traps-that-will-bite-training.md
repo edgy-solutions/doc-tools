@@ -52,25 +52,45 @@ Generated from it, so you do not hand-write any of them:
 **A caution about the registry fingerprint:** it hashes `(kind, passes)` and is blind to a mapping
 **key** rename — the fingerprint compared equal across a rename in `fb4f691`. Pick the key once.
 
-## B. The declared `passes` tuple does not dispatch anything today
+## B. A dispatcher exists — but exactly one asset calls it, and it is not pcn
 
-The directive says a content kind declares its passes in `KIND_MAPPING`, "shipping today for
-pcn/pdn". It is declared today. It is **not executed from the declaration**, and the difference
-matters for the port.
+**Corrected 2026-10-23, after tr read this section.** The first version of this packet said the
+declared `passes` tuple "does not dispatch anything today". That is wrong as written, and the
+accurate version is more useful to you: **`doc_tools/passes/dispatch.py` is a real dispatcher with
+a real contract, and it is wired on exactly one path.**
 
+- `run_passes_for_kind(kind, ctx)` (`dispatch.py:193`) is imported by **one** module in the tree:
+  `doc_tools/assets/doors_ingestion.py:20`, called at `:89`. That is the model to copy, not the
+  sustainment plugin.
+- `run_pass` (`dispatch.py:153`) resolves a dotted `<namespace>.<symbol>` across `PASS_PACKAGES`
+  and **refuses ambiguity**: zero hits raise, two hits raise, a class raises, and a `*args`/
+  `**kwargs` signature raises — *"a catch-all makes a typo'd vocabulary key look like an accepted
+  one"*. Arguments are bound from a fixed vocabulary by name (`_bind`), so a pass declares what it
+  consumes.
+- Two statuses are returned without calling anything: a name in **`UNBUILT_PASSES`**
+  (`content_kind.py:141`) returns `status="unbuilt"`, and a name containing `::` returns
+  `status="baml"` — *"this dispatcher calls no model"*. So **your plan to register training's
+  passes in `UNBUILT_PASSES` is the right mechanism**, and it is honest: an artifact-level test
+  sees `unbuilt`, not green silence. `test_nothing_listed_unbuilt_is_actually_built` holds the
+  tuple to its word in the other direction.
 - On the **platform** side, no pass symbol is resolved at all: `src/iagent/content_kinds.py` never
   reads `passes`, the SDK's `ContentKindRegistration.passes` is a free-form `tuple[str, ...]`
   validated only for uniqueness and branch shape, and `policy/content_kinds/` is a README-only
   seed. The gateway consumes `by_kind(...)` for `domain` / `branch` / `identity_field`.
-- On **this** side, the pcn path runs both passes in **one** run, in the order
-  `SustainmentPlugin` hardcodes — the tuple describes that order, it does not drive it.
+- On **this** side, the **pcn path bypasses the dispatcher**: `SustainmentPlugin.process_fulltext`
+  runs `_extract_header` then `b.ExtractParts` in one body, in one Dagster run. The tuple
+  describes that order, it does not drive it. The tuple's other consumer is
+  `doc_tools/api/kinds.py`'s `python_pass_dispatch` arm, which only checks that each dotted name
+  *resolves* — resolving is not running.
 
 So for training: the row is worth adding in step (b) for identity, domain, prefixes, the registry
 and the contract. **Do not expect `passes=("structural.outline", "render.pages", …)` to cause
-anything to run** until the block mechanism the spike describes exists. If the golden test asserts
-on declared passes only, it will stay green through a pass that never executes — the defect class
-this tree has met twice (a stubbed vision call hides prompt defects; a declared tuple that does not
-execute). Assert on the **artifacts**: the graph shape, the MinIO layout, the collection rows.
+anything to run just because the row declares them** — something has to call
+`run_passes_for_kind` for your kind, the way `doors_ingestion` does, and until it does the names
+are a declaration. If the golden test asserts on declared passes only, it will stay green through
+a pass that never executes — the defect class this tree has met twice (a stubbed vision call hides
+prompt defects; a declared tuple that does not execute). Assert on the **artifacts**: the graph
+shape, the MinIO layout, the collection rows.
 
 ## C. The sensor pattern
 
@@ -116,8 +136,8 @@ row: `"pdf"`, `domain_type=None`, `passes=("identity.document_identity",)`,
 `outputs=("mesh:PDFArtifact",)`. A pdf arriving with no kind chosen lands there, runs the identity
 pass only, posts no review, and writes a bare artifact — **and a format-level key is not a leaf**,
 so the kind-resolution gate (`awaiting_kind`) is what stands between a drop and your passes. Your
-fixture deck is `.pptx` so it will not collide, but the directive has training `arrives_as` pdf and
-docx too. The contract must say how the kind is chosen for those (the drop prefix, or the BFF
+fixture deck is `.pptx` so it will not collide, but the directive has training arriving as pdf and
+docx too (there is no `arrives_as` field — that is `file_suffixes`, as you say). The contract must say how the kind is chosen for those (the drop prefix, or the BFF
 sidecar write that the kind-picker uses today), or a training pdf will silently become a
 `mesh:PDFArtifact`.
 
