@@ -393,7 +393,7 @@ def source_content_hash(c, manifest, manifest_key=None, fn=None):
     return "sha256:" + hashlib.sha256(body).hexdigest()
 
 
-def written_header(notice):
+def written_header(notice, identity):
     """The header AS WRITTEN — the values that actually reach the graph, taken off the
     constructed `SustainmentNotice` rather than off the model's raw output.
 
@@ -421,7 +421,13 @@ def written_header(notice):
         # these three, and `revision` is in NEITHER of pcn_header_agreement's compared
         # tuples, so the log path could not supply it at all.
         "mfr": blank_to_none(notice.mfr),
-        "doc_id": blank_to_none(notice.doc_id),
+        # doc_id comes from stats["notice_identity"], not from notice.doc_id: the notice
+        # carries the KEY (filename-seeded on a failed header pass so it is never null),
+        # and reporting a filename as the extracted notice number is the defect this
+        # field exists to expose. The identity record holds the claim-or-None. ONE source
+        # for the fact, deliberately -- see this function's sibling comment at the
+        # `written_header` call site about two copies of one fact drifting.
+        "doc_id": blank_to_none((identity or {}).get("doc_id")),
         "revision": blank_to_none(notice.revision),
         # The rest of pcn_header_agreement.WRITTEN_FIELDS.
         "doc_type": notice.doc_type,
@@ -460,7 +466,7 @@ def run_one(plugin, c, fn, manifest_key, manifest):
         # and never parse a log. `stats["notice_identity"]` — the composed key — is
         # already inside `stats` below; it is not copied up here, because two copies of
         # one fact in one document is how they drift.
-        "written_header": written_header(aug.notice),
+        "written_header": written_header(aug.notice, stats.get("notice_identity")),
         "content_hash": source_content_hash(c, manifest, manifest_key, fn),
         "stats": stats,
     }

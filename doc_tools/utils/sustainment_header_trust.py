@@ -533,12 +533,180 @@ def mfr_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
     return best, best
 
 
+# --------------------------------------------------------------------------- #
+# 2b-bis. THE NOTICE NUMBER THE DOCUMENT PRINTS
+# --------------------------------------------------------------------------- #
+# A notice number as THIS CORPUS actually prints it, measured against the eleven doc_id
+# values the corpus has written and the printed runs of the three text fixtures.
+#
+# CASE-SENSITIVE, AND A DIGIT IS MANDATORY. Both, and the first one is not a nicety. An
+# `re.IGNORECASE` draft of this rule matched the prose fragments `PCN and`, `PCN Team`,
+# `PCN form.`, `PCN Title`, `PCN Date` and `EOL Devices` — all measured on the Diodes and
+# TYC notices — because two case-folded letters satisfy a `[A-Z0-9]{2}` value. On TYC
+# line 8 that draft returned `PCN Date` as the notice number while the real
+# `PCN-24-210412` printed IN THE SAME RUN was invisible to it. A sourcing check is
+# structurally blind to that: the fragment is printed on the page, so it resolves. The
+# trailing `(?![A-Za-z0-9])` is what makes those fragments fail to match AT ALL rather
+# than match short — in `PCN Date` the value can only take `D`, and the lookahead then
+# fails on the `a`.
+#
+# NO WORD BOUNDARY BETWEEN THE CODE AND THE VALUE: the glued forms are the majority.
+# `PCN20250409000.1`, `PDN20231212001.3`, `IPCN25300X` and `FPCN26191XA` are all real
+# written doc_ids, and a `\b` after the code makes every one of them unreadable. The
+# leading `(?<![A-Za-z0-9])` still stops a match from starting mid-word.
+#
+# THE CODE IS A 0-2 LETTER PREFIX PLUS A FAMILY, not an alternation of literals:
+# `FPCN26191XA` and `IPCN25300X` are both written, so the prefix set is open and a fixed
+# list of codes is the wrong mechanism for it.
+#
+# A HYPHEN IS A SEPARATOR AND A COLON IS NOT, and the colon is the load-bearing half.
+# `PCN-2683` (Diodes' own title), `PCN-36` (EOL-36) and `PCN-24-210412` (TYC) are the
+# three forms that matter most here, so a bare `-` has to be crossable. The colon is
+# excluded so that the engine CANNOT cross it, which is the structural answer to the
+# measured Diodes label trap `PCN #: 2683`: it yields no candidate at all rather than a
+# candidate something downstream must catch. The value may also open on a letter, for
+# `PTN-DD-026-2023-REV-0`.
+_DOC_ID_RE = re.compile(
+    r"(?<![A-Za-z0-9])"                  # the code may not start mid-word
+    r"[A-Z]{0,2}(?:PCN|PDN|PTN|EOL)"     # FPCN / IPCN / PCN / PDN / PTN / EOL
+    r"[ #\-_]{0,2}"                      # the separator run. NOTE: no colon
+    r"[A-Z0-9][A-Z0-9._\-]*"             # the value. May open on a letter
+    r"(?![A-Za-z0-9])"                   # and may not stop mid-word
+)
+
+# Punctuation that can only be trailing noise on a notice number. Greedy matching
+# swallows the full stop in `...superseded per PCN 2016-119-A.`, and a trailing dot,
+# underscore or hyphen is never part of the number itself.
+_DOC_ID_EDGE_SEP = "._-"
+
+# The element types a notice number may be read from. `_STANDALONE_NAME_TYPES` is the
+# heading pair `mfr_from_document` uses; the rest are the body and page-furniture types,
+# because a notice number is commonly printed in a footer band or a right-hand field and
+# not only in a heading — TI prints its number in a five-page footer.
+#
+# `Table` IS DELIBERATELY EXCLUDED, and it costs a real notice. Measured on the EOL-36
+# element list: `PCN-36` is printed there ONLY inside a Table, the header grid run
+# `PCN Number BED.PCN-36 PCN Title EOL - Dual...`, so this function refuses on that
+# notice and the model's value plus the region witness stand. That is the safe direction
+# of the trade — admitting Table would put every parts grid in scope — but it is a
+# scope decision, not a law, and the wiring step is where it should be revisited.
+_DOC_ID_TEXT_TYPES = _STANDALONE_NAME_TYPES | frozenset({
+    "NarrativeText", "Header", "Footer", "FigureCaption", "ListItem", "Address",
+})
+
+_DOC_ID_KEY_RE = re.compile(r"[^A-Z0-9]+")
+
+
+def _doc_id_key(s) -> str:
+    """Uppercased alphanumerics only, so `PCN23-002` and `PCN 23-002` compare on the
+    same footing — they are the same number at two printed spacings."""
+    return _DOC_ID_KEY_RE.sub("", str(s or "").upper())
+
+
+def doc_id_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
+    """The notice number THE DOCUMENT prints, read without reference to anything the
+    model said.
+
+    Returns `(value, source)` — the verbatim printed form of the number, and the
+    verbatim run it was read out of — or `(None, None)` when the document does not
+    print exactly one.
+
+    THE SOURCE IS THE WHOLE RUN, THE VALUE IS THE SPAN. A label and its value are
+    frequently ONE text run in this corpus (`Texas Instruments Incorporated
+    PCN#20210316000.1`, `Product Change Notification: PCN-24-210412 PCN Date:
+    07-JUN-24`), so the source has to stay whole for provenance to resolve against the
+    element, while the value drops the surrounding noise. The value keeps its code
+    token: the written forms include it (`PDN 23_0120`, never `23_0120`).
+
+    THE CODE TOKEN IS MANDATORY. A bare number is not a doc_id claim — `P1306028a` is a
+    real written doc_id and this function correctly declines to read it, because nothing
+    on the page says that string is the notice number rather than a part or a drawing.
+
+    TWO GUARDS AGAINST A FABRICATION, which is the right number when the field is
+    unscoreable. Nothing in the corpus gate scores doc_id — `scripts/pcn_ground_truth.json`
+    carries header ground truth for three notices and three other fields — so a wrong
+    value written here would be silent. The first guard is the shape rule above
+    (case-sensitivity, the mandatory digit, and the colon that cannot be crossed). The
+    second is `is_field_label_echo` (defined below at the module's label-echo section,
+    `:1190`), which catches a form label echoed with or instead of its value; the
+    measured case is the Diodes `PCN #: 2683`. The colon exclusion already stops that
+    one at the regex, so the echo check is now the second line and not the first — kept
+    because a label that reaches a candidate by some other spacing must still not be
+    written.
+
+    UNIQUENESS IS THE SAFETY, exactly as in `mfr_from_document`. The shape rule decides
+    who gets to be a candidate; this decides whether the document has made a statement.
+    Candidates are grouped by `_doc_id_key`, and ANY TWO DISTINCT KEYS IS A REFUSAL.
+    Unlike `mfr_from_document` there is NO PREFIX RULE here, and that asymmetry is
+    deliberate: `SEMELAB` beside `SEMELAB PLC` is one name at two truncations, but
+    `PCN-36` beside `PCN-3600` is two different notices, and treating the shorter as a
+    truncation of the longer would pick one notice's number for another's. A document
+    that names two numbers gets an empty field, and no preference rule may be added to
+    break that tie — the uniqueness check is the whole safety of this function.
+
+    Among several printed spacings of the SAME key, the most frequent, tie-broken by
+    first occurrence in document order — the same tie-break the other two functions use,
+    and it invents no canonical form of our own.
+
+    Return the PRINTED FORM, not a normalized slug. Normalization is
+    `norm.normalize_doc_id`'s job at the key site and must not be duplicated here.
+    """
+    counts: Dict[str, int] = {}
+    first_seen: Dict[str, int] = {}
+    source_of: Dict[str, str] = {}
+    for position, el in enumerate(index):
+        if el.get("type") not in _DOC_ID_TEXT_TYPES:
+            continue
+        run = el.get("text") or ""
+        form = run.strip().strip(_NAME_EDGE_PUNCT).strip()
+        if not form:
+            continue
+        for match in _DOC_ID_RE.finditer(form):
+            value = _WS_RE.sub(" ", match.group(0)).strip().rstrip(_DOC_ID_EDGE_SEP)
+            # A number with no digit in it is a word that happens to follow the code.
+            if not any(ch.isdigit() for ch in value):
+                continue
+            if is_field_label_echo(value):
+                continue
+            counts[value] = counts.get(value, 0) + 1
+            first_seen.setdefault(value, position)
+            source_of.setdefault(value, run)
+
+    if not counts:
+        return None, None
+
+    # Two numbers means the document names two notices and this function has no business
+    # choosing between them. No prefix collapse — see the docstring.
+    if len({_doc_id_key(f) for f in counts}) > 1:
+        return None, None
+
+    best = sorted(counts, key=lambda f: (-counts[f], first_seen[f]))[0]
+    source = source_of[best]
+
+    # Belt and braces, and it is load-bearing: a value this function supplies is one a
+    # later sourcing pass must be able to confirm, so if the source could not itself
+    # resolve the re-check would blank the field and the substitution would be silently
+    # undone. Unreachable through a real index by construction — the source IS an
+    # element's own text and `resolve_value` does normalized substring containment — so a
+    # failure here means the two have drifted apart, and silence would be worse than an
+    # empty field.
+    if not provenance.resolve_value(source, index, prefer_region="narrative")["found"]:
+        return None, None
+    return best, source
+
+
 # Fields whose value the DOCUMENT can supply on its own, with no nomination to work
 # from. Consulted both when the model's value fails the document check and when the
 # model produced no value at all — a null `mfr` is now a legal model answer (the schema
 # was made nullable so one unfound field can no longer fail the whole header pass), and
 # a page that names its own manufacturer should not be left empty because the model
 # declined to.
+#
+# `doc_id` is deliberately NOT here yet, though `doc_id_from_document` above is ready
+# for it: registering it would subject every notice's doc_id to the unsourced refusal in
+# one step, and since the model emits no `doc_id_source` at all, every doc_id in the
+# corpus would be refused and re-derived at once — an unmeasured wholesale change on a
+# field nothing scores. The wiring is a separate, narrower step.
 _DOCUMENT_WINS = {"mfr": mfr_from_document}
 
 

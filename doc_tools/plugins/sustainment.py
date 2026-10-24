@@ -238,6 +238,27 @@ VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "2048"))
 # knob is a way for the pin to be quietly undone in the one environment where it matters.
 HEADER_TEMPERATURE = 0
 
+# Request bound for the HEADER pass, in milliseconds.
+#
+# Measured on the 10-19 nightly: 15/15 ExtractHeader calls returned in 19 274-36 300 ms,
+# so the healthy p100 is 36 300 ms and 90 s is ~2.5x the healthy worst case. The observed
+# cut was 300 001-300 008 ms against a fire budget of 2 794-3 201 s -- i.e. ~10% of a fire
+# spent returning nothing.
+#
+# A SEPARATE key from `LLM_REQUEST_TIMEOUT_MS` because that one is shared with the vision
+# client, whose `VISION_MAX_TOKENS` sizing (charts/doc-tools/values-sandbox.yaml) depends
+# on the 600 s default: lowering the shared key would convert a DETECTED vision truncation
+# into an undetected vision timeout.
+HEADER_TIMEOUT_MS_DEFAULT = 90_000
+
+# Seed for the HEADER pass.
+#
+# Temperature 0 alone left three fires disagreeing on byte-identical input. A seed removes
+# one source of that and does NOT make the call deterministic -- a probe at temperature 0
+# with seed 0 still produced three different outputs. One variable removed, not a
+# determinism guarantee.
+HEADER_SEED = 0
+
 # Greedy decoding for the parts pass. NOT a tuning knob -- an identity requirement.
 #
 # Measured 2026-09-27 on pin sha256:0136991e: `ADI_PDN_23_0120` emitted 'AD7873ACPZ' in
@@ -429,13 +450,17 @@ def _header_call_opts() -> dict:
     No Collector: unlike the vision pass, there is no truncation check on this pass.
     """
     from baml_py import AbortController, ClientRegistry
-    ms = int(os.getenv("LLM_REQUEST_TIMEOUT_MS", "600000"))
+    ms = int(os.getenv("HEADER_REQUEST_TIMEOUT_MS", str(HEADER_TIMEOUT_MS_DEFAULT)))
     cr = ClientRegistry()
     options = {
         "base_url": os.environ.get("LLM_BASE_URL", ""),
         "api_key": os.environ.get("LLM_API_KEY", "") or "any",
         "model": os.environ.get("LLM_MODEL", ""),
         "temperature": HEADER_TEMPERATURE,
+        # `seed` is a standard OpenAI-compatible REQUEST parameter and belongs at the top
+        # level, NOT inside the nested `options` dict below (that nesting is the Ollama
+        # `num_ctx` passthrough). See HEADER_SEED: one variable removed, not determinism.
+        "seed": HEADER_SEED,
     }
     num_ctx = os.environ.get("LLM_NUM_CTX")
     if num_ctx:
@@ -1378,6 +1403,55 @@ class SustainmentPlugin(AugmentationPlugin):
             _extracted = header_d.get("doc_id")
             header_d["doc_id_extracted"] = (
                 str(_extracted).strip() or None) if _extracted is not None else None
+        # ITEM 1 of the 2026-10-20 ruling, doc_id's half: the DOCUMENT is primary and
+        # the model is corroboration and fallback. Same shape as `doc_type_from_titles`
+        # below and `mfr_from_document` in the trust pipeline -- a notice number is
+        # PRINTED once and does not sample, where the model's doc_id came back
+        # different across fires on byte-identical input.
+        #
+        # GATED OFF on a degraded text layer, for the same reason `_DOCUMENT_WINS` is:
+        # a damaged layer corroborates itself (TYC prints `TE Connecvity`), so on a
+        # document whose layer is MEASURED degraded the text layer is not a witness to
+        # anything and the model's claim stands as the only reading.
+        _doc_id_doc, _doc_id_doc_source = (None, None)
+        if not text_layer_assessment["text_layer_degraded"]:
+            _doc_id_doc, _doc_id_doc_source = header_trust.doc_id_from_document(index)
+        header_d["doc_id_document"] = _doc_id_doc
+        header_d["doc_id_document_source"] = _doc_id_doc_source
+        # Precedence: the document's own printing, then the model's claim, then -- for
+        # the KEY only -- the pipeline doc_id. `doc_id_origin` records which, and it is
+        # what the identity triple consults below: a filename-keyed doc_id has origin
+        # None and is NOT an identity claim.
+        if _doc_id_doc:
+            header_d["doc_id"] = _doc_id_doc
+            header_d["doc_id_origin"] = "document"
+        elif header_d.get("doc_id_extracted"):
+            header_d["doc_id"] = header_d["doc_id_extracted"]
+            header_d["doc_id_origin"] = "model"
+        else:
+            header_d["doc_id_origin"] = None
+        # Disagreement is REPORTED and does NOT force review: `needs_review=True` is
+        # consumed by the corpus gate as an EXEMPTION, and a new review trigger on a
+        # field nothing scores could exempt a notice whose scored fields are wrong.
+        if _doc_id_doc and header_d.get("doc_id_extracted"):
+            _agrees = (norm.normalize_doc_id(_doc_id_doc)
+                       == norm.normalize_doc_id(header_d["doc_id_extracted"]))
+            if not _agrees:
+                reasons.append(
+                    f"doc_id taken from the document ({_doc_id_doc!r}, printed at "
+                    f"{_doc_id_doc_source!r}); the header pass said "
+                    f"{header_d['doc_id_extracted']!r}, not used"
+                )
+        else:
+            _agrees = None
+        # Instrumented because the corpus gate has no header ground truth for doc_id.
+        stats["doc_id_arm"] = {
+            "origin": header_d["doc_id_origin"],
+            "document_value": _doc_id_doc,
+            "model_value": header_d.get("doc_id_extracted"),
+            "agrees": _agrees,
+            "gated_off_degraded": bool(text_layer_assessment["text_layer_degraded"]),
+        }
         # The KEY fallback stays: doc_id is a KEY (workflow id, MinIO prefix,
         # graph IRI, provenance index) and must never be null.
         if not header_d.get("doc_id"):
@@ -1390,7 +1464,8 @@ class SustainmentPlugin(AugmentationPlugin):
         # `doc_id_raw` is the DISPLAY field, so it honours the 2026-10-17
         # clause: the extracted printed form or None, never the filename-seeded
         # key (fa231498 / 0096a523: `PCN23-002` from a filename, header empty).
-        header_d["doc_id_raw"] = header_d.get("doc_id_extracted")
+        header_d["doc_id_raw"] = (_doc_id_doc if header_d["doc_id_origin"] == "document"
+                                  else header_d.get("doc_id_extracted"))
         header_d["doc_id"] = norm.normalize_doc_id(header_d.get("doc_id"))
         # doc_type is derived from the DOCUMENT'S OWN TITLE, not from the header model's
         # `doc_type` field: that field flipped PCN/PDN/PCN across repeated fires on
@@ -1604,8 +1679,21 @@ class SustainmentPlugin(AugmentationPlugin):
         # match, which silently merges two different manufacturers' notices. Coverage is
         # currently total anyway: at pin 025be04a all nine corpus notices carry both an
         # mfr and a doc_id, with refusals 0.
+        #
+        # A filename is not an identity claim. `header_d["doc_id"]` is KEY-SAFE by
+        # construction (filename-seeded above so the workflow id / MinIO prefix / graph
+        # IRI / provenance index are never null), and that is exactly why it must not be
+        # the identity triple's doc_id: a consumer cannot tell a filename from an
+        # extracted notice number. `doc_id_extracted` is the model's own claim, set
+        # before the key fallback and None on a cut, so it is the discriminator for
+        # WHETHER a claim exists; the normalized key-safe form is still what we PASS, so
+        # every key that formed before this change forms identically after it. The claim
+        # is now the DOCUMENT's printing where the document prints it, the model's where
+        # it does not, and None where neither does: `doc_id_origin` is the discriminator
+        # and a filename-keyed value has origin None, exactly as before.
+        _doc_id_claim = header_d.get("doc_id") if header_d.get("doc_id_origin") else None
         stats["notice_identity"] = notice_identity.build_identity(
-            header_d.get("mfr"), header_d.get("doc_id"), header_d.get("revision"))
+            header_d.get("mfr"), _doc_id_claim, header_d.get("revision"))
 
         # ---- Router + Pass 2: parts (multimodal, Gemma) ----
         tables = provenance.table_elements(elements)
@@ -1868,7 +1956,17 @@ class SustainmentPlugin(AugmentationPlugin):
                   # or the filename (fa231498 / 0096a523 showed `PCN23-002`, taken from
                   # the filename of a PDF whose header pass produced nothing). The
                   # consumer's title falls back to the drop id when this is null.
-                  "doc_id_raw": header_d.get("doc_id_extracted"),
+                  #
+                  # 2026-10-20: reads `doc_id_raw`, NOT `doc_id_extracted`. The two
+                  # differed the moment the text-layer arm landed: `doc_id_extracted`
+                  # is the MODEL's claim and `doc_id_raw` is the claim that WON, which
+                  # under a text-layer-primary arm is the document's own printing where
+                  # the document prints it. The 2026-10-17 clause is unaffected and in
+                  # fact tightened — `doc_id_raw` is None when `doc_id_origin` is None,
+                  # so a filename-keyed doc_id still cannot be displayed as a printed
+                  # notice number; it is now also impossible for the model's reading to
+                  # be displayed while the document's reading is the one routed on.
+                  "doc_id_raw": header_d.get("doc_id_raw"),
                   # doc_type + categories DRIVE the disposition proposer's rule match:
                   # every PCN rule requires a change category, so without these the
                   # proposer returns UNCLASSIFIABLE for every part and the UI shows
