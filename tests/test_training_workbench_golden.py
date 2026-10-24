@@ -184,7 +184,6 @@ def test_never_written_lists_the_workbench_owned_names():
     assert not hits, hits
 
 
-@pytest.mark.xfail(strict=True, reason="lane tr step b")
 def test_training_kind_row_and_sensor():
     row = KIND_MAPPING.get("course")
     assert row is not None, "no KIND_MAPPING row 'course'"
