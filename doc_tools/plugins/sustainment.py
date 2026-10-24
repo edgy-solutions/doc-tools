@@ -33,7 +33,11 @@ from pydantic import BaseModel, Field
 
 from doc_tools.plugins.base import AugmentationPlugin, PromptUnavailableError
 from doc_tools.plugins.models import BaseSection, DocumentNode
-from doc_tools.utils.jena_client import escape_sparql_string
+from doc_tools.utils.jena_client import (
+    escape_sparql_string,
+    safe_iri_local,
+    safe_iri_ref_component,
+)
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
 from doc_tools.utils import sustainment_header_trust as header_trust
@@ -2181,9 +2185,13 @@ class SustainmentPlugin(AugmentationPlugin):
             # --- JENA SPARQL/RDF ---
             # notice.doc_id is already normalized at finalization; normalize again
             # here (idempotent) so the graph IRI keys on the SAME canonical slug as
-            # review.json / the workflow id. (safe_mpn below stays a bare space->_
-            # replace — MPNs keep '#' reel codes verbatim as provenance join keys.)
-            safe_notice_id = norm.normalize_doc_id(notice.doc_id)
+            # review.json / the workflow id. safe_mpn below still keeps '#' reel
+            # codes, '/' and ',' verbatim as provenance join keys -- it is NOT
+            # regex-stripped -- but it now percent-encodes the characters an
+            # IRIREF forbids. A bare space->_ replace left OCR ditto quotes and
+            # wrapped-cell newlines in the IRI, which 400s the whole INSERT DATA;
+            # see safe_iri_ref_component for the measured case.
+            safe_notice_id = safe_iri_ref_component(norm.normalize_doc_id(notice.doc_id))
             if str(notice.doc_type).upper() == "PDN":
                 notice_class = "pcn:ProductDiscontinuationNotice"
             else:
@@ -2208,12 +2216,12 @@ class SustainmentPlugin(AugmentationPlugin):
                 <http://internal/sustainment/doc/{safe_notice_id}> a {notice_class} .
             """
             for cat in notice.categories:
-                safe_cat = str(cat).replace(' ', '_')
+                safe_cat = safe_iri_local(str(cat))
                 sparql += f"""
                 <http://internal/sustainment/doc/{safe_notice_id}> pcn:hasChangeCategory pcn:{safe_cat} .
                 """
             for part in notice.impacted_parts:
-                safe_mpn = part.affected_mpn.replace(' ', '_')
+                safe_mpn = safe_iri_ref_component(part.affected_mpn)
                 sparql += f"""
                 <http://internal/components/{safe_mpn}> pcn:subjectToNotice <http://internal/sustainment/doc/{safe_notice_id}> .
                 """
@@ -2222,7 +2230,7 @@ class SustainmentPlugin(AugmentationPlugin):
                     <http://internal/components/{safe_mpn}> pcn:hasLastTimeBuyDate "{escape_sparql_string(part.ltb_date)}"^^xsd:date .
                     """
                 if part.replacement_mpn:
-                    safe_rep = part.replacement_mpn.replace(' ', '_')
+                    safe_rep = safe_iri_ref_component(part.replacement_mpn)
                     sparql += f"""
                     <http://internal/components/{safe_mpn}> pcn:hasReplacement <http://internal/components/{safe_rep}> .
                     """
@@ -2245,7 +2253,7 @@ class SustainmentPlugin(AugmentationPlugin):
                 derived_from = provenance.get("derived_from")
                 if derived_from:
                     sparql += f"""
-                <http://internal/sustainment/doc/{safe_notice_id}> <{PROV_DERIVED_FROM}> <{derived_from}> .
+                <http://internal/sustainment/doc/{safe_notice_id}> <{PROV_DERIVED_FROM}> <{safe_iri_ref_component(derived_from)}> .
                 """
 
             sparql += "  }\n}"  # close GRAPH, then INSERT DATA
