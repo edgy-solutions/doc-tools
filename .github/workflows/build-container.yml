@@ -4,8 +4,46 @@ on:
   push:
     branches:
       - main
+    # A TAG REF DOES NOT REBUILD ANY MORE. It resolves and retags.
+    #
+    # MEASURED, 2026-10-23. Publishing the GitHub release `v0.2.0` on commit
+    # `133714c` — the commit the sandbox runs — fired this trigger. The run
+    # (39961818782) spent 36m1s rebuilding that same source and pushed the
+    # result as BOTH `v0.2.0` and `133714c…`, because `tags:` on the build step
+    # is version + github.sha. Two things went wrong at once:
+    #
+    #   1. `v0.2.0` named `sha256:9883b5d3…`, bytes that had never been through
+    #      a gate — and in that same run corpus-gate and corpus-gate-verdict
+    #      both FAILED, while build-and-push succeeded, because the corpus gate
+    #      is not in its `needs`. A release tag pointed at ungated bytes.
+    #   2. The commit-sha tag was MOVED off `sha256:ac853308…`, the gated index
+    #      the sandbox pins. That tag was the only evidence linking that digest
+    #      to its commit, because the build stamped no
+    #      org.opencontainers.image.revision (see `labels:` on the build step,
+    #      which is the other half of this change). The digest is immutable, so
+    #      nothing deployed changed; it simply became unreachable by any tag,
+    #      and the mapping had to be recovered out of the ORIGINAL build run's
+    #      log (39090288904, where `ac853308` appears 12 times).
+    #
+    # The build is not reproducible — same commit, different bytes — so a
+    # rebuild on a tag can never be a no-op. A version tag is an assertion
+    # about which bytes a release names, and the only way to keep that
+    # assertion true is to add the tag to the digest CI already built for that
+    # commit. That is what resolve-release-image and tag-release-image do.
     tags:
       - 'v*'
+  # RELEASE, the trigger a human actually reaches for. `published` fires for a
+  # release published directly and for a draft later published, which is what
+  # makes "edit the release and publish" a usable way to re-run this.
+  #
+  # Both triggers fire for one `gh release create`: the tag push and the
+  # release. That is harmless now and deliberately not suppressed — each run
+  # resolves the same commit to the same digest and asserts the same tag, and
+  # `imagetools create` of a tag that already names that digest changes
+  # nothing. Suppressing one would mean picking which, and a release published
+  # from an existing tag emits no push event at all.
+  release:
+    types: [published]
   pull_request:
     branches:
       - main
@@ -18,7 +56,35 @@ on:
   # missed, short of an empty commit — so the recovery path was a fake commit, and the natural
   # alternative was to assume it had built. That is the believed-built class with the remedy
   # designed out of reach. A build you cannot re-run on demand is a build you have to take on faith.
+  #
+  # MANUAL RETAG, added 2026-10-23 with both inputs EMPTY BY DEFAULT so a plain
+  # dispatch is exactly the manual rebuild described above and nothing else.
+  #
+  # It exists because the ordinary release path cannot repair a tag that was
+  # already moved. resolve-release-image finds the digest for a commit by
+  # reading the commit-sha tag — and on 2026-10-23 that tag was itself
+  # overwritten, so re-publishing v0.2.0 would read `9883b5d3` (the ungated
+  # rebuild) and cement it. The digest input is the way to supply a digest
+  # recovered from somewhere the overwrite could not reach, which for v0.2.0 is
+  # the original build run's log.
+  #
+  # `digest` is not taken on trust: it is asserted to exist in the registry,
+  # with the controls, before any tag is pointed at it. A digest that does not
+  # resolve fails the run.
   workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          Version tag to assert (e.g. v0.2.0). LEAVE EMPTY for a plain rebuild
+          of the dispatched ref, which is this trigger's original purpose.
+        required: false
+        default: ''
+      digest:
+        description: >-
+          sha256:... index digest the version tag must name. Only for repairing
+          a moved tag; leave empty to resolve the commit-sha tag instead.
+        required: false
+        default: ''
 
 jobs:
   changes:
@@ -194,6 +260,188 @@ jobs:
 
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           echo "charts=$CHARTS" >> "$GITHUB_OUTPUT"
+
+  resolve-release-image:
+    # WHICH VERSION, FOR WHICH COMMIT, AND DOES AN IMAGE ALREADY EXIST FOR IT.
+    #
+    # This job is the one that stops a release from rebuilding. It answers a
+    # single question — is there already a pushed image for the commit this
+    # version names — and build-and-push's `if:` reads the answer. When there
+    # is, the version tag is ADDED to that digest (tag-release-image below) and
+    # no build runs: the bytes a release names are then, by construction, the
+    # bytes that went through the gates.
+    #
+    # IT HAS NO `if:` AND MUST NOT GET ONE. A skipped job's outputs are empty,
+    # and `needs` on a skipped job skips the dependent — so a conditional
+    # version of this job would silently skip build-and-push on every ordinary
+    # push to main. Instead it always runs (it is seconds, two HTTP HEADs) and
+    # reports `is_release=false, needs_build=true` for anything that is not a
+    # release or a v* tag, which is exactly the behaviour this file had before.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      is_release: ${{ steps.what.outputs.is_release }}
+      version: ${{ steps.what.outputs.version }}
+      sha: ${{ steps.what.outputs.sha }}
+      exists: ${{ steps.probe.outputs.exists }}
+      # The digest the version tag must end up naming, from ONE authority: the
+      # verdict step, which picks between the registry's answer and a supplied
+      # override. Reading steps.probe directly here would make the override
+      # unreachable for the one case it exists for.
+      digest: ${{ steps.verdict.outputs.digest }}
+      needs_build: ${{ steps.verdict.outputs.needs_build }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: What version is this, and which commit does it name
+        id: what
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          FALLBACK_SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IN_VERSION: ${{ github.event.inputs.version }}
+          IN_DIGEST: ${{ github.event.inputs.digest }}
+        run: |
+          set -euo pipefail
+          IS_RELEASE=false
+          VERSION=""
+          SHA="$FALLBACK_SHA"
+          OVERRIDE=""
+
+          if [[ "$EVENT" == "release" ]]; then
+            IS_RELEASE=true
+            VERSION="$RELEASE_TAG"
+          elif [[ "$EVENT" == "push" && "$REF" == refs/tags/v* ]]; then
+            IS_RELEASE=true
+            VERSION="${REF#refs/tags/}"
+          elif [[ "$EVENT" == "workflow_dispatch" && -n "${IN_VERSION:-}" ]]; then
+            IS_RELEASE=true
+            VERSION="$IN_VERSION"
+            OVERRIDE="${IN_DIGEST:-}"
+            if [[ -n "$OVERRIDE" && ! "$OVERRIDE" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::digest input is not a sha256:<64 hex> reference: '$OVERRIDE'"
+              exit 1
+            fi
+          elif [[ "$EVENT" == "workflow_dispatch" && -n "${IN_DIGEST:-}" ]]; then
+            # A digest with no version names no tag. Refused rather than
+            # ignored: silently dropping it would retag nothing and report
+            # success, which is the shape of failure this whole change is about.
+            echo "::error::a digest input needs a version input; a digest alone names no tag"
+            exit 1
+          fi
+
+          if [[ "$IS_RELEASE" == "true" ]]; then
+            if [[ -z "$VERSION" ]]; then
+              echo "::error::a release/tag event with no tag name -- refusing to guess a version"
+              exit 1
+            fi
+            # THE TAG IS RESOLVED THROUGH THE API, NOT TAKEN FROM github.sha.
+            # On a `release` event github.sha is not guaranteed to be the
+            # tagged commit, and a release can be cut on a commit that is not
+            # the head of any branch -- v0.2.0 was cut on 133714c while main
+            # was two merges further on at 809963c. `repos/.../commits/<ref>`
+            # dereferences an annotated tag object to its commit, which
+            # reading refs/tags/<v> directly does not.
+            SHA=$(gh api "repos/$REPO/commits/$VERSION" --jq .sha)
+            if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::could not resolve tag $VERSION to a commit (got '$SHA')"
+              exit 1
+            fi
+          fi
+
+          echo "event=$EVENT  is_release=$IS_RELEASE  version=${VERSION:-<none>}  sha=$SHA"
+          {
+            echo "is_release=$IS_RELEASE"
+            echo "version=$VERSION"
+            echo "sha=$SHA"
+            echo "override=$OVERRIDE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Is there already an image for that commit
+        id: probe
+        if: steps.what.outputs.is_release == 'true'
+        env:
+          # Read-only. ghcr.io hands out an anonymous pull token for a public
+          # package, but a package turned private must come back as a real
+          # answer rather than as UNDETERMINED, so a token is supplied.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # No --expect: a 404 here is a legitimate answer ("nothing built for
+          # this commit yet"), not a failure. The ONE thing that does fail this
+          # step is exit 3 -- the script's negative controls resolving -- and
+          # that failure is load-bearing: `exists=false` from a check that
+          # cannot tell absent from present would send this workflow into a
+          # rebuild, which is the exact damage being fixed.
+          python3 scripts/verify_release_tag.py \
+            --repo "${{ github.repository }}" \
+            --github-output "$GITHUB_OUTPUT" \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            "${{ steps.what.outputs.sha }}"
+
+      - name: Does the supplied digest actually exist
+        if: steps.what.outputs.override != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # A digest reference resolves to itself when it exists and 404s when
+          # it does not, so --expect <digest> <digest> is a true existence
+          # check — and it runs the same controls, so "it exists" is not a
+          # registry that answers 200 to anything. Exit 1 here fails the run
+          # rather than pointing a release tag at bytes nobody can pull.
+          python3 scripts/verify_release_tag.py \
+            --repo "${{ github.repository }}" \
+            --expect "${{ steps.what.outputs.override }}" \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            "${{ steps.what.outputs.override }}"
+
+      - name: Build, or add the tag to what is already there
+        id: verdict
+        run: |
+          set -euo pipefail
+          IS_RELEASE="${{ steps.what.outputs.is_release }}"
+          EXISTS="${{ steps.probe.outputs.exists }}"
+          OVERRIDE="${{ steps.what.outputs.override }}"
+          FOUND="${{ steps.probe.outputs.digest }}"
+          DIGEST=""
+
+          if [[ "$IS_RELEASE" != "true" ]]; then
+            NEEDS_BUILD=true
+            echo "not a release or v* tag -> needs_build=true (unchanged behaviour)"
+          elif [[ -n "$OVERRIDE" ]]; then
+            # The repair path, and it says out loud when it disagrees with the
+            # registry — that disagreement IS the damage being repaired, and it
+            # must appear in the log rather than be silently preferred.
+            NEEDS_BUILD=false
+            DIGEST="$OVERRIDE"
+            echo "digest supplied by hand: $OVERRIDE"
+            if [[ -n "$FOUND" && "$FOUND" != "$OVERRIDE" ]]; then
+              echo "::warning::the commit-sha tag for ${{ steps.what.outputs.sha }} currently resolves to $FOUND, NOT the supplied $OVERRIDE. Using the supplied digest. If this is not a deliberate repair of a moved tag, stop and check."
+            fi
+            echo "-> needs_build=false; the version tag will be added to the supplied digest"
+          elif [[ "$EXISTS" == "true" ]]; then
+            NEEDS_BUILD=false
+            DIGEST="$FOUND"
+            echo "an image already exists for ${{ steps.what.outputs.sha }}:"
+            echo "  $FOUND"
+            echo "-> needs_build=false; the version tag will be added to that digest"
+          else
+            NEEDS_BUILD=true
+            echo "no image exists for ${{ steps.what.outputs.sha }} -> needs_build=true"
+            echo "the build will push BOTH the commit-sha tag and ${{ steps.what.outputs.version }}"
+          fi
+          {
+            echo "needs_build=$NEEDS_BUILD"
+            echo "digest=$DIGEST"
+          } >> "$GITHUB_OUTPUT"
 
   telemetry-contract:
     # Fast pre-build gate (ADR-0038): the telemetry mapping must name only fields
@@ -617,12 +865,25 @@ jobs:
     # another job's `outputs` — `needs.changes.outputs.code` below — only
     # works for jobs already listed in `needs`. The `if:` is what actually
     # acts on it.
-    needs: [telemetry-contract, tests, changes]
-    if: needs.changes.outputs.code == 'true'
+    #
+    # `resolve-release-image` is the fourth entry, and it is a gate of a third
+    # kind: not correctness, not cost, but IDENTITY. It is false exactly when a
+    # release names a commit that already has a pushed image, and in that case
+    # this job must not run at all — see the `tags:` trigger comment at the top
+    # of this file for what a rebuild on a tag actually did on 2026-10-23.
+    needs: [telemetry-contract, tests, changes, resolve-release-image]
+    if: >-
+      needs.changes.outputs.code == 'true' &&
+      needs.resolve-release-image.outputs.needs_build == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    # Read by tag-release-image, for the case where a release names a commit
+    # that had no image and this job had to make one.
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      version: ${{ steps.meta.outputs.version }}
 
     steps:
       - name: Free GitHub runner disk space (~10 GB)
@@ -646,6 +907,14 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # THE COMMIT THE VERSION NAMES, resolved once in
+          # resolve-release-image and used here, in the image tag, in the
+          # build-arg and in the revision label — so all four cannot disagree.
+          # For every non-release event this is `github.sha`, so nothing
+          # changes; for a release it is the tagged commit, which github.sha is
+          # not guaranteed to be.
+          ref: ${{ needs.resolve-release-image.outputs.sha }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -926,12 +1195,35 @@ jobs:
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "image=ghcr.io/$REPO_LOWER" >> "$GITHUB_OUTPUT"
-          
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=latest" >> "$GITHUB_OUTPUT"
+
+          # The version comes from resolve-release-image when it found one, so
+          # that a `release` event and a tag push produce the same string. It
+          # covers what the old GITHUB_REF test covered (a tag push sets it)
+          # and the case that test could not see: a release published from an
+          # existing tag, where GITHUB_REF is refs/tags/<v> only incidentally.
+          VERSION="${{ needs.resolve-release-image.outputs.version }}"
+          if [[ -z "$VERSION" ]]; then
+            VERSION=latest
           fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # REFUSE AN EMPTY SHA RATHER THAN INTERPOLATE ONE. This value now
+          # feeds four things — the checkout ref, the image's commit-sha tag,
+          # the DOC_TOOLS_VERSION build-arg and the .revision label — and an
+          # empty one is worse than a missing one in every single case: the
+          # stamp would become `doc-tools@`, which is not the `unstamped`
+          # sentinel tests/test_review_pipeline_version_stamp.py relies on
+          # being obvious, and the image would carry a tag that is the empty
+          # string. resolve-release-image always emits a sha (github.sha when
+          # the event is not a release), so an empty one here means that job's
+          # contract broke, and this build must stop rather than ship a
+          # plausible-looking blank.
+          SHA="${{ needs.resolve-release-image.outputs.sha }}"
+          if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::resolve-release-image gave no usable commit sha (got '$SHA')"
+            exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
       - name: Diagnose context size
         run: |
@@ -962,7 +1254,30 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
-            ${{ steps.meta.outputs.image }}:${{ github.sha }}
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}
+          # ITEM 4 OF THE 2026-10-23 RELEASE DIRECTIVE, and the fix for the
+          # thing that made the tag overwrite expensive rather than merely
+          # wrong. `sha256:ac853308…` carries an EMPTY labels map — read out of
+          # its config blob — so when its commit-sha tag was moved, the image
+          # could no longer name its own commit and the mapping had to be
+          # reconstructed from a 1.5 MB build log. An image that carries
+          # .revision answers that question about itself, from the bytes,
+          # forever, with no tag and no run record needed:
+          #
+          #     docker buildx imagetools inspect <ref> --raw   (index)
+          #     docker buildx imagetools inspect <ref>@<child> --format '{{json .Image.Config.Labels}}'
+          #
+          # .version is the release the bytes were cut as — `latest` on an
+          # ordinary main build, the tag on a release that had to be built.
+          # NOTE what a retag cannot do: `imagetools create` copies the index
+          # untouched, so adding `v0.2.0` to an older digest does NOT give it a
+          # .version label. These labels are true from this build forward, and
+          # the digest tables in the job summaries are what covers everything
+          # before them.
+          labels: |
+            org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
           # PROVENANCE STAMP (ADR-0034). The extractor's own identity, baked at BUILD time so it
           # cannot be unset, forgotten, or overridden per-deploy. It is written into every
           # review.json as `pipeline_version`, and the trust table is KEYED on it: a rung is earned
@@ -973,7 +1288,7 @@ jobs:
           # every decision record carries "unset" and the trust key's second axis has exactly one
           # value in it. An env var that must be remembered fails silent; a build-arg sha cannot.
           build-args: |
-            DOC_TOOLS_VERSION=doc-tools@${{ github.sha }}
+            DOC_TOOLS_VERSION=doc-tools@${{ steps.meta.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -1010,9 +1325,188 @@ jobs:
             echo "| field | value |"
             echo "|---|---|"
             echo "| digest | \`$DIGEST\` |"
-            echo "| commit | \`${{ github.sha }}\` |"
-            echo "| tags pushed | \`${{ steps.meta.outputs.version }}\`, \`${{ github.sha }}\` |"
+            echo "| commit | \`${{ steps.meta.outputs.sha }}\` |"
+            echo "| tags pushed | \`${{ steps.meta.outputs.version }}\`, \`${{ steps.meta.outputs.sha }}\` |"
             echo
             echo "Verify independently of this log: \`docker pull $IMAGE@$DIGEST\`"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "digest=$DIGEST"
+  tag-release-image:
+    # THE VERSION TAG, ADDED TO BYTES THAT ALREADY EXIST. No build, no pull of
+    # layers, no rebuild: `docker buildx imagetools create` copies the manifest
+    # index as it is and PUTs it under a second name.
+    #
+    # THE PROPERTY THAT MAKES THIS WORTH DOING, and it was measured before it
+    # was relied on: imagetools PRESERVES THE INDEX DIGEST. A retag tool that
+    # re-serializes an index yields a different digest, and the version tag
+    # would then name bytes equivalent to the pinned ones rather than the
+    # pinned ones themselves. `--dry-run` against `ac853308` returned all four
+    # children intact (linux/amd64, linux/arm64, and both attestation
+    # manifests with their vnd.docker.reference annotations), and the push
+    # log names the manifest it PUTs — the unchanged index digest. So "verify
+    # each version tag resolves to the expected digest" is satisfiable, and
+    # amd64 and arm64 both resolve under the new tag.
+    #
+    # `always()` plus the explicit result tests, because this job must run in
+    # the case where build-and-push was SKIPPED — that skip is the normal,
+    # desired path for a release whose commit already has an image. `needs` on
+    # a skipped job would otherwise skip this one too.
+    needs: [resolve-release-image, build-and-push]
+    if: >-
+      always() &&
+      needs.resolve-release-image.result == 'success' &&
+      needs.resolve-release-image.outputs.is_release == 'true' &&
+      needs.build-and-push.result != 'failure' &&
+      needs.build-and-push.result != 'cancelled'
+    runs-on: ubuntu-latest
+    # `gh release create` fires BOTH triggers, so two runs can reach this job
+    # for one version. Serializing them is not about correctness — each would
+    # PUT the same index under the same tag — but about the verify step, which
+    # would otherwise read a tag the other run is mid-PUT on and report a
+    # mismatch that is a race rather than a fact. cancel-in-progress stays
+    # false: the loser waits and re-asserts, it does not get killed.
+    concurrency:
+      group: tag-release-${{ needs.resolve-release-image.outputs.version }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      # The whole reason this is a CI job and not a laptop command: GITHUB_TOKEN
+      # with packages: write can PUT a manifest, and no human credential has to
+      # exist anywhere for a release to be tagged. Measured 2026-10-23: a local
+      # `imagetools create` returned 401 because the machine's gh token carries
+      # `repo` and not `write:packages`.
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-release-image.outputs.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Which digest must this version tag name
+        id: target
+        run: |
+          set -euo pipefail
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/$REPO_LOWER"
+          EXISTING="${{ needs.resolve-release-image.outputs.digest }}"
+          BUILT="${{ needs.build-and-push.outputs.digest }}"
+
+          if [[ -n "$EXISTING" ]]; then
+            DIGEST="$EXISTING"
+            PROVENANCE="the image CI already built for this commit -- no rebuild"
+          elif [[ -n "$BUILT" ]]; then
+            DIGEST="$BUILT"
+            PROVENANCE="built in this run, because no image existed for this commit"
+          else
+            echo "::error::no digest to tag: resolve-release-image found none and build-and-push produced none (result=${{ needs.build-and-push.result }}). Refusing to guess."
+            exit 1
+          fi
+
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "provenance=$PROVENANCE" >> "$GITHUB_OUTPUT"
+          echo "$DIGEST  <- $PROVENANCE"
+
+      - name: What does the version tag name right now
+        id: before
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Report-only, before anything is mutated. A version tag that
+          # already names the target digest makes the next step a no-op; one
+          # that names something ELSE is the overwrite case, and it is printed
+          # rather than refused — correcting it is precisely what a re-publish
+          # of a release is for. Exit 3 (controls resolving) still fails here.
+          python3 scripts/verify_release_tag.py \
+            --repo "${{ github.repository }}" \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            "${{ needs.resolve-release-image.outputs.version }}"
+
+      - name: Add the version tag to that digest
+        run: |
+          set -euo pipefail
+          IMAGE="${{ steps.target.outputs.image }}"
+          VERSION="${{ needs.resolve-release-image.outputs.version }}"
+          SHA="${{ needs.resolve-release-image.outputs.sha }}"
+          DIGEST="${{ steps.target.outputs.digest }}"
+          echo "retagging (registry-only, index copied as-is):"
+          echo "  $IMAGE@$DIGEST"
+          echo "  -> $IMAGE:$VERSION"
+          echo "  -> $IMAGE:$SHA"
+          # BOTH TAGS, UNCONDITIONALLY, and the second one is a no-op in every
+          # path except the one that needs it. In the normal path the commit-sha
+          # tag is how this digest was FOUND, so pointing it at the same digest
+          # changes nothing; in the build path the build just pushed it. The
+          # case it is not a no-op is a repair with a supplied digest, where the
+          # sha tag is the thing that was overwritten — and re-asserting it is
+          # the repair, not a side effect of it. It also keeps the verify step
+          # below able to assert the PAIR, which is what makes the digest
+          # answerable back to a commit at all.
+          docker buildx imagetools create \
+            -t "$IMAGE:$VERSION" \
+            -t "$IMAGE:$SHA" \
+            "$IMAGE@$DIGEST"
+
+      - name: Verify the version tag, with the controls, or fail
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # BOTH references, deliberately. The version tag is the assertion
+          # this job just made; the commit-sha tag is the provenance link that
+          # lets anyone go from the digest back to a commit, and a run that
+          # left the version tag right while moving the sha tag would be the
+          # 2026-10-23 failure with a green tick on it. Asserting both means
+          # the pair cannot drift apart without this step going red.
+          #
+          # The controls run first inside the script and a positive control
+          # exits 3 without printing a verdict at all, so a MATCH printed
+          # below is a MATCH from a check whose negative case was exercised in
+          # the same run, against the same registry, seconds earlier.
+          python3 scripts/verify_release_tag.py \
+            --repo "${{ github.repository }}" \
+            --expect "${{ steps.target.outputs.digest }}" \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            "${{ needs.resolve-release-image.outputs.version }}" \
+            "${{ needs.resolve-release-image.outputs.sha }}"
+
+      - name: The release row, for the release notes
+        if: always()
+        run: |
+          {
+            echo "## Release image — \`${{ needs.resolve-release-image.outputs.version }}\`"
+            echo
+            echo "| field | value |"
+            echo "|---|---|"
+            echo "| repo | \`${{ steps.target.outputs.image }}\` |"
+            echo "| tag | \`${{ needs.resolve-release-image.outputs.version }}\` |"
+            echo "| digest (index) | \`${{ steps.target.outputs.digest }}\` |"
+            echo "| source commit | \`${{ needs.resolve-release-image.outputs.sha }}\` |"
+            echo "| provenance | ${{ steps.target.outputs.provenance }} |"
+            echo "| build run URL | ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} |"
+            echo
+            echo "Pin it, in \`charts/doc-tools/values-<env>.yaml\` under \`image:\`:"
+            echo
+            echo '```yaml'
+            echo "  digest: \"${{ steps.target.outputs.digest }}\""
+            echo '```'
+            echo
+            echo "Check it from anywhere, with no credential:"
+            echo
+            echo '```'
+            echo "python3 scripts/verify_release_tag.py --expect ${{ steps.target.outputs.digest }} \\"
+            echo "    ${{ needs.resolve-release-image.outputs.version }} ${{ needs.resolve-release-image.outputs.sha }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -99,7 +99,28 @@ def test_the_build_bakes_the_arg():
     # it GREEN: the guard was aimed one line off its subject and would have shipped an image
     # permanently stamped `unstamped` while claiming the pipe was verified. Caught by
     # break-on-purpose; pinned to the interpolation, which only the real pass contains.
-    assert "DOC_TOOLS_VERSION=doc-tools@${{ github.sha }}" in content, (
+    #
+    # THE SOURCE OF THE SHA MOVED, 2026-10-23, and this assertion moved with it.
+    # It was `${{ github.sha }}`. The workflow now resolves the commit ONCE, in
+    # the resolve-release-image job, and every consumer reads that — because on
+    # a `release` event github.sha is not guaranteed to be the tagged commit,
+    # and a release cut on a commit that is not any branch's head (v0.2.0 on
+    # 133714c, while main was at 809963c) would otherwise bake a sha the image
+    # was not built from. Still pinned to the interpolation and not to the ARG
+    # default, which is the property the comment above is about.
+    assert "DOC_TOOLS_VERSION=doc-tools@${{ steps.meta.outputs.sha }}" in content, (
         "the build never PASSES the sha — the image would ship the unstamped sentinel forever, "
         "which is the reachability gap one layer out from the code that reads it"
+    )
+    # AND THAT THE SHA IT PASSES IS NOT EMPTY. An interpolation can be blank,
+    # and a blank one stamps `doc-tools@`, which is not the `unstamped`
+    # sentinel and so blends into the corpus exactly the way the default was
+    # written not to. The meta step refuses a sha that is not 40 hex, and this
+    # is the assertion that the refusal is still there.
+    # Pinned to the error TEXT, not to the shell test: the same 40-hex test
+    # appears twice in the file (the resolve job checks the tag it dereferenced
+    # too), and matching the test would stay green if this one were deleted.
+    assert "resolve-release-image gave no usable commit sha" in content, (
+        "the build no longer refuses an empty/garbage commit sha, so the stamp can be "
+        "`doc-tools@` — a blank that does not look like a sentinel"
     )
