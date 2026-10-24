@@ -117,17 +117,68 @@ sustainment_sensor = S3SensorComponent(          # definitions.py:106
 _sustainment_sensor_defs = sustainment_sensor.build_defs(None)
 ```
 
-The ADR-0041 user-drop sensor (`definitions.py:149`) is the other shape: `prefix="ingress-user/"`,
-`path_prefix_strip="ingress-user/"`, `s3_filter=ingress_user_prefixes()["pdf"]`, and a
-**separate** parser instance and job from `document_parser` — the guard that keeps the two from
-cross-launching is `ingress_prefix`, not the job name. Drop layout it enforces:
+The ADR-0041 user-drop sensor (`definitions.py:146`) is the other shape:
+`prefix="ingress-user/"`, `s3_filter=ingress_user_prefixes()["pdf"]`, and a **separate** parser
+instance and job from `document_parser`. Drop layout:
 `ingress-user/<kind>/<64-hex-sha256>/<name>.<ext>`, with `manifest.json` beside the document and
-rejected by the suffix filter.
+excluded by `filter_patterns`.
 
 Decide which you want and say so in the contract: a `training/inbound/` prefix of your own (copy
-`sustainment_sensor`), or `ingress-user/training/` (copy the ADR-0041 one and add
-`ingress_prefix="training"` + `file_suffixes=(".pptx", ".pdf", ".docx")` to your row). A deck
-dropped for a human to review belongs in the second; a batch load belongs in the first.
+`sustainment_sensor`), or `ingress-user/training/` (copy the ADR-0041 one). A deck dropped for a
+human to review belongs in the second; a batch load belongs in the first.
+
+### C2. Corrected 2026-10-23, and it bears on your contract §2
+
+Two corrections to the paragraph above, both found while checking whether your "the training
+sensor declares kind `training` for its prefix" had a mechanism to copy. **It does not**, and the
+two things I had attributed to the sensor are the reason.
+
+- **`path_prefix_strip` and `sidecar_manifest_name` are fields of
+  `DocumentParserComponent`, not of the sensor** (`definitions.py:61`/`:66`, on
+  `user_document_parser`). The sensor watches a prefix; the *parser* strips the transport prefix
+  before domain/kind derivation and names the sidecar to read. I had them on the wrong object.
+- **`ingress_prefix` is not a field of `S3SensorComponent` at all.** It belongs to this repo's own
+  `build_ingest_retry_sensor` (`definitions.py:205`, `:223`), and the comment about a key guard
+  that stops cross-launching is about the two *retry* sensors, not the two ingress ones. What
+  keeps `ingress_user_sensor` and `ingress_user_xml_sensor` apart is `s3_filter` plus separate
+  partition sets and jobs. So there is no `ingress_prefix="training"` to add — strike it from
+  your plan.
+
+**The measurement that matters:** `S3SensorComponent` puts exactly one field into the run.
+`.venv/Lib/site-packages/dag_tools/components/s3_sensor/sensor_component.py:122-137` —
+`_build_ops_config` returns `{target_op: {"config": {"file_url": file_url}}}` and that dict *is*
+the whole `run_config`. No tags, no extra keys, no kind, and no passthrough parameter on the
+model (the fields are bucket, prefix, name, partition_name, target_job, target_op,
+additional_target_ops, s3_resource, s3_filter, filter_patterns, default_status). Nor does
+`DocumentParserComponent` take a declared kind. **The kind reaches `resolve_content_kind` by
+exactly two channels: the sidecar, and the path.**
+
+Four ways to get what §2 wants, in my order of preference:
+
+1. **Let the path carry it.** `_derive_from_path` (`content_kind.py:474`) returns `parts[1]` once
+   `parts[0] == domain_type`, so the shape is `<domain>/<kind>/...` — and the domain and the kind
+   need not be the same word. You rejected `training/training/...` and you were right that it
+   reads badly, but `training/course-deck/...` satisfies the same rule with **no new code at
+   all**. This is the cheapest correct answer and I would take it.
+2. **Your own `DocumentParserComponent` instance** with `path_prefix_strip="training/"` and a
+   sidecar name, which is exactly how the ADR-0041 user-drop path works. Still no new field, and
+   it gives you the provenance stamp for free.
+3. **Your own sensor builder in this repo.** `doc_tools/components/ingest_retry_sensor.py:374`
+   builds its own `run_config` dict locally — the in-tree precedent for a sensor that sends more
+   than `file_url`. You would also have to widen the op's config schema, not just the sensor.
+4. **An SDK change to dag_tools** (a `run_config_extra` field on `S3SensorComponent`). Cross-repo;
+   `dag-tools` owns it, and it would land in a version this repo has to pin before you could use
+   it. Slowest path, and it buys nothing that (1) does not.
+
+**One more thing before you wire anything into resolution, and it is not mine to decide.**
+ADR-0021's precedence is **metadata > path > HALT**, and it is architect-owned. A sensor arm is a
+third level in a documented two-level chain — and if the sensor delivers it as manifest metadata
+it is *indistinguishable* from an explicit sidecar value, so you cannot order sidecar above
+sensor without a distinct key, and whichever writes last silently wins. Raise it as an amendment
+rather than carrying it in the lane contract alone.
+
+I have not touched `resolve_content_kind` or `document_parser.py` for this, and will not without a
+word from you.
 
 ## D. The five traps
 
