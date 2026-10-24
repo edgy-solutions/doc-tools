@@ -1,0 +1,1356 @@
+{
+  "contract": "docs/contracts/training-workbench.md",
+  "contract_version": 2,
+  "fixture": {
+    "deck": "image-only-slide.pptx",
+    "deck_sha256": "c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+    "metadata": "metadata.json",
+    "metadata_sha256": "5b50f60bf9502f6250d088316d770c7c7baa0371f3d4601d6654575c0d8c2bb8"
+  },
+  "volatile_element_keys": [
+    "element_id",
+    "metadata.parent_id",
+    "metadata.file_directory",
+    "metadata.last_modified",
+    "metadata.filename"
+  ],
+  "drop": {
+    "bucket": "processing-artifacts",
+    "keys_in_order": [
+      "training/course/image-only-slide/metadata.json",
+      "training/course/image-only-slide/image-only-slide.pptx"
+    ]
+  },
+  "ingest_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+  "neo4j": {
+    "course": {
+      "labels": [
+        "Document",
+        "Course",
+        "TRAINING"
+      ],
+      "props": {
+        "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+        "title": "Pump Teardown Walkthrough",
+        "filename": "image-only-slide.pptx",
+        "current_key": "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/current.json",
+        "business_unit": "Industrial Pumps",
+        "discipline": "Mechanical",
+        "audience": "Workshop fitters",
+        "level": "Intermediate",
+        "delivery_method": "Instructor-led",
+        "duration_hours": 1,
+        "version": "1.0"
+      }
+    },
+    "slides": {
+      "labels": [
+        "Chunk",
+        "Slide",
+        "TRAINING"
+      ],
+      "nodes": [
+        {
+          "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p1",
+          "number": 1,
+          "text": "[Title] Pump Teardown Walkthrough\n[NarrativeText] Slide 2 is a lone picture",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Pump Teardown Walkthrough",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Slide 2 is a lone picture",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p2",
+          "number": 2,
+          "text": "",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+          "number": 3,
+          "text": "[Title] Inspection Points\n[NarrativeText] Gear faces for scoring\n[Title] Bushings for wear\n[NarrativeText] Seals for hardening",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Inspection Points",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Gear faces for scoring",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Bushings for wear",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Seals for hardening",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+          "number": 4,
+          "text": "[Title] Reassembly\n[NarrativeText] Lubricate with system fluid\n[Title] Torque in a cross pattern",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Reassembly",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Lubricate with system fluid",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Torque in a cross pattern",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5",
+          "number": 5,
+          "text": "[Title] Close\n[NarrativeText] Leak test at working pressure",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Close",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Leak test at working pressure",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "course_slide_edges": [
+      "HAS_CHILD",
+      "HAS_SLIDE"
+    ],
+    "nondeterministic": {
+      "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "sections": {
+        "labels": [
+          "Section",
+          "TRAINING"
+        ],
+        "section_slide_edges": [
+          "HAS_CHILD"
+        ],
+        "nodes": [
+          {
+            "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "title": "Pump Teardown Walkthrough",
+            "level": 1,
+            "start_page": 1,
+            "end_page": 0,
+            "concept_summary": [
+              "Working pressure",
+              "Inspection Points",
+              "Pump Teardown",
+              "Torque in a cross pattern",
+              "Bushings",
+              "Lubricate with system fluid",
+              "Leak test",
+              "Gear Faces",
+              "Seals",
+              "Close (operation)"
+            ],
+            "parent": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+            "slides": [
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p1",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p2",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5"
+            ],
+            "covers": [
+              {
+                "concept": "Bushings",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Close (operation)",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Gear Faces",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hardening",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Inspection Points",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Leak test",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Lubricate with system fluid",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pump Teardown",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Reassembly",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Scoring",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Seals",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Torque in a cross pattern",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Wear",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Working pressure",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "title": "Inspection Points",
+            "level": 1,
+            "start_page": 2,
+            "end_page": 0,
+            "concept_summary": [
+              "Torque in a cross pattern",
+              "Scoring",
+              "Inspection Points",
+              "Bushings",
+              "Reassembly",
+              "Leak test",
+              "Gear Faces",
+              "Working pressure",
+              "Hardening",
+              "Close (operation)"
+            ],
+            "parent": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+            "slides": [
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p2",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5"
+            ],
+            "covers": [
+              {
+                "concept": "Bushings",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Close (operation)",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Gear Faces",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hardening",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Inspection Points",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Leak test",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Lubricate with system fluid",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Reassembly",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Scoring",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Seals",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Torque in a cross pattern",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Wear",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Working pressure",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "title": "Reassembly",
+            "level": 1,
+            "start_page": 3,
+            "end_page": 0,
+            "concept_summary": [
+              "Leak test",
+              "Bushings",
+              "Reassembly",
+              "Scoring",
+              "Gear Faces",
+              "Inspection Points",
+              "Wear",
+              "Torque in a cross pattern",
+              "Seals",
+              "Working pressure"
+            ],
+            "parent": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+            "slides": [
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5"
+            ],
+            "covers": [
+              {
+                "concept": "Bushings",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Close (operation)",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Gear Faces",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hardening",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Inspection Points",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Leak test",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Lubricate with system fluid",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Reassembly",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Scoring",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Seals",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Torque in a cross pattern",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Wear",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Working pressure",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3",
+            "title": "Close",
+            "level": 1,
+            "start_page": 4,
+            "end_page": 0,
+            "concept_summary": [
+              "Torque in a cross pattern",
+              "Close (operation)",
+              "Working pressure",
+              "Reassembly",
+              "Leak test",
+              "Lubricate with system fluid"
+            ],
+            "parent": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+            "slides": [
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+              "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5"
+            ],
+            "covers": [
+              {
+                "concept": "Close (operation)",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Leak test",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Lubricate with system fluid",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Reassembly",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Torque in a cross pattern",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Working pressure",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "labels": [
+          "Concept",
+          "TRAINING"
+        ],
+        "nodes": [
+          {
+            "name": "Bushings",
+            "id": "concept_Bushings",
+            "salience": 0.7
+          },
+          {
+            "name": "Close (operation)",
+            "id": "concept_Close_(operation)",
+            "salience": 0.3
+          },
+          {
+            "name": "Gear Faces",
+            "id": "concept_Gear_Faces",
+            "salience": 0.7
+          },
+          {
+            "name": "Hardening",
+            "id": "concept_Hardening",
+            "salience": 0.5
+          },
+          {
+            "name": "Inspection Points",
+            "id": "concept_Inspection_Points",
+            "salience": 1.0
+          },
+          {
+            "name": "Leak test",
+            "id": "concept_Leak_test",
+            "salience": 1.0
+          },
+          {
+            "name": "Lubricate with system fluid",
+            "id": "concept_Lubricate_with_system_fluid",
+            "salience": 0.7
+          },
+          {
+            "name": "Pump Teardown",
+            "id": "concept_Pump_Teardown",
+            "salience": 1.0
+          },
+          {
+            "name": "Reassembly",
+            "id": "concept_Reassembly",
+            "salience": 0.5
+          },
+          {
+            "name": "Scoring",
+            "id": "concept_Scoring",
+            "salience": 0.7
+          },
+          {
+            "name": "Seals",
+            "id": "concept_Seals",
+            "salience": 0.7
+          },
+          {
+            "name": "Torque in a cross pattern",
+            "id": "concept_Torque_in_a_cross_pattern",
+            "salience": 1.0
+          },
+          {
+            "name": "Wear",
+            "id": "concept_Wear",
+            "salience": 0.7
+          },
+          {
+            "name": "Working pressure",
+            "id": "concept_Working_pressure",
+            "salience": 0.7
+          }
+        ]
+      },
+      "teaches": [
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p1",
+          "concept": "Pump Teardown",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+          "concept": "Bushings",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+          "concept": "Gear Faces",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+          "concept": "Hardening",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+          "concept": "Inspection Points",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+          "concept": "Scoring",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+          "concept": "Seals",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+          "concept": "Wear",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+          "concept": "Lubricate with system fluid",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+          "concept": "Reassembly",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+          "concept": "Torque in a cross pattern",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5",
+          "concept": "Close (operation)",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5",
+          "concept": "Leak test",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5",
+          "concept": "Working pressure",
+          "salience": null
+        }
+      ],
+      "salience_location": "concept_node",
+      "edges": {
+        "HAS_SECTION": [
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3"
+          }
+        ],
+        "section_slide": [
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p1"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p2"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p2"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4"
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3",
+            "to": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5"
+          }
+        ],
+        "COVERS": [
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Bushings",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Close (operation)",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Gear Faces",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Hardening",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Inspection Points",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Leak test",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Lubricate with system fluid",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Pump Teardown",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Reassembly",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Scoring",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Seals",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Torque in a cross pattern",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Wear",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s0",
+            "to": "Working pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Bushings",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Close (operation)",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Gear Faces",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Hardening",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Inspection Points",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Leak test",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Lubricate with system fluid",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Reassembly",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Scoring",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Seals",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Torque in a cross pattern",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Wear",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s1",
+            "to": "Working pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Bushings",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Close (operation)",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Gear Faces",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Hardening",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Inspection Points",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Leak test",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Lubricate with system fluid",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Reassembly",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Scoring",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Seals",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Torque in a cross pattern",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Wear",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s2",
+            "to": "Working pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3",
+            "to": "Close (operation)",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3",
+            "to": "Leak test",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3",
+            "to": "Lubricate with system fluid",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3",
+            "to": "Reassembly",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3",
+            "to": "Torque in a cross pattern",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_s3",
+            "to": "Working pressure",
+            "score": null,
+            "frequency": 1
+          }
+        ],
+        "TEACHES": [
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p1",
+            "to": "Pump Teardown",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+            "to": "Bushings",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+            "to": "Gear Faces",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+            "to": "Hardening",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+            "to": "Inspection Points",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+            "to": "Scoring",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+            "to": "Seals",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+            "to": "Wear",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+            "to": "Lubricate with system fluid",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+            "to": "Reassembly",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+            "to": "Torque in a cross pattern",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5",
+            "to": "Close (operation)",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5",
+            "to": "Leak test",
+            "salience": null
+          },
+          {
+            "from": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5",
+            "to": "Working pressure",
+            "salience": null
+          }
+        ]
+      }
+    },
+    "never_written": {
+      "labels": [
+        "Project",
+        "TargetNode",
+        "User",
+        "CanonicalConcept"
+      ],
+      "relations": [
+        "OWNS",
+        "ALIGNS_TO",
+        "SUGGESTED_SOURCE",
+        "DERIVED_FROM"
+      ]
+    }
+  },
+  "minio": {
+    "bucket": "processing-artifacts",
+    "current_json_key": "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/current.json",
+    "current_json": {
+      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "manifest_key": "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "prefix": "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+      "updated_at": "2026-10-24T05:12:33.504540+00:00"
+    },
+    "prefix": "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "keys_required": [
+      "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/current.json",
+      "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
+      "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_0.png",
+      "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+    ]
+  },
+  "weaviate": {
+    "server": "1.27.0",
+    "collection": "DocumentChunk",
+    "distance": "cosine",
+    "objects": [
+      {
+        "uuid": "6067525e-89f7-58c3-98e7-bf1761ef37ec",
+        "properties": {
+          "domain": "TRAINING",
+          "section": null,
+          "chunk_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_fig_slide_2_img_0",
+          "doc_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+          "text": "Figure slide 2 img 0:\n\n![slide 2 img 0](s3://processing-artifacts/training/generated/c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_0.png)"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "4fe77fc2-e5cd-5efa-870b-4b0627512106",
+        "properties": {
+          "domain": "TRAINING",
+          "section": null,
+          "chunk_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p1",
+          "doc_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+          "text": "[Title] Pump Teardown Walkthrough\n[NarrativeText] Slide 2 is a lone picture"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "a0d4f585-f833-548e-9fa6-b7b68ca7c8b3",
+        "properties": {
+          "domain": "TRAINING",
+          "section": null,
+          "chunk_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p3",
+          "doc_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+          "text": "[Title] Inspection Points\n[NarrativeText] Gear faces for scoring\n[Title] Bushings for wear\n[NarrativeText] Seals for hardening"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "8f6beb28-5a60-5b41-b26b-fa14f08c4a32",
+        "properties": {
+          "domain": "TRAINING",
+          "section": null,
+          "chunk_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p4",
+          "doc_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+          "text": "[Title] Reassembly\n[NarrativeText] Lubricate with system fluid\n[Title] Torque in a cross pattern"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "003664bf-903d-5150-ab50-592c1e39acea",
+        "properties": {
+          "domain": "TRAINING",
+          "section": null,
+          "chunk_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9_p5",
+          "doc_id": "sha256:c4780e45b3666677e7ec41a15646683b28310a62c70652194d74d4ef1a7ca2e9",
+          "text": "[Title] Close\n[NarrativeText] Leak test at working pressure"
+        },
+        "vector_length": 768
+      }
+    ],
+    "forbidden_chunk_id_substrings": [
+      "_fig_"
+    ]
+  },
+  "embedder": {
+    "env": {
+      "base_url": [
+        "LLM_BASE_URL",
+        "OPENAI_BASE_URL"
+      ],
+      "api_key": [
+        "LLM_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "model": [
+        "LLM_EMBED_MODEL"
+      ]
+    },
+    "model_default": "nomic-embed-text",
+    "dimension": 768,
+    "document_prefix": "search_document: ",
+    "query_prefix": "search_query: ",
+    "normalized": false
+  },
+  "produced_by": {
+    "run": {
+      "key": "training/course/image-only-slide/image-only-slide.pptx",
+      "partition_key": "training__course__image-only-slide__image-only-slide.pptx",
+      "success": true,
+      "failed_steps": [],
+      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "LLM_MODEL": "gpt-oss-128k:120b",
+      "LLM_EMBED_MODEL": "nomic-embed-text",
+      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "start_utc": "2026-10-24T05:12:31.074974+00:00",
+      "end_utc": "2026-10-24T05:16:34.967048+00:00",
+      "wall_seconds": 243.89
+    },
+    "old_layout_keys": 0,
+    "stem_id_node_count": 0,
+    "pending_steps": [
+      "d",
+      "e",
+      "f",
+      "g"
+    ],
+    "copied_not_observed": [
+      "weaviate.server",
+      "embedder",
+      "neo4j.never_written"
+    ]
+  }
+}

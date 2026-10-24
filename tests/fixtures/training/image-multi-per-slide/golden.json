@@ -1,0 +1,726 @@
+{
+  "contract": "docs/contracts/training-workbench.md",
+  "contract_version": 2,
+  "fixture": {
+    "deck": "image-multi-per-slide.pptx",
+    "deck_sha256": "4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+    "metadata": "metadata.json",
+    "metadata_sha256": "974289767c4d9eebaf29059b7d2c0757e9cf55bbe26ee54532923693c54c8023"
+  },
+  "volatile_element_keys": [
+    "element_id",
+    "metadata.parent_id",
+    "metadata.file_directory",
+    "metadata.last_modified",
+    "metadata.filename"
+  ],
+  "drop": {
+    "bucket": "processing-artifacts",
+    "keys_in_order": [
+      "training/course/image-multi-per-slide/metadata.json",
+      "training/course/image-multi-per-slide/image-multi-per-slide.pptx"
+    ]
+  },
+  "ingest_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+  "neo4j": {
+    "course": {
+      "labels": [
+        "Document",
+        "Course",
+        "TRAINING"
+      ],
+      "props": {
+        "id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+        "title": "Connector Identification Guide",
+        "filename": "image-multi-per-slide.pptx",
+        "current_key": "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/current.json",
+        "business_unit": "Avionics Supply",
+        "discipline": "Electrical",
+        "audience": "Stores staff",
+        "level": "Introductory",
+        "delivery_method": "Self-study",
+        "duration_hours": 0.5,
+        "version": "1.1"
+      }
+    },
+    "slides": {
+      "labels": [
+        "Chunk",
+        "Slide",
+        "TRAINING"
+      ],
+      "nodes": [
+        {
+          "id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p1",
+          "number": 1,
+          "text": "[Title] Connector Identification Guide\n[Title] Contact sheets",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Connector Identification Guide",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Contact sheets",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p2",
+          "number": 2,
+          "text": "",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3",
+          "number": 3,
+          "text": "[Title] Notes\n[NarrativeText] Match keying before mating",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Notes",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Match keying before mating",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "course_slide_edges": [
+      "HAS_CHILD",
+      "HAS_SLIDE"
+    ],
+    "nondeterministic": {
+      "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "sections": {
+        "labels": [
+          "Section",
+          "TRAINING"
+        ],
+        "section_slide_edges": [
+          "HAS_CHILD"
+        ],
+        "nodes": [
+          {
+            "id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "title": "Connector Identification Guide",
+            "level": 1,
+            "start_page": 1,
+            "end_page": 0,
+            "concept_summary": [
+              "Mating (assembly)",
+              "Connector Identification Guide",
+              "Contact sheets",
+              "Pre‑assembly verification",
+              "Keying"
+            ],
+            "parent": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+            "slides": [
+              "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p1",
+              "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p2",
+              "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Connector Identification Guide",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Contact sheets",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Keying",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Mating (assembly)",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pre‑assembly verification",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s0",
+            "title": "Contact sheets",
+            "level": 2,
+            "start_page": 2,
+            "end_page": 0,
+            "concept_summary": [
+              "Pre‑assembly verification",
+              "Keying",
+              "Mating (assembly)"
+            ],
+            "parent": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "slides": [
+              "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p2",
+              "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Keying",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Mating (assembly)",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pre‑assembly verification",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s1",
+            "title": "Notes",
+            "level": 2,
+            "start_page": 3,
+            "end_page": 0,
+            "concept_summary": [
+              "Keying",
+              "Pre‑assembly verification",
+              "Mating (assembly)"
+            ],
+            "parent": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "slides": [
+              "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Keying",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Mating (assembly)",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pre‑assembly verification",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "labels": [
+          "Concept",
+          "TRAINING"
+        ],
+        "nodes": [
+          {
+            "name": "Connector Identification Guide",
+            "id": "concept_Connector_Identification_Guide",
+            "salience": 1.0
+          },
+          {
+            "name": "Contact sheets",
+            "id": "concept_Contact_sheets",
+            "salience": 0.7
+          },
+          {
+            "name": "Keying",
+            "id": "concept_Keying",
+            "salience": 1.0
+          },
+          {
+            "name": "Mating (assembly)",
+            "id": "concept_Mating_(assembly)",
+            "salience": 0.7
+          },
+          {
+            "name": "Pre‑assembly verification",
+            "id": "concept_Pre‑assembly_verification",
+            "salience": 0.5
+          }
+        ]
+      },
+      "teaches": [
+        {
+          "slide": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p1",
+          "concept": "Connector Identification Guide",
+          "salience": null
+        },
+        {
+          "slide": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p1",
+          "concept": "Contact sheets",
+          "salience": null
+        },
+        {
+          "slide": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3",
+          "concept": "Keying",
+          "salience": null
+        },
+        {
+          "slide": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3",
+          "concept": "Mating (assembly)",
+          "salience": null
+        },
+        {
+          "slide": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3",
+          "concept": "Pre‑assembly verification",
+          "salience": null
+        }
+      ],
+      "salience_location": "concept_node",
+      "edges": {
+        "HAS_SECTION": [
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+            "to": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0"
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s0"
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s1"
+          }
+        ],
+        "section_slide": [
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p1"
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p2"
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3"
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s0",
+            "to": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p2"
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s0",
+            "to": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3"
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s1",
+            "to": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3"
+          }
+        ],
+        "COVERS": [
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "Connector Identification Guide",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "Contact sheets",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "Keying",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "Mating (assembly)",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0",
+            "to": "Pre‑assembly verification",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s0",
+            "to": "Keying",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s0",
+            "to": "Mating (assembly)",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s0",
+            "to": "Pre‑assembly verification",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s1",
+            "to": "Keying",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s1",
+            "to": "Mating (assembly)",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_s0_s1",
+            "to": "Pre‑assembly verification",
+            "score": null,
+            "frequency": 1
+          }
+        ],
+        "TEACHES": [
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p1",
+            "to": "Connector Identification Guide",
+            "salience": null
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p1",
+            "to": "Contact sheets",
+            "salience": null
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3",
+            "to": "Keying",
+            "salience": null
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3",
+            "to": "Mating (assembly)",
+            "salience": null
+          },
+          {
+            "from": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3",
+            "to": "Pre‑assembly verification",
+            "salience": null
+          }
+        ]
+      }
+    },
+    "never_written": {
+      "labels": [
+        "Project",
+        "TargetNode",
+        "User",
+        "CanonicalConcept"
+      ],
+      "relations": [
+        "OWNS",
+        "ALIGNS_TO",
+        "SUGGESTED_SOURCE",
+        "DERIVED_FROM"
+      ]
+    }
+  },
+  "minio": {
+    "bucket": "processing-artifacts",
+    "current_json_key": "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/current.json",
+    "current_json": {
+      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "manifest_key": "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "prefix": "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+      "updated_at": "2026-10-24T05:10:01.326413+00:00"
+    },
+    "prefix": "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "keys_required": [
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/current.json",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_0.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_1.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_2.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_3.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_4.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_5.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_6.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_7.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_8.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_9.png",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+    ]
+  },
+  "weaviate": {
+    "server": "1.27.0",
+    "collection": "DocumentChunk",
+    "distance": "cosine",
+    "objects": [
+      {
+        "uuid": "9ae75f93-d674-531d-8e65-42d685c013dd",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_2_img_0",
+          "section": null,
+          "text": "Figure slide 2 img 0:\n\n![slide 2 img 0](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_0.png)"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "c1c07cf5-1334-5cff-8872-3cccb8f0a828",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_2_img_1",
+          "section": null,
+          "text": "Figure slide 2 img 1:\n\n![slide 2 img 1](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_1.png)"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "0fb18e18-1f92-5641-8959-453f9385b75e",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "text": "Figure slide 2 img 2:\n\n![slide 2 img 2](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_2.png)",
+          "section": null,
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_2_img_2"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "182a6610-38d4-5369-9e87-47edd6d651fe",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_2_img_3",
+          "section": null,
+          "text": "Figure slide 2 img 3:\n\n![slide 2 img 3](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_3.png)"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "3710bd5c-6716-50c0-a741-4f0fca860b32",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_4_img_4",
+          "section": null,
+          "text": "Figure slide 4 img 4:\n\n![slide 4 img 4](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_4.png)"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "50e74e1d-c385-50f4-b601-7523080612c5",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_4_img_5",
+          "section": null,
+          "text": "Figure slide 4 img 5:\n\n![slide 4 img 5](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_5.png)"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "f5a031d5-2abd-5bef-b0d8-2c24213db183",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_4_img_6",
+          "section": null,
+          "text": "Figure slide 4 img 6:\n\n![slide 4 img 6](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_6.png)"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "7102759b-eba1-55d8-9f53-8954a6ba963b",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "text": "Figure slide 4 img 7:\n\n![slide 4 img 7](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_7.png)",
+          "section": null,
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_4_img_7"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "ccf4caec-5651-55dd-a2eb-f5adb0e99859",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_4_img_8",
+          "section": null,
+          "text": "Figure slide 4 img 8:\n\n![slide 4 img 8](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_8.png)"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "5459834f-f3d2-5406-a8fb-cabb5f17c7ed",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_fig_slide_4_img_9",
+          "section": null,
+          "text": "Figure slide 4 img 9:\n\n![slide 4 img 9](s3://processing-artifacts/training/generated/4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_9.png)"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "b807c03b-080a-5f4a-b463-a7462e877b34",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "text": "[Title] Connector Identification Guide\n[Title] Contact sheets",
+          "section": null,
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p1"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "143376f8-817a-5411-abc0-70ad0eb7d5e0",
+        "properties": {
+          "domain": "TRAINING",
+          "doc_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384",
+          "text": "[Title] Notes\n[NarrativeText] Match keying before mating",
+          "section": null,
+          "chunk_id": "sha256:4db3053b00cd5b85cf9561a1ff3b7555c7a8d698ca0a9abb8db81c53826c9384_p3"
+        },
+        "vector_length": 768
+      }
+    ],
+    "forbidden_chunk_id_substrings": [
+      "_fig_"
+    ]
+  },
+  "embedder": {
+    "env": {
+      "base_url": [
+        "LLM_BASE_URL",
+        "OPENAI_BASE_URL"
+      ],
+      "api_key": [
+        "LLM_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "model": [
+        "LLM_EMBED_MODEL"
+      ]
+    },
+    "model_default": "nomic-embed-text",
+    "dimension": 768,
+    "document_prefix": "search_document: ",
+    "query_prefix": "search_query: ",
+    "normalized": false
+  },
+  "produced_by": {
+    "run": {
+      "key": "training/course/image-multi-per-slide/image-multi-per-slide.pptx",
+      "partition_key": "training__course__image-multi-per-slide__image-multi-per-slide.pptx",
+      "success": true,
+      "failed_steps": [],
+      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "LLM_MODEL": "gpt-oss-128k:120b",
+      "LLM_EMBED_MODEL": "nomic-embed-text",
+      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "start_utc": "2026-10-24T05:09:58.585608+00:00",
+      "end_utc": "2026-10-24T05:12:21.280841+00:00",
+      "wall_seconds": 142.7
+    },
+    "old_layout_keys": 0,
+    "stem_id_node_count": 0,
+    "pending_steps": [
+      "d",
+      "e",
+      "f",
+      "g"
+    ],
+    "copied_not_observed": [
+      "weaviate.server",
+      "embedder",
+      "neo4j.never_written"
+    ]
+  }
+}

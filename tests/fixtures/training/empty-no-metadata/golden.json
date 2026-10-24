@@ -1,0 +1,845 @@
+{
+  "contract": "docs/contracts/training-workbench.md",
+  "contract_version": 2,
+  "fixture": {
+    "deck": "empty-no-metadata.pptx",
+    "deck_sha256": "c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+    "metadata": null,
+    "metadata_sha256": null
+  },
+  "volatile_element_keys": [
+    "element_id",
+    "metadata.parent_id",
+    "metadata.file_directory",
+    "metadata.last_modified",
+    "metadata.filename"
+  ],
+  "drop": {
+    "bucket": "processing-artifacts",
+    "keys_in_order": [
+      "training/course/empty-no-metadata/empty-no-metadata.pptx"
+    ]
+  },
+  "ingest_id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+  "neo4j": {
+    "course": {
+      "labels": [
+        "Document",
+        "Course",
+        "TRAINING"
+      ],
+      "props": {
+        "id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+        "title": "empty-no-metadata",
+        "filename": "empty-no-metadata.pptx",
+        "current_key": "training/generated/c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14/current.json",
+        "business_unit": null,
+        "discipline": null,
+        "audience": null,
+        "level": null,
+        "delivery_method": null,
+        "duration_hours": null,
+        "version": null
+      }
+    },
+    "slides": {
+      "labels": [
+        "Chunk",
+        "Slide",
+        "TRAINING"
+      ],
+      "nodes": [
+        {
+          "id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p1",
+          "number": 1,
+          "text": "[Title] Rigging Basics\n[NarrativeText] No metadata.json accompanies this deck",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Rigging Basics",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "No metadata.json accompanies this deck",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+          "number": 2,
+          "text": "[Title] Sling Angles\n[NarrativeText] Lower angles raise sling tension\n[NarrativeText] Never exceed the rated angle",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Sling Angles",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Lower angles raise sling tension",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Never exceed the rated angle",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+          "number": 3,
+          "text": "[Title] Inspection\n[NarrativeText] Check tags and stitching\n[NarrativeText] Reject any damaged sling",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Inspection",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Check tags and stitching",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Reject any damaged sling",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "course_slide_edges": [
+      "HAS_CHILD",
+      "HAS_SLIDE"
+    ],
+    "nondeterministic": {
+      "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "sections": {
+        "labels": [
+          "Section",
+          "TRAINING"
+        ],
+        "section_slide_edges": [
+          "HAS_CHILD"
+        ],
+        "nodes": [
+          {
+            "id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "title": "Rigging Basics",
+            "level": 1,
+            "start_page": 1,
+            "end_page": 0,
+            "concept_summary": [
+              "Rated Angle",
+              "Stitching",
+              "Sling",
+              "Inspection",
+              "Rigging Basics",
+              "Sling Angles",
+              "Damaged sling",
+              "Sling Tension",
+              "Tags"
+            ],
+            "parent": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+            "slides": [
+              "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p1",
+              "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+              "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Damaged sling",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Inspection",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Angle",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Rigging Basics",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Sling",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Sling Angles",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Sling Tension",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Stitching",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Tags",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "title": "Sling Angles",
+            "level": 1,
+            "start_page": 2,
+            "end_page": 0,
+            "concept_summary": [
+              "Sling",
+              "Damaged sling",
+              "Sling Tension",
+              "Stitching",
+              "Inspection",
+              "Sling Angles",
+              "Tags",
+              "Rated Angle"
+            ],
+            "parent": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+            "slides": [
+              "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+              "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Damaged sling",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Inspection",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Angle",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Sling",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Sling Angles",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Sling Tension",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Stitching",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Tags",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s2",
+            "title": "Inspection",
+            "level": 1,
+            "start_page": 3,
+            "end_page": 0,
+            "concept_summary": [
+              "Inspection",
+              "Tags",
+              "Sling",
+              "Damaged sling",
+              "Stitching"
+            ],
+            "parent": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+            "slides": [
+              "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Damaged sling",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Inspection",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Sling",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Stitching",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Tags",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "labels": [
+          "Concept",
+          "TRAINING"
+        ],
+        "nodes": [
+          {
+            "name": "Damaged sling",
+            "id": "concept_Damaged_sling",
+            "salience": 0.7
+          },
+          {
+            "name": "Inspection",
+            "id": "concept_Inspection",
+            "salience": 1.0
+          },
+          {
+            "name": "Rated Angle",
+            "id": "concept_Rated_Angle",
+            "salience": 0.7
+          },
+          {
+            "name": "Rigging Basics",
+            "id": "concept_Rigging_Basics",
+            "salience": 1.0
+          },
+          {
+            "name": "Sling",
+            "id": "concept_Sling",
+            "salience": 0.5
+          },
+          {
+            "name": "Sling Angles",
+            "id": "concept_Sling_Angles",
+            "salience": 1.0
+          },
+          {
+            "name": "Sling Tension",
+            "id": "concept_Sling_Tension",
+            "salience": 0.7
+          },
+          {
+            "name": "Stitching",
+            "id": "concept_Stitching",
+            "salience": 0.7
+          },
+          {
+            "name": "Tags",
+            "id": "concept_Tags",
+            "salience": 0.7
+          }
+        ]
+      },
+      "teaches": [
+        {
+          "slide": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p1",
+          "concept": "Rigging Basics",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+          "concept": "Rated Angle",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+          "concept": "Sling Angles",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+          "concept": "Sling Tension",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+          "concept": "Damaged sling",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+          "concept": "Inspection",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+          "concept": "Sling",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+          "concept": "Stitching",
+          "salience": null
+        },
+        {
+          "slide": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+          "concept": "Tags",
+          "salience": null
+        }
+      ],
+      "salience_location": "concept_node",
+      "edges": {
+        "HAS_SECTION": [
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+            "to": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0"
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+            "to": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1"
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+            "to": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s2"
+          }
+        ],
+        "section_slide": [
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p1"
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2"
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3"
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2"
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3"
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s2",
+            "to": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3"
+          }
+        ],
+        "COVERS": [
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "Damaged sling",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "Inspection",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "Rated Angle",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "Rigging Basics",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "Sling",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "Sling Angles",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "Sling Tension",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "Stitching",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s0",
+            "to": "Tags",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "Damaged sling",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "Inspection",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "Rated Angle",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "Sling",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "Sling Angles",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "Sling Tension",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "Stitching",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s1",
+            "to": "Tags",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s2",
+            "to": "Damaged sling",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s2",
+            "to": "Inspection",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s2",
+            "to": "Sling",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s2",
+            "to": "Stitching",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_s2",
+            "to": "Tags",
+            "score": null,
+            "frequency": 1
+          }
+        ],
+        "TEACHES": [
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p1",
+            "to": "Rigging Basics",
+            "salience": null
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+            "to": "Rated Angle",
+            "salience": null
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+            "to": "Sling Angles",
+            "salience": null
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+            "to": "Sling Tension",
+            "salience": null
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+            "to": "Damaged sling",
+            "salience": null
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+            "to": "Inspection",
+            "salience": null
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+            "to": "Sling",
+            "salience": null
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+            "to": "Stitching",
+            "salience": null
+          },
+          {
+            "from": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3",
+            "to": "Tags",
+            "salience": null
+          }
+        ]
+      }
+    },
+    "never_written": {
+      "labels": [
+        "Project",
+        "TargetNode",
+        "User",
+        "CanonicalConcept"
+      ],
+      "relations": [
+        "OWNS",
+        "ALIGNS_TO",
+        "SUGGESTED_SOURCE",
+        "DERIVED_FROM"
+      ]
+    }
+  },
+  "minio": {
+    "bucket": "processing-artifacts",
+    "current_json_key": "training/generated/c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14/current.json",
+    "current_json": {
+      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "manifest_key": "training/generated/c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "prefix": "training/generated/c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+      "updated_at": "2026-10-24T04:55:48.967624+00:00"
+    },
+    "prefix": "training/generated/c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "keys_required": [
+      "training/generated/c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14/current.json",
+      "training/generated/c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
+      "training/generated/c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "training/generated/c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+    ]
+  },
+  "weaviate": {
+    "server": "1.27.0",
+    "collection": "DocumentChunk",
+    "distance": "cosine",
+    "objects": [
+      {
+        "uuid": "7a14e860-1186-593a-8212-ca7b6e16f2e6",
+        "properties": {
+          "section": null,
+          "doc_id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+          "text": "[Title] Rigging Basics\n[NarrativeText] No metadata.json accompanies this deck",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p1"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "e39d8bf8-1330-59d5-b0a4-7a5e039ab069",
+        "properties": {
+          "section": null,
+          "doc_id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+          "chunk_id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p2",
+          "domain": "TRAINING",
+          "text": "[Title] Sling Angles\n[NarrativeText] Lower angles raise sling tension\n[NarrativeText] Never exceed the rated angle"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "7d5213e0-0c39-5e53-ba01-249175517ed9",
+        "properties": {
+          "section": null,
+          "doc_id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14",
+          "text": "[Title] Inspection\n[NarrativeText] Check tags and stitching\n[NarrativeText] Reject any damaged sling",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:c7b7fa14d4b766959f8172c4b177bce3bb255a6e687d6741988e34b85bb43a14_p3"
+        },
+        "vector_length": 768
+      }
+    ],
+    "forbidden_chunk_id_substrings": [
+      "_fig_"
+    ]
+  },
+  "embedder": {
+    "env": {
+      "base_url": [
+        "LLM_BASE_URL",
+        "OPENAI_BASE_URL"
+      ],
+      "api_key": [
+        "LLM_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "model": [
+        "LLM_EMBED_MODEL"
+      ]
+    },
+    "model_default": "nomic-embed-text",
+    "dimension": 768,
+    "document_prefix": "search_document: ",
+    "query_prefix": "search_query: ",
+    "normalized": false
+  },
+  "produced_by": {
+    "run": {
+      "key": "training/course/empty-no-metadata/empty-no-metadata.pptx",
+      "partition_key": "training__course__empty-no-metadata__empty-no-metadata.pptx",
+      "success": true,
+      "failed_steps": [],
+      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "LLM_MODEL": "gpt-oss-128k:120b",
+      "LLM_EMBED_MODEL": "nomic-embed-text",
+      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "start_utc": "2026-10-24T04:55:46.646900+00:00",
+      "end_utc": "2026-10-24T04:58:57.616771+00:00",
+      "wall_seconds": 190.97
+    },
+    "old_layout_keys": 0,
+    "stem_id_node_count": 0,
+    "pending_steps": [
+      "d",
+      "e",
+      "f",
+      "g"
+    ],
+    "copied_not_observed": [
+      "weaviate.server",
+      "embedder",
+      "neo4j.never_written"
+    ]
+  }
+}

@@ -1,0 +1,1942 @@
+{
+  "contract": "docs/contracts/training-workbench.md",
+  "contract_version": 2,
+  "fixture": {
+    "deck": "nested-four-levels.pptx",
+    "deck_sha256": "5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+    "metadata": "metadata.json",
+    "metadata_sha256": "49de7d10001429ad8a09ed161365ff67d04acd7c1139509b95713c7eda7f62c9"
+  },
+  "volatile_element_keys": [
+    "element_id",
+    "metadata.parent_id",
+    "metadata.file_directory",
+    "metadata.last_modified",
+    "metadata.filename"
+  ],
+  "drop": {
+    "bucket": "processing-artifacts",
+    "keys_in_order": [
+      "training/course/nested-four-levels/metadata.json",
+      "training/course/nested-four-levels/nested-four-levels.pptx"
+    ]
+  },
+  "ingest_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+  "neo4j": {
+    "course": {
+      "labels": [
+        "Document",
+        "Course",
+        "TRAINING"
+      ],
+      "props": {
+        "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+        "title": "Aircraft Hydraulic Systems",
+        "filename": "nested-four-levels.pptx",
+        "current_key": "training/generated/5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673/current.json",
+        "business_unit": "Aerospace Services",
+        "discipline": "Mechanical",
+        "audience": "Line mechanics",
+        "level": "Intermediate",
+        "delivery_method": "Blended",
+        "duration_hours": 4,
+        "version": "2.1"
+      }
+    },
+    "slides": {
+      "labels": [
+        "Chunk",
+        "Slide",
+        "TRAINING"
+      ],
+      "nodes": [
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p1",
+          "number": 1,
+          "text": "[Title] Aircraft Hydraulic Systems\n[Title] Four-level section hierarchy",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Aircraft Hydraulic Systems",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Four-level section hierarchy",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "number": 2,
+          "text": "[Title] Agenda\n[Title] 1 Hydraulic Systems\n[Title] 1.1 Power Generation\n[Title] 1.1.1 Pumps\n[Title] 1.1.1.1 Engine-Driven Pumps\n[Title] 1.1.1.2 Electric Pumps\n[Title] 1.1.2 Reservoirs\n[Title] 1.2 Distribution\n[Title] 1.2.1 Valves\n[Title] 1.2.1.1 Selector Valves\n[Title] 2 Maintenance\n[Title] 2.1 Servicing\n[Title] 2.1.1 Fluid Handling",
+          "asset_type": "PPTX",
+          "layout_style": "documentary",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Agenda",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "1 Hydraulic Systems",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "1.1 Power Generation",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "1.1.1 Pumps",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "1.1.1.1 Engine-Driven Pumps",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "1.1.1.2 Electric Pumps",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "1.1.2 Reservoirs",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "1.2 Distribution",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "1.2.1 Valves",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "1.2.1.1 Selector Valves",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "2 Maintenance",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "2.1 Servicing",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "2.1.1 Fluid Handling",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p3",
+          "number": 3,
+          "text": "[Title] 1 Hydraulic Systems",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "1 Hydraulic Systems",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p4",
+          "number": 4,
+          "text": "[Title] 1.1 Power Generation",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "1.1 Power Generation",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p5",
+          "number": 5,
+          "text": "[Title] 1.1.1 Pumps",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "1.1.1 Pumps",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p6",
+          "number": 6,
+          "text": "[Title] 1.1.1.1 Engine-Driven Pumps",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "1.1.1.1 Engine-Driven Pumps",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 6,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 6,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+          "number": 7,
+          "text": "[Title] EDP Operation\n[Title] Variable displacement piston pump\n[NarrativeText] Driven from the accessory gearbox\n[NarrativeText] Case drain returns to reservoir",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "EDP Operation",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 7,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Variable displacement piston pump",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 7,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Driven from the accessory gearbox",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 7,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Case drain returns to reservoir",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 7,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 7,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p8",
+          "number": 8,
+          "text": "[Title] 1.1.1.2 Electric Pumps",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "1.1.1.2 Electric Pumps",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 8,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 8,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p9",
+          "number": 9,
+          "text": "[Title] Electric Motor Pumps\n[NarrativeText] Backup when engines are shut down\n[NarrativeText] Duty-cycle limited",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Electric Motor Pumps",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 9,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Backup when engines are shut down",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 9,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Duty-cycle limited",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 9,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 9,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p10",
+          "number": 10,
+          "text": "[Title] 1.1.2 Reservoirs",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "1.1.2 Reservoirs",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 10,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 10,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11",
+          "number": 11,
+          "text": "[Title] Reservoir Pressurisation\n[NarrativeText] Bleed-air pressurised\n[NarrativeText] Prevents pump cavitation at altitude",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Reservoir Pressurisation",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 11,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Bleed-air pressurised",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 11,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Prevents pump cavitation at altitude",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 11,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 11,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p12",
+          "number": 12,
+          "text": "[Title] 1.2 Distribution",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "1.2 Distribution",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 12,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 12,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p13",
+          "number": 13,
+          "text": "[Title] 1.2.1 Valves",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "1.2.1 Valves",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 13,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 13,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p14",
+          "number": 14,
+          "text": "[Title] 1.2.1.1 Selector Valves",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "1.2.1.1 Selector Valves",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 14,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 14,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15",
+          "number": 15,
+          "text": "[Title] Selector Valve Types\n[Title] Spool type\n[Title] Rotary type\n[NarrativeText] Solenoid operated",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Selector Valve Types",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 15,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Spool type",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 15,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Rotary type",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 15,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Solenoid operated",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 15,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 15,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p16",
+          "number": 16,
+          "text": "[Title] 2 Maintenance",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "2 Maintenance",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 16,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 16,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p17",
+          "number": 17,
+          "text": "[Title] 2.1 Servicing",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "2.1 Servicing",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 17,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 17,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p18",
+          "number": 18,
+          "text": "[Title] 2.1.1 Fluid Handling",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "2.1.1 Fluid Handling",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 18,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 18,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+          "number": 19,
+          "text": "[Title] Skydrol Precautions\n[NarrativeText] Wear eye protection and nitrile gloves\n[NarrativeText] Keep away from paint and rubber seals",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Skydrol Precautions",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 19,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Wear eye protection and nitrile gloves",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 19,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Keep away from paint and rubber seals",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 19,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "course_slide_edges": [
+      "HAS_CHILD",
+      "HAS_SLIDE"
+    ],
+    "nondeterministic": {
+      "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "sections": {
+        "labels": [],
+        "section_slide_edges": [],
+        "nodes": []
+      },
+      "concepts": {
+        "labels": [
+          "Concept",
+          "TRAINING"
+        ],
+        "nodes": [
+          {
+            "name": "Accessory gearbox",
+            "id": "concept_Accessory_gearbox",
+            "salience": 0.5
+          },
+          {
+            "name": "Aircraft Hydraulic Systems",
+            "id": "concept_Aircraft_Hydraulic_Systems",
+            "salience": 1.0
+          },
+          {
+            "name": "Altitude Effects on Pump Operation",
+            "id": "concept_Altitude_Effects_on_Pump_Operation",
+            "salience": 0.3
+          },
+          {
+            "name": "Backup Operation",
+            "id": "concept_Backup_Operation",
+            "salience": 0.7
+          },
+          {
+            "name": "Bleed‑air Pressurisation",
+            "id": "concept_Bleed‑air_Pressurisation",
+            "salience": 0.7
+          },
+          {
+            "name": "Case drain",
+            "id": "concept_Case_drain",
+            "salience": 0.5
+          },
+          {
+            "name": "Distribution",
+            "id": "concept_Distribution",
+            "salience": 0.7
+          },
+          {
+            "name": "Distribution",
+            "id": "concept_Distribution",
+            "salience": 1.0
+          },
+          {
+            "name": "Duty‑Cycle Limitation",
+            "id": "concept_Duty‑Cycle_Limitation",
+            "salience": 0.7
+          },
+          {
+            "name": "EDP operation",
+            "id": "concept_EDP_operation",
+            "salience": 0.7
+          },
+          {
+            "name": "Electric Motor Pump",
+            "id": "concept_Electric_Motor_Pump",
+            "salience": 1.0
+          },
+          {
+            "name": "Electric Pumps",
+            "id": "concept_Electric_Pumps",
+            "salience": 0.5
+          },
+          {
+            "name": "Electric Pumps",
+            "id": "concept_Electric_Pumps",
+            "salience": 1.0
+          },
+          {
+            "name": "Engine-Driven Pumps",
+            "id": "concept_Engine-Driven_Pumps",
+            "salience": 0.5
+          },
+          {
+            "name": "Engine-Driven Pumps",
+            "id": "concept_Engine-Driven_Pumps",
+            "salience": 1.0
+          },
+          {
+            "name": "Eye protection",
+            "id": "concept_Eye_protection",
+            "salience": 0.5
+          },
+          {
+            "name": "Fluid Handling",
+            "id": "concept_Fluid_Handling",
+            "salience": 0.5
+          },
+          {
+            "name": "Fluid Handling",
+            "id": "concept_Fluid_Handling",
+            "salience": 1.0
+          },
+          {
+            "name": "Four‑level Section Hierarchy",
+            "id": "concept_Four‑level_Section_Hierarchy",
+            "salience": 0.7
+          },
+          {
+            "name": "Hydraulic Systems",
+            "id": "concept_Hydraulic_Systems",
+            "salience": 1.0
+          },
+          {
+            "name": "Maintenance",
+            "id": "concept_Maintenance",
+            "salience": 0.7
+          },
+          {
+            "name": "Material incompatibility – paint and rubber seals",
+            "id": "concept_Material_incompatibility_–_paint_and_rubber_seals",
+            "salience": 0.5
+          },
+          {
+            "name": "Nitrile gloves",
+            "id": "concept_Nitrile_gloves",
+            "salience": 0.5
+          },
+          {
+            "name": "Personal protective equipment (PPE) for Skydrol handling",
+            "id": "concept_Personal_protective_equipment_(PPE)_for_Skydrol_handling",
+            "salience": 0.7
+          },
+          {
+            "name": "Power Generation",
+            "id": "concept_Power_Generation",
+            "salience": 0.7
+          },
+          {
+            "name": "Pump Cavitation",
+            "id": "concept_Pump_Cavitation",
+            "salience": 0.5
+          },
+          {
+            "name": "Pumps",
+            "id": "concept_Pumps",
+            "salience": 0.5
+          },
+          {
+            "name": "Pumps",
+            "id": "concept_Pumps",
+            "salience": 1.0
+          },
+          {
+            "name": "Reservoir",
+            "id": "concept_Reservoir",
+            "salience": 0.5
+          },
+          {
+            "name": "Reservoir",
+            "id": "concept_Reservoir",
+            "salience": 1.0
+          },
+          {
+            "name": "Reservoir Pressurisation",
+            "id": "concept_Reservoir_Pressurisation",
+            "salience": 1.0
+          },
+          {
+            "name": "Reservoirs",
+            "id": "concept_Reservoirs",
+            "salience": 0.5
+          },
+          {
+            "name": "Rotary-type selector valve",
+            "id": "concept_Rotary-type_selector_valve",
+            "salience": 0.7
+          },
+          {
+            "name": "Selector Valve",
+            "id": "concept_Selector_Valve",
+            "salience": 1.0
+          },
+          {
+            "name": "Selector Valves",
+            "id": "concept_Selector_Valves",
+            "salience": 0.5
+          },
+          {
+            "name": "Selector valve",
+            "id": "concept_Selector_valve",
+            "salience": 1.0
+          },
+          {
+            "name": "Servicing",
+            "id": "concept_Servicing",
+            "salience": 0.5
+          },
+          {
+            "name": "Servicing",
+            "id": "concept_Servicing",
+            "salience": 1.0
+          },
+          {
+            "name": "Skydrol",
+            "id": "concept_Skydrol",
+            "salience": 1.0
+          },
+          {
+            "name": "Solenoid operation",
+            "id": "concept_Solenoid_operation",
+            "salience": 0.5
+          },
+          {
+            "name": "Spool-type selector valve",
+            "id": "concept_Spool-type_selector_valve",
+            "salience": 0.7
+          },
+          {
+            "name": "Valves",
+            "id": "concept_Valves",
+            "salience": 0.5
+          },
+          {
+            "name": "Valves",
+            "id": "concept_Valves",
+            "salience": 1.0
+          },
+          {
+            "name": "Variable displacement piston pump",
+            "id": "concept_Variable_displacement_piston_pump",
+            "salience": 1.0
+          }
+        ]
+      },
+      "teaches": [
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p1",
+          "concept": "Aircraft Hydraulic Systems",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p1",
+          "concept": "Four‑level Section Hierarchy",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p10",
+          "concept": "Reservoir",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11",
+          "concept": "Altitude Effects on Pump Operation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11",
+          "concept": "Bleed‑air Pressurisation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11",
+          "concept": "Pump Cavitation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11",
+          "concept": "Reservoir Pressurisation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p12",
+          "concept": "Distribution",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p13",
+          "concept": "Valves",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p14",
+          "concept": "Selector Valve",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15",
+          "concept": "Rotary-type selector valve",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15",
+          "concept": "Selector valve",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15",
+          "concept": "Solenoid operation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15",
+          "concept": "Spool-type selector valve",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p17",
+          "concept": "Servicing",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p18",
+          "concept": "Fluid Handling",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+          "concept": "Eye protection",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+          "concept": "Material incompatibility – paint and rubber seals",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+          "concept": "Nitrile gloves",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+          "concept": "Personal protective equipment (PPE) for Skydrol handling",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+          "concept": "Skydrol",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Distribution",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Electric Pumps",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Engine-Driven Pumps",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Fluid Handling",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Hydraulic Systems",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Maintenance",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Power Generation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Pumps",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Reservoirs",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Selector Valves",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Servicing",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+          "concept": "Valves",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p5",
+          "concept": "Pumps",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p6",
+          "concept": "Engine-Driven Pumps",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+          "concept": "Accessory gearbox",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+          "concept": "Case drain",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+          "concept": "EDP operation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+          "concept": "Reservoir",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+          "concept": "Variable displacement piston pump",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p8",
+          "concept": "Electric Pumps",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p9",
+          "concept": "Backup Operation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p9",
+          "concept": "Duty‑Cycle Limitation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p9",
+          "concept": "Electric Motor Pump",
+          "salience": null
+        }
+      ],
+      "salience_location": "concept_node",
+      "edges": {
+        "HAS_SECTION": [],
+        "section_slide": [],
+        "COVERS": [],
+        "TEACHES": [
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p1",
+            "to": "Aircraft Hydraulic Systems",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p1",
+            "to": "Four‑level Section Hierarchy",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p10",
+            "to": "Reservoir",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11",
+            "to": "Altitude Effects on Pump Operation",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11",
+            "to": "Bleed‑air Pressurisation",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11",
+            "to": "Pump Cavitation",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11",
+            "to": "Reservoir Pressurisation",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p12",
+            "to": "Distribution",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p13",
+            "to": "Valves",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p14",
+            "to": "Selector Valve",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15",
+            "to": "Rotary-type selector valve",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15",
+            "to": "Selector valve",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15",
+            "to": "Solenoid operation",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15",
+            "to": "Spool-type selector valve",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p17",
+            "to": "Servicing",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p18",
+            "to": "Fluid Handling",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+            "to": "Eye protection",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+            "to": "Material incompatibility – paint and rubber seals",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+            "to": "Nitrile gloves",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+            "to": "Personal protective equipment (PPE) for Skydrol handling",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19",
+            "to": "Skydrol",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Distribution",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Electric Pumps",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Engine-Driven Pumps",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Fluid Handling",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Hydraulic Systems",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Maintenance",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Power Generation",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Pumps",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Reservoirs",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Selector Valves",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Servicing",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2",
+            "to": "Valves",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p5",
+            "to": "Pumps",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p6",
+            "to": "Engine-Driven Pumps",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+            "to": "Accessory gearbox",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+            "to": "Case drain",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+            "to": "EDP operation",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+            "to": "Reservoir",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7",
+            "to": "Variable displacement piston pump",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p8",
+            "to": "Electric Pumps",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p9",
+            "to": "Backup Operation",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p9",
+            "to": "Duty‑Cycle Limitation",
+            "salience": null
+          },
+          {
+            "from": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p9",
+            "to": "Electric Motor Pump",
+            "salience": null
+          }
+        ]
+      }
+    },
+    "never_written": {
+      "labels": [
+        "Project",
+        "TargetNode",
+        "User",
+        "CanonicalConcept"
+      ],
+      "relations": [
+        "OWNS",
+        "ALIGNS_TO",
+        "SUGGESTED_SOURCE",
+        "DERIVED_FROM"
+      ]
+    }
+  },
+  "minio": {
+    "bucket": "processing-artifacts",
+    "current_json_key": "training/generated/5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673/current.json",
+    "current_json": {
+      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "manifest_key": "training/generated/5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "prefix": "training/generated/5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+      "updated_at": "2026-10-24T05:26:50.853965+00:00"
+    },
+    "prefix": "training/generated/5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "keys_required": [
+      "training/generated/5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673/current.json",
+      "training/generated/5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
+      "training/generated/5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "training/generated/5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+    ]
+  },
+  "weaviate": {
+    "server": "1.27.0",
+    "collection": "DocumentChunk",
+    "distance": "cosine",
+    "objects": [
+      {
+        "uuid": "6c4444b6-27c7-5202-a59e-0f4576635605",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] Aircraft Hydraulic Systems\n[Title] Four-level section hierarchy",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p1"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "d6d0ef2b-a649-5d8b-9bfc-a076d78756f5",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 1.1.2 Reservoirs",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p10"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "4b59e34a-4a71-511d-9b64-f322c2df7355",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] Reservoir Pressurisation\n[NarrativeText] Bleed-air pressurised\n[NarrativeText] Prevents pump cavitation at altitude",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p11"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "b5f5b27b-9551-5c4b-8550-a2ac71170c20",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 1.2 Distribution",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p12"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "421c1670-042c-55e0-a265-8d54b0102a46",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 1.2.1 Valves",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p13"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "ae0261c1-638c-5385-844b-220eaceeeae7",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 1.2.1.1 Selector Valves",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p14"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "768c7779-426d-52e2-8aaa-77da034c4d13",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] Selector Valve Types\n[Title] Spool type\n[Title] Rotary type\n[NarrativeText] Solenoid operated",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p15"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "7d229a5b-6405-58ac-b657-a5f513e4b03c",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 2 Maintenance",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p16"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "9949e8ac-5c0a-5981-beb9-bd005f797735",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 2.1 Servicing",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p17"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "fb449844-fa72-5fd8-925a-e71de3b694ca",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 2.1.1 Fluid Handling",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p18"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "abf23861-6377-50d4-bc3d-e157eaecc0a5",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] Skydrol Precautions\n[NarrativeText] Wear eye protection and nitrile gloves\n[NarrativeText] Keep away from paint and rubber seals",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p19"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "af4aa9d7-f042-559d-9d96-85de1195e216",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] Agenda\n[Title] 1 Hydraulic Systems\n[Title] 1.1 Power Generation\n[Title] 1.1.1 Pumps\n[Title] 1.1.1.1 Engine-Driven Pumps\n[Title] 1.1.1.2 Electric Pumps\n[Title] 1.1.2 Reservoirs\n[Title] 1.2 Distribution\n[Title] 1.2.1 Valves\n[Title] 1.2.1.1 Selector Valves\n[Title] 2 Maintenance\n[Title] 2.1 Servicing\n[Title] 2.1.1 Fluid Handling",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p2"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "23a40389-dc27-56c4-b52d-ff790274c53c",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 1 Hydraulic Systems",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p3"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "142fe302-3fd8-5998-a9e0-cadad400c641",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 1.1 Power Generation",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p4"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "2f612f30-f74d-592b-ac51-86c79d13f296",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 1.1.1 Pumps",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p5"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "1f846ca2-d041-5272-861d-92bf660bee03",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 1.1.1.1 Engine-Driven Pumps",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p6"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "ad1799bc-836f-5e98-a512-9726ec460110",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] EDP Operation\n[Title] Variable displacement piston pump\n[NarrativeText] Driven from the accessory gearbox\n[NarrativeText] Case drain returns to reservoir",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p7"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "1d83bf39-6017-5031-acdc-e771a361de11",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] 1.1.1.2 Electric Pumps",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p8"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "cebda6fe-88b9-5648-abc5-868928c637cb",
+        "properties": {
+          "doc_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673",
+          "text": "[Title] Electric Motor Pumps\n[NarrativeText] Backup when engines are shut down\n[NarrativeText] Duty-cycle limited",
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:5148d392ef40547f918f19893624c30813ae931c1821bdbb0d75f4778db7b673_p9"
+        },
+        "vector_length": 768
+      }
+    ],
+    "forbidden_chunk_id_substrings": [
+      "_fig_"
+    ]
+  },
+  "embedder": {
+    "env": {
+      "base_url": [
+        "LLM_BASE_URL",
+        "OPENAI_BASE_URL"
+      ],
+      "api_key": [
+        "LLM_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "model": [
+        "LLM_EMBED_MODEL"
+      ]
+    },
+    "model_default": "nomic-embed-text",
+    "dimension": 768,
+    "document_prefix": "search_document: ",
+    "query_prefix": "search_query: ",
+    "normalized": false
+  },
+  "produced_by": {
+    "run": {
+      "key": "training/course/nested-four-levels/nested-four-levels.pptx",
+      "partition_key": "training__course__nested-four-levels__nested-four-levels.pptx",
+      "success": true,
+      "failed_steps": [],
+      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "LLM_MODEL": "gpt-oss-128k:120b",
+      "LLM_EMBED_MODEL": "nomic-embed-text",
+      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "start_utc": "2026-10-24T05:26:49.367387+00:00",
+      "end_utc": "2026-10-24T05:43:22.421897+00:00",
+      "wall_seconds": 993.05
+    },
+    "old_layout_keys": 0,
+    "stem_id_node_count": 0,
+    "pending_steps": [
+      "d",
+      "e",
+      "f",
+      "g"
+    ],
+    "copied_not_observed": [
+      "weaviate.server",
+      "embedder",
+      "neo4j.never_written"
+    ]
+  }
+}
