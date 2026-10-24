@@ -1,0 +1,646 @@
+{
+  "contract": "docs/contracts/training-workbench.md",
+  "contract_version": 2,
+  "fixture": {
+    "deck": "dup-title-b.pptx",
+    "deck_sha256": "70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+    "metadata": "metadata.json",
+    "metadata_sha256": "ccd2cb71e7ed3035ecaa54535d73ece073a75c6ee3432c69d72aa66f69456252"
+  },
+  "volatile_element_keys": [
+    "element_id",
+    "metadata.parent_id",
+    "metadata.file_directory",
+    "metadata.last_modified",
+    "metadata.filename"
+  ],
+  "drop": {
+    "bucket": "processing-artifacts",
+    "keys_in_order": [
+      "training/course/dup-title-b/metadata.json",
+      "training/course/dup-title-b/dup-title-b.pptx"
+    ]
+  },
+  "ingest_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+  "neo4j": {
+    "course": {
+      "labels": [
+        "Document",
+        "Course",
+        "TRAINING"
+      ],
+      "props": {
+        "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+        "title": "Pump Maintenance Basics",
+        "filename": "dup-title-b.pptx",
+        "current_key": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/current.json",
+        "business_unit": "Industrial Pumps",
+        "discipline": "Mechanical",
+        "audience": "Apprentices",
+        "level": "Introductory",
+        "delivery_method": "E-learning",
+        "duration_hours": 2.5,
+        "version": "2.0"
+      }
+    },
+    "slides": {
+      "labels": [
+        "Chunk",
+        "Slide",
+        "TRAINING"
+      ],
+      "nodes": [
+        {
+          "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
+          "number": 1,
+          "text": "[Title] Pump Maintenance Basics\n[Title] Edition B: bearings and alignment",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Pump Maintenance Basics",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Edition B: bearings and alignment",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+          "number": 2,
+          "text": "[Title] Bearing Lubrication\n[Title] Grease quantity matters\n[NarrativeText] Over-greasing raises temperature",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Bearing Lubrication",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Grease quantity matters",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Over-greasing raises temperature",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+          "number": 3,
+          "text": "[Title] Shaft Alignment\n[Title] Dial indicator method\n[Title] Laser alignment\n[Title] Soft foot check first",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Shaft Alignment",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Dial indicator method",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Laser alignment",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Soft foot check first",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+          "number": 4,
+          "text": "[Title] Alignment Tolerances\n[Table] Speed (rpm) Offset (mm) 1800 0.05 3600 0.03",
+          "asset_type": "PPTX",
+          "layout_style": "table",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Alignment Tolerances",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Table",
+              "text": "Speed (rpm) Offset (mm) 1800 0.05 3600 0.03",
+              "metadata": {
+                "page_number": 4,
+                "text_as_html": "<table><tr><td>Speed (rpm)</td><td>Offset (mm)</td></tr><tr><td>1800</td><td>0.05</td></tr><tr><td>3600</td><td>0.03</td></tr></table>",
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "course_slide_edges": [
+      "HAS_CHILD",
+      "HAS_SLIDE"
+    ],
+    "nondeterministic": {
+      "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "sections": {
+        "labels": [],
+        "section_slide_edges": [],
+        "nodes": []
+      },
+      "concepts": {
+        "labels": [
+          "Concept",
+          "TRAINING"
+        ],
+        "nodes": [
+          {
+            "name": "Alignment",
+            "id": "concept_Alignment",
+            "salience": 0.7
+          },
+          {
+            "name": "Alignment tolerances",
+            "id": "concept_Alignment_tolerances",
+            "salience": 1.0
+          },
+          {
+            "name": "Bearing Lubrication",
+            "id": "concept_Bearing_Lubrication",
+            "salience": 1.0
+          },
+          {
+            "name": "Bearings",
+            "id": "concept_Bearings",
+            "salience": 0.7
+          },
+          {
+            "name": "Dial Indicator Method",
+            "id": "concept_Dial_Indicator_Method",
+            "salience": 0.7
+          },
+          {
+            "name": "Grease Quantity",
+            "id": "concept_Grease_Quantity",
+            "salience": 0.7
+          },
+          {
+            "name": "Laser Alignment",
+            "id": "concept_Laser_Alignment",
+            "salience": 0.7
+          },
+          {
+            "name": "Offset (mm)",
+            "id": "concept_Offset_(mm)",
+            "salience": 0.7
+          },
+          {
+            "name": "Over‑greasing",
+            "id": "concept_Over‑greasing",
+            "salience": 0.7
+          },
+          {
+            "name": "Pump Maintenance",
+            "id": "concept_Pump_Maintenance",
+            "salience": 1.0
+          },
+          {
+            "name": "Shaft Alignment",
+            "id": "concept_Shaft_Alignment",
+            "salience": 1.0
+          },
+          {
+            "name": "Soft Foot Check First",
+            "id": "concept_Soft_Foot_Check_First",
+            "salience": 0.5
+          },
+          {
+            "name": "Speed (rpm)",
+            "id": "concept_Speed_(rpm)",
+            "salience": 0.7
+          },
+          {
+            "name": "Speed‑to‑tolerance relationship",
+            "id": "concept_Speed‑to‑tolerance_relationship",
+            "salience": 0.5
+          },
+          {
+            "name": "Temperature Rise",
+            "id": "concept_Temperature_Rise",
+            "salience": 0.5
+          }
+        ]
+      },
+      "teaches": [
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
+          "concept": "Alignment",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
+          "concept": "Bearings",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
+          "concept": "Pump Maintenance",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+          "concept": "Bearing Lubrication",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+          "concept": "Grease Quantity",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+          "concept": "Over‑greasing",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+          "concept": "Temperature Rise",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+          "concept": "Dial Indicator Method",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+          "concept": "Laser Alignment",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+          "concept": "Shaft Alignment",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+          "concept": "Soft Foot Check First",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+          "concept": "Alignment tolerances",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+          "concept": "Offset (mm)",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+          "concept": "Speed (rpm)",
+          "salience": null
+        },
+        {
+          "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+          "concept": "Speed‑to‑tolerance relationship",
+          "salience": null
+        }
+      ],
+      "salience_location": "concept_node",
+      "edges": {
+        "HAS_SECTION": [],
+        "section_slide": [],
+        "COVERS": [],
+        "TEACHES": [
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
+            "to": "Alignment",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
+            "to": "Bearings",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
+            "to": "Pump Maintenance",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+            "to": "Bearing Lubrication",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+            "to": "Grease Quantity",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+            "to": "Over‑greasing",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+            "to": "Temperature Rise",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+            "to": "Dial Indicator Method",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+            "to": "Laser Alignment",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+            "to": "Shaft Alignment",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+            "to": "Soft Foot Check First",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+            "to": "Alignment tolerances",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+            "to": "Offset (mm)",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+            "to": "Speed (rpm)",
+            "salience": null
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+            "to": "Speed‑to‑tolerance relationship",
+            "salience": null
+          }
+        ]
+      }
+    },
+    "never_written": {
+      "labels": [
+        "Project",
+        "TargetNode",
+        "User",
+        "CanonicalConcept"
+      ],
+      "relations": [
+        "OWNS",
+        "ALIGNS_TO",
+        "SUGGESTED_SOURCE",
+        "DERIVED_FROM"
+      ]
+    }
+  },
+  "minio": {
+    "bucket": "processing-artifacts",
+    "current_json_key": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/current.json",
+    "current_json": {
+      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "manifest_key": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "prefix": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+      "updated_at": "2026-10-24T09:37:24.900908+00:00"
+    },
+    "prefix": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "keys_required": [
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/current.json",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+    ]
+  },
+  "weaviate": {
+    "server": "1.27.0",
+    "collection": "DocumentChunk",
+    "distance": "cosine",
+    "objects": [
+      {
+        "uuid": "41f60d71-bc4c-5905-aa33-c6f33e16b987",
+        "properties": {
+          "text": "[Title] Pump Maintenance Basics\n[Title] Edition B: bearings and alignment",
+          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+          "domain": "TRAINING",
+          "section": null,
+          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "7f9b7441-7be9-5d0e-b32a-28b115fda066",
+        "properties": {
+          "text": "[Title] Bearing Lubrication\n[Title] Grease quantity matters\n[NarrativeText] Over-greasing raises temperature",
+          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+          "domain": "TRAINING",
+          "section": null,
+          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "e9f0a7fa-7c64-5956-9904-e8fcfc1f7d41",
+        "properties": {
+          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+          "domain": "TRAINING",
+          "text": "[Title] Shaft Alignment\n[Title] Dial indicator method\n[Title] Laser alignment\n[Title] Soft foot check first",
+          "section": null,
+          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "03dc1da1-297e-50da-aa14-de3948f1712a",
+        "properties": {
+          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+          "domain": "TRAINING",
+          "text": "[Title] Alignment Tolerances\n[Table] Speed (rpm) Offset (mm) 1800 0.05 3600 0.03",
+          "section": null,
+          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4"
+        },
+        "vector_length": 768
+      }
+    ],
+    "forbidden_chunk_id_substrings": [
+      "_fig_"
+    ]
+  },
+  "embedder": {
+    "env": {
+      "base_url": [
+        "LLM_BASE_URL",
+        "OPENAI_BASE_URL"
+      ],
+      "api_key": [
+        "LLM_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "model": [
+        "LLM_EMBED_MODEL"
+      ]
+    },
+    "model_default": "nomic-embed-text",
+    "dimension": 768,
+    "document_prefix": "search_document: ",
+    "query_prefix": "search_query: ",
+    "normalized": false
+  },
+  "produced_by": {
+    "run": {
+      "key": "training/course/dup-title-b/dup-title-b.pptx",
+      "partition_key": "training__course__dup-title-b__dup-title-b.pptx",
+      "success": true,
+      "failed_steps": [],
+      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "LLM_MODEL": "gpt-oss-128k:120b",
+      "LLM_EMBED_MODEL": "nomic-embed-text",
+      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "start_utc": "2026-10-24T09:37:23.832278+00:00",
+      "end_utc": "2026-10-24T09:41:39.869277+00:00",
+      "wall_seconds": 256.04
+    },
+    "old_layout_keys": 0,
+    "stem_id_node_count": 0,
+    "pending_steps": [
+      "d",
+      "e",
+      "f",
+      "g"
+    ],
+    "copied_not_observed": [
+      "weaviate.server",
+      "embedder",
+      "neo4j.never_written"
+    ]
+  }
+}
