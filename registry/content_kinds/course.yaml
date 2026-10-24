@@ -8,5 +8,6 @@ kind: course
 passes:
   - core.baml::ExtractOutline
   - training.baml::ExtractConcepts
+  - render.pages
 outputs:
   - training:Course

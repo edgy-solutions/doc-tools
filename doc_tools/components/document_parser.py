@@ -427,6 +427,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     elements = []
                     embedded_images_map = {}
                     pages_list = []  # full-page renders — the context half of the evidence card
+                    render_error = None  # training page render failure, surfaced in the manifest
                     extraction_metadata = {}
                 
                     try:
@@ -499,27 +500,54 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             # separate `pages` list (NOT embedded_images) so the
                             # basename→crop-url map the provenance join reads stays
                             # crop-only; the page render is looked up by page number.
-                            try:
-                                pages_dir = os.path.join(temp_extract_dir, "_pages")
-                                os.makedirs(pages_dir, exist_ok=True)
-                                rendered = rasterize_pdf_pages(
-                                    file_path, pages_dir,
-                                    dpi=int(os.getenv("DOC_PARSER_PAGE_RENDER_DPI", "300")),
-                                )
-                                for p in rendered:
-                                    object_name = f"{gen_root}/{version}/images/{p['basename']}"
-                                    try:
+                            if domain == "training":
+                                # Contract section 5 (training-workbench.md): every slide
+                                # gets pages/page_<n>.png, n == the deck's slide number.
+                                # Training does NOT also get the images/page-n.jpg
+                                # raster below: that raster is the sustainment evidence
+                                # card (table context + detail), which has no meaning here.
+                                try:
+                                    from doc_tools.passes import render
+                                    rendered = render.pages(
+                                        file_path, os.path.join(temp_extract_dir, "_render_pages"))
+                                    for p in rendered:
+                                        object_name = f"{gen_root}/{version}/pages/{p['basename']}"
                                         s3_client.upload_file(
                                             Filename=p["path"], Bucket=bucket, Key=object_name,
-                                            ExtraArgs={"ContentType": "image/jpeg"},
+                                            ExtraArgs={"ContentType": "image/png"},
                                         )
-                                        p["s3_url"] = f"s3://{bucket}/{object_name}"
-                                        p.pop("path", None)
-                                        pages_list.append(p)
-                                    except Exception as e:
-                                        context.log.error(f"Failed to upload page image {p['basename']}: {e}")
-                            except Exception as e:
-                                context.log.error(f"Page rasterization failed: {e}")
+                                        pages_list.append({
+                                            "page": p["page"], "basename": p["basename"],
+                                            "key": object_name,
+                                            "s3_url": f"s3://{bucket}/{object_name}",
+                                            "width": p["width"], "height": p["height"],
+                                            "dpi": p["dpi"],
+                                        })
+                                except Exception as e:  # RenderError or an upload failure
+                                    render_error = f"{type(e).__name__}: {e}"
+                                    context.log.error(f"Training page render failed: {render_error}")
+                            else:
+                                try:
+                                    pages_dir = os.path.join(temp_extract_dir, "_pages")
+                                    os.makedirs(pages_dir, exist_ok=True)
+                                    rendered = rasterize_pdf_pages(
+                                        file_path, pages_dir,
+                                        dpi=int(os.getenv("DOC_PARSER_PAGE_RENDER_DPI", "300")),
+                                    )
+                                    for p in rendered:
+                                        object_name = f"{gen_root}/{version}/images/{p['basename']}"
+                                        try:
+                                            s3_client.upload_file(
+                                                Filename=p["path"], Bucket=bucket, Key=object_name,
+                                                ExtraArgs={"ContentType": "image/jpeg"},
+                                            )
+                                            p["s3_url"] = f"s3://{bucket}/{object_name}"
+                                            p.pop("path", None)
+                                            pages_list.append(p)
+                                        except Exception as e:
+                                            context.log.error(f"Failed to upload page image {p['basename']}: {e}")
+                                except Exception as e:
+                                    context.log.error(f"Page rasterization failed: {e}")
 
                         if elements:
                             first_meta = elements[0].get("metadata", {})
@@ -611,6 +639,8 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         # stamp it on the Course without rebuilding the path (contract section 5).
                         "current_key": f"{gen_root}/current.json",
                     }
+                    if render_error:
+                        manifest["pages_error"] = render_error
 
                     # ADR-0041 — when this instance is configured with obtained_via
                     # (e.g. the ingress-user sensor's user_document_parser), stamp a
