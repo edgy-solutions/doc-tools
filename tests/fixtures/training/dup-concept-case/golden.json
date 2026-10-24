@@ -1,0 +1,1929 @@
+{
+  "contract": "docs/contracts/training-workbench.md",
+  "contract_version": 2,
+  "fixture": {
+    "deck": "dup-concept-case.pptx",
+    "deck_sha256": "bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+    "metadata": "metadata.json",
+    "metadata_sha256": "f2c3b24b68de86a480dfdbd06ffe76f4e295cae7f51fd7a72c5b90d121daa54f"
+  },
+  "volatile_element_keys": [
+    "element_id",
+    "metadata.parent_id",
+    "metadata.file_directory",
+    "metadata.last_modified",
+    "metadata.filename"
+  ],
+  "drop": {
+    "bucket": "processing-artifacts",
+    "keys_in_order": [
+      "training/course/dup-concept-case/metadata.json",
+      "training/course/dup-concept-case/dup-concept-case.pptx"
+    ]
+  },
+  "ingest_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+  "neo4j": {
+    "course": {
+      "labels": [
+        "Document",
+        "Course",
+        "TRAINING"
+      ],
+      "props": {
+        "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+        "title": "Hydraulic Pump Fundamentals",
+        "filename": "dup-concept-case.pptx",
+        "current_key": "training/generated/bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c/current.json",
+        "business_unit": "Fluid Power",
+        "discipline": "Hydraulics",
+        "audience": "Maintenance technicians",
+        "level": "Introductory",
+        "delivery_method": "Instructor-led",
+        "duration_hours": 1,
+        "version": "1.0"
+      }
+    },
+    "slides": {
+      "labels": [
+        "Chunk",
+        "Slide",
+        "TRAINING"
+      ],
+      "nodes": [
+        {
+          "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p1",
+          "number": 1,
+          "text": "[Title] Hydraulic Pump Fundamentals\n[NarrativeText] Same concepts, spelled several ways",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Hydraulic Pump Fundamentals",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Same concepts, spelled several ways",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+          "number": 2,
+          "text": "[Title] Hydraulic Pump Types\n[Title] Hydraulic Pump: gear, vane, piston\n[NarrativeText] hydraulic pump selection depends on pressure",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Hydraulic Pump Types",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Hydraulic Pump: gear, vane, piston",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "hydraulic pump selection depends on pressure",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+          "number": 3,
+          "text": "[Title] HYDRAULIC PUMP SAFETY\n[NarrativeText] HYDRAULIC PUMP casings can be hot\n[NarrativeText] Hydraulic-Pump inlets must not be starved",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "HYDRAULIC PUMP SAFETY",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "HYDRAULIC PUMP casings can be hot",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Hydraulic-Pump inlets must not be starved",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+          "number": 4,
+          "text": "[Title] Pressure Relief Valve Role\n[NarrativeText] Pressure Relief Valve protects the circuit\n[NarrativeText] pressure-relief valve cracking pressure is set below the maximum",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Pressure Relief Valve Role",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Pressure Relief Valve protects the circuit",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "pressure-relief valve cracking pressure is set below the maximum",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+          "number": 5,
+          "text": "[Title] Relief Valve Testing\n[NarrativeText] Pressure relief valve(s) are bench tested\n[NarrativeText] A Hydraulic Pump. feeds the relief valve under test",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Relief Valve Testing",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Pressure relief valve(s) are bench tested",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "A Hydraulic Pump. feeds the relief valve under test",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6",
+          "number": 6,
+          "text": "[Title] Summary\n[Title] Hydraulic Pump\n[Title] Pressure Relief Valve\n[Title] hydraulic pump and pressure-relief valve work as a pair",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Summary",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 6,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Hydraulic Pump",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 6,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Pressure Relief Valve",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 6,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "hydraulic pump and pressure-relief valve work as a pair",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 6,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "course_slide_edges": [
+      "HAS_CHILD",
+      "HAS_SLIDE"
+    ],
+    "nondeterministic": {
+      "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "sections": {
+        "labels": [
+          "Section",
+          "TRAINING"
+        ],
+        "section_slide_edges": [
+          "HAS_CHILD"
+        ],
+        "nodes": [
+          {
+            "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "title": "Hydraulic Pump Fundamentals",
+            "level": 1,
+            "start_page": 1,
+            "end_page": 0,
+            "concept_summary": [
+              "Hydraulic Pump Safety",
+              "Pressure Relief Valve",
+              "Hydraulic pump",
+              "Vane Pump",
+              "Pressure (hydraulic systems)",
+              "Terminology Variations",
+              "Hydraulic Pump",
+              "Maximum Pressure",
+              "Hot Pump Casings",
+              "Bench testing"
+            ],
+            "parent": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "slides": [
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p1",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+            ],
+            "covers": [
+              {
+                "concept": "Bench testing",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Circuit Protection",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Cracking Pressure",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Gear Pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hot Pump Casings",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump",
+                "score": null,
+                "frequency": 2
+              },
+              {
+                "concept": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump Safety",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump Selection",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump Types",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Maximum Pressure",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Piston Pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure (hydraulic systems)",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure relief valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pump Inlet Starvation",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Terminology Variations",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Vane Pump",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "title": "Hydraulic Pump Types",
+            "level": 1,
+            "start_page": 2,
+            "end_page": 0,
+            "concept_summary": [
+              "Hydraulic Pump Safety",
+              "Hydraulic Pump",
+              "Pump Inlet Starvation",
+              "Hydraulic Pump & Pressure‑Relief Valve Pair",
+              "Circuit Protection",
+              "Pressure Relief Valve",
+              "Maximum Pressure",
+              "Hydraulic pump",
+              "Hydraulic Pump Types",
+              "Gear Pump"
+            ],
+            "parent": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "slides": [
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+            ],
+            "covers": [
+              {
+                "concept": "Bench testing",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Circuit Protection",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Cracking Pressure",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Gear Pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hot Pump Casings",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump Safety",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump Selection",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump Types",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Maximum Pressure",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Piston Pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure (hydraulic systems)",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure relief valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pump Inlet Starvation",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Vane Pump",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "title": "HYDRAULIC PUMP SAFETY",
+            "level": 1,
+            "start_page": 3,
+            "end_page": 0,
+            "concept_summary": [
+              "Circuit Protection",
+              "Pump Inlet Starvation",
+              "Hydraulic Pump Safety",
+              "Bench testing",
+              "Hot Pump Casings",
+              "Pressure Relief Valve",
+              "Hydraulic pump",
+              "Cracking Pressure",
+              "Pressure Relief Valve",
+              "Hydraulic Pump"
+            ],
+            "parent": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "slides": [
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+            ],
+            "covers": [
+              {
+                "concept": "Bench testing",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Circuit Protection",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Cracking Pressure",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hot Pump Casings",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump Safety",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Maximum Pressure",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure relief valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pump Inlet Starvation",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "title": "Pressure Relief Valve Role",
+            "level": 1,
+            "start_page": 4,
+            "end_page": 0,
+            "concept_summary": [
+              "Hydraulic Pump & Pressure‑Relief Valve Pair",
+              "Pressure Relief Valve",
+              "Bench testing",
+              "Pressure Relief Valve",
+              "Circuit Protection",
+              "Hydraulic Pump",
+              "Maximum Pressure",
+              "Pressure relief valve",
+              "Hydraulic pump",
+              "Cracking Pressure"
+            ],
+            "parent": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "slides": [
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+            ],
+            "covers": [
+              {
+                "concept": "Bench testing",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Circuit Protection",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Cracking Pressure",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Maximum Pressure",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure relief valve",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4",
+            "title": "Relief Valve Testing",
+            "level": 1,
+            "start_page": 5,
+            "end_page": 0,
+            "concept_summary": [
+              "Hydraulic Pump",
+              "Hydraulic pump",
+              "Pressure relief valve",
+              "Pressure Relief Valve",
+              "Hydraulic Pump & Pressure‑Relief Valve Pair",
+              "Bench testing"
+            ],
+            "parent": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "slides": [
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+            ],
+            "covers": [
+              {
+                "concept": "Bench testing",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure relief valve",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s5",
+            "title": "Summary",
+            "level": 1,
+            "start_page": 6,
+            "end_page": 0,
+            "concept_summary": [
+              "Pressure Relief Valve",
+              "Hydraulic Pump & Pressure‑Relief Valve Pair",
+              "Hydraulic Pump"
+            ],
+            "parent": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "slides": [
+              "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+            ],
+            "covers": [
+              {
+                "concept": "Hydraulic Pump",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+                "score": null,
+                "frequency": 1
+              },
+              {
+                "concept": "Pressure Relief Valve",
+                "score": null,
+                "frequency": 1
+              }
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "labels": [
+          "Concept",
+          "TRAINING"
+        ],
+        "nodes": [
+          {
+            "name": "Bench testing",
+            "id": "concept_Bench_testing",
+            "salience": 0.7
+          },
+          {
+            "name": "Circuit Protection",
+            "id": "concept_Circuit_Protection",
+            "salience": 0.7
+          },
+          {
+            "name": "Cracking Pressure",
+            "id": "concept_Cracking_Pressure",
+            "salience": 0.7
+          },
+          {
+            "name": "Gear Pump",
+            "id": "concept_Gear_Pump",
+            "salience": 0.7
+          },
+          {
+            "name": "Hot Pump Casings",
+            "id": "concept_Hot_Pump_Casings",
+            "salience": 0.7
+          },
+          {
+            "name": "Hydraulic Pump",
+            "id": "concept_Hydraulic_Pump",
+            "salience": 1.0
+          },
+          {
+            "name": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+            "id": "concept_Hydraulic_Pump_&_Pressure‑Relief_Valve_Pair",
+            "salience": 0.5
+          },
+          {
+            "name": "Hydraulic Pump Safety",
+            "id": "concept_Hydraulic_Pump_Safety",
+            "salience": 1.0
+          },
+          {
+            "name": "Hydraulic Pump Selection",
+            "id": "concept_Hydraulic_Pump_Selection",
+            "salience": 0.5
+          },
+          {
+            "name": "Hydraulic Pump Types",
+            "id": "concept_Hydraulic_Pump_Types",
+            "salience": 1.0
+          },
+          {
+            "name": "Hydraulic pump",
+            "id": "concept_Hydraulic_pump",
+            "salience": 0.5
+          },
+          {
+            "name": "Maximum Pressure",
+            "id": "concept_Maximum_Pressure",
+            "salience": 0.5
+          },
+          {
+            "name": "Piston Pump",
+            "id": "concept_Piston_Pump",
+            "salience": 0.7
+          },
+          {
+            "name": "Pressure (hydraulic systems)",
+            "id": "concept_Pressure_(hydraulic_systems)",
+            "salience": 0.5
+          },
+          {
+            "name": "Pressure Relief Valve",
+            "id": "concept_Pressure_Relief_Valve",
+            "salience": 1.0
+          },
+          {
+            "name": "Pressure Relief Valve",
+            "id": "concept_Pressure_Relief_Valve",
+            "salience": 0.7
+          },
+          {
+            "name": "Pressure relief valve",
+            "id": "concept_Pressure_relief_valve",
+            "salience": 1.0
+          },
+          {
+            "name": "Pump Inlet Starvation",
+            "id": "concept_Pump_Inlet_Starvation",
+            "salience": 0.7
+          },
+          {
+            "name": "Terminology Variations",
+            "id": "concept_Terminology_Variations",
+            "salience": 0.7
+          },
+          {
+            "name": "Vane Pump",
+            "id": "concept_Vane_Pump",
+            "salience": 0.7
+          }
+        ]
+      },
+      "teaches": [
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p1",
+          "concept": "Hydraulic Pump",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p1",
+          "concept": "Terminology Variations",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+          "concept": "Gear Pump",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+          "concept": "Hydraulic Pump Selection",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+          "concept": "Hydraulic Pump Types",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+          "concept": "Piston Pump",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+          "concept": "Pressure (hydraulic systems)",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+          "concept": "Vane Pump",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+          "concept": "Hot Pump Casings",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+          "concept": "Hydraulic Pump Safety",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+          "concept": "Pump Inlet Starvation",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+          "concept": "Circuit Protection",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+          "concept": "Cracking Pressure",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+          "concept": "Maximum Pressure",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+          "concept": "Pressure Relief Valve",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+          "concept": "Bench testing",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+          "concept": "Hydraulic pump",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+          "concept": "Pressure relief valve",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6",
+          "concept": "Hydraulic Pump",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6",
+          "concept": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+          "salience": null
+        },
+        {
+          "slide": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6",
+          "concept": "Pressure Relief Valve",
+          "salience": null
+        }
+      ],
+      "salience_location": "concept_node",
+      "edges": {
+        "HAS_SECTION": [
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s5"
+          }
+        ],
+        "section_slide": [
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p1"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s5",
+            "to": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6"
+          }
+        ],
+        "COVERS": [
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Bench testing",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Circuit Protection",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Cracking Pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Gear Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Hot Pump Casings",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Hydraulic Pump",
+            "score": null,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Hydraulic Pump Safety",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Hydraulic Pump Selection",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Hydraulic Pump Types",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Hydraulic pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Maximum Pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Piston Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Pressure (hydraulic systems)",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Pressure relief valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Pump Inlet Starvation",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Terminology Variations",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s0",
+            "to": "Vane Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Bench testing",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Circuit Protection",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Cracking Pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Gear Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Hot Pump Casings",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Hydraulic Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Hydraulic Pump Safety",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Hydraulic Pump Selection",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Hydraulic Pump Types",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Hydraulic pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Maximum Pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Piston Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Pressure (hydraulic systems)",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Pressure relief valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Pump Inlet Starvation",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s1",
+            "to": "Vane Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Bench testing",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Circuit Protection",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Cracking Pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Hot Pump Casings",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Hydraulic Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Hydraulic Pump Safety",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Hydraulic pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Maximum Pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Pressure relief valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s2",
+            "to": "Pump Inlet Starvation",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Bench testing",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Circuit Protection",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Cracking Pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Hydraulic Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Hydraulic pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Maximum Pressure",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s3",
+            "to": "Pressure relief valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4",
+            "to": "Bench testing",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4",
+            "to": "Hydraulic Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4",
+            "to": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4",
+            "to": "Hydraulic pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s4",
+            "to": "Pressure relief valve",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s5",
+            "to": "Hydraulic Pump",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s5",
+            "to": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+            "score": null,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_s5",
+            "to": "Pressure Relief Valve",
+            "score": null,
+            "frequency": 1
+          }
+        ],
+        "TEACHES": [
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p1",
+            "to": "Hydraulic Pump",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p1",
+            "to": "Terminology Variations",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+            "to": "Gear Pump",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+            "to": "Hydraulic Pump Selection",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+            "to": "Hydraulic Pump Types",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+            "to": "Piston Pump",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+            "to": "Pressure (hydraulic systems)",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2",
+            "to": "Vane Pump",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+            "to": "Hot Pump Casings",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+            "to": "Hydraulic Pump Safety",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3",
+            "to": "Pump Inlet Starvation",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+            "to": "Circuit Protection",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+            "to": "Cracking Pressure",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+            "to": "Maximum Pressure",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4",
+            "to": "Pressure Relief Valve",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+            "to": "Bench testing",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+            "to": "Hydraulic pump",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5",
+            "to": "Pressure relief valve",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6",
+            "to": "Hydraulic Pump",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6",
+            "to": "Hydraulic Pump & Pressure‑Relief Valve Pair",
+            "salience": null
+          },
+          {
+            "from": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6",
+            "to": "Pressure Relief Valve",
+            "salience": null
+          }
+        ]
+      }
+    },
+    "never_written": {
+      "labels": [
+        "Project",
+        "TargetNode",
+        "User",
+        "CanonicalConcept"
+      ],
+      "relations": [
+        "OWNS",
+        "ALIGNS_TO",
+        "SUGGESTED_SOURCE",
+        "DERIVED_FROM"
+      ]
+    }
+  },
+  "minio": {
+    "bucket": "processing-artifacts",
+    "current_json_key": "training/generated/bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c/current.json",
+    "current_json": {
+      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "manifest_key": "training/generated/bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "prefix": "training/generated/bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+      "updated_at": "2026-10-24T04:34:47.579009+00:00"
+    },
+    "prefix": "training/generated/bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "keys_required": [
+      "training/generated/bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c/current.json",
+      "training/generated/bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
+      "training/generated/bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "training/generated/bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+    ]
+  },
+  "weaviate": {
+    "server": "1.27.0",
+    "collection": "DocumentChunk",
+    "distance": "cosine",
+    "objects": [
+      {
+        "uuid": "def351c2-f55c-5961-b241-2acd5c9c8709",
+        "properties": {
+          "section": null,
+          "text": "[Title] Hydraulic Pump Fundamentals\n[NarrativeText] Same concepts, spelled several ways",
+          "doc_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p1"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "26820cee-3ab9-5fa5-a39c-ca2a2a484183",
+        "properties": {
+          "section": null,
+          "text": "[Title] Hydraulic Pump Types\n[Title] Hydraulic Pump: gear, vane, piston\n[NarrativeText] hydraulic pump selection depends on pressure",
+          "doc_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p2"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "417748bb-464b-5ba3-8b71-ad1c335ff6a4",
+        "properties": {
+          "section": null,
+          "text": "[Title] HYDRAULIC PUMP SAFETY\n[NarrativeText] HYDRAULIC PUMP casings can be hot\n[NarrativeText] Hydraulic-Pump inlets must not be starved",
+          "doc_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p3"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "c004b458-093d-5770-a716-06ff1508e470",
+        "properties": {
+          "section": null,
+          "text": "[Title] Pressure Relief Valve Role\n[NarrativeText] Pressure Relief Valve protects the circuit\n[NarrativeText] pressure-relief valve cracking pressure is set below the maximum",
+          "doc_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p4"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "5bf2317b-f833-5320-8b8f-112212044d64",
+        "properties": {
+          "section": null,
+          "text": "[Title] Relief Valve Testing\n[NarrativeText] Pressure relief valve(s) are bench tested\n[NarrativeText] A Hydraulic Pump. feeds the relief valve under test",
+          "doc_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p5"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "e444c881-7f21-5a8b-abb8-929418a0f19f",
+        "properties": {
+          "section": null,
+          "chunk_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c_p6",
+          "text": "[Title] Summary\n[Title] Hydraulic Pump\n[Title] Pressure Relief Valve\n[Title] hydraulic pump and pressure-relief valve work as a pair",
+          "domain": "TRAINING",
+          "doc_id": "sha256:bcb80c38bd32426fea187dbf3377807a797fa912c854b3f552d4e52dd7f8be8c"
+        },
+        "vector_length": 768
+      }
+    ],
+    "forbidden_chunk_id_substrings": [
+      "_fig_"
+    ]
+  },
+  "embedder": {
+    "env": {
+      "base_url": [
+        "LLM_BASE_URL",
+        "OPENAI_BASE_URL"
+      ],
+      "api_key": [
+        "LLM_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "model": [
+        "LLM_EMBED_MODEL"
+      ]
+    },
+    "model_default": "nomic-embed-text",
+    "dimension": 768,
+    "document_prefix": "search_document: ",
+    "query_prefix": "search_query: ",
+    "normalized": false
+  },
+  "produced_by": {
+    "run": {
+      "key": "training/course/dup-concept-case/dup-concept-case.pptx",
+      "partition_key": "training__course__dup-concept-case__dup-concept-case.pptx",
+      "success": true,
+      "failed_steps": [],
+      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "LLM_MODEL": "gpt-oss-128k:120b",
+      "LLM_EMBED_MODEL": "nomic-embed-text",
+      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "start_utc": "2026-10-24T04:34:36.422105+00:00",
+      "end_utc": "2026-10-24T04:44:52.013577+00:00",
+      "wall_seconds": 615.59
+    },
+    "old_layout_keys": 0,
+    "stem_id_node_count": 0,
+    "pending_steps": [
+      "d",
+      "e",
+      "f",
+      "g"
+    ],
+    "copied_not_observed": [
+      "weaviate.server",
+      "embedder",
+      "neo4j.never_written"
+    ]
+  }
+}

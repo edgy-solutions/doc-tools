@@ -1,0 +1,449 @@
+{
+  "contract": "docs/contracts/training-workbench.md",
+  "contract_version": 2,
+  "fixture": {
+    "deck": "image-full-bleed.pptx",
+    "deck_sha256": "581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+    "metadata": "metadata.json",
+    "metadata_sha256": "7b963ca43f2c2cab6c7b1396dc735d22cae25e0857f50b7a8717f6970fbacb58"
+  },
+  "volatile_element_keys": [
+    "element_id",
+    "metadata.parent_id",
+    "metadata.file_directory",
+    "metadata.last_modified",
+    "metadata.filename"
+  ],
+  "drop": {
+    "bucket": "processing-artifacts",
+    "keys_in_order": [
+      "training/course/image-full-bleed/metadata.json",
+      "training/course/image-full-bleed/image-full-bleed.pptx"
+    ]
+  },
+  "ingest_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+  "neo4j": {
+    "course": {
+      "labels": [
+        "Document",
+        "Course",
+        "TRAINING"
+      ],
+      "props": {
+        "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+        "title": "Hangar Safety Tour",
+        "filename": "image-full-bleed.pptx",
+        "current_key": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/current.json",
+        "business_unit": "Facilities",
+        "discipline": "Safety",
+        "audience": "New starters",
+        "level": "Introductory",
+        "delivery_method": "Instructor-led",
+        "duration_hours": 0.75,
+        "version": "1.0"
+      }
+    },
+    "slides": {
+      "labels": [
+        "Chunk",
+        "Slide",
+        "TRAINING"
+      ],
+      "nodes": [
+        {
+          "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
+          "number": 1,
+          "text": "[Title] Hangar Safety Tour\n[Title] Full-bleed pictures",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Hangar Safety Tour",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Full-bleed pictures",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2",
+          "number": 2,
+          "text": "",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
+          "number": 3,
+          "text": "[Title] Emergency Exits",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Emergency Exits",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
+          "number": 4,
+          "text": "[Title] Assembly Points\n[Title] North apron\n[Title] South apron",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Assembly Points",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "North apron",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "South apron",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "course_slide_edges": [
+      "HAS_CHILD",
+      "HAS_SLIDE"
+    ],
+    "nondeterministic": {
+      "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "sections": {
+        "labels": [],
+        "section_slide_edges": [],
+        "nodes": []
+      },
+      "concepts": {
+        "labels": [
+          "Concept",
+          "TRAINING"
+        ],
+        "nodes": [
+          {
+            "name": "Assembly Points",
+            "id": "concept_Assembly_Points",
+            "salience": 1.0
+          },
+          {
+            "name": "Full-bleed pictures",
+            "id": "concept_Full-bleed_pictures",
+            "salience": 0.3
+          },
+          {
+            "name": "Hangar Safety Tour",
+            "id": "concept_Hangar_Safety_Tour",
+            "salience": 1.0
+          },
+          {
+            "name": "North Apron",
+            "id": "concept_North_Apron",
+            "salience": 0.7
+          },
+          {
+            "name": "South Apron",
+            "id": "concept_South_Apron",
+            "salience": 0.7
+          }
+        ]
+      },
+      "teaches": [
+        {
+          "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
+          "concept": "Full-bleed pictures",
+          "salience": null
+        },
+        {
+          "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
+          "concept": "Hangar Safety Tour",
+          "salience": null
+        },
+        {
+          "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
+          "concept": "Assembly Points",
+          "salience": null
+        },
+        {
+          "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
+          "concept": "North Apron",
+          "salience": null
+        },
+        {
+          "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
+          "concept": "South Apron",
+          "salience": null
+        }
+      ],
+      "salience_location": "concept_node",
+      "edges": {
+        "HAS_SECTION": [],
+        "section_slide": [],
+        "COVERS": [],
+        "TEACHES": [
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
+            "to": "Full-bleed pictures",
+            "salience": null
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
+            "to": "Hangar Safety Tour",
+            "salience": null
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
+            "to": "Assembly Points",
+            "salience": null
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
+            "to": "North Apron",
+            "salience": null
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
+            "to": "South Apron",
+            "salience": null
+          }
+        ]
+      }
+    },
+    "never_written": {
+      "labels": [
+        "Project",
+        "TargetNode",
+        "User",
+        "CanonicalConcept"
+      ],
+      "relations": [
+        "OWNS",
+        "ALIGNS_TO",
+        "SUGGESTED_SOURCE",
+        "DERIVED_FROM"
+      ]
+    }
+  },
+  "minio": {
+    "bucket": "processing-artifacts",
+    "current_json_key": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/current.json",
+    "current_json": {
+      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "manifest_key": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+      "updated_at": "2026-10-24T05:06:45.582793+00:00"
+    },
+    "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "keys_required": [
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/current.json",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_0.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_3_img_1.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+    ]
+  },
+  "weaviate": {
+    "server": "1.27.0",
+    "collection": "DocumentChunk",
+    "distance": "cosine",
+    "objects": [
+      {
+        "uuid": "03f9d0ac-44a3-5fe1-99bf-065270587bd1",
+        "properties": {
+          "section": null,
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_fig_slide_2_img_0",
+          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "text": "Figure slide 2 img 0:\n\n![slide 2 img 0](s3://processing-artifacts/training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_0.png)",
+          "domain": "TRAINING"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "82a743b6-71b2-59b8-a348-a0e042ebef54",
+        "properties": {
+          "text": "Figure slide 3 img 1:\n\n![slide 3 img 1](s3://processing-artifacts/training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_3_img_1.png)",
+          "domain": "TRAINING",
+          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "section": null,
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_fig_slide_3_img_1"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "3b4e7bf6-1339-5d30-8d88-a467282797d6",
+        "properties": {
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
+          "text": "[Title] Hangar Safety Tour\n[Title] Full-bleed pictures",
+          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "domain": "TRAINING",
+          "section": null
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "fa49752f-2069-54b3-8ace-e9f503804c0c",
+        "properties": {
+          "text": "[Title] Emergency Exits",
+          "domain": "TRAINING",
+          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "section": null,
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "0b14388d-463e-5e71-8eff-44c0bc10a8c8",
+        "properties": {
+          "domain": "TRAINING",
+          "section": null,
+          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "text": "[Title] Assembly Points\n[Title] North apron\n[Title] South apron",
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+        },
+        "vector_length": 768
+      }
+    ],
+    "forbidden_chunk_id_substrings": [
+      "_fig_"
+    ]
+  },
+  "embedder": {
+    "env": {
+      "base_url": [
+        "LLM_BASE_URL",
+        "OPENAI_BASE_URL"
+      ],
+      "api_key": [
+        "LLM_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "model": [
+        "LLM_EMBED_MODEL"
+      ]
+    },
+    "model_default": "nomic-embed-text",
+    "dimension": 768,
+    "document_prefix": "search_document: ",
+    "query_prefix": "search_query: ",
+    "normalized": false
+  },
+  "produced_by": {
+    "run": {
+      "key": "training/course/image-full-bleed/image-full-bleed.pptx",
+      "partition_key": "training__course__image-full-bleed__image-full-bleed.pptx",
+      "success": true,
+      "failed_steps": [],
+      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "LLM_MODEL": "gpt-oss-128k:120b",
+      "LLM_EMBED_MODEL": "nomic-embed-text",
+      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
+      "start_utc": "2026-10-24T05:06:40.991698+00:00",
+      "end_utc": "2026-10-24T05:09:58.585194+00:00",
+      "wall_seconds": 197.59
+    },
+    "old_layout_keys": 0,
+    "stem_id_node_count": 0,
+    "pending_steps": [
+      "d",
+      "e",
+      "f",
+      "g"
+    ],
+    "copied_not_observed": [
+      "weaviate.server",
+      "embedder",
+      "neo4j.never_written"
+    ]
+  }
+}
