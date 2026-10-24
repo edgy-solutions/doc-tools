@@ -29,7 +29,7 @@ HERE = Path(__file__).parent
 DECK = HERE / "hydraulics_fixture.pptx"
 META = HERE / "metadata.json"
 BUCKET = "processing-artifacts"
-DROP_FOLDER = "training/inbound/hydraulics-fixture"
+DROP_FOLDER = "training/course/hydraulics-fixture"
 DOMAIN = "TRAINING"
 VERSION = "<pipeline_version>"
 
@@ -137,7 +137,7 @@ def main() -> None:
 
     golden = {
         "contract": "docs/contracts/training-workbench.md",
-        "contract_version": 1,
+        "contract_version": 2,
         "fixture": {
             "deck": DECK.name, "deck_sha256": hexd,
             "metadata": META.name, "metadata_sha256": hashlib.sha256(META.read_bytes()).hexdigest(),

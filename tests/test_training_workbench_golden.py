@@ -186,25 +186,26 @@ def test_never_written_lists_the_workbench_owned_names():
 
 @pytest.mark.xfail(strict=True, reason="lane tr step b")
 def test_training_kind_row_and_sensor():
-    rows = [e for e in KIND_MAPPING.values() if e.domain_type == "training"]
-    assert rows, "no KIND_MAPPING row with domain_type 'training'"
-    row = rows[0]
+    row = KIND_MAPPING.get("course")
+    assert row is not None, "no KIND_MAPPING row 'course'"
+    assert row.kind == "course" and row.domain_type == "training"
     assert {".pptx", ".pdf", ".docx"} <= {s if s.startswith(".") else "." + s
                                           for s in row.file_suffixes}
     # ingress_prefix is the Lane-1 ingress-user/<fmt>/ path (sealed to {pdf, xml}
-    # by test_ingress_prefix_registry.py); the training row must leave it None.
+    # by test_ingress_prefix_registry.py); the course row must leave it None.
     assert row.ingress_prefix is None
     src = (REPO_ROOT / "doc_tools" / "definitions.py").read_text(encoding="utf-8")
-    assert "training/inbound/" in src
-    # Contract section 2: the sidecar carries no kind, so the SENSOR must supply
-    # it. Path-derive would read "inbound" and HALT. The step-b PR also proves the
-    # sensor's run request carries content_kind "training" for the drop key.
+    assert "training/course/" in src
+    # Contract section 2: the PATH carries the kind (ADR-0021 <domain>/<kind>/...),
+    # and the sidecar carries neither. The parser stamps domain_type from the
+    # first key segment; path-derive then reads "course" from the second.
     from doc_tools.utils.content_kind import resolve_content_kind
 
     meta = json.loads(META.read_text(encoding="utf-8"))
     assert "content_kind" not in meta and "domain_type" not in meta
     deck_key = GOLDEN["drop"]["keys_in_order"][-1]
-    assert resolve_content_kind({**meta, "content_kind": "training"}, deck_key) is row
+    assert deck_key.startswith("training/course/")
+    assert resolve_content_kind({**meta, "domain_type": "training"}, deck_key) is row
 
 
 @pytest.mark.xfail(strict=True, reason="lane tr step d")

@@ -1,6 +1,6 @@
 # Contract: doc-tools → training-consolidation-workbench
 
-**Contract version 1. Status: DRAFT, 2026-10-23.**
+**Contract version 2. Status: DRAFT, 2026-10-23.** v2 moves the drop to `training/course/` so the path carries the kind (§2); v1's sensor-declared kind had no mechanism.
 
 | Role | Owner |
 |---|---|
@@ -22,6 +22,7 @@ This file states what doc-tools writes for a training document and what the work
   - End users authenticate to the workbench's own Keycloak realm, which gates the workbench API and not the stores.
   - So the reads need no Lane 1 domain and no grants.
 - **The workbench also WRITES to the same Neo4j** (§4.4).
+- **Direct store reads are the interim, not the destination.** ADR-0060 (consumers read through the mesh) is in draft. When its manifest route lands, the store reads are replaced by one client; what this contract says the workbench needs stays the same.
 
 ## 2. The drop: how a course arrives
 
@@ -30,16 +31,16 @@ The workbench has no upload endpoint. A course arrives only as a drop into MinIO
 | | |
 |---|---|
 | Bucket | `processing-artifacts` |
-| Deck | `training/inbound/<folder>/<deck>.pptx` \| `.pdf` \| `.docx` |
-| Sidecar (optional) | `training/inbound/<folder>/metadata.json` |
+| Deck | `training/course/<folder>/<deck>.pptx` \| `.pdf` \| `.docx` |
+| Sidecar (optional) | `training/course/<folder>/metadata.json` |
 
 - Put one deck in each folder. `<folder>` is free text and carries no identity.
 - `metadata.json` must land **before** the deck. The parser reads it when the deck's run starts, so a sidecar that arrives later is not seen.
-- The domain is the first key segment, which gives `training` → `TRAINING`.
-- A training sensor watches `training/inbound/`. It ignores `generated/`, `archive/` and `metadata.json` keys.
-- **The sidecar needs no `content_kind` or `domain_type`.** The training sensor declares kind `training` for every drop under its prefix.
-  - Path derivation alone would fail here. It reads the segment after the domain, which is `inbound`, so it finds no row and HALTs (`content_kind.py:_derive_from_path`).
-  - A `content_kind` in the sidecar still wins if present; it must then be `training`.
+- **The path carries the kind, by ADR-0021's existing rule** (`<domain>/<kind>/<folder>/<file>`): the first segment is the domain, `training` → `TRAINING`; the second is the content kind, `course`.
+  - A kind names the document, not the domain: a course in the training domain, the way a PCN is a notice in sustainment.
+  - Nothing new is invented: no sensor-supplied kind, no new precedence level. The precedence stays ADR-0021's metadata > path > HALT.
+- A training sensor watches `training/course/`. It ignores `generated/`, `archive/` and `metadata.json` keys, and accepts only `.pptx`, `.pdf` and `.docx`.
+- **The sidecar needs no `content_kind` or `domain_type`.** If it has them, they must be `course` and `training`: a sidecar value wins over the path, so any other value re-routes the drop.
 - **Re-uploading the same bytes to the same key does NOT start a new run.** The run key is `{ETag}-{key}`, so it is consumed. To re-ingest, use a new key.
 
 `metadata.json` keys (all optional):
@@ -201,7 +202,7 @@ The fixture lives in `tests/fixtures/training/`:
 | Surface | Step |
 |---|---|
 | this contract, fixture and golden | a |
-| training kind row and sensor on `training/inbound/` (§2) | b |
+| `course` kind row (domain `training`) and sensor on `training/course/` (§2) | b |
 | ids (§3); `training/generated/<hex>/<ver>/`; `current.json` with `prefix`; `Course.current_key`/`title`/`filename`; `Course`/`Slide`/`HAS_SLIDE` overlay; slide text without empty-text lines | c |
 | TEACHES salience on the edge; Concept merged on `name` with `domain` | d |
 | `pages/page_{n}.png` (`render.pages`, LibreOffice + Poppler) | e |
@@ -209,10 +210,10 @@ The fixture lives in `tests/fixtures/training/`:
 | Section page numbers from element metadata, never from the LLM (`structural.outline`) | g |
 | COVERS / `concept_summary` stay a post-graph hook (`execute_pass2_rollup`) | h |
 
-## 10. Known gaps (not promised by v1)
+## 10. Known gaps (not promised by v2)
 
 - **A slide with no text gets no Slide node and no Weaviate object** (the generic page loop skips empty pages). Its `pages/page_{n}.png` still exists. So `Slide.number` values can have gaps, and the workbench must tolerate that. wb may counter this in a packet.
-- **docx page numbers.** Unstructured gives docx a `page_number` only if the file has `w:lastRenderedPageBreak`; otherwise everything lands on page 1. pptx (slide index) and pdf are exact. docx is best-effort in v1.
+- **docx page numbers.** Unstructured gives docx a `page_number` only if the file has `w:lastRenderedPageBreak`; otherwise everything lands on page 1. pptx (slide index) and pdf are exact. docx is best-effort in v2.
 - **`Slide.pedagogical_intent` is not written.** The facet is empty.
 - **No lineage between revisions** of the same course (§3).
 
