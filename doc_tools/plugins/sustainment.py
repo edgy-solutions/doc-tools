@@ -41,6 +41,7 @@ from doc_tools.utils import notice_identity
 from doc_tools.utils.ltb_candidates import ltb_candidates, render_candidate_block
 from doc_tools.utils import table_text_layer as text_layer
 from doc_tools.utils import text_layer_health
+from doc_tools.utils import parts_text_list
 from doc_tools.utils import witness_regions
 from doc_tools.utils.sustainment_merge import (
     header_to_dict, part_to_dict, dequote_parts, dedup_parts, reconcile_ltb, clean_replacements,
@@ -299,9 +300,8 @@ MIN_ROW_SHORT_BASELINE = 5
 # document number) — see AFFECTED_HEADERS in table_text_layer.py for the same design
 # choice applied to column headers. A label is what turns "this text contains an
 # alphanumeric token" into "this document is ADVERTISING an affected part".
-_AFFECTED_LABELS = ("models affected", "affected models", "affected parts",
-                    "parts affected", "affected part numbers", "affected devices",
-                    "affected model", "model affected")
+# The vocabulary lives in doc_tools/utils/parts_text_list.py (AFFECTED_HEADING_RE), a
+# widening of the former eight-string tuple that also admits "Affected ADI Models".
 
 
 def _has_part_shaped_text(full_text: str) -> bool:
@@ -319,8 +319,7 @@ def _has_part_shaped_text(full_text: str) -> bool:
     like an MPN to a plausibility floor that only checks shape.
     """
     text = full_text or ""
-    lowered = text.lower()
-    if not any(label in lowered for label in _AFFECTED_LABELS):
+    if not parts_text_list.names_affected_section(text):
         return False
     for token in re.split(r"[\s,]+", text):
         token = token.strip()
@@ -335,6 +334,25 @@ def _has_part_shaped_text(full_text: str) -> bool:
                 and any(ch.isalpha() for ch in token)):
             return True
     return False
+
+
+def _text_list_pages(manifest, s3_client, bucket, full_text):
+    """[(page_number, text)] for the text-list salvage. Per page when the source PDF can be
+    opened (so rows carry text_layer_page); on ANY failure, [(None, full_text)]. Never raises."""
+    fallback = [(None, full_text or "")]
+    try:
+        key = (manifest or {}).get("source_key")
+        if not key or s3_client is None or not bucket:
+            return fallback
+        import pdfplumber  # noqa: PLC0415 — heavy import, only on this path
+        body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
+        out = []
+        with pdfplumber.open(io.BytesIO(body)) as pdf:
+            for pno, page in enumerate(pdf.pages, start=1):
+                out.append((pno, page.extract_text() or ""))
+        return out or fallback
+    except Exception:  # noqa: BLE001
+        return fallback
 
 
 def _vision_call_opts():
@@ -1698,6 +1716,41 @@ class SustainmentPlugin(AugmentationPlugin):
             # miss-rate is visible (Phase 0 decision #3: build the coordinate
             # page-crop fallback only if this fires on parts-bearing docs).
             reasons.append("no Table element detected — parts pass skipped (header-only)")
+
+        # POST-CHAIN SALVAGE + ZERO-PART FLAG. Keyed on `not parts_d`, so it is unreachable
+        # from any document that emitted parts (the whole scored corpus). Covers every
+        # empty-parts shape: all tables lacked a parts column, no table at all, or a pass
+        # that ran and returned nothing.
+        if not parts_d:
+            salvaged, ts = parts_text_list.salvage(
+                _text_list_pages(manifest, s3_client, bucket, full_text))
+            if salvaged:
+                parts_d = salvaged
+                stats.update(ts)
+                stats["router_text_list_used"] = True
+                reasons.append(
+                    f"the parts pass emitted no parts, and the text names an affected-parts "
+                    f"section — salvaged {len(salvaged)} Family/Model pairs from the text "
+                    f"layer deterministically (no vision)")
+                # No grid, no column header, no cell provenance: honest but weaker than
+                # every other tier, so a human confirms the list.
+                needs_review = True
+                if ts.get("text_list_shortfall"):
+                    reasons.append(f"text-list shortfall: {ts.get('text_list_shortfall_detail')}")
+            elif (stats.get("vision_used") or stats.get("text_layer_used")
+                  or stats.get("grid_forwarded")):
+                # A parts pass actually RAN and emitted nothing. A header-only document
+                # that ran no pass is deliberately not flagged.
+                needs_review = True
+                reasons.append(
+                    f"the parts pass ran and emitted 0 parts (n_tables={stats.get('n_tables')}, "
+                    f"grid_no_parts_col={stats.get('grid_no_parts_col')}) — the parts are not "
+                    f"in any table this pass could read")
+                if (parts_text_list.names_affected_section(full_text)
+                        or parts_text_list.caption_part_count(full_text)):
+                    doc_flags.append(
+                        "PARTS MAY BE MISSING: the document advertises a parts list but the "
+                        "parts pass emitted 0 parts")
 
         # De-quote the VALUES, whichever tier produced them — applied after the tiers
         # converge and BEFORE dedup, so a quoted and an unquoted copy of the same part
