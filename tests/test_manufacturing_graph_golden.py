@@ -103,7 +103,14 @@ def _normalize(cypher_queries, sparql_queries):
         "cypher": [
             {"query": norm(c["query"]), "params": c["params"]} for c in cypher_queries
         ],
-        "sparql": [norm(s) for s in sparql_queries],
+        "sparql": [
+            {
+                "graph": b["graph"],
+                "iri": b["iri"],
+                "triples": [norm(t) for t in b["triples"]],
+            }
+            for b in sparql_queries
+        ],
     }
 
 
@@ -153,6 +160,11 @@ def test_sparql_iris_sanitized_for_slashy_doc_ids():
     _, sparql = ManufacturingPlugin(domain_type="manufacturing").to_graph_queries(
         [node], SimpleNamespace(graph_child_label="Part")
     )
-    body = " ".join(sparql)
-    assert "mfg:step_inbound_22_1.1" in body   # '/' sanitized to '_'
-    assert "inbound/22" not in body            # no raw slash anywhere in the RDF body
+    assert sparql, "plugin produced no SPARQL batches"
+    body = " ".join(t for b in sparql for t in b["triples"]) + " " + " ".join(
+        b["iri"] for b in sparql
+    )
+    # '/' sanitized to '_'; IRI is fully-qualified (no 'mfg:' prefix — the
+    # writer emits no PREFIX block, see doc_tools/plugins/base.sparql_batch).
+    assert "<http://edgy-solutions.com/ontology/mfg#step_inbound_22_1.1>" in body
+    assert "inbound/22" not in body  # no raw slash anywhere in the RDF body

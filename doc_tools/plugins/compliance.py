@@ -1,6 +1,6 @@
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
-from doc_tools.plugins.base import AugmentationPlugin
+from doc_tools.plugins.base import AugmentationPlugin, sparql_batch
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.jena_client import escape_sparql_string
 
@@ -83,10 +83,16 @@ class CompliancePlugin(AugmentationPlugin):
             domain_augmentation=augmentation
         )
 
-    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:
+    def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[Dict[str, Any]]]:
         cypher_queries = []
         sparql_queries = []
-        
+        # Scope instance data to the domain's INSTANCE graph, NOT the vocabulary graph —
+        # see the "Domain Semantic Graph" invariant in AGENTS.md. This plugin previously
+        # emitted an unscoped INSERT DATA, which landed in Jena's default graph, invisible
+        # to the mesh resolver.
+        graph_uri = f"http://internal/{self.domain_label}_INSTANCES"
+        IOF_NS = "http://example.com/iof#"
+
         for node in nodes:
             sec = node.base_extraction
             aug = node.domain_augmentation
@@ -147,30 +153,30 @@ class CompliancePlugin(AugmentationPlugin):
                     }
                 })
                 
-                # --- JENA SPARQL/RDF: Map Compliance properties to IOF Ontology ---
-                sparql = f"""
-                PREFIX iof: <http://example.com/iof#>
-                PREFIX mfg: <http://example.com/manufacturing#>
-                
-                INSERT DATA {{
-                    iof:{rule_node_id} a iof:ComplianceRule ;
-                        iof:hasManualReference "{escape_sparql_string(rule.manual_reference)}" ;
-                        iof:hasRuleType "{escape_sparql_string(rule.rule_type)}" ;
-                        iof:hasDescription "{escape_sparql_string(rule.rule_description)}" .
-                """
+                # --- JENA RDF (batch dict for JenaOntologyWriter.upsert) ---
+                # `iri` MUST be the rule IRI, not the section IRI: each rule is its own
+                # upsert subject, so a later re-extraction of one rule cannot delete
+                # another rule's triples.
+                rule_iri = f"{IOF_NS}{rule_node_id}"
+                triples = [
+                    f'<{rule_iri}> a <{IOF_NS}ComplianceRule> .',
+                    f'<{rule_iri}> <{IOF_NS}hasManualReference> "{escape_sparql_string(rule.manual_reference)}" .',
+                    f'<{rule_iri}> <{IOF_NS}hasRuleType> "{escape_sparql_string(rule.rule_type)}" .',
+                    f'<{rule_iri}> <{IOF_NS}hasDescription> "{escape_sparql_string(rule.rule_description)}" .',
+                ]
 
                 if rule.target_metric:
-                    sparql += f"""
-                        iof:{rule_node_id} iof:hasTargetMetric "{escape_sparql_string(rule.target_metric)}" .
-                    """
+                    triples.append(
+                        f'<{rule_iri}> <{IOF_NS}hasTargetMetric> "{escape_sparql_string(rule.target_metric)}" .'
+                    )
 
                 if rule.applicable_hazard_class:
-                    sparql += f"""
-                        iof:{rule_node_id} iof:appliesToHazardClass "{escape_sparql_string(rule.applicable_hazard_class)}" .
-                    """
-                    
-                sparql += "}"
-                
-                sparql_queries.append(sparql)
-                
+                    triples.append(
+                        f'<{rule_iri}> <{IOF_NS}appliesToHazardClass> "{escape_sparql_string(rule.applicable_hazard_class)}" .'
+                    )
+
+                sparql_queries.append(
+                    sparql_batch(graph=graph_uri, iri=rule_iri, triples=triples)
+                )
+
         return cypher_queries, sparql_queries
