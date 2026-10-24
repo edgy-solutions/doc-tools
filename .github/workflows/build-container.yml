@@ -1378,10 +1378,38 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout code
+      # THE WORKFLOW'S OWN COMMIT, NOT THE RELEASE'S SOURCE COMMIT.
+      #
+      # This job builds nothing, so it needs no source tree. What it needs is
+      # `scripts/verify_release_tag.py`, which is TOOLING OWNED BY THIS
+      # WORKFLOW and lands in the same commit the workflow file does.
+      # Checking out the release's commit instead fetches a tree from before
+      # that tooling existed.
+      #
+      # MEASURED, 2026-10-23, run 40054727136 — the first repair this job was
+      # written for. Dispatched with version=v0.2.0 digest=sha256:ac853308...
+      # to put the release tag back on the gated index. resolve-release-image
+      # resolved v0.2.0 to 133714c correctly, build-and-push skipped correctly,
+      # and then this job checked out 133714c and died on
+      #
+      #   python3: can't open file '.../scripts/verify_release_tag.py':
+      #   [Errno 2] No such file or directory
+      #
+      # because the script arrived in #146 (ab5d419), two merges LATER. The
+      # job could never repair a tag older than itself, which is every tag it
+      # exists to repair. Nothing was mutated: the failure is in the
+      # report-only `before` step, ahead of `imagetools create`, so v0.2.0 was
+      # left naming the rebuild rather than being pointed at something wrong.
+      #
+      # `github.workflow_sha` is the commit the running workflow file came
+      # from, so the YAML and the script it calls are always from one commit.
+      # On the dispatch repair path that is the dispatched ref (main); on a
+      # release/tag event it is the tagged commit, which is also where that
+      # event's workflow file came from — the two cannot disagree.
+      - name: Checkout the workflow and its scripts
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve-release-image.outputs.sha }}
+          ref: ${{ github.workflow_sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
