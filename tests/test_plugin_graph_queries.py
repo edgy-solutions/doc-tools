@@ -5,6 +5,8 @@ no LLM, so we build the augmentation models directly and assert the emitted
 nodes/relationships/params. Targets compliance.py and maintenance.py, which were
 at 0% coverage (never executed).
 """
+import re
+import pytest
 from types import SimpleNamespace
 
 from doc_tools.plugins.compliance import (
@@ -262,3 +264,124 @@ def test_sustainment_pcn_uses_process_change_class():
     config = SimpleNamespace(graph_node_label="Document", graph_child_label="Section")
     _, sparql = SustainmentPlugin(domain_type="sustainment").to_graph_queries([node], config)
     assert "pcn:ProcessChangeNotification" in " ".join(sparql)
+
+
+def test_an_mpn_with_ocr_ditto_quotes_does_not_break_the_iriref():
+    """A quote or newline inside an MPN must not reach a SPARQL IRIREF.
+
+    Measured case, not hypothetical: TYC-PCN-24-210412's text layer preserves OCR
+    ditto quotes inside 16 of its 38 affected_mpn values ('"4503-5023-00"') and an
+    embedded newline in a wrapped cell holding two part numbers. The IRIREF grammar
+    forbids '"' and every codepoint <= #x20, so the emitted <...> terminated early
+    and Fuseki rejected the WHOLE INSERT DATA with HTTP 400 -- confirmed against
+    Fuseki's own response body: 'Encountered " "<" "< "" ... Was expecting <IRIref>'.
+    to_graph_queries emits ONE query per node, the caller swallows the exception into
+    context.log.error, and the Dagster run still reports SUCCESS -- so the notice's
+    entire instance graph went missing silently.
+    """
+    forbidden = set('<>"{}|^`' + chr(92))
+    sec = BaseSection(title="Notice", level=0, page_start=0, content="", node_id="doc-1")
+    notice = SustainmentNotice(
+        doc_id="PCN-24-210412", doc_type="PCN", pub_date="2024-06-10", mfr="Acme",
+        categories=["Discontinuation", "Location"], summary="",
+        impacted_parts=[
+            PartImpact(affected_mpn='"4503-5023-00"', replacement_mpn=None, ltb_date=None),
+            PartImpact(affected_mpn="TYC1056344-1," + chr(10) + "9501815SP-1",
+                       replacement_mpn='"2052-8002-92"', ltb_date=None),
+        ],
+    )
+    node = DocumentNode(base_extraction=sec,
+                        domain_augmentation=SustainmentAugmentation(notice=notice))
+    config = SimpleNamespace(graph_node_label="Document", graph_child_label="Section")
+
+    _, sparql = SustainmentPlugin(domain_type="sustainment").to_graph_queries([node], config)
+    body = " ".join(sparql)
+
+    # The grammar rule itself, applied to every IRIREF the builder emitted.
+    irirefs = re.findall(r"<([^<>]*)>", body)
+    assert irirefs, "no IRIREFs emitted -- the assertion below would pass vacuously"
+    for iri in irirefs:
+        bad = [(i, ch) for i, ch in enumerate(iri)
+               if ch in forbidden or ord(ch) <= 0x20 or ord(ch) == 0x7F]
+        assert not bad, "IRIREF <%s> carries forbidden characters %r" % (iri, bad)
+
+    # The quote is encoded, not dropped: the row stays joinable to its provenance.
+    assert "http://internal/components/%224503-5023-00%22" in body
+    assert "%0A" in body                                  # the wrapped-cell newline
+
+    # A second, independent parser agrees with Fuseki on all three shapes (the '#'
+    # reel code parses, the raw quoted MPN is rejected, the encoded one parses), so
+    # this asserts the body is PARSEABLE and not merely character-legal.
+    prepare_update = pytest.importorskip("rdflib.plugins.sparql").prepareUpdate
+    for query in sparql:
+        prepare_update(query)
+
+
+def test_a_legal_mpn_iri_is_byte_identical_so_join_keys_do_not_fork():
+    """Component IRIs are SHARED join keys across notices, so the sanitiser must be
+    identity-preserving for values that were already legal. If it ever starts
+    rewriting '#' reel codes, '/' or ',', it mints a DIFFERENT IRI from the one
+    already in the graph and silently forks the join -- which is why this is pinned
+    rather than left to safe_iri_local's regex-strip.
+    """
+    sec = BaseSection(title="Notice", level=0, page_start=0, content="", node_id="doc-1")
+    notice = SustainmentNotice(
+        doc_id="PDN-500", doc_type="PDN", pub_date="2026-04-28", mfr="Acme",
+        categories=["Discontinuation"], summary="",
+        impacted_parts=[
+            PartImpact(affected_mpn="LTC6226HDC#TRMPBF", replacement_mpn="BYVB32-200-E3/81",
+                       ltb_date=None),
+            PartImpact(affected_mpn="090-44310-31", replacement_mpn=None, ltb_date=None),
+        ],
+    )
+    node = DocumentNode(base_extraction=sec,
+                        domain_augmentation=SustainmentAugmentation(notice=notice))
+    config = SimpleNamespace(graph_node_label="Document", graph_child_label="Section")
+
+    _, sparql = SustainmentPlugin(domain_type="sustainment").to_graph_queries([node], config)
+    body = " ".join(sparql)
+
+    assert "http://internal/components/LTC6226HDC#TRMPBF" in body
+    assert "http://internal/components/BYVB32-200-E3/81" in body
+    assert "http://internal/components/090-44310-31" in body
+    assert "%" not in body, "a legal notice must emit NO percent-escapes at all"
+
+
+def test_a_path_fragment_doc_id_keys_both_stores_identically():
+    """The Neo4j :SustainmentNotice id and the Jena IRI must be the SAME key.
+
+    doc_id is normalized at finalization, but the path fallback can still deliver a
+    fragment ('inbound/adi_23_0120'). The Jena IRI normalized it while the Neo4j
+    MERGE took doc_id VERBATIM, so the same notice was keyed two ways and the two
+    stores never joined. Asserted as an EQUALITY between the two emitted keys, not
+    against a hardcoded slug, so the invariant survives a change to the normalizer.
+    """
+    from doc_tools.utils import sustainment_normalize as norm
+
+    sec = BaseSection(title="Notice", level=0, page_start=0, content="", node_id="doc-1")
+    notice = SustainmentNotice(
+        doc_id="inbound/adi_23_0120", doc_type="PDN", pub_date="2026-04-28",
+        mfr="Acme", categories=["Discontinuation"], summary="",
+        impacted_parts=[PartImpact(affected_mpn="MPN-A", replacement_mpn=None, ltb_date=None)],
+    )
+    node = DocumentNode(base_extraction=sec,
+                        domain_augmentation=SustainmentAugmentation(notice=notice))
+    config = SimpleNamespace(graph_node_label="Document", graph_child_label="Section")
+
+    cypher, sparql = SustainmentPlugin(domain_type="sustainment").to_graph_queries(
+        [node], config, provenance={"obtained_via": "ingress-user", "ingested_at": "",
+                                    "derived_from": ""})
+    body = " ".join(sparql)
+    expected = norm.normalize_doc_id("inbound/adi_23_0120")
+
+    # EVERY Cypher site that keys a notice -- the edge query and the ADR-0041
+    # provenance query -- not just the first one found.
+    keyed = [q["params"]["notice_id"] for q in cypher if "notice_id" in q.get("params", {})]
+    assert len(keyed) >= 2, "expected both :SustainmentNotice MERGE sites to key a notice"
+    assert set(keyed) == {expected}, keyed
+
+    # The raw fragment must appear in NEITHER store.
+    assert "inbound/adi_23_0120" not in body
+    assert "inbound/adi_23_0120" not in " ".join(q["query"] for q in cypher)
+    assert "http://internal/sustainment/doc/%s" % expected in body
+    assert "/" not in expected, "a normalized key must not still carry a path separator"

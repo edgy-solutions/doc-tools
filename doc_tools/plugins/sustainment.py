@@ -33,7 +33,11 @@ from pydantic import BaseModel, Field
 
 from doc_tools.plugins.base import AugmentationPlugin, PromptUnavailableError
 from doc_tools.plugins.models import BaseSection, DocumentNode
-from doc_tools.utils.jena_client import escape_sparql_string
+from doc_tools.utils.jena_client import (
+    escape_sparql_string,
+    safe_iri_local,
+    safe_iri_ref_component,
+)
 from doc_tools.utils import provenance
 from doc_tools.utils import sustainment_normalize as norm
 from doc_tools.utils import sustainment_header_trust as header_trust
@@ -2068,6 +2072,14 @@ class SustainmentPlugin(AugmentationPlugin):
                 continue
             notice = aug.notice
             section_id = sec.node_id or f"section_{sec.page_start}_{sec.title}"
+            # ONE key for BOTH stores, normalized with the SAME function the Jena
+            # IRI uses. doc_id is normalized at finalization, but the path fallback
+            # can still deliver a fragment ('inbound/adi_23_0120'), and until now
+            # the IRI normalized while the Neo4j :SustainmentNotice id took doc_id
+            # VERBATIM -- so the same notice was keyed two ways and never joined
+            # across the two stores. Both :SustainmentNotice MERGE sites below (the
+            # edge query and the ADR-0041 provenance query) use this, and so does the IRI.
+            notice_graph_key = norm.normalize_doc_id(notice.doc_id)
 
             cypher_queries.append({
                 "query": f"""
@@ -2130,7 +2142,7 @@ class SustainmentPlugin(AugmentationPlugin):
             cypher_queries.append({
                 "query": edge_cypher,
                 "params": {
-                    "section_id": section_id, "notice_id": notice.doc_id,
+                    "section_id": section_id, "notice_id": notice_graph_key,
                     "pub_date": notice.pub_date, "mfr": notice.mfr,
                     # "" not None: the graph stores the brand-vs-owner pair as two
                     # properties, and a Cypher null would DROP the property entirely,
@@ -2163,7 +2175,7 @@ class SustainmentPlugin(AugmentationPlugin):
                         n.provenance_ingest_id = $ingest_id
                     """,
                     "params": {
-                        "notice_id": notice.doc_id,
+                        "notice_id": notice_graph_key,
                         "obtained_via": provenance.get("obtained_via", ""),
                         "authoritative_source": provenance.get("authoritative_source", ""),
                         "as_of": provenance.get("as_of", ""),
@@ -2179,11 +2191,14 @@ class SustainmentPlugin(AugmentationPlugin):
                 })
 
             # --- JENA SPARQL/RDF ---
-            # notice.doc_id is already normalized at finalization; normalize again
-            # here (idempotent) so the graph IRI keys on the SAME canonical slug as
-            # review.json / the workflow id. (safe_mpn below stays a bare space->_
-            # replace — MPNs keep '#' reel codes verbatim as provenance join keys.)
-            safe_notice_id = norm.normalize_doc_id(notice.doc_id)
+            # The IRI keys on notice_graph_key, the SAME canonical slug the two
+            # Neo4j MERGE sites use and the same one review.json / the workflow id
+            # carry. safe_mpn below still keeps '#' reel codes, '/' and ',' verbatim
+            # as provenance join keys -- it is NOT regex-stripped -- but it now
+            # percent-encodes the characters an IRIREF forbids. A bare space->_
+            # replace left OCR ditto quotes and wrapped-cell newlines in the IRI,
+            # which 400s the whole INSERT DATA; see safe_iri_ref_component.
+            safe_notice_id = safe_iri_ref_component(notice_graph_key)
             if str(notice.doc_type).upper() == "PDN":
                 notice_class = "pcn:ProductDiscontinuationNotice"
             else:
@@ -2208,12 +2223,12 @@ class SustainmentPlugin(AugmentationPlugin):
                 <http://internal/sustainment/doc/{safe_notice_id}> a {notice_class} .
             """
             for cat in notice.categories:
-                safe_cat = str(cat).replace(' ', '_')
+                safe_cat = safe_iri_local(str(cat))
                 sparql += f"""
                 <http://internal/sustainment/doc/{safe_notice_id}> pcn:hasChangeCategory pcn:{safe_cat} .
                 """
             for part in notice.impacted_parts:
-                safe_mpn = part.affected_mpn.replace(' ', '_')
+                safe_mpn = safe_iri_ref_component(part.affected_mpn)
                 sparql += f"""
                 <http://internal/components/{safe_mpn}> pcn:subjectToNotice <http://internal/sustainment/doc/{safe_notice_id}> .
                 """
@@ -2222,7 +2237,7 @@ class SustainmentPlugin(AugmentationPlugin):
                     <http://internal/components/{safe_mpn}> pcn:hasLastTimeBuyDate "{escape_sparql_string(part.ltb_date)}"^^xsd:date .
                     """
                 if part.replacement_mpn:
-                    safe_rep = part.replacement_mpn.replace(' ', '_')
+                    safe_rep = safe_iri_ref_component(part.replacement_mpn)
                     sparql += f"""
                     <http://internal/components/{safe_mpn}> pcn:hasReplacement <http://internal/components/{safe_rep}> .
                     """
@@ -2245,7 +2260,7 @@ class SustainmentPlugin(AugmentationPlugin):
                 derived_from = provenance.get("derived_from")
                 if derived_from:
                     sparql += f"""
-                <http://internal/sustainment/doc/{safe_notice_id}> <{PROV_DERIVED_FROM}> <{derived_from}> .
+                <http://internal/sustainment/doc/{safe_notice_id}> <{PROV_DERIVED_FROM}> <{safe_iri_ref_component(derived_from)}> .
                 """
 
             sparql += "  }\n}"  # close GRAPH, then INSERT DATA

@@ -23,6 +23,57 @@ def safe_iri_local(s: str) -> str:
     return cleaned.strip(".") or "_"
 
 
+# IRIREF grammar (W3C SPARQL 1.1, section 19.8):
+#     IRIREF ::= '<' ([^<>"{}|^`\]-[#x00-#x20])* '>'
+# Every one of those characters -- and EVERY codepoint <= #x20, so tab, newline
+# and CR -- is illegal inside <...>. Fuseki rejects the whole Update body with
+# HTTP 400 ("Encountered \" \"<\" \"<\" \"... Was expecting <IRIref>"), because the
+# IRIREF terminates early at the offending character and the parser then meets a
+# second '<'. One bad value therefore loses EVERY triple in its INSERT DATA.
+#
+# Measured, not hypothetical: TYC-PCN-24-210412 carries OCR ditto quotes inside
+# 16 of its 38 affected_mpn values ('"4503-5023-00"') and an embedded newline in
+# two more (one wrapped cell holding two part numbers). Its 2026-09-18 ingest
+# emitted exactly one SPARQL query, Fuseki 400'd it, to_graph_queries' caller
+# swallowed the exception into context.log.error -- and the Dagster run reported
+# SUCCESS with the notice's entire instance graph missing.
+#
+# Why percent-encoding and NOT safe_iri_local's "replace with _": component IRIs
+# are SHARED join keys across notices. Re-encoding a currently-legal MPN would
+# mint a DIFFERENT IRI from the one already in the graph, silently forking the
+# join. So this is identity-preserving: a value containing none of the forbidden
+# characters comes back byte-for-byte unchanged, and ONLY the illegal characters
+# move. The historical ' ' -> '_' mapping is kept for exactly that reason -- the
+# IRIs already written used it.
+_IRIREF_FORBIDDEN = frozenset('<>"{}|^`' + chr(92))
+
+
+def safe_iri_ref_component(s: str) -> str:
+    """Make a string safe to interpolate inside a SPARQL IRIREF (``<...>``).
+
+    Companion to :func:`escape_sparql_string` (string *literals*) and
+    :func:`safe_iri_local` (``prefix:local`` *prefixed names*). Use this one for
+    the ``<http://internal/components/{mpn}>`` form, where the value must keep
+    its own characters -- MPNs preserve ``#`` reel codes, ``/`` and ``,`` verbatim
+    as provenance join keys, so they cannot be regex-stripped the way a section
+    title can.
+
+    Identity-preserving: anything already legal is returned unchanged. A space
+    becomes ``_`` (matching what was written historically); every IRIREF-forbidden
+    character and every codepoint <= #x20 is percent-encoded from its UTF-8 bytes.
+    Non-ASCII is left alone -- the grammar's ``ucschar`` range permits it.
+    """
+    out = []
+    for ch in s or "":
+        if ch == " ":
+            out.append("_")
+        elif ch in _IRIREF_FORBIDDEN or ord(ch) <= 0x20 or ord(ch) == 0x7F:
+            out.extend("%%%02X" % b for b in ch.encode("utf-8"))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 def escape_sparql_string(s: str) -> str:
     """Escape a Python string for safe embedding in a SPARQL double-quoted
     string literal (``"..."``).
