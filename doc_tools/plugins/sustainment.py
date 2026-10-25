@@ -1485,9 +1485,19 @@ class SustainmentPlugin(AugmentationPlugin):
             header_d["doc_id_origin"] = "model"
         else:
             header_d["doc_id_origin"] = None
-        # Disagreement is REPORTED and does NOT force review: `needs_review=True` is
-        # consumed by the corpus gate as an EXEMPTION, and a new review trigger on a
-        # field nothing scores could exempt a notice whose scored fields are wrong.
+        # CLAUSES 1 and 2 of the architect's precedence ruling of 2026-10-24, doc_id's
+        # half. A disagreement now FORCES review, with both values in the reason, and so
+        # does a doc_id the model filled alone. This REVERSES the note that stood here
+        # ("Disagreement is REPORTED and does NOT force review"), and the reason that
+        # note gave has not gone away — it is now a cost the ruling accepts rather than a
+        # reason not to flag:
+        #
+        #   `needs_review=True` is consumed by the corpus gate as an EXEMPTION. So every
+        #   flag raised on an UNSCORED identity field can exempt a notice whose SCORED
+        #   fields are wrong. Flagging doc_id disagreement therefore buys a human a look
+        #   at the right thing and sells the gate a reason to stop looking. That trade is
+        #   the architect's to make and is made; it is recorded here because the next
+        #   person to read a green gate beside a flagged notice needs to know why.
         if _doc_id_doc and header_d.get("doc_id_extracted"):
             _agrees = (norm.normalize_doc_id(_doc_id_doc)
                        == norm.normalize_doc_id(header_d["doc_id_extracted"]))
@@ -1497,8 +1507,16 @@ class SustainmentPlugin(AugmentationPlugin):
                     f"{_doc_id_doc_source!r}); the header pass said "
                     f"{header_d['doc_id_extracted']!r}, not used"
                 )
+                needs_review = True
         else:
             _agrees = None
+        # CLAUSE 2: model-filled means no text-layer reading stands behind it.
+        if header_d["doc_id_origin"] == "model":
+            reasons.append(
+                f"doc_id filled by the header pass ({header_d['doc_id_extracted']!r}); "
+                f"the document does not print a notice number this arm can read"
+            )
+            needs_review = True
         # Instrumented because the corpus gate has no header ground truth for doc_id.
         stats["doc_id_arm"] = {
             "origin": header_d["doc_id_origin"],
@@ -1658,6 +1676,58 @@ class SustainmentPlugin(AugmentationPlugin):
         # would be handed on as a value. Hence also before require_mfr_witness_agreement,
         # so a label-echoed `mfr` never reaches the witness comparison.
         trust_reasons += header_trust.refuse_field_label_echoes(header_d)
+        # TEXT-LAYER PRIMACY (the ruling of 2026-10-24, clauses 1 and 2) for the
+        # identity fields this module holds an arm for. doc_id's half ran further up,
+        # beside its key fallback; this is `mfr`, plus the clause-2 flag on the two
+        # dates, which have no arm (see the section comment in the trust module for why
+        # writing a pub_date arm is its own measured step and not a drive-by).
+        #
+        # BETWEEN the echo refusal and the unsourced refusal, and that is the only
+        # position that reads correctly:
+        #   AFTER the echoes, so a label-echoed model value has ALREADY been blanked by
+        #   its own arm and is not then re-reported here as a "disagreement" — each arm
+        #   says its own thing once, and a field that ends up absent is never described
+        #   as "filled by the header pass".
+        #   BEFORE the unsourced refusal, so a value this writes is corroborated by the
+        #   ordinary verbatim path like any other. Primacy decides WHICH reading is the
+        #   candidate; it exempts nothing from the sourcing check that follows.
+        # It does not collide with the region supplier above: that runs only on a
+        # measured-degraded layer and this one is gated OFF there.
+        _primacy_reasons, _primacy_review, stats["header_identity_arms"] = (
+            header_trust.apply_text_layer_primacy(
+                header_d, index,
+                text_layer_degraded=text_layer_assessment["text_layer_degraded"]))
+        trust_reasons += _primacy_reasons
+        if _primacy_review:
+            needs_review = True
+        # CLAUSE 3 of the same ruling: a model failure with a text-layer value present
+        # "is not a failure of the field". The PASS failure stays recorded above — it is
+        # true, and it bounds what the rest of this extraction could do — but on its own
+        # it reads as "no identity was extracted", and that is measurably false. On ADI
+        # `PCN-24_0003` the header pass died with an AbortError and `doc_id` is still
+        # `PCN-24_0003`, read off the page. So name the survivors explicitly, and name
+        # the casualties as absent rather than leaving a reader to infer either.
+        if header is None:
+            _arms = dict(stats["header_identity_arms"])
+            _arms["doc_id"] = stats["doc_id_arm"]
+            _from_text = sorted(f for f, a in _arms.items()
+                                if a.get("origin") == "document")
+            _absent = sorted(f for f, a in _arms.items() if a.get("origin") is None)
+            if _from_text:
+                trust_reasons.append(
+                    "the header pass failed, but these identity fields are the text "
+                    "layer's own reading and are not affected by it: "
+                    + ", ".join(_from_text)
+                )
+            if _absent:
+                # Absent, and never a filename: `doc_id_extracted` was set to None on a
+                # failed pass further up, and `doc_id_raw` follows it, so nothing here
+                # can present the pipeline key as an extracted value.
+                trust_reasons.append(
+                    "the header pass failed and the text layer yields no value for: "
+                    + ", ".join(_absent) + " — absent, not defaulted"
+                )
+                needs_review = True
         trust_reasons += header_trust.refuse_unsourced_header_values(
             header_d, index, witness_index=header_witness,
             text_layer_degraded=text_layer_assessment["text_layer_degraded"])

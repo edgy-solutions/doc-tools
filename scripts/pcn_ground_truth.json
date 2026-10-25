@@ -496,7 +496,23 @@
       ],
       "malformed": [],
       "source": "every emitted MPN verbatim-confirmed in the source PDF text layer",
-      "manifest": "sustainment/inbound/diodes_bbox/generated/Diodes_PCN_2683_Rev1_EOL_pdf/manifest.json"
+      "manifest": "sustainment/inbound/diodes_bbox/generated/Diodes_PCN_2683_Rev1_EOL_pdf/manifest.json",
+      "headers": {
+        "_note": "mfr ONLY, added 2026-10-24, on the order 'add mfr ground truth for all ten corpus notices -- a gate that reads clean on 3 of 10 isn't reading'. Until today three notices carried a headers block (TYC-PCN-24-210412, TI_PCN_20210316000, IDT_PDN_OV-19-05) and the 2026-10-24 corpus fire wrote PAGE FURNITURE as a manufacturer on two of the seven that did not, while the header score reported `clean: true`. Every value below is read off that fire's log of the verbatim `### DOCUMENT TEXT ###` block for this notice -- the text layer the header pass itself was shown, element type and printed form, per page -- and not off what any run answered. The OTHER header fields stay unestablished here and are deliberately ABSENT rather than `pending`: a pending field has to carry its own candidates, and this pass read the name surface of each page, not its date surface.",
+        "mfr": {
+          "value": "Diodes Incorporated",
+          "source": "Printed on every page: the page-1 prose 'This is an announcement of change(s) to products that are currently being offered by Diodes Incorporated.', the page-1 signature line 'Diodes Incorporated PCN Team', and the footer band 'Page N of 6 Diodes Incorporated www.diodes.com' on pages 1 to 5. As with ADI, every occurrence is inside an element carrying more than the name, so the text-layer arm yields nothing and the header pass filled this field (measured 2026-10-24).",
+          "accepted": {
+            "_rule": "ACCEPTED-VERBATIM SET, following TYC-PCN-24-210412's and TI_PCN_20210316000's. `value` stays the CANONICAL form; every non-underscore key here is a verbatim-correct reading of THIS page, and comparison is canonical-after-alias -- an exact-string alias is a PASS, a folded-only match is reported `misformatted`, so a listed key must be the exact string a correct reading produces. The set is CLOSED: a spelling not listed here is not accounted for, which is what `wrong` reports. Keys here may not also appear in `not`; the scorer raises on an overlap rather than letting one block win.",
+            "Diodes Incorporated": "the canonical form, as the prose, the signature line and the footer band all print it",
+            "Diodes": "printed verbatim in page-1 and page-2 prose as the company's own short name -- 'please contact your local Diodes sales representative' and 'Diodes reserves the right to make devices ... obsolete without further notification'. Accepted on the same ground as TI's `Texas Instruments`."
+          },
+          "not": {
+            "tu cORPORATED": "the LOGO's alt text, reaching the text layer as `[Image] tu cORPORATED` on pages 1, 3 and 4 and as `[Image] (R) tu cORPORATED` on page 2. The word Diodes is gone altogether and INCORPORATED is mangled. A garbled logo alt is a failed read of a wordmark, not a reading of a name: it is NOT the TYC case, where `TE Connecvity` is accepted because it is the printed name with one ligature dropped and still carries it.",
+            "www.diodes.com": "the URL printed in the footer band and in the page-2 link table. A domain is not a name; cf. the `Renesas` entry on IDT_PDN_OV-19-05."
+          }
+        }
+      }
     },
     "EOL-36_BYV34-400,-BYV34-500.pdf": {
       "count": 4,
@@ -508,7 +524,23 @@
       ],
       "malformed": [],
       "source": "every emitted MPN verbatim-confirmed in the source PDF text layer",
-      "manifest": "sustainment/inbound/generated/EOL-36_BYV34-400,-BYV34-500_pdf/manifest.json"
+      "manifest": "sustainment/inbound/generated/EOL-36_BYV34-400,-BYV34-500_pdf/manifest.json",
+      "headers": {
+        "_note": "mfr ONLY, added 2026-10-24, on the order 'add mfr ground truth for all ten corpus notices -- a gate that reads clean on 3 of 10 isn't reading'. Until today three notices carried a headers block (TYC-PCN-24-210412, TI_PCN_20210316000, IDT_PDN_OV-19-05) and the 2026-10-24 corpus fire wrote PAGE FURNITURE as a manufacturer on two of the seven that did not, while the header score reported `clean: true`. Every value below is read off that fire's log of the verbatim `### DOCUMENT TEXT ###` block for this notice -- the text layer the header pass itself was shown, element type and printed form, per page -- and not off what any run answered. The OTHER header fields stay unestablished here and are deliberately ABSENT rather than `pending`: a pending field has to carry its own candidates, and this pass read the name surface of each page, not its date surface.",
+        "mfr": {
+          "value": "SEMELAB",
+          "source": "Pages 1 and 2, as a standalone heading: `[Title] SEMELAB` (page 2 also carries it as `[UncategorizedText] SEMELAB`). The brand the notice is issued under, and the only company name printed AS a name anywhere in the document. This is the one notice of the ten where the text-layer arm does yield a value -- a standalone Title element holding a single name -- so here the arm and the header pass agree on SEMELAB (measured 2026-10-24).",
+          "accepted": {
+            "_rule": "ACCEPTED-VERBATIM SET, following TYC-PCN-24-210412's and TI_PCN_20210316000's. `value` stays the CANONICAL form; every non-underscore key here is a verbatim-correct reading of THIS page, and comparison is canonical-after-alias -- an exact-string alias is a PASS, a folded-only match is reported `misformatted`, so a listed key must be the exact string a correct reading produces. The set is CLOSED: a spelling not listed here is not accounted for, which is what `wrong` reports. Keys here may not also appear in `not`; the scorer raises on an overlap rather than letting one block win.",
+            "SEMELAB": "the canonical form: both pages print the heading in all caps, and that is the string the text layer hands an extractor.",
+            "Semelab": "the brand's ordinary capitalisation, printed in the URL path 'https://www.ttelectronics.com/brands/semelab/' on both pages. Listed as its own key because an exact-string alias passes where a folded-only match is reported `misformatted`, and a run writing the name's ordinary shape has read the page correctly."
+          },
+          "not": {
+            "TT Electronics": "the corporate PARENT, and printed nowhere as a name: the string occurs only inside the URL 'https://www.ttelectronics.com/brands/semelab/' and inside the four page-2 sales-contact e-mail domains (kevin.marzano@ttelectronics.com and three more). Writing it as `mfr` is an inference from a domain -- the shape the `Renesas` entry rules out on IDT_PDN_OV-19-05 -- and the schema already carries the field where a parent belongs: the 2026-10-24 fire wrote `mfr_parent: null` here, and establishing that field is separate work.",
+            "@ Electronics": "the LOGO's alt text, `[Image] @ Electronics` on pages 1 and 2 -- a failed read of the TT Electronics wordmark with the name itself lost. A garbled logo alt is a failed read of a wordmark, not a reading of a name: it is NOT the TYC case, where `TE Connecvity` is accepted because it is the printed name with one ligature dropped and still carries it."
+          }
+        }
+      }
     },
     "ADI_PDN_23_0120.pdf": {
       "count": 1,
@@ -517,7 +549,25 @@
       ],
       "malformed": [],
       "source": "every emitted MPN verbatim-confirmed in the source PDF text layer",
-      "manifest": "sustainment/inbound/adi_run3/generated/ADI_PDN_23_0120_pdf/manifest.json"
+      "manifest": "sustainment/inbound/adi_run3/generated/ADI_PDN_23_0120_pdf/manifest.json",
+      "headers": {
+        "_note": "mfr ONLY, added 2026-10-24, on the order 'add mfr ground truth for all ten corpus notices -- a gate that reads clean on 3 of 10 isn't reading'. Until today three notices carried a headers block (TYC-PCN-24-210412, TI_PCN_20210316000, IDT_PDN_OV-19-05) and the 2026-10-24 corpus fire wrote PAGE FURNITURE as a manufacturer on two of the seven that did not, while the header score reported `clean: true`. Every value below is read off that fire's log of the verbatim `### DOCUMENT TEXT ###` block for this notice -- the text layer the header pass itself was shown, element type and printed form, per page -- and not off what any run answered. The OTHER header fields stay unestablished here and are deliberately ABSENT rather than `pending`: a pending field has to carry its own candidates, and this pass read the name surface of each page, not its date surface.",
+        "mfr": {
+          "value": "Analog Devices, Inc.",
+          "source": "Page 1, three times: the address line 'Analog Devices, Inc. One Analog Way, Wilmington, MA 01887', the proprietary line 'Analog Devices, Inc. Proprietary Information', and the footer 'Analog Devices, Inc. PDN 23_0120_Rev_- Page 1 of 1'. The fullest form of the name printed anywhere in the document. NOTE for the text-layer arm: all three sit inside a NarrativeText or UncategorizedText element carrying more than the name, so the standalone-element rule yields NOTHING here -- measured 2026-10-24, the trust line reads 'header.mfr filled by the header pass; the text layer does not yield this field'. This notice does not exercise the gazetteer.",
+          "accepted": {
+            "_rule": "ACCEPTED-VERBATIM SET, following TYC-PCN-24-210412's and TI_PCN_20210316000's. `value` stays the CANONICAL form; every non-underscore key here is a verbatim-correct reading of THIS page, and comparison is canonical-after-alias -- an exact-string alias is a PASS, a folded-only match is reported `misformatted`, so a listed key must be the exact string a correct reading produces. The set is CLOSED: a spelling not listed here is not accounted for, which is what `wrong` reports. Keys here may not also appear in `not`; the scorer raises on an overlap rather than letting one block win.",
+            "Analog Devices, Inc.": "the canonical form, as the address line, the proprietary line and the footer all print it",
+            "ANALOG DEVICES": "the LOGO WORDMARK, which reaches the text layer as `[Image] CG ANALOG DEVICES` on page 1 -- the CG is a surrounding logo glyph, not part of the name. Accepted for the reason `TE` is accepted for TYC and `TEXAS INSTRUMENTS` for TI: a correct reading of a name the page prints, in a form that is not the fullest one on it.",
+            "Analog Devices": "the name without its corporate suffix. It is printed as the wordmark above and differs from it only in case, so it carries exactly the page's content; it is listed as its own key because an exact-string alias passes where a folded-only match is reported `misformatted`.",
+            "ADI": "printed verbatim twice in page-1 prose as the company's own designation -- 'a product discontinuance for certain ADI products' and 'contact your local ADI sales representitive' (the misspelling is the page's). Accepted on the same ground as `TE`. NOTE THE HAZARD: this notice's filename begins `ADI_`, so a written `ADI` cannot be told apart from a filename read by this field alone -- cf. the Diodes doc_id label leak. `mfr` has no filename arm today; if one is ever added, this key is the first thing to revisit."
+          },
+          "not": {
+            "Europe": "a contact-table column heading, printed page 1 as 'Europe: PDN_Europe@analog.com' inside a `[Table]` element. Declared because the same heading, standalone, is what the text-layer primacy rule wrote as the manufacturer on onsemi_Generic_PD26044X1 on 2026-10-24.",
+            "analog.com": "the e-mail domain of the four regional contact addresses. A domain is not a name printed on the page; writing it is the inference the `Renesas` entry on IDT_PDN_OV-19-05 rules out."
+          }
+        }
+      }
     },
     "PCN23-002.pdf": {
       "count": 18,
@@ -543,7 +593,18 @@
       ],
       "malformed": [],
       "source": "17 emitted and verbatim-confirmed; SYTX9-122HP-1+ added by hand \u2014 verbatim in the source, documented as the 18th part, never yet emitted because its crop is clipped 47% through the glyphs (docs/pcn-roll-dc12ef3-2026-09-23.md).",
-      "manifest": "sustainment/inbound/generated/PCN23-002_pdf/manifest.json"
+      "manifest": "sustainment/inbound/generated/PCN23-002_pdf/manifest.json",
+      "headers": {
+        "_note": "mfr ONLY, added 2026-10-24, on the order 'add mfr ground truth for all ten corpus notices -- a gate that reads clean on 3 of 10 isn't reading'. Until today three notices carried a headers block (TYC-PCN-24-210412, TI_PCN_20210316000, IDT_PDN_OV-19-05) and the 2026-10-24 corpus fire wrote PAGE FURNITURE as a manufacturer on two of the seven that did not, while the header score reported `clean: true`. Every value below is read off that fire's log of the verbatim `### DOCUMENT TEXT ###` block for this notice -- the text layer the header pass itself was shown, element type and printed form, per page -- and not off what any run answered. The OTHER header fields stay unestablished here and are deliberately ABSENT rather than `pending`: a pending field has to carry its own candidates, and this pass read the name surface of each page, not its date surface.",
+        "mfr": {
+          "value": "Mini-Circuits",
+          "source": "The page footer, printed on every page: 'PCN23-002 Rev.: A M135112 (01/16/12) File: PCN23-002 This document and its contents are the property of Mini-Circuits.' This template prints NO letterhead name, so the footer is the only place the company names itself, and the occurrence sits inside a NarrativeText element carrying the whole sentence -- nothing the standalone-element arm can read.",
+          "not": {
+            "QUESTIONS": "the page-1 heading `[Title] QUESTIONS?`, which reduces to a bare word because `?` is in `_NAME_EDGE_PUNCT` and is then accepted by the shape heuristic. On the sibling notice PCN24-029 -- the same Mini-Circuits template -- the text-layer primacy rule wrote exactly this string as the manufacturer on 2026-10-24, displacing a correct model value. It did NOT happen here, and the reason is an accident of page furniture: this page also prints `[Title] ATTACHMENTS:`, so the arm had two shape-accepted survivors and refused on uniqueness. Recorded as data so a template change cannot quietly turn this notice into the other one.",
+            "ATTACHMENTS": "the other page-1 heading, `[Title] ATTACHMENTS:`, bare for the same reason (`:` is in `_NAME_EDGE_PUNCT`). It is the second survivor described above -- the whole of what kept this notice correct before the 5d766c0 narrowing."
+          }
+        }
+      }
     },
     "PCN24-029.pdf": {
       "count": 1,
@@ -552,7 +613,17 @@
       ],
       "malformed": [],
       "source": "every emitted MPN verbatim-confirmed in the source PDF text layer",
-      "manifest": "sustainment/inbound/generated/PCN24-029_pdf/manifest.json"
+      "manifest": "sustainment/inbound/generated/PCN24-029_pdf/manifest.json",
+      "headers": {
+        "_note": "mfr ONLY, added 2026-10-24, on the order 'add mfr ground truth for all ten corpus notices -- a gate that reads clean on 3 of 10 isn't reading'. Until today three notices carried a headers block (TYC-PCN-24-210412, TI_PCN_20210316000, IDT_PDN_OV-19-05) and the 2026-10-24 corpus fire wrote PAGE FURNITURE as a manufacturer on two of the seven that did not, while the header score reported `clean: true`. Every value below is read off that fire's log of the verbatim `### DOCUMENT TEXT ###` block for this notice -- the text layer the header pass itself was shown, element type and printed form, per page -- and not off what any run answered. The OTHER header fields stay unestablished here and are deliberately ABSENT rather than `pending`: a pending field has to carry its own candidates, and this pass read the name surface of each page, not its date surface.",
+        "mfr": {
+          "value": "Mini-Circuits",
+          "source": "The page footer, printed on every page: 'PCN24-029 Rev.: A M135112 (01/16/12) File: PCN24-029 This document and its contents are the property of Mini-Circuits.' This template prints NO letterhead name, so the footer is the only place the company names itself, and the occurrence sits inside a NarrativeText element carrying the whole sentence -- nothing the standalone-element arm can read.",
+          "not": {
+            "QUESTIONS": "the page-1 heading `[Title] QUESTIONS?`, which reduces to a bare word because `?` is in `_NAME_EDGE_PUNCT` and is then accepted by the shape heuristic. MEASURED: the 2026-10-24 corpus fire (image built from 39b47e6) wrote it as this notice's manufacturer, displacing the header pass's correct value. The trust line reads 'header.mfr taken from the text layer (QUESTIONS, printed at QUESTIONS); the header pass said Mini-Circuits, not used'. Narrowed in 5d766c0 -- mfr is primary over the model only on a gazetteer match -- and this entry is what makes a regression of that narrowing visible to the score, which read `clean: true` through the defect because this notice carried no mfr ground truth."
+          }
+        }
+      }
     },
     "onsemi_Generic_IPCN25300X.pdf": {
       "count": 19,
@@ -600,7 +671,19 @@
         "_why": "A RECORD, NOT A RULE. Nothing in pcn_score.py reads this key and nothing should: these nine MPNs are REQUIRED parts and must keep failing the gate when they are missing. It is written down because the loss is STOCHASTIC and would otherwise be rediscovered as a new regression every time it recurs. Measured 2026-10-15 on pin a72a4a26: three fires of ONE gate invocation on ONE image, and fire 2 scored 10 of 19 while fires 1 and 3 scored 19 of 19, so this is not a property of the image and no code change is implicated by its appearance. THE SIGNATURE IS CONTIGUITY, and that is the whole evidential value: the nine lost MPNs are positions 9-17 of the 19 in this list, an unbroken run, with positions 1-8 and 18-19 kept. Nine independent misreads do not land in a contiguous block; a table segment orphaned at a page break does. The `crops_row_short` flag fire 2 raised on this notice (and fires 1 and 3 did not) is consistent with that reading. DO NOT 'FIX' A RED BY MOVING THESE TO expect_absent_mpns: pcn_score.py refuses a part that is both required and ruled out, and the attempt would assert a false fact about the notice -- all 19 are verbatim in the text layer, per `source` above. The separate one-character substitution seen on this same notice (NSR02F30NXT5G -> NSR02E30NXT5G, 10-13 fire 3) is a DIFFERENT defect and must not be folded into this one. tests/test_onsemi_page_break_orphan.py asserts the contiguity and the non-exemption."
       },
       "source": "every emitted MPN verbatim-confirmed in the source PDF text layer",
-      "manifest": "sustainment/inbound/onsemi_truthkey/generated/onsemi_Generic_IPCN25300X_pdf/manifest.json"
+      "manifest": "sustainment/inbound/onsemi_truthkey/generated/onsemi_Generic_IPCN25300X_pdf/manifest.json",
+      "headers": {
+        "_note": "mfr ONLY, added 2026-10-24, on the order 'add mfr ground truth for all ten corpus notices -- a gate that reads clean on 3 of 10 isn't reading'. Until today three notices carried a headers block (TYC-PCN-24-210412, TI_PCN_20210316000, IDT_PDN_OV-19-05) and the 2026-10-24 corpus fire wrote PAGE FURNITURE as a manufacturer on two of the seven that did not, while the header score reported `clean: true`. Every value below is read off that fire's log of the verbatim `### DOCUMENT TEXT ###` block for this notice -- the text layer the header pass itself was shown, element type and printed form, per page -- and not off what any run answered. The OTHER header fields stay unestablished here and are deliberately ABSENT rather than `pending`: a pending field has to carry its own candidates, and this pass read the name surface of each page, not its date surface.",
+        "mfr": {
+          "value": "onsemi",
+          "source": "Page 1, in prose and in the sites table: 'onsemi is notifying it customers of its intent to transfer the plating site' (the grammar is the page's) and the table heading 'onsemi Sites External Foundry/Subcon Sites'. Printed lower-case throughout, which is how the company styles the name. Every occurrence sits inside an element carrying more than the name, so the text-layer arm yields nothing and the header pass filled the field (measured 2026-10-24).",
+          "not": {
+            "ON Semiconductor": "the company's FORMER name, printed NOWHERE in this document -- not as a name and not in a domain, since the contacts use onsemi.com. Writing it is a registry inference rather than a reading of the page, and the manufacturer gazetteer added on 2026-10-24 carries exactly this string, so this is the field where that list could put a name on the page the page does not have.",
+            "ONSC": "a SITE code, printed page 1 inside 'Back End sites consolidation (from JCAP, ONSC, SBN to JCAP, ONSC)'. It abbreviates an onsemi plant, so it is adjacent to the right answer in meaning and wrong in kind: a site, not a manufacturer.",
+            "ONSEM.": "the LOGO's alt text, `[Image] ONSEM.` on pages 1 and 4; pages 2 and 3 render the same logo as `[Image] l onset l i.`. A garbled logo alt is a failed read of a wordmark, not a reading of a name: it is NOT the TYC case, where `TE Connecvity` is accepted because it is the printed name with one ligature dropped and still carries it."
+          }
+        }
+      }
     },
     "TI_PCN_20210316000.pdf": {
       "count": 9,
@@ -742,7 +825,19 @@
       ],
       "malformed": [],
       "source": "every emitted MPN verbatim-confirmed in the source PDF text layer",
-      "manifest": "sustainment/inbound/generated/onsemi_Generic_PD26044X1_pdf/manifest.json"
+      "manifest": "sustainment/inbound/generated/onsemi_Generic_PD26044X1_pdf/manifest.json",
+      "headers": {
+        "_note": "mfr ONLY, added 2026-10-24, on the order 'add mfr ground truth for all ten corpus notices -- a gate that reads clean on 3 of 10 isn't reading'. Until today three notices carried a headers block (TYC-PCN-24-210412, TI_PCN_20210316000, IDT_PDN_OV-19-05) and the 2026-10-24 corpus fire wrote PAGE FURNITURE as a manufacturer on two of the seven that did not, while the header score reported `clean: true`. Every value below is read off that fire's log of the verbatim `### DOCUMENT TEXT ###` block for this notice -- the text layer the header pass itself was shown, element type and printed form, per page -- and not off what any run answered. The OTHER header fields stay unestablished here and are deliberately ABSENT rather than `pending`: a pending field has to carry its own candidates, and this pass read the name surface of each page, not its date surface.",
+        "mfr": {
+          "value": "onsemi",
+          "source": "Page 1, in prose: 'OPNs removed from the PDN will be transferred to other onsemi fab sites rather than discontinued.' and 'PLEASE NOTE: onsemi may implement minimum order quantities or dollar amounts based on inventories available.'; also in the change table's contact row, 'Contact your local onsemi Sales Office or PCN.Support@onsemi.com'. Printed lower-case, as the company styles it.",
+          "not": {
+            "Europe": "MEASURED. The page-1 element `[UncategorizedText] Europe:` -- a contact-table column heading, bare because `:` is in `_NAME_EDGE_PUNCT`. The 2026-10-24 corpus fire (image built from 39b47e6) wrote it as this notice's manufacturer, displacing the header pass's correct onsemi; the trust line reads 'header.mfr taken from the text layer (Europe, printed at Europe); the header pass said onsemi, not used'. Narrowed in 5d766c0. This entry is what makes a regression visible to the score.",
+            "ON Semiconductor": "the company's FORMER name, printed NOWHERE in this document -- not as a name and not in a domain, since the contacts use onsemi.com. Writing it is a registry inference rather than a reading of the page, and the manufacturer gazetteer added on 2026-10-24 carries exactly this string, so this is the field where that list could put a name on the page the page does not have.",
+            "On semi": "the LOGO's alt text, `[Image] On semi` on page 1; page 2 renders the same logo as `[Image] ONSEM.`. Two different garbles of one wordmark in one document, which is why a garbled alt is not treated as a reading of the name. A garbled logo alt is a failed read of a wordmark, not a reading of a name: it is NOT the TYC case, where `TE Connecvity` is accepted because it is the printed name with one ligature dropped and still carries it."
+          }
+        }
+      }
     }
   }
 }
