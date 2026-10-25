@@ -582,12 +582,22 @@ def _standalone_candidates(index: List[dict], accept) -> Tuple[Dict[str, int],
     return counts, first_seen
 
 
-def mfr_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
+def mfr_from_document_tiered(index: List[dict]) -> Tuple[Optional[str], Optional[str],
+                                                         Optional[str]]:
     """The manufacturer THE DOCUMENT prints as one of its own headings, read without
-    reference to anything the model said.
+    reference to anything the model said, WITH THE TIER THAT READ IT.
 
-    Returns `(value, source)` — both the verbatim printed form — or `(None, None)` when
-    the document does not name exactly one.
+    Returns `(value, source, tier)` — the first two both the verbatim printed form,
+    `tier` either `"gazetteer"` or `"heuristic"` — or `(None, None, None)` when the
+    document does not name exactly one.
+
+    THE TIER IS NOT DECORATION: it is what the 2026-10-24 narrowing of the precedence
+    ruling turns on. A heuristic survivor is a string that merely LOOKS like a name, and
+    measured on the corpus two of them were headings (`QUESTIONS?`, `Europe:`) that
+    clause 1 then wrote as manufacturers over correct model values. So primacy over the
+    model is granted to a gazetteer reading only; see `_PRIMACY_REQUIRES_GAZETTEER`.
+    Both tiers remain good enough to RECOVER a field the model could not source, which
+    is the model-first cascade's use of `mfr_from_document` below and is unchanged.
 
     UNIQUENESS IS THE SAFETY, not the shape tests. The shape tests decide who gets to
     be a candidate; this decides whether the document has actually made a statement.
@@ -599,9 +609,10 @@ def mfr_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
     refuses and the field is left empty. That is why a gap in `_FURNITURE_WORDS` is a
     refusal rather than a wrong answer.
 
-    Not a fallback for a value that VERIFIED: the caller only reaches this when the
-    model's `mfr` failed the document check or was never produced. A model value the
-    document prints verbatim is already the document's answer and stands untouched.
+    Not a fallback for a value that VERIFIED, on the cascade's path: that caller reaches
+    this only when the model's `mfr` failed the document check or was never produced. A
+    model value the document prints verbatim is already the document's answer and stands
+    untouched.
     """
     # THE GAZETTEER PASS RUNS FIRST, AND IT REPLACES THE CANDIDATE SET rather than
     # adding to it: where the document prints a manufacturer we already know is one, a
@@ -614,17 +625,19 @@ def mfr_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
     # TWO GAZETTEER NAMES ON ONE PAGE STILL REFUSE. That is the residual, and it is the
     # right one: a notice printing two manufacturers we would each accept has not made a
     # statement this function may resolve on the document's behalf.
+    tier = "gazetteer"
     counts, first_seen = _standalone_candidates(index, _is_gazetteer_name)
     if not counts:
+        tier = "heuristic"
         counts, first_seen = _standalone_candidates(index, _is_name_shaped)
 
     if not counts:
-        return None, None
+        return None, None, None
 
     keys = {_name_key(f) for f in counts}
     longest = max(keys, key=len)
     if any(not longest.startswith(k) for k in keys):
-        return None, None
+        return None, None, None
 
     # Among printed forms of the SAME key (`SEMELAB` vs `Semelab`), the one the document
     # uses most often, and on a tie the one it uses first — the same tie-break the
@@ -636,8 +649,21 @@ def mfr_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
     # if it could not itself pass the refusal the next re-check would blank it and the
     # substitution would be silently undone.
     if not provenance.resolve_value(best, index, prefer_region="narrative")["found"]:
-        return None, None
-    return best, best
+        return None, None, None
+    return best, best, tier
+
+
+def mfr_from_document(index: List[dict]) -> Tuple[Optional[str], Optional[str]]:
+    """`mfr_from_document_tiered` without the tier, for the RECOVERY callers.
+
+    The model-first cascade in `refuse_unsourced_header_values` and
+    `_DOCUMENT_WINS` reach the document only once the model's value has failed the
+    verbatim check or was never produced, so there is nothing for a weaker reading
+    to displace and the tier does not change what they may do. Primacy is the only
+    caller that must know, and it calls the tiered form.
+    """
+    value, source, _tier = mfr_from_document_tiered(index)
+    return value, source
 
 
 # --------------------------------------------------------------------------- #
@@ -872,7 +898,49 @@ HEADER_IDENTITY_FIELDS = ("doc_id", "mfr", "pub_date", "doc_level_ltb_date")
 
 #: The fields this module reads text-layer-first. See the section comment for why
 #: `doc_id` is absent (it runs in the plugin) and why the two dates are.
-_TEXT_LAYER_PRIMARY = {"mfr": mfr_from_document}
+#:
+#: An arm registered here returns `(value, source, tier)`. `tier` is the name of the
+#: rule that admitted the reading, or None when there is no reading, and it exists so
+#: that `_PRIMACY_REQUIRES_GAZETTEER` can tell a KNOWN manufacturer from a string that
+#: merely looks like one.
+_TEXT_LAYER_PRIMARY = {"mfr": mfr_from_document_tiered}
+
+# --------------------------------------------------------------------------- #
+# THE 2026-10-24 NARROWING OF CLAUSE 1, AND WHY IT IS ONLY `mfr`.
+#
+# Clause 1 as first shipped made ANY text-layer reading primary over the model. One
+# corpus fire (image from `39b47e6`) measured what that does to the one field whose arm
+# is NAME-SHAPED rather than pattern-bound:
+#
+#   PCN24-029.pdf                  mfr <- 'QUESTIONS'  from `[Title] QUESTIONS?`
+#   onsemi_Generic_PD26044X1.pdf   mfr <- 'Europe'      from `[UncategorizedText] Europe:`
+#
+# Both displaced a model value the page prints VERBATIM (`Mini-Circuits`, `onsemi`), and
+# the corpus gate read `clean: true` over both, because only three of the ten notices
+# carry `mfr` ground truth. The heuristic cannot be tightened into a fix: uniqueness is
+# this arm's safety and a stricter predicate refuses real names (see `_GAZETTEER_NAMES`),
+# while a looser one produces a second candidate and refuses the page outright.
+#
+# So the ruling was narrowed where the measurement pointed, and NOT further:
+#
+#   - `mfr` is primary over the model ONLY on a gazetteer match. An unmatched candidate
+#     CORROBORATES the model's value and never displaces it; a disagreement keeps the
+#     model's value and spends a `needs_review` with both readings named.
+#   - `doc_id` (in the plugin) and the two dates keep clause 1 as written. Their arms are
+#     PATTERN-BOUND — `_DOC_ID_RE` requires a notice-number code and a digit — so a
+#     heading cannot satisfy them the way `_is_name_shaped` is satisfied by any
+#     capitalised word. The defect does not transfer and neither does the narrowing.
+#
+# A field in here with no entry is primary on any reading its arm returns, which is
+# clause 1 unchanged.
+_PRIMACY_REQUIRES_GAZETTEER = frozenset({"mfr"})
+
+
+def _may_displace_the_model(field: str, tier: Optional[str]) -> bool:
+    """May a text-layer reading of `field` at `tier` overwrite a model value?"""
+    if field not in _PRIMACY_REQUIRES_GAZETTEER:
+        return True
+    return tier == "gazetteer"
 
 
 def _identity_values_agree(field: str, a, b) -> bool:
@@ -900,6 +968,10 @@ def apply_text_layer_primacy(header_d: dict, index: List[dict],
     corroborated by the ordinary verbatim path like any other. This grants no
     exemption from that check; it only decides WHICH reading is the candidate.
 
+    `mfr` IS PRIMARY ONLY ON A GAZETTEER READING (the 2026-10-24 narrowing — see
+    `_PRIMACY_REQUIRES_GAZETTEER` for the two measured values that forced it). An
+    unmatched reading corroborates and may dissent, but it does not write.
+
     GATED OFF on a measured-degraded text layer, for the same reason
     `_DOCUMENT_WINS` is: a damaged layer cannot be trusted to SPELL a name
     (`TYC-PCN-24-210412` prints `TE Connecvity`), so making it primary there would
@@ -914,9 +986,15 @@ def apply_text_layer_primacy(header_d: dict, index: List[dict],
             continue  # its arm is the plugin's; see the section comment
         arm = None if text_layer_degraded else _TEXT_LAYER_PRIMARY.get(field)
         model_value = header_d.get(field)
-        doc_value, doc_source = arm(index) if arm else (None, None)
+        doc_value, doc_source, doc_tier = arm(index) if arm else (None, None, None)
         agrees = None
-        if doc_value:
+        # THE NARROWING, and note the `not model_value` half: with no model value there
+        # is nothing to displace and no disagreement to resolve, so a weaker reading is
+        # written exactly as before. That is not a loophole — it is the behaviour the
+        # recovery cascade has always had for a field the model left empty, and routing
+        # it through primacy instead only changes which reason line says so.
+        displaces = (not model_value) or _may_displace_the_model(field, doc_tier)
+        if doc_value and displaces:
             header_d[field] = doc_value
             header_d[f"{field}_source"] = doc_source
             origin = "document"
@@ -949,6 +1027,30 @@ def apply_text_layer_primacy(header_d: dict, index: List[dict],
                     f"'{_clip(doc_source)}'); the header pass supplied no "
                     f"value for it"
                 )
+        elif doc_value:
+            # THE NARROWED CLAUSE 1. The document yielded a reading, the model has a
+            # value, and the reading is not a manufacturer we know — so it corroborates
+            # or it dissents, but it does not write. The model's value and ITS source
+            # are left exactly as they are: nothing here has shown them wrong.
+            origin = "model"
+            agrees = _identity_values_agree(field, model_value, doc_value)
+            if not agrees:
+                # Ordered: "disagreement -> model value kept, needs_review with both".
+                # Both readings are named for the same reason clause 1 names both — the
+                # human is being asked to settle which one the page means, and the
+                # candidate this declined to write is half of that question.
+                reasons.append(
+                    f"header.{field} kept from the header pass "
+                    f"('{_clip(model_value)}'); the text layer's own candidate "
+                    f"('{_clip(doc_value)}', printed at '{_clip(doc_source)}') is not "
+                    f"a known manufacturer, so it corroborates but cannot displace"
+                )
+                needs_review = True
+            # Agreement is SILENT and spends no review, the same judgement
+            # `test_agreement_is_silent_and_forces_no_review` seals for a gazetteer
+            # reading: two readings that match are the normal case, and `needs_review`
+            # is a corpus-gate exemption. This is deliberately NOT clause 2 — clause 2
+            # is for a field the arm did not yield at all, and this arm yielded.
         elif model_value:
             # CLAUSE 2. Written, and flagged BECAUSE it is the model's alone: no
             # text-layer reading stands behind it. The verbatim refusal still runs
@@ -966,6 +1068,12 @@ def apply_text_layer_primacy(header_d: dict, index: List[dict],
         arms[field] = {
             "origin": origin,
             "document_value": doc_value,
+            # Which rule admitted the document's reading, and whether that was strong
+            # enough to displace the model. Both are in the record because a field whose
+            # written value is the model's WHILE the text layer named something else is
+            # otherwise indistinguishable from one the text layer said nothing about.
+            "document_tier": doc_tier,
+            "document_displaced_model": bool(doc_value and model_value and displaces),
             "model_value": model_value,
             "agrees": agrees,
             "has_text_layer_arm": bool(_TEXT_LAYER_PRIMARY.get(field)),

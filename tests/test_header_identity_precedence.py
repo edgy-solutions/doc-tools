@@ -342,13 +342,19 @@ class TestTheGazetteerReadsTheNamesTheHeuristicRefuses:
             "ON Semiconductor", "ON Semiconductor")
 
     def test_a_gazetteer_hit_replaces_the_candidate_set_rather_than_joining_it(self):
-        """THE SAFETY HALF, and it is a behaviour change in its own right. The IDT notice
-        is issued by `Integrated Device Technology, Inc.` and prints `Renesas`, its
-        acquirer, which the corpus's ground truth records under `not:`. Both are
-        standalone-name shaped — `Renesas` to the heuristic, IDT to the gazetteer — and
-        two unrelated keys REFUSE. Because the gazetteer pass runs first and replaces the
-        candidate set, the heading we would accept is the only candidate and the arm
-        reads it."""
+        """THE SAFETY HALF, and it is a behaviour change in its own right. A notice
+        issued by `Integrated Device Technology, Inc.` that also prints `Renesas`, its
+        acquirer, has two standalone-name-shaped headings — `Renesas` to the heuristic,
+        IDT to the gazetteer — and two unrelated keys REFUSE. Because the gazetteer pass
+        runs first and replaces the candidate set, the heading we would accept is the
+        only candidate and the arm reads it.
+
+        CORRECTED 2026-10-24: an earlier version of this docstring said the corpus's IDT
+        notice prints `Renesas` as such. It does not — the ground truth records it only
+        inside the contact e-mail `David.Ko.xw@renesas.com`, which both predicates reject
+        as an e-mail. The pair below is a constructed page, and the property it seals is
+        general.
+        """
         els = _elements()
         els[1] = _el("Integrated Device Technology, Inc.", "Title")
         els.append(_el("Renesas", "Title"))
@@ -371,6 +377,150 @@ class TestTheGazetteerReadsTheNamesTheHeuristicRefuses:
         els.append(_el("TE Connectivity", "Title"))
         assert trust.mfr_from_document(provenance.build_positioned_index(els)) == (
             None, None)
+
+
+# === The 2026-10-24 narrowing: primacy requires a gazetteer match ========== #
+
+
+class TestPrimacyOverTheModelRequiresAGazetteerMatch:
+    """THE FIRE'S FINDING, SEALED. One corpus fire on an image built from the commit
+    that added the gazetteer measured clause 1 doing this on two of the ten notices:
+
+        PCN24-029.pdf                 mfr <- 'QUESTIONS'  from `[Title] QUESTIONS?`
+        onsemi_Generic_PD26044X1.pdf  mfr <- 'Europe'      from `[UncategorizedText] Europe:`
+
+    Both displaced a model value the page prints VERBATIM (`Mini-Circuits`, `onsemi`),
+    and the corpus gate read `clean: true` over both, because only three of the ten
+    notices carry `mfr` ground truth. `_NAME_EDGE_PUNCT` contains `?` and `:`, which is
+    what turns those two headings into bare words.
+
+    It is NOT a defect in the gazetteer: neither string matches it. It is clause 1
+    granting primacy to a string that merely LOOKS like a name. The ruling was therefore
+    narrowed, and this class is the whole of it: a text-layer `mfr` is primary only on a
+    gazetteer match; an unmatched candidate corroborates and may dissent, but never
+    writes.
+
+    The sibling notice is why tightening the heuristic was not the fix. `PCN23-002.pdf`
+    is the SAME template and came out correct, for one measured reason: it also prints
+    `ATTACHMENTS:`, so there were two shape-accepted survivors and the uniqueness rule
+    refused. What that rule protected was decided by which headings the page happened to
+    carry.
+    """
+
+    @pytest.mark.parametrize("printed,model", [("QUESTIONS?", "Mini-Circuits"),
+                                               ("Europe:", "onsemi")])
+    def test_the_two_measured_values_no_longer_displace_the_model(self, printed, model):
+        els = _elements(names_itself=False)
+        els.append(_el(printed, "Title"))
+        header_d = {"mfr": model, "mfr_source": model}
+        _, needs_review, arms = trust.apply_text_layer_primacy(
+            header_d, provenance.build_positioned_index(els))
+
+        assert header_d["mfr"] == model, "page furniture displaced the model again"
+        assert header_d["mfr_source"] == model, "the model's own citation was rewritten"
+        assert arms["mfr"]["origin"] == "model"
+        assert arms["mfr"]["document_tier"] == "heuristic"
+        assert arms["mfr"]["document_displaced_model"] is False
+        assert arms["mfr"]["agrees"] is False
+        assert needs_review is True, "a dissenting reading must still reach a human"
+
+    def test_the_reason_names_the_candidate_it_declined_to_write(self):
+        """Both readings, for the same reason clause 1 names both: the human is being
+        asked which one the page means, and the declined candidate is half of that
+        question. A reason naming only the winner hides that the text layer dissented."""
+        els = _elements(names_itself=False)
+        els.append(_el("QUESTIONS?", "Title"))
+        reasons, _, _ = trust.apply_text_layer_primacy(
+            {"mfr": "Mini-Circuits", "mfr_source": "Mini-Circuits"},
+            provenance.build_positioned_index(els))
+
+        joined = " ".join(reasons)
+        assert "Mini-Circuits" in joined, "the KEPT value is missing from the reason"
+        assert "QUESTIONS" in joined, "the DECLINED candidate is missing"
+
+    def test_a_gazetteer_reading_is_still_primary(self):
+        """The narrowing is a narrowing, not a reversal: where the document names a
+        manufacturer we know, clause 1 is exactly as it was."""
+        header_d = {"mfr": "Linear Technology", "mfr_source": "Linear Technology"}
+        _, needs_review, arms = trust.apply_text_layer_primacy(header_d, _index())
+
+        assert header_d["mfr"] == "TE Connectivity"
+        assert arms["mfr"]["document_tier"] == "gazetteer"
+        assert arms["mfr"]["document_displaced_model"] is True
+        assert needs_review is True
+
+    def test_an_agreeing_unmatched_candidate_is_silent_and_spends_no_review(self):
+        """A vendor the gazetteer has never heard of, read by the heuristic, saying the
+        same thing as the model. That is corroboration — the best case — so it must not
+        put a line in the narrative nor spend a `needs_review`, which is a corpus-gate
+        exemption. Compared on `_name_key`, so the casing difference is not a dissent.
+
+        The model's SPELLING is what stands: an unmatched reading never displaces, and
+        that includes not rewriting the value to its own capitalisation."""
+        els = _elements(names_itself=False)
+        els.append(_el("Vishay Intertechnology", "Title"))
+        header_d = {"mfr": "VISHAY INTERTECHNOLOGY",
+                    "mfr_source": "VISHAY INTERTECHNOLOGY"}
+        reasons, needs_review, arms = trust.apply_text_layer_primacy(
+            header_d, provenance.build_positioned_index(els))
+
+        assert header_d["mfr"] == "VISHAY INTERTECHNOLOGY"
+        assert arms["mfr"]["origin"] == "model"
+        assert arms["mfr"]["document_tier"] == "heuristic"
+        assert arms["mfr"]["agrees"] is True
+        assert needs_review is False
+        assert reasons == []
+
+    def test_with_no_model_value_an_unmatched_candidate_is_still_written(self):
+        """THE HALF THAT IS NOT NARROWED, and it is deliberate. With no model value
+        there is nothing to displace and no disagreement to settle, so the document's own
+        reading is written — which is what the model-first recovery cascade
+        (`_DOCUMENT_WINS`) has always done for a field the model left empty. Narrowing
+        this too would blank an `mfr` the corpus writes today in exchange for nothing:
+        the alternative source is absent, not better."""
+        els = _elements(names_itself=False)
+        els.append(_el("Vishay Intertechnology", "Title"))
+        header_d = {"mfr": None, "mfr_source": None}
+        _, needs_review, arms = trust.apply_text_layer_primacy(
+            header_d, provenance.build_positioned_index(els))
+
+        assert header_d["mfr"] == "Vishay Intertechnology"
+        assert arms["mfr"]["origin"] == "document"
+        assert arms["mfr"]["document_tier"] == "heuristic"
+        assert needs_review is False
+
+    def test_the_arm_reports_the_tier_that_read_it(self):
+        """The instrument the narrowing turns on, tested directly, so a later change to
+        the two passes cannot silently relabel a heuristic survivor as a known name."""
+        gaz = _elements()                      # prints `TE Connectivity`
+        assert trust.mfr_from_document_tiered(
+            provenance.build_positioned_index(gaz))[2] == "gazetteer"
+
+        heur = _elements(names_itself=False)
+        heur.append(_el("Vishay Intertechnology", "Title"))
+        assert trust.mfr_from_document_tiered(
+            provenance.build_positioned_index(heur))[2] == "heuristic"
+
+        silent = _elements(names_itself=False)
+        assert trust.mfr_from_document_tiered(
+            provenance.build_positioned_index(silent)) == (None, None, None)
+
+    def test_the_two_value_form_the_recovery_cascade_calls_is_unchanged(self):
+        """`refuse_unsourced_header_values` reaches the document only after the model's
+        value has failed the verbatim check or was never produced, so there is nothing
+        there for a weaker reading to displace and its contract must not move."""
+        assert trust.mfr_from_document(_index()) == ("TE Connectivity",
+                                                     "TE Connectivity")
+
+    @pytest.mark.parametrize("field", ["pub_date", "doc_level_ltb_date", "doc_id"])
+    def test_the_narrowing_is_scoped_to_mfr(self, field):
+        """Ordered scope: "doc_id and the dates keep clause 1 as is (their arms are
+        pattern-bound, not name-shaped)". `_DOC_ID_RE` requires a notice-number code and
+        a digit, so a heading cannot satisfy it the way `_is_name_shaped` is satisfied by
+        any capitalised word — the defect does not transfer and neither does the fix."""
+        assert field not in trust._PRIMACY_REQUIRES_GAZETTEER
+        assert trust._may_displace_the_model(field, "heuristic") is True
+        assert trust._may_displace_the_model(field, None) is True
 
 
 # === Clause 3: the 24_0003 shape, on the real dispatch ===================== #
