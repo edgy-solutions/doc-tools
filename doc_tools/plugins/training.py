@@ -1,5 +1,6 @@
 from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
+from doc_tools.utils.concept_identity import (concept_node_id, normalize_concept_name)
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
@@ -365,15 +366,30 @@ class TrainingPlugin(AugmentationPlugin):
             })
             
             # Map Concepts -> (Section)-[:TEACHES {salience}]->(Concept)
-            # Salience is on the edge; the Concept merges on name alone, one
-            # node per name across courses (contract training-workbench §4).
+            #
+            # Salience is on the EDGE (#163: in the node key it meant one node per
+            # salience). The node merges on `id = hash(domain, normalized name)` --
+            # architect's ruling 2026-10-24, after lane tr found Neo4j has no
+            # uniqueness on Concept at all. Merging on `name` kept the contract's "one
+            # Concept:TRAINING per name across courses" but left the key unnormalized
+            # and unconstrained: `Torque control` and `Torque  Control` were two nodes
+            # and nothing in the database refused a third. The id is one property, so
+            # `concept_id_unique` can constrain it; the domain is inside it, so
+            # `Torque Control` in two domains stays two concepts. NOT a name
+            # constraint, for that reason. See doc_tools/utils/concept_identity.py and
+            # scripts/neo4j_concept_id_migration.py.
+            #
+            # `name` is set ON CREATE only: the id is derived from the NORMALIZED name,
+            # so two spellings share a node and the first spelling seen is the one kept
+            # -- a plain SET would make the node's display name depend on slide order.
+            # `name_normalized` is stored so the id can be recomputed from the node.
             for raw_concept in aug.concepts:
-                concept_id = f"concept_{raw_concept.name.replace(' ', '_')}"
+                concept_id = concept_node_id(self.domain_label, raw_concept.name)
                 edge_cypher = f"""
                 MERGE (s:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
-                MERGE (c:Concept:{self.domain_label} {{name: $c_name}})
-                ON CREATE SET c.id = $concept_id
-                SET c.domain = $c_domain
+                MERGE (c:Concept:{self.domain_label} {{id: $concept_id}})
+                ON CREATE SET c.name = $c_name
+                SET c.domain = $c_domain, c.name_normalized = $c_name_normalized
                 MERGE (s)-[t:TEACHES]->(c)
                 SET t.salience = $c_salience
                 """
@@ -383,6 +399,7 @@ class TrainingPlugin(AugmentationPlugin):
                         "section_id": section_id,
                         "concept_id": concept_id,
                         "c_name": raw_concept.name,
+                        "c_name_normalized": normalize_concept_name(raw_concept.name),
                         "c_domain": self.domain_label,
                         "c_salience": raw_concept.salience
                     }

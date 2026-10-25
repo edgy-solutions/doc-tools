@@ -231,7 +231,12 @@ def test_teaches_salience_is_on_the_edge():
         for m in concept_merge.finditer(q["query"]):
             keys = re.findall(r"(\w+)\s*:", m.group(1))
             assert "salience" not in keys, "salience in the Concept MERGE key"
-            assert keys == ["name"], keys
+            # `id`, not `name`, since the architect's 2026-10-24 ruling: the id is
+            # hash(domain, normalized name), which is one property and so can carry the
+            # uniqueness constraint Neo4j had on nothing. The contract's "one
+            # Concept:TRAINING per name across courses" still holds -- one domain, one
+            # normalized name, one id.
+            assert keys == ["id"], keys
         assert "TRAINING" in q["query"] or "TRAINING" in map(str, q["params"].values())
         assert re.search(r"\.domain\s*=|domain\s*:", q["query"]), "Concept domain not set"
 

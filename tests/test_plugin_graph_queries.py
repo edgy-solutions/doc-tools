@@ -148,7 +148,12 @@ def test_training_slide_to_graph_queries():
     assert "Concept:TRAINING" in blob and "TEACHES" in blob
     assert "REFERENCES_FIGURE" in blob
     concept_q = [q for q in cypher if "concept_id" in q["params"]][0]
-    assert concept_q["params"]["concept_id"] == "concept_Torque_Control"
+    # hash(domain, normalized name), not the old `concept_Torque_Control` slug: a slug
+    # collides on the characters it drops and forks on the case it keeps.
+    from doc_tools.utils.concept_identity import concept_node_id
+    assert concept_q["params"]["concept_id"] == concept_node_id("TRAINING",
+                                                                "Torque Control")
+    assert concept_q["params"]["c_name_normalized"] == "torque control"
     assert concept_q["params"]["c_salience"] == 0.9
     # Training domain emits no RDF
     assert sparql == []
