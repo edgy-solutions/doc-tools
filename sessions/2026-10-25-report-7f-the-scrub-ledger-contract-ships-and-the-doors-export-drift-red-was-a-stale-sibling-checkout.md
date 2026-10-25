@@ -63,7 +63,7 @@ The generated file states its own limit in its `$comment`: *"Validating against
 this file alone checks a ledger's shape, not its truth"* — the cross-field
 invariants above live only in the model validators.
 
-## 3. Three things found while building
+## 3. Four things found while building
 
 1. **A truncated digest is weakly identifying, and the ledger's originals come
    from a catalogue.** `sha256:XXXXXXXX` is 32 bits; a few hundred thousand
@@ -88,6 +88,18 @@ invariants above live only in the model validators.
    and absent from the wheel — a drift between what the suite seals and what
    ships, which is worse than the import cost. The §7 guarantee is the guard, not
    the directory.
+
+4. **CI caught a defect the local suite structurally could not, and it was mine.**
+   The two `--check` staleness tests spawned `.venv/Scripts/python.exe`. That is
+   the Windows layout; the runner has `.venv/bin/python`, so `FileNotFoundError`
+   reddened the whole `tests` job while the same file is **28 passed** here. Fixed
+   in `93185fb` to `sys.executable` — inside the suite the venv interpreter is
+   already the one running, so the rule holds on both platforms and cannot drift
+   from it. Worth stating because **`CLAUDE.md`'s "Python through this repo's venv
+   only" rule is written as a literal Windows path**, and taking it literally in
+   code that CI executes is a trap any lane can walk into. Every other
+   `.venv\Scripts\python` in this tree is in a docstring telling a human how to
+   run a generator, which is correct. `tests` is now **pass, 1m40s**.
 
 ## 4. CORRECTION: yesterday's `doors-export` drift red was not a divergence
 
