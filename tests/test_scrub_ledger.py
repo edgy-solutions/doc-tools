@@ -61,7 +61,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE_DIR = os.path.join(ROOT, "tests", "fixtures", "scrub")
 EXAMPLE = os.path.join(FIXTURE_DIR, "ledger_example.json")
 SCHEMA = os.path.join(ROOT, "registry", "scrub_ledger.schema.json")
-VENV_PYTHON = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
+# The interpreter ALREADY RUNNING the suite, never a constructed venv path.
+# This was `.venv/Scripts/python.exe` and CI red-lit both staleness tests with
+# a FileNotFoundError: that layout is Windows-only, and the Linux runner has
+# `.venv/bin/python`. CLAUDE.md's "this repo's venv only" rule is about which
+# interpreter a HUMAN invokes; inside the suite the venv is already the one
+# running, so sys.executable satisfies the rule on both platforms and cannot
+# drift from it.
+VENV_PYTHON = sys.executable
 
 
 def _read(path: str) -> str:
