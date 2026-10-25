@@ -168,8 +168,20 @@ UNBUILT_PASSES: tuple[str, ...] = (
     "xml.xml_document_identity",
     # ``cad.cad_document_identity`` -- the deterministic identity read for a
     # CAD drop, declared by the ``cad`` row (architect authorisation
-    # 2026-10-13) and listed here because it does not exist. Nothing resolves
-    # for namespace ``cad``: there is no ``cad*.py`` in any pass package.
+    # 2026-10-13) and listed here because it does not exist.
+    #
+    # STALE JUSTIFICATION CORRECTED (2026-10-25). This comment used to read
+    # "Nothing resolves for namespace ``cad``: there is no ``cad*.py`` in any
+    # pass package." That is no longer true -- #99 added
+    # ``doc_tools/passes/cad.py`` with ``step_ap242_identity`` and
+    # ``dxf_identity``, declared by the ``step-ap242`` and ``dxf`` rows. The
+    # TUPLE MEMBERSHIP is still correct, because what is unbuilt is this NAME:
+    # no ``cad_document_identity`` exists in that module.
+    # ``test_nothing_listed_unbuilt_is_actually_built`` resolves the dotted
+    # name, not the module, which is why it stayed green across #99 and why
+    # only the prose was wrong. Left in place rather than deleted because a
+    # reader comparing this tuple against the overlay (lane 01 did, on
+    # 2026-10-23) would otherwise conclude the whole namespace is empty.
     #
     # What it must do when it is built: read part number, revision, CAGE and
     # contract/program identifiers out of CAD METADATA -- a STEP header's
