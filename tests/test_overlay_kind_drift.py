@@ -20,6 +20,17 @@ WHAT IS AND IS NOT SEALED HERE, stated so nobody reads more into a green run:
     real drift risk -- two services disagreeing about what a kind MEANS, where
     the platform would run a pass set we do not declare, or stamp a domain we did
     not rule.
+
+    **Equality is symmetric; ownership is not.** The architect's ruling of
+    2026-10-24, amending 10-07: the platform owns what a kind IS (``kind``,
+    ``domain``, ``arrives_as``, ``review_shape``, ``label``); doc-tools owns what
+    it RUNS (``passes``). The overlay MIRRORS ``passes`` from the registry here,
+    never the reverse, because the platform never executes them -- its copy is
+    documentary. So a ``passes`` divergence is always the overlay's to correct,
+    and this file must never be made green by aligning our declaration DOWN to a
+    row nothing runs. The ``passes`` arm below says so in its failure, so that
+    whoever reads the red knows which side owes the change; the ``outputs`` and
+    domain arms stay symmetric, because those the platform does own.
  2. **Absence is NOT sealed.** ``work-instruction``, ``pdf``, ``doors-export`` and
     ``engineering-document`` are ours and are not in the overlay. That is a
     registration gap, reported separately, not drift -- and making it a failure
@@ -152,18 +163,37 @@ def test_the_two_registries_share_the_ruled_kinds(overlay_rows, our_rows):
 
 
 def test_the_shared_kinds_declare_the_same_passes(overlay_rows, our_rows):
-    """A pass set we do not declare is a pass the platform would run blind."""
+    """The overlay must mirror OUR ``passes``; doc-tools is the source.
+
+    Equality is still what is asserted -- but the two sides are not
+    interchangeable, so the failure names which one owes the change. Per the
+    2026-10-24 ownership ruling, ``passes`` is doc-tools' field and the overlay
+    carries a documentary copy the platform never executes. The remedy for a red
+    here is therefore ALWAYS to update the overlay row, and never to narrow what
+    we declare to match it: a pass we stop declaring is a pass that stops
+    running, which is a real behaviour change traded for a green test.
+
+    The name of this function is load-bearing outside this repo. The platform's
+    ``cross-repo-kind-drift.yml`` control step greps pytest output for it, and
+    for the mismatched kind, to prove the seal reds for the right reason -- so
+    renaming it, or dropping the kind key from the message below, breaks a gate
+    in another tree.
+    """
     shared = _shared(overlay_rows, our_rows)
     assert shared, "no shared kinds; see the sharing test above"
     mismatched = {
-        k: {"ours": list(our_rows[k].get("passes") or []),
-            "overlay": list(overlay_rows[k].get("passes") or [])}
+        k: {"source (doc-tools, authoritative)":
+                list(our_rows[k].get("passes") or []),
+            "mirror (overlay, must match the source)":
+                list(overlay_rows[k].get("passes") or [])}
         for k in shared
         if list(our_rows[k].get("passes") or [])
         != list(overlay_rows[k].get("passes") or [])
     }
     assert not mismatched, (
-        f"passes diverged between the two registries: "
+        f"the overlay's passes do not mirror this registry, which owns them. "
+        f"Fix the overlay row(s) in invincible-agent; do not change ours to "
+        f"match. Ownership ruling 2026-10-24.\n"
         f"{json.dumps(mismatched, indent=2)}")
 
 
