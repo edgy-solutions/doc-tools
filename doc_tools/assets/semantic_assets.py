@@ -84,7 +84,11 @@ def _ensure_weaviate_collection(client, name: str) -> None:
         write_collection_marker(client, name)
 
 
-def _index_chunk(client, name: str, properties: dict) -> str:
+class MissingVectorError(RuntimeError):
+    """A chunk that must carry a vector could not be embedded (require_vector)."""
+
+
+def _index_chunk(client, name: str, properties: dict, *, require_vector: bool = False) -> str:
     """Upsert one chunk object using the Weaviate v4 API, keyed by a
     deterministic uuid derived from the chunk's business key.
 
@@ -115,6 +119,12 @@ def _index_chunk(client, name: str, properties: dict) -> str:
       - "skipped_would_strip_vector": embedding failed/unavailable AND a
         row already existed at this uuid. See the comment below — this
         is the load-bearing case.
+
+    require_vector (keyword-only, default False): when True and no vector can
+    be produced (embed raised, or the text is empty), raise MissingVectorError
+    BEFORE any exists/insert/replace call, so nothing is written. Used for
+    TRAINING, whose workbench queries by nearVector and would silently miss a
+    vectorless object. When False the three verdicts above are unchanged.
     """
     from doc_tools.utils.embed import embed_document  # local import: keeps
     # module-load cheap for callers that monkey-patch this for tests.
@@ -134,9 +144,18 @@ def _index_chunk(client, name: str, properties: dict) -> str:
         # that pairs with embed_query on the iagent reader side.
         vector = embed_document(text) if text else None
     except Exception as e:
+        if require_vector:
+            raise MissingVectorError(
+                f"chunk {chunk_id!r} requires a vector but embedding failed: {e}"
+            ) from e
         print(f"[semantic_assets] embed_document failed for chunk; "
               f"writing without vector (BM25-only until backfill): {e}")
         vector = None
+
+    if vector is None and require_vector:
+        raise MissingVectorError(
+            f"chunk {chunk_id!r} requires a vector but has no text to embed"
+        )
 
     collection = client.collections.get(name)
     exists = collection.data.exists(chunk_uuid)
@@ -850,7 +869,7 @@ def _build_knowledge_graph_impl(
         try:
             verdict = _index_chunk(weaviate_client, collection_name, {
                 "text": chunk_text, "doc_id": doc_id, "chunk_id": chunk_id, "domain": domain_label,
-            })
+            }, require_vector=(domain_label == "TRAINING"))
             chunk_index_tally[verdict] += 1
         except Exception as e:
             context.log.error(f"Vector indexing failed for chunk {chunk_id}: {e}")
@@ -879,6 +898,10 @@ def _build_knowledge_graph_impl(
     # fix (close the loop at the chunk-write layer).
     # ────────────────────────────────────────────────────────────────
     embedded_images = manifest.get("embedded_images") or {}
+    # Contract training-workbench §6: no training object's chunk_id contains
+    # `_fig_`. The images are still uploaded; only the figure objects go.
+    if domain_label == "TRAINING":
+        embedded_images = {}
     if embedded_images:
         for img_filename, img_s3_url in embedded_images.items():
             if not img_s3_url:
@@ -1191,6 +1214,15 @@ def _build_knowledge_graph_impl(
     # cannot swallow this.
     if _graph_failures:
         raise GraphWriteError(_graph_detail)
+
+    # TRAINING objects must carry vectors (contract §6). Every other write has
+    # happened; a rerun repairs this, as writes are upserts keyed by chunk_id.
+    if domain_label == "TRAINING" and chunk_index_tally.get("errors", 0) > 0:
+        raise MissingVectorError(
+            f"doc_id={doc_id!r}: {chunk_index_tally['errors']} training chunk(s) "
+            f"were not indexed with a vector, so they are unsearchable. The run "
+            f"must be rerun once embedding is available."
+        )
 
     return {"doc_id": doc_id, "status": "processed", "node_label": node_label, "collection": collection_name}
 
