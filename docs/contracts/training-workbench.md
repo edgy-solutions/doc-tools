@@ -115,7 +115,7 @@ How the computed edges are derived:
 
 The workbench writes these labels and relations to the same Neo4j:
 - labels `Project`, `TargetNode`, `User`, `CanonicalConcept`;
-- relations `OWNS`, `HAS_CHILD` between Project and TargetNode, `ALIGNS_TO` (Concept → CanonicalConcept), and `SUGGESTED_SOURCE` and `DERIVED_FROM` (TargetNode → Slide).
+- relations `OWNS`, `HAS_CHILD` between Project and TargetNode, `ALIGNS_TO` (CanonicalConcept → Concept), and `SUGGESTED_SOURCE` and `DERIVED_FROM` (TargetNode → Slide).
 
 doc-tools follows four rules here:
 1. **doc-tools never writes, and never MATCHes, those labels**, and never writes `OWNS`, `ALIGNS_TO`, `SUGGESTED_SOURCE` or `DERIVED_FROM`.
