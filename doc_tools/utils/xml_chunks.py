@@ -43,6 +43,7 @@ proves out.
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import Iterable
 
 import rdflib
@@ -55,6 +56,16 @@ _MIL_WARNING = URIRef(_MIL_NS + "hasWarning")
 _MIL_HAS_FIGURE = URIRef(_MIL_NS + "hasFigure")
 _MIL_HAS_URL = URIRef(_MIL_NS + "hasURL")
 _MIL_RENDERING_ORIGIN = URIRef(_MIL_NS + "renderingOrigin")
+_MIL_HAS_ISOLATION_STEP = URIRef(_MIL_NS + "hasIsolationStep")
+_MIL_HAS_ANSWER = URIRef(_MIL_NS + "hasAnswer")
+_MIL_HAS_NEXT_STEP = URIRef(_MIL_NS + "hasNextStep")
+_MIL_TEST_TEXT = URIRef(_MIL_NS + "hasTestText")
+_MIL_ACTION_TEXT = URIRef(_MIL_NS + "hasActionText")
+_MIL_ANSWER_TYPE = URIRef(_MIL_NS + "hasAnswerType")
+_MIL_HAS_PLANNING_SECTION = URIRef(_MIL_NS + "hasPlanningSection")
+_MIL_PLANNING_TEXT = URIRef(_MIL_NS + "hasPlanningText")
+# Same character class as s1000d_rdf._FRAGMENT_UNSAFE.
+_UNSAFE = re.compile(r"[^A-Za-z0-9_.-]")
 
 # Rendering-origin values that are safe to inline as markdown image
 # references. The IADS extractor wrote these into per-figure meta
@@ -206,6 +217,83 @@ def extract_chunks_from_graph(
             "domain": domain,
         })
     seen_predicates.add(_MIL_HAS_FIGURE)
+
+    # 4b. Fault-isolation tree. Text on the step/answer nodes is invisible to
+    #     the root-only branches, so walk it explicitly: hasIsolationStep from
+    #     the root, then hasAnswer / hasNextStep transitively. Answers are
+    #     sorted by answer type so the chunk set does not depend on rdflib
+    #     iteration order. The section label carries the positional path read
+    #     back off the URI, so it matches the graph anchor.
+    #     (Warning nodes get NO such walk: the root hasWarning literal already
+    #     yields `warning:N`, and a second chunk with identical text under a
+    #     different section would be a duplicate retrieval row.)
+    def _walk_isolation(step_uri, path, seen):
+        # `path` is carried down the walk, not parsed out of the doc scope
+        # (which may itself contain hyphens): a nested step's local name is its
+        # parent's local name plus "-{answerType}-{n}", so the suffix IS the
+        # path extension.
+        if step_uri in seen:
+            return
+        seen.add(step_uri)
+        for txt in _literals_of(g, step_uri, _MIL_TEST_TEXT):
+            text = str(txt).strip()
+            if text:
+                chunks.append({
+                    "text": text,
+                    "doc_id": root_uri,
+                    "section": f"isolation:{path}",
+                    "domain": domain,
+                })
+        answers = [a for a in g.objects(step_uri, _MIL_HAS_ANSWER)
+                   if isinstance(a, URIRef)]
+        answers.sort(key=lambda a: (_first_literal(g, a, _MIL_ANSWER_TYPE), str(a)))
+        for ans in answers:
+            at = _first_literal(g, ans, _MIL_ANSWER_TYPE)
+            for txt in sorted(_literals_of(g, ans, _MIL_ACTION_TEXT), key=str):
+                text = str(txt).strip()
+                if text:
+                    chunks.append({
+                        "text": text,
+                        "doc_id": root_uri,
+                        "section": f"isolation:{path}:{at}",
+                        "domain": domain,
+                    })
+            for nxt in sorted(g.objects(ans, _MIL_HAS_NEXT_STEP), key=str):
+                if isinstance(nxt, URIRef):
+                    ext = _local_name(nxt)[len(_local_name(step_uri)):]
+                    _walk_isolation(nxt, path + ext, seen)
+
+    _iso_seen: set = set()
+    for top in sorted(g.objects(root, _MIL_HAS_ISOLATION_STEP), key=str):
+        if isinstance(top, URIRef):
+            _walk_isolation(top, _local_name(top).rsplit("-", 1)[-1], _iso_seen)
+    for p in (_MIL_HAS_ISOLATION_STEP, _MIL_HAS_ANSWER, _MIL_HAS_NEXT_STEP,
+              _MIL_TEST_TEXT, _MIL_ACTION_TEXT, _MIL_ANSWER_TYPE):
+        seen_predicates.add(p)
+
+    # 4c. Planning sections: one chunk per paragraph, section keyed on the
+    #     URI local name with the `mpsection-{scope}-` prefix stripped.
+    for sec in sorted(g.objects(root, _MIL_HAS_PLANNING_SECTION), key=str):
+        if not isinstance(sec, URIRef):
+            continue
+        # The URI is mpsection-{scope}-{key} and the scope is unknown here
+        # (it may contain hyphens), so rebuild the key from the label by the
+        # parser's own fragment rule; a label-less section was keyed on its
+        # position, the trailing segment.
+        sec_label = _first_literal(g, sec, RDFS.label)
+        key = (_UNSAFE.sub("_", sec_label) if sec_label
+               else _local_name(sec).rsplit("-", 1)[-1])
+        for txt in sorted(_literals_of(g, sec, _MIL_PLANNING_TEXT), key=str):
+            text = str(txt).strip()
+            if text:
+                chunks.append({
+                    "text": text,
+                    "doc_id": root_uri,
+                    "section": f"planning:{key}",
+                    "domain": domain,
+                })
+    seen_predicates.add(_MIL_HAS_PLANNING_SECTION)
+    seen_predicates.add(_MIL_PLANNING_TEXT)
 
     # 5. Generic-body fallback — any other text Literal directly
     #    attached to the root. Catches parsers that don't use the

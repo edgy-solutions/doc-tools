@@ -17,6 +17,18 @@ from doc_tools.parsers.mil_info_code_map import (
 # only loses information. Everything else — spaces included, which would make
 # the Turtle unserializable — is replaced.
 _FRAGMENT_UNSAFE = re.compile(r"[^A-Za-z0-9_.-]")
+# NOTE: `doc_tools/utils/xml_chunks.py` keeps a COPY of this character class.
+# It has to rebuild a planning section's key from the node's rdfs:label (the
+# URI is mpsection-{scope}-{key} and a doc scope may itself contain hyphens,
+# so the prefix cannot be stripped), and it must arrive at the same key or a
+# chunk's `section` stops matching the graph anchor it cites. Copied rather
+# than imported on purpose: that chunker is parser-agnostic by design and
+# serves the IADS and 40051 builders too, so importing one parser's private
+# helper into it would be the worse coupling. If this class changes, change
+# it there as well -- the drift is caught, by the pinned local names in
+# test_mrad_320a_planning_sections_carry_prose_and_the_interval and the
+# pinned section strings in test_mrad_320a_chunks_the_planning_prose, but it
+# is caught in two files at once and this is the note that explains why.
 
 # Used when a builder is constructed with no doc_id (the bare
 # `S1000dGraphBuilder()` form the unit tests use). Explicit, so an unscoped
@@ -134,6 +146,23 @@ class S1000dGraphBuilder:
             itemloc=dm_code.get("itemLocationCode", ""),
         )
 
+    def _dmref_target(self, dmref_el, own_uri):
+        """The target subject of a `<dmRef>`, or None.
+
+        ONE derivation for the module-level cross-reference edges (1b) and
+        the per-answer edges of the isolation tree (section 10): a second copy
+        could drift, and a target assembled any other way cannot connect to
+        the referenced module's own subject. None for a dmRef with no dmCode
+        and for a self-reference (a self-reference is not a cross-reference).
+        """
+        ref_code_list = dmref_el.xpath(".//dmCode")
+        if not ref_code_list:
+            return None
+        target_uri = self.MIL[f"dmc-{self._dmc_string_from_code(ref_code_list[0])}"]
+        if target_uri == own_uri:
+            return None
+        return target_uri
+
     def _part_node(self, pn: str, scope: str) -> URIRef:
         """Mint (or reuse) the Part subject for `pn` in this document's scope.
 
@@ -232,17 +261,10 @@ class S1000dGraphBuilder:
         # grepping for a dmRef open-tag and also matching dmRefIdent, which
         # already produced a wrong count once.)
         for dmref_el in root.xpath("//dmRef[not(ancestor::identAndStatusSection)]"):
-            ref_code_list = dmref_el.xpath(".//dmCode")
-            if not ref_code_list:
+            # SAME CANONICALIZER BOTH SIDES (see _dmref_target).
+            target_uri = self._dmref_target(dmref_el, dmc_uri)
+            if target_uri is None:
                 continue
-            # SAME CANONICALIZER BOTH SIDES: a target assembled any other
-            # way cannot connect to the referenced module's own subject
-            # (the one `parse_data_module` mints when IT is ingested), and
-            # the cross-document walk silently returns nothing.
-            target_string = self._dmc_string_from_code(ref_code_list[0])
-            target_uri = self.MIL[f"dmc-{target_string}"]
-            if target_uri == dmc_uri:
-                continue  # a self-reference is not a cross-reference
             # Do NOT type target_uri: the referenced module types itself
             # when it is ingested, and asserting a type here would fabricate
             # a node for a module that may not exist in the corpus.
@@ -266,20 +288,62 @@ class S1000dGraphBuilder:
         # consumable spare" got yes for a torque wrench. `tool-` also matches
         # what iads_rdf.py:57 and mil_std_40051_rdf.py:166 already use, so
         # S1000D was the sole outlier.
-        tool_elements = root.xpath("//reqSupportEquip//partNumber")
-        for tool in tool_elements:
-            pn = tool.text.strip() if tool.text else None
-            if pn:
-                tool_uri = self.MIL[f"tool-{scope}-{_fragment(pn)}"]
-                self.graph.add((tool_uri, RDF.type, self.MIL.Tool))
-                # The bare part number stays on the node as a literal. The
-                # subject is document-scoped, so cross-document identity is
-                # no longer readable off the URI; this predicate is how a
-                # consumer still answers "which documents mention ODM-SE-0001"
-                # (join on the literal), without the subjects merging.
-                self.graph.add((tool_uri, self.HAS_PART_NUMBER, Literal(pn)))
-                self.graph.add((tool_uri, RDFS.label, Literal(pn)))
-                self.graph.add((dmc_uri, self.REQUIRES_TOOL, tool_uri))
+        #
+        # Scoped per reqSupportEquip, never a bare `//name`: `name` also
+        # occurs under reqSpare/spareDescr and catalogSeqNumber/description
+        # (measured: 720A "array module", 941A "connector gasket"), so an
+        # unscoped read would label a spare or a catalog item as a tool.
+        # The part number sits under partAndSerialNumber, not directly under
+        # supportEquipDescr, hence `//partNumber` below the descr.
+        # A reqSupportEquip with a name and NO part number has no stable key
+        # and is skipped; the corpus has zero such elements (measured), so
+        # that is an untested edge, not an impossible one.
+        for equip_el in root.xpath("//reqSupportEquip"):
+            name_el = equip_el.xpath(".//supportEquipDescr/name")
+            tool_name = _collapse_ws(" ".join(name_el[0].itertext())) if name_el else ""
+            for tool in equip_el.xpath(".//supportEquipDescr//partNumber"):
+                pn = tool.text.strip() if tool.text else None
+                if pn:
+                    tool_uri = self.MIL[f"tool-{scope}-{_fragment(pn)}"]
+                    self.graph.add((tool_uri, RDF.type, self.MIL.Tool))
+                    # The bare part number stays on the node as a literal. The
+                    # subject is document-scoped, so cross-document identity is
+                    # no longer readable off the URI; this predicate is how a
+                    # consumer still answers "which documents mention
+                    # ODM-SE-0001" (join on the literal), without the subjects
+                    # merging.
+                    self.graph.add((tool_uri, self.HAS_PART_NUMBER, Literal(pn)))
+                    # The label is the authored name when there is one (a
+                    # reader asks for "the extraction tool", not a part
+                    # number); a nameless tool keeps the part number.
+                    self.graph.add((tool_uri, RDFS.label, Literal(tool_name or pn)))
+                    if tool_name:
+                        self.graph.add((tool_uri, self.MIL.hasName, Literal(tool_name)))
+                    self.graph.add((dmc_uri, self.REQUIRES_TOOL, tool_uri))
+
+        # 3b. Warnings (//reqSafety//warningAndCautionPara). The corpus has
+        # zero `caution` elements (measured), so no caution predicate is
+        # invented.
+        #
+        # Two shapes on purpose. The ROOT literal mil:hasWarning is the
+        # load-bearing one: it matches mil_std_40051_rdf.py and iads_rdf.py (a
+        # cross-parser join) and is the only form the chunker's `warning:N`
+        # branch can see. The node is the citable form. Keyed on position
+        # because the source carries no id= and two modules may carry
+        # byte-identical warning text. The chunker deliberately does NOT walk
+        # the node: it would emit a second chunk with the same text under a
+        # different `section`, and chunk_id includes section, so that is a
+        # duplicate retrieval row.
+        for pos, warn_el in enumerate(root.xpath("//reqSafety//warningAndCautionPara"), start=1):
+            warn_text = _collapse_ws(" ".join(warn_el.itertext()))
+            if not warn_text:
+                continue
+            self.graph.add((dmc_uri, self.MIL.hasWarning, Literal(warn_text)))
+            warn_uri = self.MIL[f"warning-{scope}-{pos}"]
+            self.graph.add((warn_uri, RDF.type, self.MIL.Warning))
+            self.graph.add((warn_uri, RDFS.label, Literal(f"warning {pos}")))
+            self.graph.add((warn_uri, self.MIL.hasWarningText, Literal(warn_text)))
+            self.graph.add((dmc_uri, self.MIL.hasWarningNode, warn_uri))
 
         # 4. Extract Parts (requiredSpares). Minted via _part_node so a part
         # cited here AND as an IPD catalog item (section 8 below) is one node.
@@ -384,6 +448,10 @@ class S1000dGraphBuilder:
         # NOT be a loop index (that is the fig_0 defect section 5 just
         # fixed) — key on the nearest ancestor mpSection's title text when
         # there is one, else on {value}{unit}.
+        # interval_map: mpSection element -> its interval URI, read by the
+        # planning-section block below so the keying is decided once (the
+        # figure_map idiom).
+        interval_map = {}
         for threshold_el in root.xpath("//limit/threshold"):
             value_el = threshold_el.find("thresholdValue")
             value = value_el.text.strip() if value_el is not None and value_el.text else ""
@@ -409,6 +477,29 @@ class S1000dGraphBuilder:
             if unit:
                 self.graph.add((iv_uri, self.MIL.hasIntervalUnit, Literal(unit)))
             self.graph.add((dmc_uri, self.HAS_PLANNING_INTERVAL, iv_uri))
+            enclosing = threshold_el.xpath("ancestor::mpSection[1]")
+            if enclosing:
+                interval_map[enclosing[0]] = iv_uri
+
+        # 7b. Planning sections (//mpSection) and their prose. Until now only
+        # the threshold was read, so the paragraphs ("Every 180 days, inspect
+        # the array face...", "Replace the array module on a confirmed BIT
+        # failure...") were dropped. Keyed on the title, else position.
+        for pos, sec_el in enumerate(root.xpath("//mpSection"), start=1):
+            title_el = sec_el.find("title")
+            sec_title = _collapse_ws(" ".join(title_el.itertext())) if title_el is not None else ""
+            key = _fragment(sec_title) if sec_title else str(pos)
+            sec_uri = self.MIL[f"mpsection-{scope}-{key}"]
+            self.graph.add((sec_uri, RDF.type, self.MIL.PlanningSection))
+            if sec_title:
+                self.graph.add((sec_uri, RDFS.label, Literal(sec_title)))
+            for para_el in sec_el.xpath("./para"):
+                para_text = _collapse_ws(" ".join(para_el.itertext()))
+                if para_text:
+                    self.graph.add((sec_uri, self.MIL.hasPlanningText, Literal(para_text)))
+            self.graph.add((dmc_uri, self.MIL.hasPlanningSection, sec_uri))
+            if sec_el in interval_map:
+                self.graph.add((sec_uri, self.HAS_PLANNING_INTERVAL, interval_map[sec_el]))
 
         # 8. IPD catalog items (//catalogSeqNumber). Identity includes the
         # containing figure's key (section 5's figure_map) so two figures'
@@ -588,7 +679,55 @@ class S1000dGraphBuilder:
                 self.MIL[f"proclist-{scope}-{proc_pos}-1"],
             ))
 
+        # 10. Fault-isolation tree (//faultIsolation/isolationProcStep).
+        #
+        # The nesting IS the semantics ("the replace action is the yes-branch
+        # of the third test"), so a step is keyed on its positional PATH
+        # (1, 1-yes-1, 1-yes-1-yes-1) and the branch it sits in is readable
+        # off its URI. Positional for the section-9 reason: no id= in the
+        # source, and byte-identical test text can recur. No blank nodes.
+        for top_pos, step_el in enumerate(root.xpath("//faultIsolation/isolationProcStep"), start=1):
+            top_uri = self._isolation_step(step_el, str(top_pos), scope, dmc_uri)
+            self.graph.add((dmc_uri, self.MIL.hasIsolationStep, top_uri))
+
         return str(dmc_uri)
+
+    def _isolation_step(self, step_el, path: str, scope: str, dmc_uri) -> URIRef:
+        step_uri = self.MIL[f"isostep-{scope}-{path}"]
+        self.graph.add((step_uri, RDF.type, self.MIL.IsolationStep))
+        title_el = step_el.find("title")
+        title = _collapse_ws(" ".join(title_el.itertext())) if title_el is not None else ""
+        self.graph.add((step_uri, RDFS.label, Literal(title or f"isolation step {path}")))
+        test_el = step_el.find("test")
+        if test_el is not None:
+            test_text = _collapse_ws(" ".join(test_el.itertext()))
+            if test_text:
+                self.graph.add((step_uri, self.MIL.hasTestText, Literal(test_text)))
+        for answer_el in step_el.findall("answer"):
+            at = answer_el.get("answerType")
+            if at not in ("yes", "no"):
+                continue  # only yes/no are expected; do not guess a branch
+            ans_uri = self.MIL[f"isoanswer-{scope}-{path}-{at}"]
+            self.graph.add((ans_uri, RDF.type, self.MIL.IsolationAnswer))
+            self.graph.add((ans_uri, RDFS.label, Literal(f"answer {at} at {path}")))
+            self.graph.add((ans_uri, self.MIL.hasAnswerType, Literal(at)))
+            self.graph.add((step_uri, self.MIL.hasAnswer, ans_uri))
+            for action_el in answer_el.findall("isolationAction"):
+                action = _collapse_ws(" ".join(action_el.itertext()))
+                if action:
+                    self.graph.add((ans_uri, self.MIL.hasActionText, Literal(action)))
+            # dmRef descendants of THIS answer; one inside a nested step
+            # belongs to that deeper answer, so it is skipped here.
+            for dmref_el in answer_el.xpath(".//dmRef"):
+                if dmref_el.xpath("ancestor::answer[1]")[0] is not answer_el:
+                    continue
+                target = self._dmref_target(dmref_el, dmc_uri)
+                if target is not None:
+                    self.graph.add((ans_uri, self.REFERS_TO_DM, target))
+            for nested_pos, nested_el in enumerate(answer_el.findall("isolationProcStep"), start=1):
+                child_uri = self._isolation_step(nested_el, f"{path}-{at}-{nested_pos}", scope, dmc_uri)
+                self.graph.add((ans_uri, self.MIL.hasNextStep, child_uri))
+        return step_uri
 
     def serialize(self, format: str = "turtle") -> str:
         """Serializes the current graph to a string."""
