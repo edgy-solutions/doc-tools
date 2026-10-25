@@ -27,6 +27,7 @@ Design notes:
 import io
 import os
 import re
+import time
 from typing import List, Optional, Tuple, Any, Dict
 
 from pydantic import BaseModel, Field
@@ -454,7 +455,7 @@ def _header_call_opts() -> dict:
     No Collector: unlike the vision pass, there is no truncation check on this pass.
     """
     from baml_py import AbortController, ClientRegistry
-    ms = int(os.getenv("HEADER_REQUEST_TIMEOUT_MS", str(HEADER_TIMEOUT_MS_DEFAULT)))
+    ms = header_bound_ms()
     cr = ClientRegistry()
     options = {
         "base_url": os.environ.get("LLM_BASE_URL", ""),
@@ -475,6 +476,72 @@ def _header_call_opts() -> dict:
     cr.add_llm_client("HeaderBounded", "openai-generic", options)
     cr.set_primary("HeaderBounded")
     return {"abort_controller": AbortController(timeout_ms=ms), "client_registry": cr}
+
+
+# How much of the bound a cancelled header pass must have burned for the cancel to be
+# OURS.
+#
+# The three origins the architect named -- a client disconnect, a task-group cancel from
+# a sibling failure, a cancellation token shared with a stage that finished early -- are
+# all EARLY: they fire when their triggering event happens, at no particular elapsed
+# time. `_header_call_opts`' AbortController fires at `header_bound_ms()` and nowhere
+# else. So elapsed-against-the-bound separates them, and elapsed is the measurement
+# NOTHING recorded before this: `stats` carried no header timing at all, and the reason
+# the plugin writes is the time-free `header pass failed: AbortError` -- byte-identical
+# on `onsemi_Generic_IPCN25300X` (2026-10-25 fire) and on 24_0003, so the persisted
+# record alone cannot tell the origins apart on either case.
+#
+# Measured on the 2026-10-25 fire by subtraction from the BAML log, because nothing
+# recorded it directly: the last timestamped line before the cancelled notice is
+# 03:34:15.694 and the cancel is 03:35:45.903 -- a 90.2 s gap against a 90 000 ms bound.
+# The nine healthy calls in that same fire returned in 19 139-55 016 ms. So that cancel
+# was our own ceiling, not anything external, and the bound is ~1.6x the healthy worst
+# case rather than the ~2.5x `HEADER_TIMEOUT_MS_DEFAULT`'s comment claims from the 10-19
+# nightly. 0.9 of the bound, not 1.0: the elapsed measured here starts before BAML's own
+# clock does (the stub is explicit that "the timeout will only start AFTER the object is
+# passed to a BAML function"), so our figure is the bound PLUS setup, never less, and the
+# margin exists for the opposite direction -- a cancel at 81 s with a 55 s healthy worst
+# case is still ours, not a disconnect.
+_CANCEL_AT_BOUND_FRACTION = 0.9
+
+
+def header_bound_ms() -> int:
+    """The header pass's request bound, read exactly as `_header_call_opts` reads it.
+
+    One reader for both sites: the classification below is only meaningful against the
+    bound the call was actually made with, so a drift between the two would silently
+    turn every cancel into an `early_cancel`.
+    """
+    return int(os.getenv("HEADER_REQUEST_TIMEOUT_MS", str(HEADER_TIMEOUT_MS_DEFAULT)))
+
+
+def looks_cancelled(exc: BaseException) -> bool:
+    """Was the header pass CANCELLED rather than answered or refused?
+
+    Matched on the exception TYPE first, because the message carries nothing: the live
+    cut surfaced as `AbortError` whose `str()` is the bare string `AbortError` -- no
+    elapsed, no cause, no "operation cancelled". That is why the message check is a
+    fallback and not the test, and why `tests/test_mfr_survives_a_cut_header.py` can
+    stand in with a `TimeoutError`: both are the same class of event here.
+    """
+    name = type(exc).__name__.lower()
+    if "abort" in name or "cancel" in name or "timeout" in name:
+        return True
+    text = str(exc).lower()
+    return any(m in text for m in ("abort", "cancelled", "canceled", "timed out"))
+
+
+def classify_header_cancel(elapsed_ms: int, bound_ms: int) -> str:
+    """`client_bound` if the cancel landed at our own ceiling, `early_cancel` if not.
+
+    `early_cancel` is the interesting verdict and the one the architect's three
+    hypotheses predict: a cancel arriving well inside the bound was raised by something
+    other than our AbortController, and the elapsed time recorded beside it is the
+    evidence for which something.
+    """
+    if bound_ms > 0 and elapsed_ms >= bound_ms * _CANCEL_AT_BOUND_FRACTION:
+        return "client_bound"
+    return "early_cancel"
 
 
 def _grid_to_text(grid: List[List[Any]]) -> str:
@@ -589,6 +656,110 @@ class SustainmentPlugin(AugmentationPlugin):
         prompt += render_candidate_block(ltb_candidates(full_text))
         return b.ExtractHeader(doc=full_text, system_instructions=prompt,
                                baml_options=_header_call_opts())
+
+    def _extract_header_once_more_if_cancelled(
+            self, full_text: str, reasons: List[str],
+            doc_flags: List[str]) -> Tuple[Any, dict]:
+        """The header pass, retried ONCE when the first attempt was CANCELLED.
+
+        This reverses half of `da7c1ee`'s refuse-never-retry contract, on the
+        architect's order of 2026-10-24, and only the retry half: a cancelled pass is
+        still REFUSED if the second attempt is cancelled too, and the text-layer arm
+        still runs regardless, so nothing here weakens
+        `tests/test_mfr_survives_a_cut_header.py`'s guarantee that a document which
+        names its own manufacturer keeps `mfr` through a cut.
+
+        Why the reversal is right on the measurement rather than on principle: the one
+        cancel in the 2026-10-25 corpus fire cost `onsemi_Generic_IPCN25300X` its `mfr`
+        -- scored `absent`, the single non-passing field of sixteen -- on a page the
+        model had answered on every other fire. One cancelled attempt is not evidence
+        that the next one fails; the nine healthy calls in that same fire returned in
+        19.1-55.0 s, i.e. inside the bound with room, so a retry is the likely-to-answer
+        move and not a hope. The cost it adds is bounded and paid only on a cancel: one
+        extra attempt on one notice, at most `bound_ms` more.
+
+        Retried on a CANCEL only. A pass that was answered badly -- a refusal, a 400, a
+        malformed response -- gets no second attempt: nothing about it suggests a
+        different outcome, and the order was specifically about a cancel.
+
+        Returns `(header_or_None, record)`. `record` lands in `stats["header_pass"]` and
+        is the first header TIMING anything in this pipeline persists.
+        """
+        bound_ms = header_bound_ms()
+        attempts: List[dict] = []
+        header = None
+        for n in (1, 2):
+            t0 = time.monotonic()
+            try:
+                header = self._extract_header(full_text)
+                attempts.append({"n": n, "outcome": "ok",
+                                 "elapsed_ms": int((time.monotonic() - t0) * 1000)})
+                break
+            except PromptUnavailableError:
+                # A missing prompt file is a CONFIGURATION defect, not a per-document
+                # extraction failure -- it affects every document identically and no
+                # retry fixes it. The broad `except Exception` below exists to degrade
+                # a genuine per-document failure (a vision timeout, a bad response); it
+                # must not also absorb this, or a deployment error silently looks like
+                # a normal 0-parts run. See
+                # doc_tools/plugins/base.py::PromptUnavailableError.
+                raise
+            except Exception as e:  # noqa: BLE001
+                elapsed_ms = int((time.monotonic() - t0) * 1000)
+                cancelled = looks_cancelled(e)
+                attempts.append({
+                    "n": n,
+                    "outcome": "cancelled" if cancelled else "failed",
+                    "elapsed_ms": elapsed_ms,
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                    "origin": (classify_header_cancel(elapsed_ms, bound_ms)
+                               if cancelled else "error"),
+                })
+                header = None
+                if not (cancelled and n == 1):
+                    break
+        last = attempts[-1]
+        record = {
+            "attempts": attempts,
+            "bound_ms": bound_ms,
+            "outcome": last["outcome"],
+            "elapsed_ms": last["elapsed_ms"],
+            "origin": last.get("origin"),
+            "retried": len(attempts) > 1,
+            "cut_then_recovered": len(attempts) > 1 and last["outcome"] == "ok",
+        }
+        if last["outcome"] == "ok":
+            if record["cut_then_recovered"]:
+                first = attempts[0]
+                # Phrased WITHOUT the words "header pass failed" deliberately.
+                # `scripts/pcn_corpus_gate.py`'s `_HEADER_DECLARATION_MARKERS` matches
+                # that phrase as a SUBSTRING of `review_reasons`, and a declaration
+                # about the header buys that notice's header fields an exemption from
+                # correctness in the gate. A pass that was cut and then ANSWERED has no
+                # header problem to declare, so it must not claim the exemption -- its
+                # fields are scored like anyone else's. The cut is still on the record,
+                # here and in `stats["header_pass"]`.
+                reasons.append(
+                    "header pass cut after %d ms on attempt 1 of 2 (bound %d ms, "
+                    "cancel origin %s); the retry answered in %d ms"
+                    % (first["elapsed_ms"], bound_ms, first["origin"],
+                       record["elapsed_ms"]))
+            return header, record
+        if last["outcome"] == "cancelled":
+            detail = (" (cancelled after %d ms against a %d ms bound, cancel origin "
+                      "%s; attempt %d of %d, and a cancelled first attempt is retried "
+                      "once)" % (last["elapsed_ms"], bound_ms, last["origin"],
+                                 last["n"], len(attempts)))
+        else:
+            detail = (" (after %d ms, attempt %d of %d; not a cancel, so not retried)"
+                      % (last["elapsed_ms"], last["n"], len(attempts)))
+        # The `header pass failed: ` prefix is kept EXACTLY as `da7c1ee` wrote it: the
+        # gate matches it as a substring to see that the product declared a header
+        # problem, and the detail is appended after it rather than woven into it.
+        reasons.append("header pass failed: %s%s" % (last["error"], detail))
+        doc_flags.append("header extraction failed: %s" % last["error"])
+        return None, record
 
     def _extract_parts_text_layer(self, manifest: Optional[dict], s3_client,
                                   bucket: Optional[str]) -> Tuple[List[dict], dict]:
@@ -1428,20 +1599,14 @@ class SustainmentPlugin(AugmentationPlugin):
             needs_review = True
 
         # ---- Pass 1: header (text-only, gpt-oss) ----
-        header = None
-        try:
-            header = self._extract_header(full_text)
-        except PromptUnavailableError:
-            # A missing prompt file is a CONFIGURATION defect, not a per-document
-            # extraction failure — it affects every document identically and no
-            # retry fixes it. The broad `except Exception` below exists to degrade
-            # a genuine per-document failure (a vision timeout, a bad response); it
-            # must not also absorb this, or a deployment error silently looks like
-            # a normal 0-parts run. See doc_tools/plugins/base.py::PromptUnavailableError.
-            raise
-        except Exception as e:  # noqa: BLE001
-            reasons.append(f"header pass failed: {e}")
-            doc_flags.append(f"header extraction failed: {e}")
+        # One CANCELLED attempt is retried; see
+        # `_extract_header_once_more_if_cancelled`. `stats["header_pass"]` carries the
+        # elapsed, the bound and the cancel origin — the first header timing anything
+        # persists, and the measurement that decides whether a cancel was our own
+        # ceiling or something external.
+        header, stats["header_pass"] = self._extract_header_once_more_if_cancelled(
+            full_text, reasons, doc_flags)
+        if header is None:
             needs_review = True
         header_d = header_to_dict(header) if header is not None else empty_header(doc_id)
         # The architect's clause of 2026-10-17: the notice id comes from
