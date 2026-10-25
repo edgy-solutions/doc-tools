@@ -1,0 +1,166 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 6 /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 229 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(TORQUE PROCEDURE TP-204) Tj
+T* (Acme Manufacturing - Controlled Document) Tj
+T* (Document Number: TP-204) Tj
+T* (Revision: B) Tj
+T* (CAGE Code: 1ABC3) Tj
+ET
+BT
+/F1 9 Tf
+280 40 Td
+(Page 1 of 6) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 183 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(1 PURPOSE) Tj
+T* (This procedure defines the bolt torque sequence for the) Tj
+T* (main flange assembly.) Tj
+ET
+BT
+/F1 9 Tf
+280 40 Td
+(Page 2 of 6) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 279 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(2 SAFETY PRECAUTIONS) Tj
+T* (WARNING) Tj
+T* (The line must be depressurised before any fastener is loosened.) Tj
+T* (2.1 Lockout and tagout) Tj
+T* (Isolate the supply valve and apply a personal lock.) Tj
+ET
+BT
+/F1 9 Tf
+280 40 Td
+(Page 3 of 6) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
+endobj
+11 0 obj
+<< /Length 217 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(2.2 Residual pressure check) Tj
+T* (Open the bleed port and confirm zero reading on the gauge.) Tj
+T* (CAUTION:) Tj
+T* (Fluid may be hot.) Tj
+ET
+BT
+/F1 9 Tf
+280 40 Td
+(Page 4 of 6) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 13 0 R >>
+endobj
+13 0 obj
+<< /Length 252 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(3 TORQUE SEQUENCE) Tj
+T* (Tighten the fasteners in a star pattern in three stages.) Tj
+T* (3.1 Stage one - 30 Nm) Tj
+T* (Apply 30 Nm to each fastener in the sequence shown.) Tj
+ET
+BT
+/F1 9 Tf
+280 40 Td
+(Page 5 of 6) Tj
+ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 15 0 R >>
+endobj
+15 0 obj
+<< /Length 217 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(3.2 Stage two - 60 Nm) Tj
+T* (Apply 60 Nm in the same order.) Tj
+T* (APPENDIX A) Tj
+T* (Calibration records are retained for seven years.) Tj
+ET
+BT
+/F1 9 Tf
+280 40 Td
+(Page 6 of 6) Tj
+ET
+endstream
+endobj
+xref
+0 16
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000148 00000 n 
+0000000218 00000 n 
+0000000344 00000 n 
+0000000623 00000 n 
+0000000749 00000 n 
+0000000982 00000 n 
+0000001108 00000 n 
+0000001437 00000 n 
+0000001565 00000 n 
+0000001833 00000 n 
+0000001961 00000 n 
+0000002264 00000 n 
+0000002392 00000 n 
+trailer
+<< /Size 16 /Root 1 0 R /ID [<00112233445566778899aabbccddeeff> <00112233445566778899aabbccddeeff>] >>
+startxref
+2660
+%%EOF

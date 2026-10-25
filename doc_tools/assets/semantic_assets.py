@@ -73,6 +73,12 @@ def _ensure_weaviate_collection(client, name: str) -> None:
                 wvc.config.Property(name="doc_id", data_type=wvc.config.DataType.TEXT),
                 wvc.config.Property(name="chunk_id", data_type=wvc.config.DataType.TEXT),
                 wvc.config.Property(name="domain", data_type=wvc.config.DataType.TEXT),
+                # The citation properties (architect order 2026-10-25). `page`
+                # is INT so a retrieval can filter and sort on it; a page
+                # number stored as text sorts 10 before 2.
+                wvc.config.Property(name="page", data_type=wvc.config.DataType.INT),
+                wvc.config.Property(name="heading", data_type=wvc.config.DataType.TEXT),
+                wvc.config.Property(name="section_id", data_type=wvc.config.DataType.TEXT),
             ],
         )
         # FOLD, NOT HAND-RUN — inside the `if`, in the same act that creates the
@@ -82,6 +88,80 @@ def _ensure_weaviate_collection(client, name: str) -> None:
         from doc_tools.utils.collection_marker import write_collection_marker
 
         write_collection_marker(client, name)
+        return
+
+    # ------------------------------------------------------------------
+    # THE COLLECTION ALREADY EXISTS -- ADD THE MISSING PROPERTIES.
+    #
+    # Without this branch the whole function was a no-op on every deployed
+    # cluster: `DocumentChunk` exists in sandbox today, so the three citation
+    # properties added above would only ever appear on a cluster built from
+    # scratch, and the live one would keep the original four. That is the
+    # shape of defect this repo has met before -- a schema change that is
+    # correct in the tree and absent in the pod.
+    #
+    # Weaviate's auto-schema would add an unknown property on first write, but
+    # it infers the TYPE from the value, so `page` would become whatever the
+    # first object happened to carry. Declaring it is the point.
+    #
+    # Best-effort and never raising, for the same reason the create path is
+    # wrapped by its caller: a schema touch must not take down an ingest.
+    # ------------------------------------------------------------------
+    wanted = {
+        "page": wvc.config.DataType.INT,
+        "heading": wvc.config.DataType.TEXT,
+        "section_id": wvc.config.DataType.TEXT,
+    }
+    try:
+        collection = client.collections.get(name)
+        have = {prop.name for prop in collection.config.get().properties}
+        for prop_name, data_type in wanted.items():
+            if prop_name in have:
+                continue
+            collection.config.add_property(
+                wvc.config.Property(name=prop_name, data_type=data_type))
+    except Exception:
+        # Swallowed deliberately and NOT logged here: this helper has no
+        # context object. The caller wraps the call and logs the failure, and
+        # a missing property degrades to auto-schema rather than to no chunk.
+        pass
+
+
+def _page_property(page_num) -> object:
+    """``page_num`` as an int for the Weaviate INT property, or None.
+
+    The page key comes from the parse's element metadata and is an int on every
+    path measured, but a string "3" would be REJECTED by an INT property and
+    take the whole chunk write with it -- so a value that is not a clean
+    integer becomes None (the property absent) rather than an exception.
+    """
+    if isinstance(page_num, bool):
+        return None
+    if isinstance(page_num, int):
+        return page_num
+    if isinstance(page_num, str) and page_num.strip().isdigit():
+        return int(page_num.strip())
+    return None
+
+
+def _chunk_citation(node) -> dict:
+    """``{"heading": ..., "section_id": ...}`` if the plugin attributed a section.
+
+    Duck-typed on purpose: only ``DocumentPlugin`` returns a
+    ``DocumentAugmentation`` today, and the alternative -- importing it here and
+    isinstance-checking -- would make this shared loop depend on one domain's
+    plugin. A plugin that attributes nothing returns ``{}`` and the properties
+    stay absent.
+    """
+    aug = getattr(node, "domain_augmentation", None)
+    section = getattr(aug, "section", None)
+    if section is None:
+        return {}
+    heading = getattr(section, "heading", "")
+    section_id = getattr(section, "section_id", "")
+    if not section_id:
+        return {}
+    return {"heading": heading, "section_id": section_id}
 
 
 class MissingVectorError(RuntimeError):
@@ -629,6 +709,31 @@ def _build_knowledge_graph_impl(
     domain_label = domain_type.upper().replace(" ", "_").replace("-", "_")
 
     # ----------------------------------------------------------------------
+    # THE DOCUMENT DOMAIN NAMES ITS OWN NODES (architect order 2026-10-25,
+    # "our own documents": the graph shape is Document -> Section -> Chunk).
+    #
+    # A REASSIGNMENT, in the manner of the leaf-grant branch above, rather
+    # than a new config: `config` is bound to the component that launched the
+    # run, and a `document` drop arrives through the PDF seam, so it inherits
+    # the pdf component's labels -- `WorkInstruction` and `Page`. Writing a
+    # procedure manual as a `:WorkInstruction` node would put it in the same
+    # label as the manufacturing domain's extracted work instructions and make
+    # "which of these is a work instruction" unanswerable by label.
+    #
+    # Deliberately keyed on the DOMAIN and not on the kind: anything that
+    # resolves to the document domain gets this shape, which is what makes the
+    # shape a property of the domain rather than of one row.
+    if domain_type == "document":
+        node_label = "Document"
+        child_label = "Chunk"
+        context.log.info(
+            f"DOCUMENT domain: graph labels reassigned to "
+            f"'{node_label}'/'{child_label}' (config supplied "
+            f"'{config.graph_node_label}'/'{config.graph_child_label}'); the "
+            f"Section tier is written by DocumentPlugin.to_graph_queries."
+        )
+
+    # ----------------------------------------------------------------------
     # ADR-0041 — a manifest carrying "provenance" means this content is NOT
     # vetted (e.g. it arrived via the ingress-user sensor). It is stamped on
     # the way in for EVERY domain; the stamp rides the parent-document MERGE
@@ -763,6 +868,15 @@ def _build_knowledge_graph_impl(
             plugin = TrainingPlugin(domain_type)
     elif domain_type == "sustainment":
         plugin = SustainmentPlugin(domain_type)
+    elif domain_type == "document":
+        # EXPLICIT, because the `else` below is not a default -- it is the
+        # TRAINING plugin. An unbranched new domain does not get a generic
+        # plugin, it gets course-concept extraction run over a procedure, and
+        # it looks like it worked. Added with the `document` kind (architect
+        # order 2026-10-25) and noted in the KIND_MAPPING row for the next
+        # domain that lands.
+        from doc_tools.plugins.document import DocumentPlugin
+        plugin = DocumentPlugin(domain_type)
     else:
         plugin = TrainingPlugin(domain_type)
         
@@ -835,10 +949,18 @@ def _build_knowledge_graph_impl(
         section = BaseSection(title=f"Page {page_num}", level=1, page_start=page_num, content=chunk_text, node_id=chunk_id)
         
         # 2. Augment via Domain Plugin
+        #
+        # `citation` is rebound EVERY iteration before the augment, not left to
+        # carry over: `node` is assigned inside the try, so on a page whose
+        # augmentation raised, anything read from the previous iteration's node
+        # would be attributed to THIS page. An off-by-one page citation is
+        # exactly the defect this pass exists to prevent.
+        citation = {}
         if chunk_text.strip():
             try:
                 node = plugin.augment(section, config)
                 document_nodes.append(node)
+                citation = _chunk_citation(node)
             except Exception as e:
                 context.log.error(f"Plugin augmentation failed for chunk {chunk_id}: {e}")
 
@@ -867,8 +989,16 @@ def _build_knowledge_graph_impl(
         if not chunk_text.strip():
             continue  # text-less slide: node written above, no Weaviate object
         try:
+            # `page` closes the gap the 2026-10-25 order names: the page
+            # number was already in Neo4j (`child.number`) and in the chunk_id
+            # SUFFIX, and nowhere in the Weaviate object -- so a retrieved
+            # chunk could not say which page it came from without parsing its
+            # own id. `heading`/`section_id` arrive from the plugin and are
+            # empty for every domain that does not attribute sections, which
+            # is a true empty rather than a missing property.
             verdict = _index_chunk(weaviate_client, collection_name, {
                 "text": chunk_text, "doc_id": doc_id, "chunk_id": chunk_id, "domain": domain_label,
+                "page": _page_property(page_num), **citation,
             }, require_vector=(domain_label == "TRAINING"))
             chunk_index_tally[verdict] += 1
         except Exception as e:
