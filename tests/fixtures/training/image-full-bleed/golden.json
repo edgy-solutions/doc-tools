@@ -200,9 +200,187 @@
     "nondeterministic": {
       "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
       "sections": {
-        "labels": [],
-        "section_slide_edges": [],
-        "nodes": []
+        "labels": [
+          "Section",
+          "TRAINING"
+        ],
+        "section_slide_edges": [
+          "HAS_CHILD"
+        ],
+        "nodes": [
+          {
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "title": "Hangar Safety Tour",
+            "level": 1,
+            "start_page": 1,
+            "end_page": 0,
+            "concept_summary": [
+              "Assembly Points",
+              "Hangar Safety",
+              "Full-bleed pictures",
+              "North Apron",
+              "South Apron"
+            ],
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+            "slides": [
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2",
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Assembly Points",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Hangar Safety",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Full-bleed pictures",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "North Apron",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "South Apron",
+                "score": 0.7,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
+            "title": "Full-bleed pictures",
+            "level": 2,
+            "start_page": 2,
+            "end_page": 0,
+            "concept_summary": [
+              "Assembly Points",
+              "North Apron",
+              "South Apron"
+            ],
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "slides": [
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2",
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Assembly Points",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "North Apron",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "South Apron",
+                "score": 0.7,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
+            "title": "Emergency Exits",
+            "level": 2,
+            "start_page": 3,
+            "end_page": 0,
+            "concept_summary": [
+              "Assembly Points",
+              "North Apron",
+              "South Apron"
+            ],
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "slides": [
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Assembly Points",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "North Apron",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "South Apron",
+                "score": 0.7,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "title": "Assembly Points",
+            "level": 2,
+            "start_page": 4,
+            "end_page": 0,
+            "concept_summary": [
+              "Assembly Points",
+              "North Apron",
+              "South Apron"
+            ],
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "slides": [
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Assembly Points",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "North Apron",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "South Apron",
+                "score": 0.7,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2_s0",
+            "title": "North apron",
+            "level": 3,
+            "start_page": 5,
+            "end_page": 0,
+            "concept_summary": [],
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "slides": [],
+            "covers": []
+          },
+          {
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2_s1",
+            "title": "South apron",
+            "level": 3,
+            "start_page": 6,
+            "end_page": 0,
+            "concept_summary": [],
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "slides": [],
+            "covers": []
+          }
+        ]
       },
       "concepts": {
         "labels": [
@@ -213,27 +391,27 @@
           {
             "name": "Assembly Points",
             "id": "concept_Assembly_Points",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Full-bleed pictures",
             "id": "concept_Full-bleed_pictures",
-            "salience": 0.3
+            "domain": "TRAINING"
           },
           {
-            "name": "Hangar Safety Tour",
-            "id": "concept_Hangar_Safety_Tour",
-            "salience": 1.0
+            "name": "Hangar Safety",
+            "id": "concept_Hangar_Safety",
+            "domain": "TRAINING"
           },
           {
             "name": "North Apron",
             "id": "concept_North_Apron",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "South Apron",
             "id": "concept_South_Apron",
-            "salience": 0.7
+            "domain": "TRAINING"
           }
         ]
       },
@@ -241,59 +419,210 @@
         {
           "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
           "concept": "Full-bleed pictures",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
-          "concept": "Hangar Safety Tour",
-          "salience": null
+          "concept": "Hangar Safety",
+          "salience": 1.0
         },
         {
           "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
           "concept": "Assembly Points",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
           "concept": "North Apron",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
           "concept": "South Apron",
-          "salience": null
+          "salience": 0.7
         }
       ],
-      "salience_location": "concept_node",
+      "salience_location": "edge",
       "edges": {
-        "HAS_SECTION": [],
-        "section_slide": [],
-        "COVERS": [],
+        "HAS_SECTION": [
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2_s0"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2_s1"
+          }
+        ],
+        "section_slide": [
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+          }
+        ],
+        "COVERS": [
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "Assembly Points",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "Hangar Safety",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "Full-bleed pictures",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "North Apron",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "South Apron",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
+            "to": "Assembly Points",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
+            "to": "North Apron",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
+            "to": "South Apron",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
+            "to": "Assembly Points",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
+            "to": "North Apron",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
+            "to": "South Apron",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "to": "Assembly Points",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "to": "North Apron",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "to": "South Apron",
+            "score": 0.7,
+            "frequency": 1
+          }
+        ],
         "TEACHES": [
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
             "to": "Full-bleed pictures",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
-            "to": "Hangar Safety Tour",
-            "salience": null
+            "to": "Hangar Safety",
+            "salience": 1.0
           },
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
             "to": "Assembly Points",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
             "to": "North Apron",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
             "to": "South Apron",
-            "salience": null
+            "salience": 0.7
           }
         ]
       }
@@ -317,19 +646,28 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T05:06:45.582793+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T03:02:36.947689+00:00"
     },
-    "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/current.json",
       "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_0.png",
       "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_3_img_1.png",
       "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_2_img_0.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_3_img_1.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -340,44 +678,44 @@
       {
         "uuid": "03f9d0ac-44a3-5fe1-99bf-065270587bd1",
         "properties": {
-          "section": null,
-          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_fig_slide_2_img_0",
+          "domain": "TRAINING",
           "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
-          "text": "Figure slide 2 img 0:\n\n![slide 2 img 0](s3://processing-artifacts/training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_0.png)",
-          "domain": "TRAINING"
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_fig_slide_2_img_0",
+          "section": null,
+          "text": "Figure slide 2 img 0:\n\n![slide 2 img 0](s3://processing-artifacts/training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_2_img_0.png)"
         },
         "vector_length": 768
       },
       {
         "uuid": "82a743b6-71b2-59b8-a348-a0e042ebef54",
         "properties": {
-          "text": "Figure slide 3 img 1:\n\n![slide 3 img 1](s3://processing-artifacts/training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_3_img_1.png)",
           "domain": "TRAINING",
           "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_fig_slide_3_img_1",
           "section": null,
-          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_fig_slide_3_img_1"
+          "text": "Figure slide 3 img 1:\n\n![slide 3 img 1](s3://processing-artifacts/training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_3_img_1.png)"
         },
         "vector_length": 768
       },
       {
         "uuid": "3b4e7bf6-1339-5d30-8d88-a467282797d6",
         "properties": {
-          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
-          "text": "[Title] Hangar Safety Tour\n[Title] Full-bleed pictures",
-          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
           "domain": "TRAINING",
-          "section": null
+          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
+          "section": null,
+          "text": "[Title] Hangar Safety Tour\n[Title] Full-bleed pictures"
         },
         "vector_length": 768
       },
       {
         "uuid": "fa49752f-2069-54b3-8ace-e9f503804c0c",
         "properties": {
-          "text": "[Title] Emergency Exits",
           "domain": "TRAINING",
           "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
           "section": null,
-          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3"
+          "text": "[Title] Emergency Exits"
         },
         "vector_length": 768
       },
@@ -385,10 +723,10 @@
         "uuid": "0b14388d-463e-5e71-8eff-44c0bc10a8c8",
         "properties": {
           "domain": "TRAINING",
-          "section": null,
           "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
-          "text": "[Title] Assembly Points\n[Title] North apron\n[Title] South apron",
-          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
+          "section": null,
+          "text": "[Title] Assembly Points\n[Title] North apron\n[Title] South apron"
         },
         "vector_length": 768
       }
@@ -423,20 +761,18 @@
       "partition_key": "training__course__image-full-bleed__image-full-bleed.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T05:06:40.991698+00:00",
-      "end_utc": "2026-10-24T05:09:58.585194+00:00",
-      "wall_seconds": 197.59
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T03:02:23.002853+00:00",
+      "end_utc": "2026-10-25T03:03:55.607795+00:00",
+      "wall_seconds": 92.6
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],

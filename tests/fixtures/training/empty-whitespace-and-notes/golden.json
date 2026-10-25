@@ -224,251 +224,9 @@
     "nondeterministic": {
       "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
       "sections": {
-        "labels": [
-          "Section",
-          "TRAINING"
-        ],
-        "section_slide_edges": [
-          "HAS_CHILD"
-        ],
-        "nodes": [
-          {
-            "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "title": "Instrument Calibration",
-            "level": 1,
-            "start_page": 1,
-            "end_page": 0,
-            "concept_summary": [
-              "Drift trend chart",
-              "Calibration chain",
-              "Overload",
-              "Calibration",
-              "Drop (performance drop)",
-              "Instrument Calibration",
-              "Working standard",
-              "Calibration Intervals",
-              "National standard",
-              "Shortened calibration after a drop or overload"
-            ],
-            "parent": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-            "slides": [
-              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1",
-              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2",
-              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
-              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4"
-            ],
-            "covers": [
-              {
-                "concept": "Annual calibration (default interval)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Calibration",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Calibration Intervals",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Calibration chain",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drift trend chart",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drop (performance drop)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Instrument Calibration",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "National standard",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Overload",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Shortened calibration after a drop or overload",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Working standard",
-                "score": null,
-                "frequency": 1
-              }
-            ]
-          },
-          {
-            "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "title": "Reference Standards",
-            "level": 1,
-            "start_page": 2,
-            "end_page": 0,
-            "concept_summary": [
-              "Calibration chain",
-              "National standard",
-              "Drop (performance drop)",
-              "Shortened calibration after a drop or overload",
-              "Drift trend chart",
-              "Annual calibration (default interval)",
-              "Overload",
-              "Working standard",
-              "Calibration",
-              "Calibration Intervals"
-            ],
-            "parent": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-            "slides": [
-              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2",
-              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
-              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4"
-            ],
-            "covers": [
-              {
-                "concept": "Annual calibration (default interval)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Calibration",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Calibration Intervals",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Calibration chain",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drift trend chart",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drop (performance drop)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "National standard",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Overload",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Shortened calibration after a drop or overload",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Working standard",
-                "score": null,
-                "frequency": 1
-              }
-            ]
-          },
-          {
-            "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "title": "Calibration Intervals",
-            "level": 1,
-            "start_page": 3,
-            "end_page": 0,
-            "concept_summary": [
-              "Calibration Intervals",
-              "Working standard",
-              "National standard",
-              "Shortened calibration after a drop or overload",
-              "Calibration",
-              "Overload",
-              "Drop (performance drop)",
-              "Annual calibration (default interval)",
-              "Drift trend chart",
-              "Calibration chain"
-            ],
-            "parent": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-            "slides": [
-              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
-              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4"
-            ],
-            "covers": [
-              {
-                "concept": "Annual calibration (default interval)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Calibration",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Calibration Intervals",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Calibration chain",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drift trend chart",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drop (performance drop)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "National standard",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Overload",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Shortened calibration after a drop or overload",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Working standard",
-                "score": null,
-                "frequency": 1
-              }
-            ]
-          }
-        ]
+        "labels": [],
+        "section_slide_edges": [],
+        "nodes": []
       },
       "concepts": {
         "labels": [
@@ -477,416 +235,134 @@
         ],
         "nodes": [
           {
-            "name": "Annual calibration (default interval)",
-            "id": "concept_Annual_calibration_(default_interval)",
-            "salience": 0.7
-          },
-          {
             "name": "Calibration",
             "id": "concept_Calibration",
-            "salience": 0.5
+            "domain": "TRAINING"
           },
           {
             "name": "Calibration Intervals",
             "id": "concept_Calibration_Intervals",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Calibration chain",
             "id": "concept_Calibration_chain",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
-            "name": "Drift trend chart",
-            "id": "concept_Drift_trend_chart",
-            "salience": 0.5
+            "name": "Default Annual Interval",
+            "id": "concept_Default_Annual_Interval",
+            "domain": "TRAINING"
           },
           {
-            "name": "Drop (performance drop)",
-            "id": "concept_Drop_(performance_drop)",
-            "salience": 0.3
-          },
-          {
-            "name": "Instrument Calibration",
-            "id": "concept_Instrument_Calibration",
-            "salience": 1.0
+            "name": "Drift Trend Chart",
+            "id": "concept_Drift_Trend_Chart",
+            "domain": "TRAINING"
           },
           {
             "name": "National standard",
             "id": "concept_National_standard",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Overload",
-            "id": "concept_Overload",
-            "salience": 0.3
-          },
-          {
-            "name": "Shortened calibration after a drop or overload",
-            "id": "concept_Shortened_calibration_after_a_drop_or_overload",
-            "salience": 0.7
+            "name": "Shortened Interval after Drop or Overload",
+            "id": "concept_Shortened_Interval_after_Drop_or_Overload",
+            "domain": "TRAINING"
           },
           {
             "name": "Working standard",
             "id": "concept_Working_standard",
-            "salience": 0.7
+            "domain": "TRAINING"
           }
         ]
       },
       "teaches": [
         {
-          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1",
-          "concept": "Instrument Calibration",
-          "salience": null
-        },
-        {
           "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
           "concept": "Calibration",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
           "concept": "Calibration chain",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
           "concept": "National standard",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
           "concept": "Working standard",
-          "salience": null
-        },
-        {
-          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-          "concept": "Annual calibration (default interval)",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
           "concept": "Calibration Intervals",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-          "concept": "Drift trend chart",
-          "salience": null
+          "concept": "Default Annual Interval",
+          "salience": 0.7
         },
         {
           "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-          "concept": "Drop (performance drop)",
-          "salience": null
+          "concept": "Drift Trend Chart",
+          "salience": 0.5
         },
         {
           "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-          "concept": "Overload",
-          "salience": null
-        },
-        {
-          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-          "concept": "Shortened calibration after a drop or overload",
-          "salience": null
+          "concept": "Shortened Interval after Drop or Overload",
+          "salience": 0.7
         }
       ],
-      "salience_location": "concept_node",
+      "salience_location": "edge",
       "edges": {
-        "HAS_SECTION": [
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2"
-          }
-        ],
-        "section_slide": [
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3"
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4"
-          }
-        ],
-        "COVERS": [
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Annual calibration (default interval)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Calibration",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Calibration Intervals",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Calibration chain",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Drift trend chart",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Drop (performance drop)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Instrument Calibration",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "National standard",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Overload",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Shortened calibration after a drop or overload",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
-            "to": "Working standard",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "Annual calibration (default interval)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "Calibration",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "Calibration Intervals",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "Calibration chain",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "Drift trend chart",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "Drop (performance drop)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "National standard",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "Overload",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "Shortened calibration after a drop or overload",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
-            "to": "Working standard",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "Annual calibration (default interval)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "Calibration",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "Calibration Intervals",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "Calibration chain",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "Drift trend chart",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "Drop (performance drop)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "National standard",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "Overload",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "Shortened calibration after a drop or overload",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
-            "to": "Working standard",
-            "score": null,
-            "frequency": 1
-          }
-        ],
+        "HAS_SECTION": [],
+        "section_slide": [],
+        "COVERS": [],
         "TEACHES": [
           {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1",
-            "to": "Instrument Calibration",
-            "salience": null
-          },
-          {
             "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
             "to": "Calibration",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
             "to": "Calibration chain",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
             "to": "National standard",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
             "to": "Working standard",
-            "salience": null
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-            "to": "Annual calibration (default interval)",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
             "to": "Calibration Intervals",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-            "to": "Drift trend chart",
-            "salience": null
+            "to": "Default Annual Interval",
+            "salience": 0.7
           },
           {
             "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-            "to": "Drop (performance drop)",
-            "salience": null
+            "to": "Drift Trend Chart",
+            "salience": 0.5
           },
           {
             "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-            "to": "Overload",
-            "salience": null
-          },
-          {
-            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-            "to": "Shortened calibration after a drop or overload",
-            "salience": null
+            "to": "Shortened Interval after Drop or Overload",
+            "salience": 0.7
           }
         ]
       }
@@ -910,17 +386,24 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T05:02:16.130599+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T03:00:38.593069+00:00"
     },
-    "prefix": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/current.json",
       "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -931,44 +414,44 @@
       {
         "uuid": "4bca6baa-6ed3-57bc-9cd1-845ff4ceb323",
         "properties": {
-          "text": "[Title] Instrument Calibration\n[Title] Whitespace-only text and notes-only text",
           "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-          "section": null,
+          "domain": "TRAINING",
+          "text": "[Title] Instrument Calibration\n[Title] Whitespace-only text and notes-only text",
           "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1",
-          "domain": "TRAINING"
+          "section": null
         },
         "vector_length": 768
       },
       {
         "uuid": "1afa793a-1a5c-5038-ad0a-725f523d8304",
         "properties": {
-          "text": "[Title] Reference Standards",
           "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-          "section": null,
+          "domain": "TRAINING",
+          "text": "[Title] Reference Standards",
           "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2",
-          "domain": "TRAINING"
+          "section": null
         },
         "vector_length": 768
       },
       {
         "uuid": "ac1922e2-34c8-5185-a996-4b6600da16ad",
         "properties": {
-          "text": "[NarrativeText] Speaker note only: explain the calibration chain from the working standard to the national standard.",
           "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-          "section": null,
+          "domain": "TRAINING",
+          "text": "[NarrativeText] Speaker note only: explain the calibration chain from the working standard to the national standard.",
           "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
-          "domain": "TRAINING"
+          "section": null
         },
         "vector_length": 768
       },
       {
         "uuid": "5ac0dd4d-b9a8-5c2e-8fac-daeb4c0494f5",
         "properties": {
-          "text": "[NarrativeText] Mention the drift trend chart.\n[Title] Calibration Intervals\n[Title] Annual by default\n[Title] Shorter after a drop or overload",
           "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
-          "section": null,
+          "domain": "TRAINING",
+          "text": "[NarrativeText] Mention the drift trend chart.\n[Title] Calibration Intervals\n[Title] Annual by default\n[Title] Shorter after a drop or overload",
           "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
-          "domain": "TRAINING"
+          "section": null
         },
         "vector_length": 768
       }
@@ -1003,20 +486,18 @@
       "partition_key": "training__course__empty-whitespace-and-notes__empty-whitespace-and-notes.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T05:02:14.282565+00:00",
-      "end_utc": "2026-10-24T05:06:40.988903+00:00",
-      "wall_seconds": 266.71
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T03:00:25.547194+00:00",
+      "end_utc": "2026-10-25T03:02:04.146123+00:00",
+      "wall_seconds": 98.6
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],

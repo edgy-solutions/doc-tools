@@ -554,143 +554,23 @@
         "nodes": [
           {
             "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "title": "Hazards",
+            "title": "Agenda",
             "level": 1,
-            "start_page": 1,
-            "end_page": 0,
-            "concept_summary": [
-              "Hazard",
-              "Arc‑Rated Clothing",
-              "Electrical Safety",
-              "Shock",
-              "Controls",
-              "Personal Protective Equipment (PPE)",
-              "Cal/cm² Rating",
-              "Layering for Increased Protection",
-              "Hazards",
-              "Arc Flash"
-            ],
-            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
-            "slides": [
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p1",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p3",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p6",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p7",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
-            ],
-            "covers": [
-              {
-                "concept": "Arc Flash",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Arc Flash",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Arc‑Rated Clothing",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Cal/cm² Rating",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Controls",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Current magnitude",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Current path",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Electrical Safety",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Electrical current through the body",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hazard",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hazards",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Layering for Increased Protection",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Personal Protective Equipment (PPE)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Personal Protective Equipment (PPE)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "References",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Shock",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Shock",
-                "score": null,
-                "frequency": 1
-              }
-            ]
-          },
-          {
-            "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "title": "Shock",
-            "level": 2,
             "start_page": 2,
             "end_page": 0,
             "concept_summary": [
+              "References",
+              "Electrical current",
+              "Arc‑Rated Clothing",
+              "PPE",
               "Hazards",
-              "Layering for Increased Protection",
-              "Current magnitude",
-              "Controls",
-              "Electrical current through the body",
-              "Hazard",
-              "Shock",
-              "Arc Flash",
-              "Personal Protective Equipment (PPE)",
-              "References"
+              "Layering for increased protection",
+              "Current path",
+              "Arc flash rating (cal/cm²)",
+              "Shock effects",
+              "Controls"
             ],
-            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
+            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
             "slides": [
               "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10",
               "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
@@ -705,194 +585,167 @@
             ],
             "covers": [
               {
-                "concept": "Arc Flash",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Arc Flash",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Arc‑Rated Clothing",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Cal/cm² Rating",
-                "score": null,
+                "concept": "Electrical current",
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Controls",
-                "score": null,
+                "concept": "References",
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Current magnitude",
-                "score": null,
+                "concept": "PPE",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Arc flash rating (cal/cm²)",
+                "score": 0.7,
                 "frequency": 1
               },
               {
                 "concept": "Current path",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Electrical current through the body",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hazard",
-                "score": null,
+                "score": 0.7,
                 "frequency": 1
               },
               {
                 "concept": "Hazards",
-                "score": null,
+                "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "Layering for Increased Protection",
-                "score": null,
+                "concept": "Layering for increased protection",
+                "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "Personal Protective Equipment (PPE)",
-                "score": null,
+                "concept": "Shock effects",
+                "score": 0.6,
                 "frequency": 1
               },
-              {
-                "concept": "Personal Protective Equipment (PPE)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "References",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Shock",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Shock",
-                "score": null,
-                "frequency": 1
-              }
-            ]
-          },
-          {
-            "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "title": "Arc Flash",
-            "level": 2,
-            "start_page": 3,
-            "end_page": 0,
-            "concept_summary": [
-              "Cal/cm² Rating",
-              "Hazard",
-              "Layering for Increased Protection",
-              "Arc‑Rated Clothing",
-              "Current magnitude",
-              "Current path",
-              "References",
-              "Electrical current through the body",
-              "Arc Flash",
-              "Personal Protective Equipment (PPE)"
-            ],
-            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "slides": [
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p3",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p6",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p7",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8",
-              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
-            ],
-            "covers": [
               {
                 "concept": "Arc Flash",
-                "score": null,
+                "score": 0.5,
                 "frequency": 1
               },
               {
-                "concept": "Arc‑Rated Clothing",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Cal/cm² Rating",
-                "score": null,
+                "concept": "Controls",
+                "score": 0.5,
                 "frequency": 1
               },
               {
                 "concept": "Current magnitude",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Current path",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Electrical current through the body",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hazard",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Layering for Increased Protection",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Personal Protective Equipment (PPE)",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "References",
-                "score": null,
+                "score": 0.5,
                 "frequency": 1
               },
               {
                 "concept": "Shock",
-                "score": null,
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
             "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "title": "Controls",
+            "title": "1 Hazards",
             "level": 1,
+            "start_page": 3,
+            "end_page": 0,
+            "concept_summary": [
+              "Electrical current",
+              "Arc‑Rated Clothing",
+              "PPE",
+              "References",
+              "Current path",
+              "Arc flash rating (cal/cm²)",
+              "Layering for increased protection",
+              "Shock effects",
+              "Current magnitude"
+            ],
+            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+            "slides": [
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p3",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p6",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p7",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
+            ],
+            "covers": [
+              {
+                "concept": "Arc‑Rated Clothing",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Electrical current",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "PPE",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "References",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Arc flash rating (cal/cm²)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Current path",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Layering for increased protection",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Shock effects",
+                "score": 0.6,
+                "frequency": 1
+              },
+              {
+                "concept": "Current magnitude",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
+            "title": "1.1 Shock",
+            "level": 2,
             "start_page": 4,
             "end_page": 0,
             "concept_summary": [
-              "Personal Protective Equipment (PPE)",
-              "Cal/cm² Rating",
-              "Current magnitude",
-              "Electrical current through the body",
-              "Arc Flash",
+              "PPE",
               "Arc‑Rated Clothing",
-              "Layering for Increased Protection",
-              "Current path",
               "References",
-              "Shock"
+              "Electrical current",
+              "Layering for increased protection",
+              "Current path",
+              "Arc flash rating (cal/cm²)",
+              "Shock effects",
+              "Current magnitude"
             ],
-            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
             "slides": [
               "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10",
               "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
@@ -905,73 +758,68 @@
             ],
             "covers": [
               {
-                "concept": "Arc Flash",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Arc‑Rated Clothing",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Cal/cm² Rating",
-                "score": null,
+                "concept": "Electrical current",
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Current magnitude",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Current path",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Electrical current through the body",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Layering for Increased Protection",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Personal Protective Equipment (PPE)",
-                "score": null,
+                "concept": "PPE",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "References",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Shock",
-                "score": null,
+                "concept": "Arc flash rating (cal/cm²)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Current path",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Layering for increased protection",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Shock effects",
+                "score": 0.6,
+                "frequency": 1
+              },
+              {
+                "concept": "Current magnitude",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
-            "title": "PPE",
+            "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "title": "1.2 Arc Flash",
             "level": 2,
             "start_page": 5,
             "end_page": 0,
             "concept_summary": [
-              "Current path",
-              "Current magnitude",
-              "Arc Flash",
-              "Cal/cm² Rating",
+              "PPE",
               "Arc‑Rated Clothing",
-              "Layering for Increased Protection",
               "References",
-              "Electrical current through the body",
-              "Personal Protective Equipment (PPE)"
+              "Electrical current",
+              "Arc flash rating (cal/cm²)",
+              "Layering for increased protection",
+              "Current path",
+              "Shock effects",
+              "Current magnitude"
             ],
             "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
             "slides": [
@@ -985,65 +833,64 @@
             ],
             "covers": [
               {
-                "concept": "Arc Flash",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Arc‑Rated Clothing",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Cal/cm² Rating",
-                "score": null,
+                "concept": "Electrical current",
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Current magnitude",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Current path",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Electrical current through the body",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Layering for Increased Protection",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Personal Protective Equipment (PPE)",
-                "score": null,
+                "concept": "PPE",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "References",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Arc flash rating (cal/cm²)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Current path",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Layering for increased protection",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Shock effects",
+                "score": 0.6,
+                "frequency": 1
+              },
+              {
+                "concept": "Current magnitude",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
             "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
-            "title": "Appendix",
+            "title": "2 Controls",
             "level": 1,
             "start_page": 6,
             "end_page": 0,
             "concept_summary": [
-              "Layering for Increased Protection",
-              "Arc Flash",
-              "Personal Protective Equipment (PPE)",
-              "Cal/cm² Rating",
+              "PPE",
+              "Arc‑Rated Clothing",
               "References",
-              "Arc‑Rated Clothing"
+              "Arc flash rating (cal/cm²)",
+              "Layering for increased protection"
             ],
             "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
             "slides": [
@@ -1056,51 +903,46 @@
             ],
             "covers": [
               {
-                "concept": "Arc Flash",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Arc‑Rated Clothing",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Cal/cm² Rating",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Layering for Increased Protection",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Personal Protective Equipment (PPE)",
-                "score": null,
+                "concept": "PPE",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "References",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Arc flash rating (cal/cm²)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Layering for increased protection",
+                "score": 0.7,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
-            "title": "References",
-            "level": 1,
+            "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "title": "2.1 PPE",
+            "level": 2,
             "start_page": 7,
             "end_page": 0,
             "concept_summary": [
-              "Cal/cm² Rating",
-              "Personal Protective Equipment (PPE)",
+              "PPE",
+              "References",
               "Arc‑Rated Clothing",
-              "Layering for Increased Protection",
-              "References"
+              "Arc flash rating (cal/cm²)",
+              "Layering for increased protection"
             ],
-            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
             "slides": [
               "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10",
               "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
@@ -1111,27 +953,116 @@
             "covers": [
               {
                 "concept": "Arc‑Rated Clothing",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Cal/cm² Rating",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Layering for Increased Protection",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Personal Protective Equipment (PPE)",
-                "score": null,
+                "concept": "PPE",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "References",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Arc flash rating (cal/cm²)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Layering for increased protection",
+                "score": 0.7,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
+            "title": "3 Appendix",
+            "level": 1,
+            "start_page": 8,
+            "end_page": 0,
+            "concept_summary": [
+              "PPE",
+              "Arc‑Rated Clothing",
+              "References",
+              "Layering for increased protection",
+              "Arc flash rating (cal/cm²)"
+            ],
+            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+            "slides": [
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
+            ],
+            "covers": [
+              {
+                "concept": "Arc‑Rated Clothing",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "PPE",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "References",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Arc flash rating (cal/cm²)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Layering for increased protection",
+                "score": 0.7,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s4",
+            "title": "4 References",
+            "level": 1,
+            "start_page": 9,
+            "end_page": 0,
+            "concept_summary": [
+              "References",
+              "Arc‑Rated Clothing",
+              "Layering for increased protection",
+              "Arc flash rating (cal/cm²)"
+            ],
+            "parent": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+            "slides": [
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
+              "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
+            ],
+            "covers": [
+              {
+                "concept": "Arc‑Rated Clothing",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "References",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Arc flash rating (cal/cm²)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Layering for increased protection",
+                "score": 0.7,
                 "frequency": 1
               }
             ]
@@ -1147,178 +1078,153 @@
           {
             "name": "Arc Flash",
             "id": "concept_Arc_Flash",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Arc Flash",
-            "id": "concept_Arc_Flash",
-            "salience": 1.0
+            "name": "Arc flash rating (cal/cm²)",
+            "id": "concept_Arc_flash_rating_(cal/cm²)",
+            "domain": "TRAINING"
           },
           {
             "name": "Arc‑Rated Clothing",
             "id": "concept_Arc‑Rated_Clothing",
-            "salience": 1.0
-          },
-          {
-            "name": "Cal/cm² Rating",
-            "id": "concept_Cal/cm²_Rating",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Controls",
             "id": "concept_Controls",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Current magnitude",
             "id": "concept_Current_magnitude",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Current path",
             "id": "concept_Current_path",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Electrical Safety",
-            "id": "concept_Electrical_Safety",
-            "salience": 1.0
+            "name": "Electrical Safety Programme",
+            "id": "concept_Electrical_Safety_Programme",
+            "domain": "TRAINING"
           },
           {
-            "name": "Electrical current through the body",
-            "id": "concept_Electrical_current_through_the_body",
-            "salience": 1.0
-          },
-          {
-            "name": "Hazard",
-            "id": "concept_Hazard",
-            "salience": 1.0
+            "name": "Electrical current",
+            "id": "concept_Electrical_current",
+            "domain": "TRAINING"
           },
           {
             "name": "Hazards",
             "id": "concept_Hazards",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
-            "name": "Layering for Increased Protection",
-            "id": "concept_Layering_for_Increased_Protection",
-            "salience": 0.5
+            "name": "Layering for increased protection",
+            "id": "concept_Layering_for_increased_protection",
+            "domain": "TRAINING"
           },
           {
-            "name": "Personal Protective Equipment (PPE)",
-            "id": "concept_Personal_Protective_Equipment_(PPE)",
-            "salience": 0.5
-          },
-          {
-            "name": "Personal Protective Equipment (PPE)",
-            "id": "concept_Personal_Protective_Equipment_(PPE)",
-            "salience": 1.0
+            "name": "PPE",
+            "id": "concept_PPE",
+            "domain": "TRAINING"
           },
           {
             "name": "References",
             "id": "concept_References",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Shock",
             "id": "concept_Shock",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Shock",
-            "id": "concept_Shock",
-            "salience": 1.0
+            "name": "Shock effects",
+            "id": "concept_Shock_effects",
+            "domain": "TRAINING"
           }
         ]
       },
       "teaches": [
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p1",
-          "concept": "Electrical Safety",
-          "salience": null
+          "concept": "Electrical Safety Programme",
+          "salience": 1.0
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
           "concept": "References",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
           "concept": "Arc Flash",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
           "concept": "Controls",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
           "concept": "Hazards",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
-          "concept": "Personal Protective Equipment (PPE)",
-          "salience": null
+          "concept": "PPE",
+          "salience": 0.5
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
           "concept": "Shock",
-          "salience": null
-        },
-        {
-          "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p3",
-          "concept": "Hazard",
-          "salience": null
-        },
-        {
-          "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4",
-          "concept": "Shock",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
           "concept": "Current magnitude",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
           "concept": "Current path",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
-          "concept": "Electrical current through the body",
-          "salience": null
+          "concept": "Electrical current",
+          "salience": 1.0
         },
         {
-          "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p6",
-          "concept": "Arc Flash",
-          "salience": null
+          "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
+          "concept": "Shock effects",
+          "salience": 0.6
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8",
-          "concept": "Personal Protective Equipment (PPE)",
-          "salience": null
+          "concept": "PPE",
+          "salience": 1.0
+        },
+        {
+          "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9",
+          "concept": "Arc flash rating (cal/cm²)",
+          "salience": 0.7
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9",
           "concept": "Arc‑Rated Clothing",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9",
-          "concept": "Cal/cm² Rating",
-          "salience": null
-        },
-        {
-          "slide": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9",
-          "concept": "Layering for Increased Protection",
-          "salience": null
+          "concept": "Layering for increased protection",
+          "salience": 0.7
         }
       ],
-      "salience_location": "concept_node",
+      "salience_location": "edge",
       "edges": {
         "HAS_SECTION": [
           {
@@ -1338,25 +1244,25 @@
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3"
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1"
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s4"
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0"
           }
         ],
         "section_slide": [
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p1"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10"
           },
           {
@@ -1396,90 +1302,18 @@
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10"
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11"
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p3"
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p6"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p7"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p3"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p6"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p7"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11"
-          },
-          {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4"
           },
@@ -1513,6 +1347,10 @@
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5"
           },
           {
@@ -1532,6 +1370,34 @@
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
           },
           {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p6"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p7"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
+          },
+          {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10"
           },
@@ -1556,6 +1422,26 @@
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
           },
           {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p7"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
+          },
+          {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10"
           },
@@ -1565,548 +1451,456 @@
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
-            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p7"
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8"
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s4",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s4",
+            "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11"
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s4",
             "to": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9"
           }
         ],
         "COVERS": [
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Arc Flash",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Arc Flash",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
             "to": "Arc‑Rated Clothing",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Cal/cm² Rating",
-            "score": null,
+            "to": "Electrical current",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Controls",
-            "score": null,
+            "to": "References",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Current magnitude",
-            "score": null,
+            "to": "PPE",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
+            "to": "Arc flash rating (cal/cm²)",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
             "to": "Current path",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Electrical Safety",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Electrical current through the body",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Hazard",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
             "to": "Hazards",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Layering for Increased Protection",
-            "score": null,
+            "to": "Layering for increased protection",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Personal Protective Equipment (PPE)",
-            "score": null,
+            "to": "Shock effects",
+            "score": 0.6,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Personal Protective Equipment (PPE)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "References",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Shock",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
-            "to": "Shock",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
             "to": "Arc Flash",
-            "score": null,
+            "score": 0.5,
             "frequency": 1
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Arc Flash",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Arc‑Rated Clothing",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Cal/cm² Rating",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
             "to": "Controls",
-            "score": null,
+            "score": 0.5,
             "frequency": 1
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
             "to": "Current magnitude",
-            "score": null,
+            "score": 0.5,
             "frequency": 1
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Current path",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Electrical current through the body",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Hazard",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Hazards",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Layering for Increased Protection",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Personal Protective Equipment (PPE)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Personal Protective Equipment (PPE)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "References",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0",
             "to": "Shock",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s0",
-            "to": "Shock",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Arc Flash",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Arc‑Rated Clothing",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Cal/cm² Rating",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Current magnitude",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Current path",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Electrical current through the body",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Hazard",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Layering for Increased Protection",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Personal Protective Equipment (PPE)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "References",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s0_s1",
-            "to": "Shock",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "Arc Flash",
-            "score": null,
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
             "to": "Arc‑Rated Clothing",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "Cal/cm² Rating",
-            "score": null,
+            "to": "Electrical current",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "Current magnitude",
-            "score": null,
+            "to": "PPE",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
+            "to": "References",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
+            "to": "Arc flash rating (cal/cm²)",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
             "to": "Current path",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "Electrical current through the body",
-            "score": null,
+            "to": "Layering for increased protection",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "Layering for Increased Protection",
-            "score": null,
+            "to": "Shock effects",
+            "score": 0.6,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "Personal Protective Equipment (PPE)",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "References",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1",
-            "to": "Shock",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
-            "to": "Arc Flash",
-            "score": null,
+            "to": "Current magnitude",
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
             "to": "Arc‑Rated Clothing",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
-            "to": "Cal/cm² Rating",
-            "score": null,
+            "to": "Electrical current",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
-            "to": "Current magnitude",
-            "score": null,
+            "to": "PPE",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
+            "to": "References",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
+            "to": "Arc flash rating (cal/cm²)",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
             "to": "Current path",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
-            "to": "Electrical current through the body",
-            "score": null,
+            "to": "Layering for increased protection",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
-            "to": "Layering for Increased Protection",
-            "score": null,
+            "to": "Shock effects",
+            "score": 0.6,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
-            "to": "Personal Protective Equipment (PPE)",
-            "score": null,
+            "to": "Current magnitude",
+            "score": 0.5,
             "frequency": 1
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s0",
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "Arc‑Rated Clothing",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "Electrical current",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "PPE",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
             "to": "References",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
-            "to": "Arc Flash",
-            "score": null,
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "Arc flash rating (cal/cm²)",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "Current path",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "Layering for increased protection",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "Shock effects",
+            "score": 0.6,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s1_s1",
+            "to": "Current magnitude",
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
             "to": "Arc‑Rated Clothing",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
-            "to": "Cal/cm² Rating",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
-            "to": "Layering for Increased Protection",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
-            "to": "Personal Protective Equipment (PPE)",
-            "score": null,
+            "to": "PPE",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
             "to": "References",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
+            "to": "Arc flash rating (cal/cm²)",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2",
+            "to": "Layering for increased protection",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "Arc‑Rated Clothing",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "PPE",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "References",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "Arc flash rating (cal/cm²)",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s2_s0",
+            "to": "Layering for increased protection",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
             "to": "Arc‑Rated Clothing",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
-            "to": "Cal/cm² Rating",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
-            "to": "Layering for Increased Protection",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
-            "to": "Personal Protective Equipment (PPE)",
-            "score": null,
+            "to": "PPE",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
             "to": "References",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
+            "to": "Arc flash rating (cal/cm²)",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s3",
+            "to": "Layering for increased protection",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s4",
+            "to": "Arc‑Rated Clothing",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s4",
+            "to": "References",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s4",
+            "to": "Arc flash rating (cal/cm²)",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_s4",
+            "to": "Layering for increased protection",
+            "score": 0.7,
             "frequency": 1
           }
         ],
         "TEACHES": [
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p1",
-            "to": "Electrical Safety",
-            "salience": null
+            "to": "Electrical Safety Programme",
+            "salience": 1.0
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
             "to": "References",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
             "to": "Arc Flash",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
             "to": "Controls",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
             "to": "Hazards",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
-            "to": "Personal Protective Equipment (PPE)",
-            "salience": null
+            "to": "PPE",
+            "salience": 0.5
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
             "to": "Shock",
-            "salience": null
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p3",
-            "to": "Hazard",
-            "salience": null
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4",
-            "to": "Shock",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
             "to": "Current magnitude",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
             "to": "Current path",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
-            "to": "Electrical current through the body",
-            "salience": null
+            "to": "Electrical current",
+            "salience": 1.0
           },
           {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p6",
-            "to": "Arc Flash",
-            "salience": null
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
+            "to": "Shock effects",
+            "salience": 0.6
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8",
-            "to": "Personal Protective Equipment (PPE)",
-            "salience": null
+            "to": "PPE",
+            "salience": 1.0
+          },
+          {
+            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9",
+            "to": "Arc flash rating (cal/cm²)",
+            "salience": 0.7
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9",
             "to": "Arc‑Rated Clothing",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9",
-            "to": "Cal/cm² Rating",
-            "salience": null
-          },
-          {
-            "from": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9",
-            "to": "Layering for Increased Protection",
-            "salience": null
+            "to": "Layering for increased protection",
+            "salience": 0.7
           }
         ]
       }
@@ -2130,17 +1924,31 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T05:16:37.477489+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T03:08:49.490854+00:00"
     },
-    "prefix": "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/current.json",
       "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_10.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_11.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_5.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_6.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_7.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_8.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_9.png",
+      "training/generated/4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -2151,121 +1959,121 @@
       {
         "uuid": "b5763939-9a6c-5ffb-9a93-957c4cd1b48b",
         "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
-          "section": null,
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p1",
-          "text": "[Title] Electrical Safety Programme\n[NarrativeText] Contains sections with no content"
+          "section": null,
+          "text": "[Title] Electrical Safety Programme\n[NarrativeText] Contains sections with no content",
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "0b8d074c-05a8-50f3-85ba-ad561701d79d",
         "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
-          "section": null,
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p10",
-          "text": "[Title] 3 Appendix"
+          "section": null,
+          "text": "[Title] 3 Appendix",
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "eea56c93-9bfc-560a-b68a-81b2263f0fcd",
         "properties": {
-          "domain": "TRAINING",
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p11",
-          "section": null,
+          "domain": "TRAINING",
           "text": "[Title] 4 References",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0"
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "section": null
         },
         "vector_length": 768
       },
       {
         "uuid": "5c346efe-33d6-5fab-8c06-816182fea3ed",
         "properties": {
-          "domain": "TRAINING",
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p2",
-          "section": null,
+          "domain": "TRAINING",
           "text": "[Title] Agenda\n[Title] 1 Hazards\n[Title] 1.1 Shock\n[Title] 1.2 Arc Flash\n[Title] 2 Controls\n[Title] 2.1 PPE\n[Title] 3 Appendix\n[Title] 4 References",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0"
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "section": null
         },
         "vector_length": 768
       },
       {
         "uuid": "5891b27d-aafe-5249-a0e2-c40877d1b6ac",
         "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
-          "section": null,
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p3",
-          "text": "[Title] 1 Hazards"
+          "section": null,
+          "text": "[Title] 1 Hazards",
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "add4a485-3cb2-5c2e-8672-e9ed316ca48a",
         "properties": {
-          "domain": "TRAINING",
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p4",
           "section": null,
           "text": "[Title] 1.1 Shock",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0"
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "8fe5ec0b-98da-5f3c-924c-5eb619b4f204",
         "properties": {
-          "domain": "TRAINING",
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p5",
           "section": null,
           "text": "[Title] Shock Effects\n[NarrativeText] Current through the body is what harms\n[NarrativeText] Path matters as much as magnitude",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0"
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "fc8adbd0-421b-56bf-9a3f-7b3f44604ba9",
         "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
-          "section": null,
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p6",
-          "text": "[Title] 1.2 Arc Flash"
+          "section": null,
+          "text": "[Title] 1.2 Arc Flash",
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "50d33429-6643-5cfc-824e-7782f894a402",
         "properties": {
-          "domain": "TRAINING",
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p7",
           "section": null,
           "text": "[Title] 2 Controls",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0"
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "c15e57e9-a097-5102-81c0-49fd844bc51b",
         "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
-          "section": null,
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p8",
-          "text": "[Title] 2.1 PPE"
+          "section": null,
+          "text": "[Title] 2.1 PPE",
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "fa0df800-8ead-5418-9f47-9c7c7acf7191",
         "properties": {
-          "domain": "TRAINING",
           "chunk_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0_p9",
           "section": null,
           "text": "[Title] Arc-Rated Clothing\n[NarrativeText] Rated in cal/cm2\n[NarrativeText] Layering adds protection",
-          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0"
+          "doc_id": "sha256:4a30b9ccda3fac453a35eb54b7ef7b1da0e769c49a0822fd30dd860237f7c8b0",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       }
@@ -2300,20 +2108,18 @@
       "partition_key": "training__course__nested-empty-section__nested-empty-section.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T05:16:34.967540+00:00",
-      "end_utc": "2026-10-24T05:26:49.358310+00:00",
-      "wall_seconds": 614.39
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T03:08:33.922765+00:00",
+      "end_utc": "2026-10-25T03:12:09.411989+00:00",
+      "wall_seconds": 215.49
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],

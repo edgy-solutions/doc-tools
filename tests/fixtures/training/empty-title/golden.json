@@ -233,52 +233,25 @@
             "title": "Gearbox Inspection",
             "level": 1,
             "start_page": 1,
-            "end_page": 0,
+            "end_page": 2,
             "concept_summary": [
-              "Check procedure",
-              "Oil sample analysis",
               "Magnetic chip detector",
-              "Wrap-up",
-              "Record all findings",
               "Gearbox Inspection"
             ],
             "parent": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
             "slides": [
               "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1",
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p3",
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
+              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2"
             ],
             "covers": [
               {
-                "concept": "Check procedure",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Gearbox Inspection",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Magnetic chip detector",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Oil sample analysis",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Record all findings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Wrap-up",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               }
             ]
@@ -287,81 +260,39 @@
             "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
             "title": "Check the magnetic chip detector",
             "level": 1,
-            "start_page": 2,
-            "end_page": 0,
-            "concept_summary": [
-              "Record all findings",
-              "Oil sample analysis",
-              "Check procedure",
-              "Magnetic chip detector",
-              "Wrap-up"
-            ],
+            "start_page": 3,
+            "end_page": 4,
+            "concept_summary": [],
             "parent": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
             "slides": [
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
               "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p3",
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
+              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
             ],
-            "covers": [
-              {
-                "concept": "Check procedure",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Magnetic chip detector",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Oil sample analysis",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Record all findings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Wrap-up",
-                "score": null,
-                "frequency": 1
-              }
-            ]
+            "covers": []
           },
           {
             "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s2",
             "title": "Oil sample analysis",
             "level": 1,
-            "start_page": 3,
-            "end_page": 0,
+            "start_page": 5,
+            "end_page": 6,
             "concept_summary": [
-              "Wrap-up",
               "Record all findings",
-              "Oil sample analysis"
+              "Wrap-up"
             ],
             "parent": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
             "slides": [
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p3",
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
               "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
             ],
             "covers": [
               {
-                "concept": "Oil sample analysis",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Record all findings",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Wrap-up",
-                "score": null,
+                "score": 0.7,
                 "frequency": 1
               }
             ]
@@ -370,35 +301,12 @@
             "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s3",
             "title": "Wrap-up",
             "level": 1,
-            "start_page": 4,
+            "start_page": 7,
             "end_page": 0,
-            "concept_summary": [
-              "Wrap-up",
-              "Oil sample analysis",
-              "Record all findings"
-            ],
+            "concept_summary": [],
             "parent": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
-            "slides": [
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
-              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
-            ],
-            "covers": [
-              {
-                "concept": "Oil sample analysis",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Record all findings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Wrap-up",
-                "score": null,
-                "frequency": 1
-              }
-            ]
+            "slides": [],
+            "covers": []
           }
         ]
       },
@@ -409,34 +317,24 @@
         ],
         "nodes": [
           {
-            "name": "Check procedure",
-            "id": "concept_Check_procedure",
-            "salience": 0.7
-          },
-          {
             "name": "Gearbox Inspection",
             "id": "concept_Gearbox_Inspection",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Magnetic chip detector",
             "id": "concept_Magnetic_chip_detector",
-            "salience": 1.0
-          },
-          {
-            "name": "Oil sample analysis",
-            "id": "concept_Oil_sample_analysis",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Record all findings",
             "id": "concept_Record_all_findings",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Wrap-up",
             "id": "concept_Wrap-up",
-            "salience": 0.7
+            "domain": "TRAINING"
           }
         ]
       },
@@ -444,35 +342,25 @@
         {
           "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1",
           "concept": "Gearbox Inspection",
-          "salience": null
-        },
-        {
-          "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
-          "concept": "Check procedure",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
           "concept": "Magnetic chip detector",
-          "salience": null
-        },
-        {
-          "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
-          "concept": "Oil sample analysis",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
           "concept": "Record all findings",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
           "concept": "Wrap-up",
-          "salience": null
+          "salience": 0.7
         }
       ],
-      "salience_location": "concept_node",
+      "salience_location": "edge",
       "edges": {
         "HAS_SECTION": [
           {
@@ -502,22 +390,6 @@
             "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2"
           },
           {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
-            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p3"
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
-            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
-            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
-            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2"
-          },
-          {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
             "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p3"
           },
@@ -526,131 +398,33 @@
             "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
           },
           {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
-            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
-          },
-          {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s2",
-            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p3"
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s2",
-            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s2",
-            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s3",
-            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s3",
             "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
           }
         ],
         "COVERS": [
           {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
-            "to": "Check procedure",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
             "to": "Gearbox Inspection",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
             "to": "Magnetic chip detector",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
-            "to": "Oil sample analysis",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
-            "to": "Record all findings",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
-            "to": "Wrap-up",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
-            "to": "Check procedure",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
-            "to": "Magnetic chip detector",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
-            "to": "Oil sample analysis",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
-            "to": "Record all findings",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
-            "to": "Wrap-up",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s2",
-            "to": "Oil sample analysis",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s2",
             "to": "Record all findings",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s2",
             "to": "Wrap-up",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s3",
-            "to": "Oil sample analysis",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s3",
-            "to": "Record all findings",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s3",
-            "to": "Wrap-up",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           }
         ],
@@ -658,32 +432,22 @@
           {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1",
             "to": "Gearbox Inspection",
-            "salience": null
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
-            "to": "Check procedure",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
             "to": "Magnetic chip detector",
-            "salience": null
-          },
-          {
-            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
-            "to": "Oil sample analysis",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
             "to": "Record all findings",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
             "to": "Wrap-up",
-            "salience": null
+            "salience": 0.7
           }
         ]
       }
@@ -707,17 +471,25 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T04:58:59.184392+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T02:58:46.982576+00:00"
     },
-    "prefix": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/current.json",
       "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_5.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -728,10 +500,10 @@
       {
         "uuid": "ec05a280-4e28-54a5-8a6a-83b9b2d5122b",
         "properties": {
+          "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+          "section": null,
           "text": "[Title] Gearbox Inspection\n[NarrativeText] Some slides have empty titles",
           "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1",
-          "section": null,
-          "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
           "domain": "TRAINING"
         },
         "vector_length": 768
@@ -739,10 +511,10 @@
       {
         "uuid": "d467a51c-f619-51bb-bcc8-1a94a67b4481",
         "properties": {
+          "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+          "section": null,
           "text": "[NarrativeText] Check the magnetic chip detector",
           "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
-          "section": null,
-          "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
           "domain": "TRAINING"
         },
         "vector_length": 768
@@ -750,22 +522,22 @@
       {
         "uuid": "9f0891d4-4120-55c7-8f52-67c01adaf34c",
         "properties": {
-          "domain": "TRAINING",
-          "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
-          "section": null,
           "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
-          "text": "[Title] Oil sample analysis"
+          "section": null,
+          "text": "[Title] Oil sample analysis",
+          "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "aa8ebe97-01ca-576f-b32b-ed33932ae5eb",
         "properties": {
-          "domain": "TRAINING",
-          "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
-          "section": null,
           "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
-          "text": "[Title] Wrap-up\n[NarrativeText] Record all findings"
+          "section": null,
+          "text": "[Title] Wrap-up\n[NarrativeText] Record all findings",
+          "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       }
@@ -800,20 +572,18 @@
       "partition_key": "training__course__empty-title__empty-title.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T04:58:57.617168+00:00",
-      "end_utc": "2026-10-24T05:02:14.282158+00:00",
-      "wall_seconds": 196.66
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T02:58:33.575214+00:00",
+      "end_utc": "2026-10-25T03:00:06.961647+00:00",
+      "wall_seconds": 93.39
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],

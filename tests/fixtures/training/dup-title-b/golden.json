@@ -260,9 +260,251 @@
     "nondeterministic": {
       "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
       "sections": {
-        "labels": [],
-        "section_slide_edges": [],
-        "nodes": []
+        "labels": [
+          "Section",
+          "TRAINING"
+        ],
+        "section_slide_edges": [
+          "HAS_CHILD"
+        ],
+        "nodes": [
+          {
+            "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "title": "Pump Maintenance Basics",
+            "level": 1,
+            "start_page": 1,
+            "end_page": 2,
+            "concept_summary": [
+              "Pump Maintenance",
+              "Bearing Lubrication",
+              "Alignment",
+              "Bearings",
+              "Over‑greasing",
+              "Grease Quantity",
+              "Temperature Rise due to Over‑greasing"
+            ],
+            "parent": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "slides": [
+              "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
+              "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2"
+            ],
+            "covers": [
+              {
+                "concept": "Bearing Lubrication",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Pump Maintenance",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Alignment",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Bearings",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Grease Quantity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Over‑greasing",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Temperature Rise due to Over‑greasing",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "title": "Edition B: bearings and alignment",
+            "level": 1,
+            "start_page": 2,
+            "end_page": 3,
+            "concept_summary": [
+              "Bearing Lubrication",
+              "Shaft Alignment",
+              "Grease Quantity",
+              "Over‑greasing",
+              "Soft Foot",
+              "Dial Indicator Method",
+              "Laser Alignment",
+              "Temperature Rise due to Over‑greasing"
+            ],
+            "parent": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "slides": [
+              "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+              "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Bearing Lubrication",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Shaft Alignment",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Dial Indicator Method",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Grease Quantity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Laser Alignment",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Over‑greasing",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Soft Foot",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Temperature Rise due to Over‑greasing",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "title": "Bearing Lubrication",
+            "level": 1,
+            "start_page": 3,
+            "end_page": 4,
+            "concept_summary": [
+              "Alignment Tolerances",
+              "Shaft Alignment",
+              "Offset",
+              "Laser Alignment",
+              "Speed (rpm)",
+              "Dial Indicator Method",
+              "Soft Foot",
+              "Tolerance"
+            ],
+            "parent": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "slides": [
+              "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+              "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Alignment Tolerances",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Shaft Alignment",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Dial Indicator Method",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Laser Alignment",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Offset",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Soft Foot",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Speed (rpm)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Tolerance",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s3",
+            "title": "Shaft Alignment",
+            "level": 1,
+            "start_page": 4,
+            "end_page": 5,
+            "concept_summary": [
+              "Alignment Tolerances",
+              "Speed (rpm)",
+              "Offset",
+              "Tolerance"
+            ],
+            "parent": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "slides": [
+              "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Alignment Tolerances",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Offset",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Speed (rpm)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Tolerance",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s4",
+            "title": "Alignment Tolerances",
+            "level": 1,
+            "start_page": 5,
+            "end_page": 0,
+            "concept_summary": [],
+            "parent": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "slides": [],
+            "covers": []
+          }
+        ]
       },
       "concepts": {
         "labels": [
@@ -273,77 +515,77 @@
           {
             "name": "Alignment",
             "id": "concept_Alignment",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Alignment tolerances",
-            "id": "concept_Alignment_tolerances",
-            "salience": 1.0
+            "name": "Alignment Tolerances",
+            "id": "concept_Alignment_Tolerances",
+            "domain": "TRAINING"
           },
           {
             "name": "Bearing Lubrication",
             "id": "concept_Bearing_Lubrication",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Bearings",
             "id": "concept_Bearings",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Dial Indicator Method",
             "id": "concept_Dial_Indicator_Method",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Grease Quantity",
             "id": "concept_Grease_Quantity",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Laser Alignment",
             "id": "concept_Laser_Alignment",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Offset (mm)",
-            "id": "concept_Offset_(mm)",
-            "salience": 0.7
+            "name": "Offset",
+            "id": "concept_Offset",
+            "domain": "TRAINING"
           },
           {
             "name": "Over‑greasing",
             "id": "concept_Over‑greasing",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Pump Maintenance",
             "id": "concept_Pump_Maintenance",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Shaft Alignment",
             "id": "concept_Shaft_Alignment",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
-            "name": "Soft Foot Check First",
-            "id": "concept_Soft_Foot_Check_First",
-            "salience": 0.5
+            "name": "Soft Foot",
+            "id": "concept_Soft_Foot",
+            "domain": "TRAINING"
           },
           {
             "name": "Speed (rpm)",
             "id": "concept_Speed_(rpm)",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Speed‑to‑tolerance relationship",
-            "id": "concept_Speed‑to‑tolerance_relationship",
-            "salience": 0.5
+            "name": "Temperature Rise due to Over‑greasing",
+            "id": "concept_Temperature_Rise_due_to_Over‑greasing",
+            "domain": "TRAINING"
           },
           {
-            "name": "Temperature Rise",
-            "id": "concept_Temperature_Rise",
-            "salience": 0.5
+            "name": "Tolerance",
+            "id": "concept_Tolerance",
+            "domain": "TRAINING"
           }
         ]
       },
@@ -351,159 +593,372 @@
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
           "concept": "Alignment",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
           "concept": "Bearings",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
           "concept": "Pump Maintenance",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
           "concept": "Bearing Lubrication",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
           "concept": "Grease Quantity",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
           "concept": "Over‑greasing",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
-          "concept": "Temperature Rise",
-          "salience": null
+          "concept": "Temperature Rise due to Over‑greasing",
+          "salience": 0.5
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
           "concept": "Dial Indicator Method",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
           "concept": "Laser Alignment",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
           "concept": "Shaft Alignment",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
-          "concept": "Soft Foot Check First",
-          "salience": null
+          "concept": "Soft Foot",
+          "salience": 0.7
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
-          "concept": "Alignment tolerances",
-          "salience": null
+          "concept": "Alignment Tolerances",
+          "salience": 1.0
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
-          "concept": "Offset (mm)",
-          "salience": null
+          "concept": "Offset",
+          "salience": 0.7
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
           "concept": "Speed (rpm)",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
-          "concept": "Speed‑to‑tolerance relationship",
-          "salience": null
+          "concept": "Tolerance",
+          "salience": 0.5
         }
       ],
-      "salience_location": "concept_node",
+      "salience_location": "edge",
       "edges": {
-        "HAS_SECTION": [],
-        "section_slide": [],
-        "COVERS": [],
+        "HAS_SECTION": [
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s3"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s4"
+          }
+        ],
+        "section_slide": [
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4"
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s3",
+            "to": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4"
+          }
+        ],
+        "COVERS": [
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "to": "Bearing Lubrication",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "to": "Pump Maintenance",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "to": "Alignment",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "to": "Bearings",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "to": "Grease Quantity",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "to": "Over‑greasing",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s0",
+            "to": "Temperature Rise due to Over‑greasing",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "Bearing Lubrication",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "Shaft Alignment",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "Dial Indicator Method",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "Grease Quantity",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "Laser Alignment",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "Over‑greasing",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "Soft Foot",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s1",
+            "to": "Temperature Rise due to Over‑greasing",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "Alignment Tolerances",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "Shaft Alignment",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "Dial Indicator Method",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "Laser Alignment",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "Offset",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "Soft Foot",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "Speed (rpm)",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s2",
+            "to": "Tolerance",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s3",
+            "to": "Alignment Tolerances",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s3",
+            "to": "Offset",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s3",
+            "to": "Speed (rpm)",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_s3",
+            "to": "Tolerance",
+            "score": 0.5,
+            "frequency": 1
+          }
+        ],
         "TEACHES": [
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
             "to": "Alignment",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
             "to": "Bearings",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
             "to": "Pump Maintenance",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
             "to": "Bearing Lubrication",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
             "to": "Grease Quantity",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
             "to": "Over‑greasing",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
-            "to": "Temperature Rise",
-            "salience": null
+            "to": "Temperature Rise due to Over‑greasing",
+            "salience": 0.5
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
             "to": "Dial Indicator Method",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
             "to": "Laser Alignment",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
             "to": "Shaft Alignment",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
-            "to": "Soft Foot Check First",
-            "salience": null
+            "to": "Soft Foot",
+            "salience": 0.7
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
-            "to": "Alignment tolerances",
-            "salience": null
+            "to": "Alignment Tolerances",
+            "salience": 1.0
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
-            "to": "Offset (mm)",
-            "salience": null
+            "to": "Offset",
+            "salience": 0.7
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
             "to": "Speed (rpm)",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
-            "to": "Speed‑to‑tolerance relationship",
-            "salience": null
+            "to": "Tolerance",
+            "salience": 0.5
           }
         ]
       }
@@ -527,17 +982,24 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T09:37:24.900908+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T02:52:43.480460+00:00"
     },
-    "prefix": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/current.json",
       "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -548,44 +1010,44 @@
       {
         "uuid": "41f60d71-bc4c-5905-aa33-c6f33e16b987",
         "properties": {
-          "text": "[Title] Pump Maintenance Basics\n[Title] Edition B: bearings and alignment",
-          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
           "domain": "TRAINING",
           "section": null,
-          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1"
+          "text": "[Title] Pump Maintenance Basics\n[Title] Edition B: bearings and alignment",
+          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p1",
+          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c"
         },
         "vector_length": 768
       },
       {
         "uuid": "7f9b7441-7be9-5d0e-b32a-28b115fda066",
         "properties": {
-          "text": "[Title] Bearing Lubrication\n[Title] Grease quantity matters\n[NarrativeText] Over-greasing raises temperature",
-          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
           "domain": "TRAINING",
           "section": null,
-          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2"
+          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p2",
+          "text": "[Title] Bearing Lubrication\n[Title] Grease quantity matters\n[NarrativeText] Over-greasing raises temperature"
         },
         "vector_length": 768
       },
       {
         "uuid": "e9f0a7fa-7c64-5956-9904-e8fcfc1f7d41",
         "properties": {
-          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
           "domain": "TRAINING",
-          "text": "[Title] Shaft Alignment\n[Title] Dial indicator method\n[Title] Laser alignment\n[Title] Soft foot check first",
           "section": null,
-          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3"
+          "text": "[Title] Shaft Alignment\n[Title] Dial indicator method\n[Title] Laser alignment\n[Title] Soft foot check first",
+          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p3",
+          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c"
         },
         "vector_length": 768
       },
       {
         "uuid": "03dc1da1-297e-50da-aa14-de3948f1712a",
         "properties": {
-          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
           "domain": "TRAINING",
-          "text": "[Title] Alignment Tolerances\n[Table] Speed (rpm) Offset (mm) 1800 0.05 3600 0.03",
           "section": null,
-          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4"
+          "doc_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c",
+          "chunk_id": "sha256:70bf44ec0ec67f77143f1247e6dafc994461a103127e0f7d8b7ae4299d0e4b0c_p4",
+          "text": "[Title] Alignment Tolerances\n[Table] Speed (rpm) Offset (mm) 1800 0.05 3600 0.03"
         },
         "vector_length": 768
       }
@@ -620,20 +1082,18 @@
       "partition_key": "training__course__dup-title-b__dup-title-b.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T09:37:23.832278+00:00",
-      "end_utc": "2026-10-24T09:41:39.869277+00:00",
-      "wall_seconds": 256.04
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T02:52:30.005266+00:00",
+      "end_utc": "2026-10-25T02:54:41.490557+00:00",
+      "wall_seconds": 131.49
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],

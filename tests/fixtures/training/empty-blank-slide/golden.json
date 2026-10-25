@@ -250,12 +250,12 @@
             "start_page": 1,
             "end_page": 0,
             "concept_summary": [
-              "Angle Control",
+              "Click wrench",
               "Electronic Wrenches",
-              "Returning to minimum",
-              "Logging Each Fastener",
-              "Setting the torque value",
-              "Click wrenches"
+              "Return to minimum",
+              "Angle Control",
+              "Set to value",
+              "Log Each Fastener"
             ],
             "parent": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4",
             "slides": [
@@ -266,52 +266,52 @@
             ],
             "covers": [
               {
-                "concept": "Angle Control",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Click wrenches",
-                "score": null,
+                "concept": "Click wrench",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Electronic Wrenches",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Logging Each Fastener",
-                "score": null,
+                "concept": "Angle Control",
+                "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "Returning to minimum",
-                "score": null,
+                "concept": "Return to minimum",
+                "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "Setting the torque value",
-                "score": null,
+                "concept": "Set to value",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Log Each Fastener",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
+            "id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
             "title": "Click Wrenches",
-            "level": 2,
+            "level": 1,
             "start_page": 2,
             "end_page": 0,
             "concept_summary": [
-              "Angle Control",
-              "Returning to minimum",
-              "Setting the torque value",
               "Electronic Wrenches",
-              "Logging Each Fastener",
-              "Click wrenches"
+              "Click wrench",
+              "Set to value",
+              "Angle Control",
+              "Return to minimum",
+              "Log Each Fastener"
             ],
-            "parent": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
+            "parent": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4",
             "slides": [
               "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2",
               "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p3",
@@ -319,67 +319,67 @@
             ],
             "covers": [
               {
-                "concept": "Angle Control",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Click wrenches",
-                "score": null,
+                "concept": "Click wrench",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Electronic Wrenches",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Logging Each Fastener",
-                "score": null,
+                "concept": "Angle Control",
+                "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "Returning to minimum",
-                "score": null,
+                "concept": "Return to minimum",
+                "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "Setting the torque value",
-                "score": null,
+                "concept": "Set to value",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Log Each Fastener",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s1",
+            "id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s2",
             "title": "Electronic Wrenches",
-            "level": 2,
+            "level": 1,
             "start_page": 3,
             "end_page": 0,
             "concept_summary": [
               "Electronic Wrenches",
               "Angle Control",
-              "Logging Each Fastener"
+              "Log Each Fastener"
             ],
-            "parent": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
+            "parent": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4",
             "slides": [
               "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p3",
               "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4"
             ],
             "covers": [
               {
-                "concept": "Angle Control",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Electronic Wrenches",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Logging Each Fastener",
-                "score": null,
+                "concept": "Angle Control",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Log Each Fastener",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
@@ -395,68 +395,68 @@
           {
             "name": "Angle Control",
             "id": "concept_Angle_Control",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Click wrenches",
-            "id": "concept_Click_wrenches",
-            "salience": 1.0
+            "name": "Click wrench",
+            "id": "concept_Click_wrench",
+            "domain": "TRAINING"
           },
           {
             "name": "Electronic Wrenches",
             "id": "concept_Electronic_Wrenches",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
-            "name": "Logging Each Fastener",
-            "id": "concept_Logging_Each_Fastener",
-            "salience": 0.5
+            "name": "Log Each Fastener",
+            "id": "concept_Log_Each_Fastener",
+            "domain": "TRAINING"
           },
           {
-            "name": "Returning to minimum",
-            "id": "concept_Returning_to_minimum",
-            "salience": 0.7
+            "name": "Return to minimum",
+            "id": "concept_Return_to_minimum",
+            "domain": "TRAINING"
           },
           {
-            "name": "Setting the torque value",
-            "id": "concept_Setting_the_torque_value",
-            "salience": 0.7
+            "name": "Set to value",
+            "id": "concept_Set_to_value",
+            "domain": "TRAINING"
           }
         ]
       },
       "teaches": [
         {
           "slide": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2",
-          "concept": "Click wrenches",
-          "salience": null
+          "concept": "Click wrench",
+          "salience": 1.0
         },
         {
           "slide": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2",
-          "concept": "Returning to minimum",
-          "salience": null
+          "concept": "Return to minimum",
+          "salience": 0.7
         },
         {
           "slide": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2",
-          "concept": "Setting the torque value",
-          "salience": null
+          "concept": "Set to value",
+          "salience": 0.7
         },
         {
           "slide": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4",
           "concept": "Angle Control",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4",
           "concept": "Electronic Wrenches",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4",
-          "concept": "Logging Each Fastener",
-          "salience": null
+          "concept": "Log Each Fastener",
+          "salience": 0.5
         }
       ],
-      "salience_location": "concept_node",
+      "salience_location": "edge",
       "edges": {
         "HAS_SECTION": [
           {
@@ -464,12 +464,12 @@
             "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0"
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
-            "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0"
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4",
+            "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1"
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
-            "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s1"
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4",
+            "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s2"
           }
         ],
         "section_slide": [
@@ -490,148 +490,148 @@
             "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4"
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
             "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2"
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
             "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p3"
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
             "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4"
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s1",
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s2",
             "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p3"
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s1",
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s2",
             "to": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4"
           }
         ],
         "COVERS": [
           {
             "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
-            "to": "Angle Control",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
-            "to": "Click wrenches",
-            "score": null,
+            "to": "Click wrench",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
             "to": "Electronic Wrenches",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
-            "to": "Logging Each Fastener",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
-            "to": "Returning to minimum",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
-            "to": "Setting the torque value",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
             "to": "Angle Control",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
-            "to": "Click wrenches",
-            "score": null,
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
+            "to": "Return to minimum",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
+            "to": "Set to value",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0",
+            "to": "Log Each Fastener",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
+            "to": "Click wrench",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
             "to": "Electronic Wrenches",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
-            "to": "Logging Each Fastener",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
-            "to": "Returning to minimum",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s0",
-            "to": "Setting the torque value",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s1",
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
             "to": "Angle Control",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s1",
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
+            "to": "Return to minimum",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
+            "to": "Set to value",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s1",
+            "to": "Log Each Fastener",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s2",
             "to": "Electronic Wrenches",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s0_s1",
-            "to": "Logging Each Fastener",
-            "score": null,
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s2",
+            "to": "Angle Control",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_s2",
+            "to": "Log Each Fastener",
+            "score": 0.5,
             "frequency": 1
           }
         ],
         "TEACHES": [
           {
             "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2",
-            "to": "Click wrenches",
-            "salience": null
+            "to": "Click wrench",
+            "salience": 1.0
           },
           {
             "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2",
-            "to": "Returning to minimum",
-            "salience": null
+            "to": "Return to minimum",
+            "salience": 0.7
           },
           {
             "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2",
-            "to": "Setting the torque value",
-            "salience": null
+            "to": "Set to value",
+            "salience": 0.7
           },
           {
             "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4",
             "to": "Angle Control",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4",
             "to": "Electronic Wrenches",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4",
-            "to": "Logging Each Fastener",
-            "salience": null
+            "to": "Log Each Fastener",
+            "salience": 0.5
           }
         ]
       }
@@ -655,17 +655,25 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T04:52:33.031510+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T02:55:14.207145+00:00"
     },
-    "prefix": "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/current.json",
       "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_5.png",
+      "training/generated/7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -677,10 +685,10 @@
         "uuid": "3e6ec6ab-63a4-58b1-9137-23e58560bf4c",
         "properties": {
           "domain": "TRAINING",
-          "chunk_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p1",
-          "doc_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4",
           "section": null,
-          "text": "[Title] Torque Tools\n[Title] A blank slide mid-deck and last"
+          "chunk_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p1",
+          "text": "[Title] Torque Tools\n[Title] A blank slide mid-deck and last",
+          "doc_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4"
         },
         "vector_length": 768
       },
@@ -688,10 +696,10 @@
         "uuid": "3c451ac1-a83c-50d8-bf08-0341b7ac100c",
         "properties": {
           "domain": "TRAINING",
-          "chunk_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2",
-          "doc_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4",
           "section": null,
-          "text": "[Title] Click Wrenches\n[NarrativeText] Set to value\n[NarrativeText] Return to minimum"
+          "chunk_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p2",
+          "text": "[Title] Click Wrenches\n[NarrativeText] Set to value\n[NarrativeText] Return to minimum",
+          "doc_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4"
         },
         "vector_length": 768
       },
@@ -699,10 +707,10 @@
         "uuid": "586300e9-8371-5eeb-8d3d-62717338d5b4",
         "properties": {
           "domain": "TRAINING",
-          "chunk_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4",
-          "doc_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4",
           "section": null,
-          "text": "[Title] Electronic Wrenches\n[NarrativeText] Log each fastener\n[Title] Angle control"
+          "chunk_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4_p4",
+          "text": "[Title] Electronic Wrenches\n[NarrativeText] Log each fastener\n[Title] Angle control",
+          "doc_id": "sha256:7c9536f0ceb78ae9825a0f5f7ad5d2b3b59efaa09dba5e4cfd07d435b57de9f4"
         },
         "vector_length": 768
       }
@@ -737,20 +745,18 @@
       "partition_key": "training__course__empty-blank-slide__empty-blank-slide.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T04:52:31.096800+00:00",
-      "end_utc": "2026-10-24T04:55:46.646344+00:00",
-      "wall_seconds": 195.55
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T02:55:00.206475+00:00",
+      "end_utc": "2026-10-25T02:56:31.682357+00:00",
+      "wall_seconds": 91.48
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],

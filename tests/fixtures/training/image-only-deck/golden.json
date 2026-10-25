@@ -163,12 +163,12 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T05:12:23.231282+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T03:05:56.433606+00:00"
     },
-    "prefix": "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/current.json",
       "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
@@ -178,7 +178,20 @@
       "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_3.png",
       "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_5_img_4.png",
       "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_1_img_0.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_2_img_1.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_3_img_2.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_4_img_3.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_5_img_4.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_5.png",
+      "training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -189,55 +202,55 @@
       {
         "uuid": "1afd727a-1dbc-501b-8273-6da1dcee4755",
         "properties": {
-          "section": null,
+          "domain": "TRAINING",
           "chunk_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c_fig_slide_1_img_0",
-          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c",
-          "text": "Figure slide 1 img 0:\n\n![slide 1 img 0](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_1_img_0.png)",
-          "domain": "TRAINING"
+          "text": "Figure slide 1 img 0:\n\n![slide 1 img 0](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_1_img_0.png)",
+          "section": null,
+          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c"
         },
         "vector_length": 768
       },
       {
         "uuid": "dea65441-36bd-5424-9f02-2267dd628493",
         "properties": {
-          "section": null,
-          "text": "Figure slide 2 img 1:\n\n![slide 2 img 1](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_1.png)",
-          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c",
+          "domain": "TRAINING",
           "chunk_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c_fig_slide_2_img_1",
-          "domain": "TRAINING"
+          "text": "Figure slide 2 img 1:\n\n![slide 2 img 1](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_2_img_1.png)",
+          "section": null,
+          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c"
         },
         "vector_length": 768
       },
       {
         "uuid": "2d8af283-6a2e-5999-8622-023b0f3b15a8",
         "properties": {
-          "section": null,
-          "text": "Figure slide 3 img 2:\n\n![slide 3 img 2](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_3_img_2.png)",
-          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c",
+          "domain": "TRAINING",
           "chunk_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c_fig_slide_3_img_2",
-          "domain": "TRAINING"
+          "text": "Figure slide 3 img 2:\n\n![slide 3 img 2](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_3_img_2.png)",
+          "section": null,
+          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c"
         },
         "vector_length": 768
       },
       {
         "uuid": "3a336ad2-0771-5072-bac6-0181287c61f9",
         "properties": {
-          "section": null,
+          "domain": "TRAINING",
           "chunk_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c_fig_slide_4_img_3",
-          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c",
-          "text": "Figure slide 4 img 3:\n\n![slide 4 img 3](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_4_img_3.png)",
-          "domain": "TRAINING"
+          "text": "Figure slide 4 img 3:\n\n![slide 4 img 3](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_4_img_3.png)",
+          "section": null,
+          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c"
         },
         "vector_length": 768
       },
       {
         "uuid": "38f756dd-1922-5949-bbfe-954472bcd110",
         "properties": {
-          "section": null,
-          "text": "Figure slide 5 img 4:\n\n![slide 5 img 4](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_5_img_4.png)",
-          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c",
+          "domain": "TRAINING",
           "chunk_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c_fig_slide_5_img_4",
-          "domain": "TRAINING"
+          "text": "Figure slide 5 img 4:\n\n![slide 5 img 4](s3://processing-artifacts/training/generated/45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_5_img_4.png)",
+          "section": null,
+          "doc_id": "sha256:45fa31ddab13fe7c24796ccdea2e40b350f22d54bb4b34804d8f796789b4f86c"
         },
         "vector_length": 768
       }
@@ -272,20 +285,18 @@
       "partition_key": "training__course__image-only-deck__image-only-deck.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T05:12:21.281627+00:00",
-      "end_utc": "2026-10-24T05:12:31.074503+00:00",
-      "wall_seconds": 9.79
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T03:05:43.888083+00:00",
+      "end_utc": "2026-10-25T03:05:59.334312+00:00",
+      "wall_seconds": 15.45
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],

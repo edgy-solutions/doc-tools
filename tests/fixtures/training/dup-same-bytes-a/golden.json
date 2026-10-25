@@ -231,15 +231,15 @@
             "start_page": 1,
             "end_page": 0,
             "concept_summary": [
-              "Byte‑identical copy test",
-              "Drain holes",
-              "Keeping drain holes clear",
-              "Prevention",
-              "Drain holes kept clear",
-              "Byte‑identical copy test",
-              "Pitting Corrosion",
               "Corrosion Control",
-              "Prevention",
+              "Primers and sealants",
+              "Corrosion Types",
+              "Galvanic corrosion",
+              "Pitting Corrosion",
+              "Crevice Corrosion",
+              "Crevice corrosion",
+              "Drain holes kept clear",
+              "Pitting corrosion",
               "Galvanic Corrosion"
             ],
             "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7",
@@ -250,271 +250,84 @@
             ],
             "covers": [
               {
-                "concept": "Byte‑identical copy test",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Byte‑identical copy test",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Corrosion Control",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Corrosion Types",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Primers and sealants",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Crevice Corrosion",
-                "score": null,
+                "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "Drain holes",
-                "score": null,
+                "concept": "Crevice corrosion",
+                "score": 0.7,
                 "frequency": 1
               },
               {
                 "concept": "Drain holes kept clear",
-                "score": null,
+                "score": 0.7,
                 "frequency": 1
               },
               {
                 "concept": "Galvanic Corrosion",
-                "score": null,
+                "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "Keeping drain holes clear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Pitting Corrosion",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prevention",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prevention",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Primers and sealants",
-                "score": null,
-                "frequency": 1
-              }
-            ]
-          },
-          {
-            "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "title": "Corrosion Types",
-            "level": 2,
-            "start_page": 2,
-            "end_page": 0,
-            "concept_summary": [
-              "Prevention",
-              "Keeping drain holes clear",
-              "Drain holes",
-              "Galvanic Corrosion",
-              "Drain holes kept clear",
-              "Pitting Corrosion",
-              "Crevice Corrosion",
-              "Corrosion Types",
-              "Prevention",
-              "Primers and sealants"
-            ],
-            "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "slides": [
-              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
-              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
-            ],
-            "covers": [
-              {
-                "concept": "Corrosion Types",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Crevice Corrosion",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drain holes",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drain holes kept clear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Galvanic Corrosion",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Keeping drain holes clear",
-                "score": null,
+                "concept": "Galvanic corrosion",
+                "score": 0.7,
                 "frequency": 1
               },
               {
                 "concept": "Pitting Corrosion",
-                "score": null,
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Pitting corrosion",
+                "score": 0.7,
                 "frequency": 1
               },
               {
                 "concept": "Prevention",
-                "score": null,
+                "score": 0.5,
                 "frequency": 1
               },
               {
-                "concept": "Prevention",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Primers and sealants",
-                "score": null,
+                "concept": "Byte‑identical copy test",
+                "score": 0.1,
                 "frequency": 1
               }
             ]
-          },
-          {
-            "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s0",
-            "title": "Galvanic",
-            "level": 3,
-            "start_page": 3,
-            "end_page": 0,
-            "concept_summary": [
-              "Keeping drain holes clear",
-              "Drain holes",
-              "Prevention",
-              "Primers and sealants",
-              "Drain holes kept clear",
-              "Prevention"
-            ],
-            "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "slides": [
-              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
-            ],
-            "covers": [
-              {
-                "concept": "Drain holes",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drain holes kept clear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Keeping drain holes clear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prevention",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prevention",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Primers and sealants",
-                "score": null,
-                "frequency": 1
-              }
-            ]
-          },
-          {
-            "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s1",
-            "title": "Pitting",
-            "level": 3,
-            "start_page": 4,
-            "end_page": 0,
-            "concept_summary": [],
-            "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "slides": [],
-            "covers": []
-          },
-          {
-            "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s2",
-            "title": "Crevice",
-            "level": 3,
-            "start_page": 5,
-            "end_page": 0,
-            "concept_summary": [],
-            "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "slides": [],
-            "covers": []
-          },
-          {
-            "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1",
-            "title": "Prevention",
-            "level": 2,
-            "start_page": 6,
-            "end_page": 0,
-            "concept_summary": [],
-            "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "slides": [],
-            "covers": []
-          },
-          {
-            "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1_s0",
-            "title": "Primers and sealants",
-            "level": 3,
-            "start_page": 7,
-            "end_page": 0,
-            "concept_summary": [],
-            "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1",
-            "slides": [],
-            "covers": []
-          },
-          {
-            "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1_s1",
-            "title": "Drain holes kept clear",
-            "level": 3,
-            "start_page": 8,
-            "end_page": 0,
-            "concept_summary": [],
-            "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1",
-            "slides": [],
-            "covers": []
           },
           {
             "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
             "title": "Corrosion Types",
-            "level": 1,
+            "level": 2,
             "start_page": 2,
             "end_page": 0,
             "concept_summary": [
               "Primers and sealants",
-              "Pitting Corrosion",
               "Corrosion Types",
-              "Galvanic Corrosion",
+              "Crevice corrosion",
+              "Drain holes kept clear",
               "Crevice Corrosion",
-              "Prevention",
-              "Drain holes",
-              "Prevention",
-              "Keeping drain holes clear",
-              "Drain holes kept clear"
+              "Pitting corrosion",
+              "Pitting Corrosion",
+              "Galvanic corrosion",
+              "Galvanic Corrosion",
+              "Prevention"
             ],
             "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7",
             "slides": [
@@ -524,52 +337,52 @@
             "covers": [
               {
                 "concept": "Corrosion Types",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Crevice Corrosion",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drain holes",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drain holes kept clear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Galvanic Corrosion",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Keeping drain holes clear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Pitting Corrosion",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prevention",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prevention",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Primers and sealants",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Crevice Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Crevice corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Drain holes kept clear",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Galvanic Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Galvanic corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Pitting Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Pitting corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Prevention",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
@@ -577,50 +390,75 @@
           {
             "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
             "title": "Galvanic",
-            "level": 2,
-            "start_page": 3,
+            "level": 3,
+            "start_page": 2,
             "end_page": 0,
             "concept_summary": [
+              "Corrosion Types",
+              "Primers and sealants",
+              "Crevice corrosion",
               "Drain holes kept clear",
-              "Prevention",
-              "Prevention",
-              "Drain holes",
-              "Keeping drain holes clear",
-              "Primers and sealants"
+              "Crevice Corrosion",
+              "Galvanic Corrosion",
+              "Pitting Corrosion",
+              "Pitting corrosion",
+              "Galvanic corrosion",
+              "Prevention"
             ],
             "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
             "slides": [
+              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
               "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
             ],
             "covers": [
               {
-                "concept": "Drain holes",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Drain holes kept clear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Keeping drain holes clear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prevention",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prevention",
-                "score": null,
+                "concept": "Corrosion Types",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Primers and sealants",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Crevice Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Crevice corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Drain holes kept clear",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Galvanic Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Galvanic corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Pitting Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Pitting corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Prevention",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
@@ -628,57 +466,253 @@
           {
             "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
             "title": "Pitting",
-            "level": 2,
-            "start_page": 4,
+            "level": 3,
+            "start_page": 2,
             "end_page": 0,
-            "concept_summary": [],
+            "concept_summary": [
+              "Corrosion Types",
+              "Primers and sealants",
+              "Drain holes kept clear",
+              "Crevice corrosion",
+              "Galvanic Corrosion",
+              "Pitting Corrosion",
+              "Pitting corrosion",
+              "Galvanic corrosion",
+              "Crevice Corrosion",
+              "Prevention"
+            ],
             "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
-            "slides": [],
-            "covers": []
+            "slides": [
+              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
+              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Corrosion Types",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Primers and sealants",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Crevice Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Crevice corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Drain holes kept clear",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Galvanic Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Galvanic corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Pitting Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Pitting corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Prevention",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
           },
           {
             "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
             "title": "Crevice",
-            "level": 2,
-            "start_page": 5,
+            "level": 3,
+            "start_page": 2,
             "end_page": 0,
-            "concept_summary": [],
+            "concept_summary": [
+              "Primers and sealants",
+              "Corrosion Types",
+              "Pitting Corrosion",
+              "Crevice corrosion",
+              "Pitting corrosion",
+              "Galvanic Corrosion",
+              "Crevice Corrosion",
+              "Galvanic corrosion",
+              "Drain holes kept clear",
+              "Prevention"
+            ],
             "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
-            "slides": [],
-            "covers": []
+            "slides": [
+              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
+              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Corrosion Types",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Primers and sealants",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Crevice Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Crevice corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Drain holes kept clear",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Galvanic Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Galvanic corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Pitting Corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Pitting corrosion",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Prevention",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
           },
           {
             "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2",
             "title": "Prevention",
-            "level": 1,
-            "start_page": 6,
+            "level": 2,
+            "start_page": 3,
             "end_page": 0,
-            "concept_summary": [],
+            "concept_summary": [
+              "Primers and sealants",
+              "Drain holes kept clear",
+              "Prevention"
+            ],
             "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7",
-            "slides": [],
-            "covers": []
+            "slides": [
+              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Primers and sealants",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Drain holes kept clear",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Prevention",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
           },
           {
             "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s0",
             "title": "Primers and sealants",
-            "level": 2,
-            "start_page": 7,
+            "level": 3,
+            "start_page": 3,
             "end_page": 0,
-            "concept_summary": [],
+            "concept_summary": [
+              "Primers and sealants",
+              "Drain holes kept clear",
+              "Prevention"
+            ],
             "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2",
-            "slides": [],
-            "covers": []
+            "slides": [
+              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Primers and sealants",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Drain holes kept clear",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Prevention",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
           },
           {
             "id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s1",
             "title": "Drain holes kept clear",
-            "level": 2,
-            "start_page": 8,
+            "level": 3,
+            "start_page": 3,
             "end_page": 0,
-            "concept_summary": [],
+            "concept_summary": [
+              "Primers and sealants",
+              "Drain holes kept clear",
+              "Prevention"
+            ],
             "parent": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2",
-            "slides": [],
-            "covers": []
+            "slides": [
+              "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Primers and sealants",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Drain holes kept clear",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Prevention",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
           }
         ]
       },
@@ -691,67 +725,62 @@
           {
             "name": "Byte‑identical copy test",
             "id": "concept_Byte‑identical_copy_test",
-            "salience": 0.5
-          },
-          {
-            "name": "Byte‑identical copy test",
-            "id": "concept_Byte‑identical_copy_test",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Corrosion Control",
             "id": "concept_Corrosion_Control",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Corrosion Types",
             "id": "concept_Corrosion_Types",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Crevice Corrosion",
             "id": "concept_Crevice_Corrosion",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Drain holes",
-            "id": "concept_Drain_holes",
-            "salience": 0.5
+            "name": "Crevice corrosion",
+            "id": "concept_Crevice_corrosion",
+            "domain": "TRAINING"
           },
           {
             "name": "Drain holes kept clear",
             "id": "concept_Drain_holes_kept_clear",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Galvanic Corrosion",
             "id": "concept_Galvanic_Corrosion",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Keeping drain holes clear",
-            "id": "concept_Keeping_drain_holes_clear",
-            "salience": 0.5
+            "name": "Galvanic corrosion",
+            "id": "concept_Galvanic_corrosion",
+            "domain": "TRAINING"
           },
           {
             "name": "Pitting Corrosion",
             "id": "concept_Pitting_Corrosion",
-            "salience": 0.7
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Pitting corrosion",
+            "id": "concept_Pitting_corrosion",
+            "domain": "TRAINING"
           },
           {
             "name": "Prevention",
             "id": "concept_Prevention",
-            "salience": 0.7
-          },
-          {
-            "name": "Prevention",
-            "id": "concept_Prevention",
-            "salience": 0.5
+            "domain": "TRAINING"
           },
           {
             "name": "Primers and sealants",
             "id": "concept_Primers_and_sealants",
-            "salience": 1.0
+            "domain": "TRAINING"
           }
         ]
       },
@@ -759,70 +788,65 @@
         {
           "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p1",
           "concept": "Byte‑identical copy test",
-          "salience": null
-        },
-        {
-          "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p1",
-          "concept": "Byte‑identical copy test",
-          "salience": null
+          "salience": 0.1
         },
         {
           "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p1",
           "concept": "Corrosion Control",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
           "concept": "Corrosion Types",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
           "concept": "Crevice Corrosion",
-          "salience": null
+          "salience": 0.7
+        },
+        {
+          "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
+          "concept": "Crevice corrosion",
+          "salience": 0.7
         },
         {
           "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
           "concept": "Galvanic Corrosion",
-          "salience": null
+          "salience": 0.7
+        },
+        {
+          "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
+          "concept": "Galvanic corrosion",
+          "salience": 0.7
         },
         {
           "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
           "concept": "Pitting Corrosion",
-          "salience": null
+          "salience": 0.7
         },
         {
-          "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
-          "concept": "Drain holes",
-          "salience": null
+          "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
+          "concept": "Pitting corrosion",
+          "salience": 0.7
         },
         {
           "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
           "concept": "Drain holes kept clear",
-          "salience": null
-        },
-        {
-          "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
-          "concept": "Keeping drain holes clear",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
           "concept": "Prevention",
-          "salience": null
-        },
-        {
-          "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
-          "concept": "Prevention",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
           "concept": "Primers and sealants",
-          "salience": null
+          "salience": 1.0
         }
       ],
-      "salience_location": "concept_node",
+      "salience_location": "edge",
       "edges": {
         "HAS_SECTION": [
           {
@@ -836,34 +860,6 @@
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7",
             "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2"
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0"
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1"
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s0"
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s1"
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s2"
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1_s0"
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s1_s1"
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
@@ -900,18 +896,6 @@
             "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
           },
           {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2"
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s0",
-            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
-          },
-          {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
             "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2"
           },
@@ -921,278 +905,406 @@
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
+            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2"
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
+            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2"
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2"
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2",
+            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s0",
+            "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s1",
             "to": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
           }
         ],
         "COVERS": [
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "to": "Byte‑identical copy test",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "to": "Byte‑identical copy test",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
             "to": "Corrosion Control",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
             "to": "Corrosion Types",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
+            "to": "Primers and sealants",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
             "to": "Crevice Corrosion",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "to": "Drain holes",
-            "score": null,
+            "to": "Crevice corrosion",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
             "to": "Drain holes kept clear",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
             "to": "Galvanic Corrosion",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "to": "Keeping drain holes clear",
-            "score": null,
+            "to": "Galvanic corrosion",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
             "to": "Pitting Corrosion",
-            "score": null,
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
+            "to": "Pitting corrosion",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
             "to": "Prevention",
-            "score": null,
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "to": "Prevention",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0",
-            "to": "Primers and sealants",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Corrosion Types",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Crevice Corrosion",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Drain holes",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Drain holes kept clear",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Galvanic Corrosion",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Keeping drain holes clear",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Pitting Corrosion",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Prevention",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Prevention",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0",
-            "to": "Primers and sealants",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s0",
-            "to": "Drain holes",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s0",
-            "to": "Drain holes kept clear",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s0",
-            "to": "Keeping drain holes clear",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s0",
-            "to": "Prevention",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s0",
-            "to": "Prevention",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s0_s0_s0",
-            "to": "Primers and sealants",
-            "score": null,
+            "to": "Byte‑identical copy test",
+            "score": 0.1,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
             "to": "Corrosion Types",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
+            "to": "Primers and sealants",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
             "to": "Crevice Corrosion",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
-            "to": "Drain holes",
-            "score": null,
+            "to": "Crevice corrosion",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
             "to": "Drain holes kept clear",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
             "to": "Galvanic Corrosion",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
-            "to": "Keeping drain holes clear",
-            "score": null,
+            "to": "Galvanic corrosion",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
             "to": "Pitting Corrosion",
-            "score": null,
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
+            "to": "Pitting corrosion",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
             "to": "Prevention",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
-            "to": "Prevention",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1",
-            "to": "Primers and sealants",
-            "score": null,
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
-            "to": "Drain holes",
-            "score": null,
+            "to": "Corrosion Types",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
+            "to": "Primers and sealants",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
+            "to": "Crevice Corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
+            "to": "Crevice corrosion",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
             "to": "Drain holes kept clear",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
-            "to": "Keeping drain holes clear",
-            "score": null,
+            "to": "Galvanic Corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
+            "to": "Galvanic corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
+            "to": "Pitting Corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
+            "to": "Pitting corrosion",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
             "to": "Prevention",
-            "score": null,
+            "score": 0.5,
             "frequency": 1
           },
           {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
-            "to": "Prevention",
-            "score": null,
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "Corrosion Types",
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s0",
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
             "to": "Primers and sealants",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "Crevice Corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "Crevice corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "Drain holes kept clear",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "Galvanic Corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "Galvanic corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "Pitting Corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "Pitting corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s1",
+            "to": "Prevention",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Corrosion Types",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Primers and sealants",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Crevice Corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Crevice corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Drain holes kept clear",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Galvanic Corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Galvanic corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Pitting Corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Pitting corrosion",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s1_s2",
+            "to": "Prevention",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2",
+            "to": "Primers and sealants",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2",
+            "to": "Drain holes kept clear",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2",
+            "to": "Prevention",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s0",
+            "to": "Primers and sealants",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s0",
+            "to": "Drain holes kept clear",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s0",
+            "to": "Prevention",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s1",
+            "to": "Primers and sealants",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s1",
+            "to": "Drain holes kept clear",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_s2_s1",
+            "to": "Prevention",
+            "score": 0.5,
             "frequency": 1
           }
         ],
@@ -1200,67 +1312,62 @@
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p1",
             "to": "Byte‑identical copy test",
-            "salience": null
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p1",
-            "to": "Byte‑identical copy test",
-            "salience": null
+            "salience": 0.1
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p1",
             "to": "Corrosion Control",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
             "to": "Corrosion Types",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
             "to": "Crevice Corrosion",
-            "salience": null
+            "salience": 0.7
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
+            "to": "Crevice corrosion",
+            "salience": 0.7
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
             "to": "Galvanic Corrosion",
-            "salience": null
+            "salience": 0.7
+          },
+          {
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
+            "to": "Galvanic corrosion",
+            "salience": 0.7
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
             "to": "Pitting Corrosion",
-            "salience": null
+            "salience": 0.7
           },
           {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
-            "to": "Drain holes",
-            "salience": null
+            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
+            "to": "Pitting corrosion",
+            "salience": 0.7
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
             "to": "Drain holes kept clear",
-            "salience": null
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
-            "to": "Keeping drain holes clear",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
             "to": "Prevention",
-            "salience": null
-          },
-          {
-            "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
-            "to": "Prevention",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
             "to": "Primers and sealants",
-            "salience": null
+            "salience": 1.0
           }
         ]
       }
@@ -1284,17 +1391,23 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T09:27:17.624003+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T02:48:22.936313+00:00"
     },
-    "prefix": "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/current.json",
       "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -1307,8 +1420,8 @@
         "properties": {
           "text": "[Title] Corrosion Control\n[Title] Byte-identical copy test",
           "doc_id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7",
-          "chunk_id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p1",
           "section": null,
+          "chunk_id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p1",
           "domain": "TRAINING"
         },
         "vector_length": 768
@@ -1319,8 +1432,8 @@
           "text": "[Title] Corrosion Types\n[Title] Galvanic\n[Title] Pitting\n[Title] Crevice",
           "doc_id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7",
           "section": null,
-          "chunk_id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2",
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p2"
         },
         "vector_length": 768
       },
@@ -1330,8 +1443,8 @@
           "text": "[Title] Prevention\n[Title] Primers and sealants\n[NarrativeText] Drain holes kept clear",
           "doc_id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7",
           "section": null,
-          "chunk_id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3",
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:dda9e48154ce1da9b8b1640e1f41d6d7f8a42f10b4c4757809b3673f413971f7_p3"
         },
         "vector_length": 768
       }
@@ -1366,20 +1479,18 @@
       "partition_key": "training__course__dup-same-bytes-a__same_bytes_a.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T04:44:52.013993+00:00",
-      "end_utc": "2026-10-24T04:48:24.628449+00:00",
-      "wall_seconds": 212.61
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T02:46:11.117118+00:00",
+      "end_utc": "2026-10-25T02:47:50.643674+00:00",
+      "wall_seconds": 99.53
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],

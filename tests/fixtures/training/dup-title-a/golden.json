@@ -238,21 +238,20 @@
         "nodes": [
           {
             "id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
-            "title": "Mechanical Seals",
+            "title": "Pump Maintenance Basics",
             "level": 1,
             "start_page": 1,
             "end_page": 0,
             "concept_summary": [
-              "Never run dry",
-              "Mechanical seals",
-              "Mechanical Seal",
-              "Contamination",
-              "Replace seals as a set",
-              "Pump Maintenance",
+              "Pump Maintenance Basics",
               "Seal Failure Modes",
-              "Thermal Shock",
+              "Mechanical Seals",
+              "Replace as a Set (Replace as a set)",
+              "Dry Running (Never run dry)",
+              "Contamination",
               "Dry Running",
-              "Lapped flat faces"
+              "Thermal Shock",
+              "Face Lapping (Faces lapped flat)"
             ],
             "parent": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
             "slides": [
@@ -262,120 +261,165 @@
             ],
             "covers": [
               {
-                "concept": "Contamination",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Dry Running",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Lapped flat faces",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Mechanical Seal",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Mechanical seals",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Never run dry",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Pump Maintenance",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Replace seals as a set",
-                "score": null,
+                "concept": "Pump Maintenance Basics",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Seal Failure Modes",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Mechanical Seals",
+                "score": 0.85,
+                "frequency": 2
+              },
+              {
+                "concept": "Contamination",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Dry Running",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Dry Running (Never run dry)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Face Lapping (Faces lapped flat)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Replace as a Set (Replace as a set)",
+                "score": 0.7,
                 "frequency": 1
               },
               {
                 "concept": "Thermal Shock",
-                "score": null,
+                "score": 0.7,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
-            "title": "Seal Failure Modes",
-            "level": 1,
+            "id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
+            "title": "Edition A: mechanical seals",
+            "level": 2,
             "start_page": 2,
             "end_page": 0,
             "concept_summary": [
+              "Mechanical Seals",
               "Seal Failure Modes",
-              "Mechanical seals",
-              "Replace seals as a set",
-              "Thermal Shock",
-              "Dry Running",
-              "Never run dry",
+              "Face Lapping (Faces lapped flat)",
               "Contamination",
-              "Lapped flat faces"
+              "Thermal Shock",
+              "Dry Running (Never run dry)",
+              "Dry Running",
+              "Replace as a Set (Replace as a set)"
             ],
-            "parent": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
+            "parent": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
             "slides": [
               "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
               "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3"
             ],
             "covers": [
               {
-                "concept": "Contamination",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Dry Running",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Lapped flat faces",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Mechanical seals",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Never run dry",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Replace seals as a set",
-                "score": null,
+                "concept": "Mechanical Seals",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Seal Failure Modes",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Contamination",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Dry Running",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Dry Running (Never run dry)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Face Lapping (Faces lapped flat)",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Replace as a Set (Replace as a set)",
+                "score": 0.7,
                 "frequency": 1
               },
               {
                 "concept": "Thermal Shock",
-                "score": null,
+                "score": 0.7,
                 "frequency": 1
               }
             ]
+          },
+          {
+            "id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
+            "title": "Mechanical Seals",
+            "level": 1,
+            "start_page": 3,
+            "end_page": 0,
+            "concept_summary": [
+              "Seal Failure Modes",
+              "Contamination",
+              "Thermal Shock",
+              "Dry Running"
+            ],
+            "parent": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
+            "slides": [
+              "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Seal Failure Modes",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Contamination",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Dry Running",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Thermal Shock",
+                "score": 0.7,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s2",
+            "title": "Seal Failure Modes",
+            "level": 1,
+            "start_page": 4,
+            "end_page": 0,
+            "concept_summary": [],
+            "parent": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
+            "slides": [],
+            "covers": []
           }
         ]
       },
@@ -388,108 +432,103 @@
           {
             "name": "Contamination",
             "id": "concept_Contamination",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Dry Running",
             "id": "concept_Dry_Running",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Lapped flat faces",
-            "id": "concept_Lapped_flat_faces",
-            "salience": 0.7
+            "name": "Dry Running (Never run dry)",
+            "id": "concept_Dry_Running_(Never_run_dry)",
+            "domain": "TRAINING"
           },
           {
-            "name": "Mechanical Seal",
-            "id": "concept_Mechanical_Seal",
-            "salience": 0.7
+            "name": "Face Lapping (Faces lapped flat)",
+            "id": "concept_Face_Lapping_(Faces_lapped_flat)",
+            "domain": "TRAINING"
           },
           {
-            "name": "Mechanical seals",
-            "id": "concept_Mechanical_seals",
-            "salience": 1.0
+            "name": "Mechanical Seals",
+            "id": "concept_Mechanical_Seals",
+            "domain": "TRAINING"
           },
           {
-            "name": "Never run dry",
-            "id": "concept_Never_run_dry",
-            "salience": 0.7
+            "name": "Pump Maintenance Basics",
+            "id": "concept_Pump_Maintenance_Basics",
+            "domain": "TRAINING"
           },
           {
-            "name": "Pump Maintenance",
-            "id": "concept_Pump_Maintenance",
-            "salience": 1.0
-          },
-          {
-            "name": "Replace seals as a set",
-            "id": "concept_Replace_seals_as_a_set",
-            "salience": 0.7
+            "name": "Replace as a Set (Replace as a set)",
+            "id": "concept_Replace_as_a_Set_(Replace_as_a_set)",
+            "domain": "TRAINING"
           },
           {
             "name": "Seal Failure Modes",
             "id": "concept_Seal_Failure_Modes",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Thermal Shock",
             "id": "concept_Thermal_Shock",
-            "salience": 0.7
+            "domain": "TRAINING"
           }
         ]
       },
       "teaches": [
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p1",
-          "concept": "Mechanical Seal",
-          "salience": null
+          "concept": "Mechanical Seals",
+          "salience": 0.7
         },
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p1",
-          "concept": "Pump Maintenance",
-          "salience": null
+          "concept": "Pump Maintenance Basics",
+          "salience": 1.0
         },
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
-          "concept": "Lapped flat faces",
-          "salience": null
+          "concept": "Dry Running (Never run dry)",
+          "salience": 0.7
         },
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
-          "concept": "Mechanical seals",
-          "salience": null
+          "concept": "Face Lapping (Faces lapped flat)",
+          "salience": 0.7
         },
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
-          "concept": "Never run dry",
-          "salience": null
+          "concept": "Mechanical Seals",
+          "salience": 1.0
         },
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
-          "concept": "Replace seals as a set",
-          "salience": null
+          "concept": "Replace as a Set (Replace as a set)",
+          "salience": 0.7
         },
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3",
           "concept": "Contamination",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3",
           "concept": "Dry Running",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3",
           "concept": "Seal Failure Modes",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3",
           "concept": "Thermal Shock",
-          "salience": null
+          "salience": 0.7
         }
       ],
-      "salience_location": "concept_node",
+      "salience_location": "edge",
       "edges": {
         "HAS_SECTION": [
           {
@@ -499,6 +538,14 @@
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
             "to": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1"
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
+            "to": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s2"
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
+            "to": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0"
           }
         ],
         "section_slide": [
@@ -515,8 +562,12 @@
             "to": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3"
           },
           {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
             "to": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2"
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
+            "to": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3"
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
@@ -526,163 +577,181 @@
         "COVERS": [
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
-            "to": "Contamination",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
-            "to": "Dry Running",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
-            "to": "Lapped flat faces",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
-            "to": "Mechanical Seal",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
-            "to": "Mechanical seals",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
-            "to": "Never run dry",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
-            "to": "Pump Maintenance",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
-            "to": "Replace seals as a set",
-            "score": null,
+            "to": "Pump Maintenance Basics",
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
             "to": "Seal Failure Modes",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
+            "to": "Mechanical Seals",
+            "score": 0.85,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
+            "to": "Contamination",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
+            "to": "Dry Running",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
+            "to": "Dry Running (Never run dry)",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
+            "to": "Face Lapping (Faces lapped flat)",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
+            "to": "Replace as a Set (Replace as a set)",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0",
             "to": "Thermal Shock",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
+            "to": "Mechanical Seals",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
+            "to": "Seal Failure Modes",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
             "to": "Contamination",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
             "to": "Dry Running",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
-            "to": "Lapped flat faces",
-            "score": null,
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
+            "to": "Dry Running (Never run dry)",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
-            "to": "Mechanical seals",
-            "score": null,
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
+            "to": "Face Lapping (Faces lapped flat)",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
-            "to": "Never run dry",
-            "score": null,
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
+            "to": "Replace as a Set (Replace as a set)",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
-            "to": "Replace seals as a set",
-            "score": null,
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s0_s0",
+            "to": "Thermal Shock",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
             "to": "Seal Failure Modes",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
+            "to": "Contamination",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
+            "to": "Dry Running",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_s1",
             "to": "Thermal Shock",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           }
         ],
         "TEACHES": [
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p1",
-            "to": "Mechanical Seal",
-            "salience": null
+            "to": "Mechanical Seals",
+            "salience": 0.7
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p1",
-            "to": "Pump Maintenance",
-            "salience": null
+            "to": "Pump Maintenance Basics",
+            "salience": 1.0
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
-            "to": "Lapped flat faces",
-            "salience": null
+            "to": "Dry Running (Never run dry)",
+            "salience": 0.7
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
-            "to": "Mechanical seals",
-            "salience": null
+            "to": "Face Lapping (Faces lapped flat)",
+            "salience": 0.7
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
-            "to": "Never run dry",
-            "salience": null
+            "to": "Mechanical Seals",
+            "salience": 1.0
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
-            "to": "Replace seals as a set",
-            "salience": null
+            "to": "Replace as a Set (Replace as a set)",
+            "salience": 0.7
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3",
             "to": "Contamination",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3",
             "to": "Dry Running",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3",
             "to": "Seal Failure Modes",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3",
             "to": "Thermal Shock",
-            "salience": null
+            "salience": 0.7
           }
         ]
       }
@@ -706,17 +775,23 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T09:34:06.314434+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T02:50:24.457486+00:00"
     },
-    "prefix": "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/current.json",
       "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -727,33 +802,33 @@
       {
         "uuid": "209d53c9-4bf1-5aeb-afe8-488dcd6b65cf",
         "properties": {
+          "section": null,
           "doc_id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
           "chunk_id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p1",
-          "section": null,
-          "domain": "TRAINING",
-          "text": "[Title] Pump Maintenance Basics\n[Title] Edition A: mechanical seals"
+          "text": "[Title] Pump Maintenance Basics\n[Title] Edition A: mechanical seals",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "acecc42a-8530-5d25-adf5-2e35f6371f63",
         "properties": {
-          "doc_id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
-          "chunk_id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
           "section": null,
-          "domain": "TRAINING",
-          "text": "[Title] Mechanical Seals\n[NarrativeText] Faces lapped flat\n[NarrativeText] Never run dry\n[NarrativeText] Replace as a set"
+          "chunk_id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p2",
+          "doc_id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
+          "text": "[Title] Mechanical Seals\n[NarrativeText] Faces lapped flat\n[NarrativeText] Never run dry\n[NarrativeText] Replace as a set",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       },
       {
         "uuid": "29ff6896-b4b9-5347-8df0-ccccc73e7ff4",
         "properties": {
+          "section": null,
           "doc_id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093",
           "chunk_id": "sha256:4eab75d2761a7c6ece6a992be5c13d2c4a97ab6f7a935d025db20e27df5a8093_p3",
-          "section": null,
-          "domain": "TRAINING",
-          "text": "[Title] Seal Failure Modes\n[NarrativeText] Dry running\n[Title] Contamination\n[Title] Thermal shock"
+          "text": "[Title] Seal Failure Modes\n[NarrativeText] Dry running\n[Title] Contamination\n[Title] Thermal shock",
+          "domain": "TRAINING"
         },
         "vector_length": 768
       }
@@ -788,20 +863,18 @@
       "partition_key": "training__course__dup-title-a__dup-title-a.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T09:34:05.100080+00:00",
-      "end_utc": "2026-10-24T09:37:23.831709+00:00",
-      "wall_seconds": 198.73
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T02:50:11.614263+00:00",
+      "end_utc": "2026-10-25T02:52:11.093363+00:00",
+      "wall_seconds": 119.48
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],

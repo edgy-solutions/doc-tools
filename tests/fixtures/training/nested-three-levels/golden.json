@@ -734,21 +734,21 @@
         "nodes": [
           {
             "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "title": "1 Generation",
+            "title": "Agenda",
             "level": 1,
             "start_page": 1,
             "end_page": 0,
             "concept_summary": [
-              "Brushless Excitation",
-              "Rated voltage and current",
-              "Steam Turbines",
-              "Three‑level section hierarchy",
-              "Field winding",
-              "Circuit Breakers",
-              "Hydro Turbines",
-              "Gas Turbines",
+              "Turbine Types",
+              "Power Systems Overview",
+              "Circuit Breaker",
               "Excitation Systems",
-              "Short‑circuit interrupting capacity"
+              "Rotor",
+              "Breaker Ratings",
+              "Distribution",
+              "Stator",
+              "Switchgear",
+              "Generators"
             ],
             "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
             "slides": [
@@ -769,194 +769,169 @@
             ],
             "covers": [
               {
-                "concept": "Agenda",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Armature winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Breaker Ratings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Brushless Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Circuit Breaker",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Circuit Breakers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Distribution",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Distribution",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation Systems",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Field winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Gas Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Generation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Generators",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hydro Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Power Systems Overview",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rated voltage and current",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rectifier",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rotating Diode Bridge",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Rotor",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Short‑circuit interrupting capacity",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Speed–frequency relationship",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Static Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Stator",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Steam Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Switchgear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Switchgear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Synchronous Machines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Synchronous Machines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Three‑level section hierarchy",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Turbine Types",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Distribution",
+                "score": 0.85,
+                "frequency": 2
+              },
+              {
+                "concept": "Stator",
+                "score": 0.8,
+                "frequency": 1
+              },
+              {
+                "concept": "Excitation",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Generators",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Prime Movers",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Switchgear",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Synchronous Machines",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Armature winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Brushless Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Field winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Gas Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Generation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydro Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Current",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Voltage",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Short‑Circuit Interrupting Capacity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Static Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Steam Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Three‑level Section Hierarchy",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Circuit Breakers",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rectifier",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rotating Diode Bridge",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Speed‑frequency relationship",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
             "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "title": "1.1 Generators",
+            "title": "1 Generation",
             "level": 2,
             "start_page": 2,
             "end_page": 0,
             "concept_summary": [
-              "Circuit Breakers",
-              "Rated voltage and current",
-              "Gas Turbines",
-              "Rotating Diode Bridge",
-              "Distribution",
-              "Agenda",
-              "Synchronous Machines",
               "Rotor",
-              "Prime Movers",
-              "Steam Turbines"
+              "Excitation Systems",
+              "Circuit Breaker",
+              "Turbine Types",
+              "Breaker Ratings",
+              "Distribution",
+              "Stator",
+              "Generators",
+              "Switchgear",
+              "Synchronous Machines"
             ],
             "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
             "slides": [
@@ -976,184 +951,159 @@
             ],
             "covers": [
               {
-                "concept": "Agenda",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Armature winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Breaker Ratings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Brushless Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Circuit Breaker",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Circuit Breakers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Distribution",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Distribution",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation Systems",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Field winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Gas Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Generation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Generators",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hydro Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rated voltage and current",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rectifier",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rotating Diode Bridge",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Rotor",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Short‑circuit interrupting capacity",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Speed–frequency relationship",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Static Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Stator",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Steam Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Switchgear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Switchgear",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Synchronous Machines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Synchronous Machines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Turbine Types",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Distribution",
+                "score": 0.85,
+                "frequency": 2
+              },
+              {
+                "concept": "Stator",
+                "score": 0.8,
+                "frequency": 1
+              },
+              {
+                "concept": "Excitation",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Generators",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Prime Movers",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Switchgear",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Synchronous Machines",
+                "score": 0.75,
+                "frequency": 2
+              },
+              {
+                "concept": "Armature winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Brushless Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Field winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Gas Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Generation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydro Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Current",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Voltage",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Short‑Circuit Interrupting Capacity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Static Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Steam Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Circuit Breakers",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rectifier",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rotating Diode Bridge",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Speed‑frequency relationship",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
             "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "title": "1.1.1 Synchronous Machines",
+            "title": "1.1 Generators",
             "level": 3,
             "start_page": 3,
             "end_page": 0,
             "concept_summary": [
-              "Steam Turbines",
-              "Excitation",
               "Turbine Types",
-              "Rated voltage and current",
-              "Field winding",
-              "Brushless Excitation",
-              "Rotor",
-              "Rectifier",
+              "Excitation Systems",
+              "Generators",
+              "Breaker Ratings",
+              "Synchronous Machines",
+              "Excitation",
+              "Switchgear",
               "Circuit Breaker",
-              "Static Excitation"
+              "Rotor",
+              "Prime Movers"
             ],
             "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
             "slides": [
@@ -1172,141 +1122,151 @@
             ],
             "covers": [
               {
-                "concept": "Armature winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Breaker Ratings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Brushless Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Circuit Breaker",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Distribution",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation Systems",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Field winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Gas Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hydro Turbines",
-                "score": null,
+                "concept": "Generators",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rated voltage and current",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rectifier",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rotating Diode Bridge",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Rotor",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Short‑circuit interrupting capacity",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Speed–frequency relationship",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Static Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Stator",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Steam Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Switchgear",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Synchronous Machines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Turbine Types",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Stator",
+                "score": 0.8,
+                "frequency": 1
+              },
+              {
+                "concept": "Armature winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Brushless Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Field winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Gas Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydro Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Current",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Voltage",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Short‑Circuit Interrupting Capacity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Static Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Steam Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rectifier",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rotating Diode Bridge",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Speed‑frequency relationship",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "title": "1.1.2 Excitation",
-            "level": 3,
+            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "title": "1.1.1 Synchronous Machines",
+            "level": 4,
             "start_page": 4,
             "end_page": 0,
             "concept_summary": [
-              "Armature winding",
-              "Field winding",
-              "Rated voltage and current",
-              "Turbine Types",
-              "Rotating Diode Bridge",
-              "Circuit Breaker",
-              "Steam Turbines",
-              "Short‑circuit interrupting capacity",
+              "Excitation",
               "Synchronous Machines",
+              "Circuit Breaker",
+              "Excitation Systems",
+              "Distribution",
+              "Generators",
+              "Breaker Ratings",
+              "Turbine Types",
+              "Switchgear",
               "Prime Movers"
             ],
-            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "slides": [
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11",
@@ -1322,141 +1282,151 @@
             ],
             "covers": [
               {
-                "concept": "Armature winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Breaker Ratings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Brushless Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Circuit Breaker",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Distribution",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation Systems",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
-                "concept": "Field winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Gas Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hydro Turbines",
-                "score": null,
+                "concept": "Generators",
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rated voltage and current",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rectifier",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rotating Diode Bridge",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Rotor",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Short‑circuit interrupting capacity",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Speed–frequency relationship",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Static Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Stator",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Steam Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Switchgear",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Synchronous Machines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Turbine Types",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Stator",
+                "score": 0.8,
+                "frequency": 1
+              },
+              {
+                "concept": "Armature winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Brushless Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Field winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Gas Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydro Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Current",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Voltage",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Short‑Circuit Interrupting Capacity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Static Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Steam Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rectifier",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rotating Diode Bridge",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Speed‑frequency relationship",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "title": "1.2 Prime Movers",
-            "level": 2,
+            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "title": "1.1.2 Excitation",
+            "level": 4,
             "start_page": 5,
             "end_page": 0,
             "concept_summary": [
-              "Armature winding",
-              "Speed–frequency relationship",
-              "Field winding",
-              "Short‑circuit interrupting capacity",
-              "Excitation",
-              "Gas Turbines",
+              "Switchgear",
+              "Distribution",
+              "Excitation Systems",
+              "Synchronous Machines",
+              "Prime Movers",
               "Turbine Types",
               "Rotor",
-              "Rated voltage and current",
-              "Synchronous Machines"
+              "Excitation",
+              "Breaker Ratings",
+              "Circuit Breaker"
             ],
-            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "slides": [
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11",
@@ -1471,141 +1441,146 @@
             ],
             "covers": [
               {
-                "concept": "Armature winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Breaker Ratings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Brushless Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Circuit Breaker",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Distribution",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation Systems",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Field winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Gas Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hydro Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rated voltage and current",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rectifier",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rotating Diode Bridge",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Rotor",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Short‑circuit interrupting capacity",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Speed–frequency relationship",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Static Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Stator",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Steam Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Switchgear",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Synchronous Machines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Turbine Types",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Stator",
+                "score": 0.8,
+                "frequency": 1
+              },
+              {
+                "concept": "Armature winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Brushless Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Field winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Gas Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydro Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Current",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Voltage",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Short‑Circuit Interrupting Capacity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Static Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Steam Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rectifier",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rotating Diode Bridge",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Speed‑frequency relationship",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "title": "2 Distribution",
-            "level": 1,
+            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "title": "1.2 Prime Movers",
+            "level": 3,
             "start_page": 6,
             "end_page": 0,
             "concept_summary": [
-              "Rotating Diode Bridge",
-              "Gas Turbines",
-              "Switchgear",
-              "Turbine Types",
+              "Breaker Ratings",
+              "Prime Movers",
               "Rotor",
-              "Circuit Breaker",
-              "Speed–frequency relationship",
+              "Turbine Types",
               "Distribution",
-              "Hydro Turbines",
-              "Breaker Ratings"
+              "Circuit Breaker",
+              "Excitation Systems",
+              "Excitation",
+              "Switchgear",
+              "Stator"
             ],
-            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
+            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
             "slides": [
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11",
@@ -1619,136 +1594,141 @@
             ],
             "covers": [
               {
-                "concept": "Armature winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
                 "concept": "Breaker Ratings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Brushless Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Circuit Breaker",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Distribution",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation Systems",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Field winding",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Gas Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hydro Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rated voltage and current",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rectifier",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rotating Diode Bridge",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Rotor",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Short‑circuit interrupting capacity",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Speed–frequency relationship",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Static Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Stator",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Steam Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Switchgear",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Turbine Types",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Stator",
+                "score": 0.8,
+                "frequency": 1
+              },
+              {
+                "concept": "Armature winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Brushless Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Field winding",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Gas Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydro Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Current",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Voltage",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Short‑Circuit Interrupting Capacity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Static Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Steam Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rectifier",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rotating Diode Bridge",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Speed‑frequency relationship",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "title": "2.1 Switchgear",
+            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "title": "2 Distribution",
             "level": 2,
             "start_page": 7,
             "end_page": 0,
             "concept_summary": [
-              "Rotating Diode Bridge",
-              "Circuit Breaker",
-              "Static Excitation",
-              "Excitation",
-              "Hydro Turbines",
-              "Rated voltage and current",
+              "Excitation Systems",
+              "Switchgear",
               "Distribution",
-              "Gas Turbines",
+              "Breaker Ratings",
+              "Excitation",
+              "Turbine Types",
+              "Circuit Breaker",
               "Prime Movers",
-              "Short‑circuit interrupting capacity"
+              "Gas Turbine",
+              "Steam Turbine"
             ],
-            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
             "slides": [
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11",
@@ -1762,110 +1742,115 @@
             "covers": [
               {
                 "concept": "Breaker Ratings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Brushless Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Circuit Breaker",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Distribution",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation Systems",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Gas Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hydro Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rated voltage and current",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rectifier",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rotating Diode Bridge",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Short‑circuit interrupting capacity",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Static Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Steam Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Switchgear",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Turbine Types",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Brushless Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Gas Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydro Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Current",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Voltage",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Short‑Circuit Interrupting Capacity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Static Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Steam Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rectifier",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rotating Diode Bridge",
+                "score": 0.5,
                 "frequency": 1
               }
             ]
           },
           {
-            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "title": "2.1.1 Circuit Breakers",
+            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "title": "2.1 Switchgear",
             "level": 3,
             "start_page": 8,
             "end_page": 0,
             "concept_summary": [
-              "Short‑circuit interrupting capacity",
-              "Static Excitation",
-              "Hydro Turbines",
-              "Turbine Types",
-              "Prime Movers",
-              "Breaker Ratings",
-              "Gas Turbines",
-              "Circuit Breaker",
+              "Excitation Systems",
+              "Switchgear",
               "Distribution",
-              "Rectifier"
+              "Prime Movers",
+              "Turbine Types",
+              "Breaker Ratings",
+              "Circuit Breaker",
+              "Static Excitation",
+              "Brushless Excitation",
+              "Short‑Circuit Interrupting Capacity"
             ],
-            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "slides": [
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
               "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11",
@@ -1878,82 +1863,177 @@
             "covers": [
               {
                 "concept": "Breaker Ratings",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Brushless Excitation",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Circuit Breaker",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Distribution",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Excitation Systems",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Gas Turbines",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Hydro Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Prime Movers",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rated voltage and current",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rectifier",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Rotating Diode Bridge",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Short‑circuit interrupting capacity",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Static Excitation",
-                "score": null,
-                "frequency": 1
-              },
-              {
-                "concept": "Steam Turbines",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Switchgear",
-                "score": null,
+                "score": 1.0,
                 "frequency": 1
               },
               {
                 "concept": "Turbine Types",
-                "score": null,
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Brushless Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Gas Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydro Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Current",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Voltage",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Short‑Circuit Interrupting Capacity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Static Excitation",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Steam Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rectifier",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Rotating Diode Bridge",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ]
+          },
+          {
+            "id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "title": "2.1.1 Circuit Breakers",
+            "level": 4,
+            "start_page": 9,
+            "end_page": 0,
+            "concept_summary": [
+              "Distribution",
+              "Prime Movers",
+              "Turbine Types",
+              "Breaker Ratings",
+              "Switchgear",
+              "Circuit Breaker",
+              "Steam Turbine",
+              "Rated Current",
+              "Short‑Circuit Interrupting Capacity",
+              "Rated Voltage"
+            ],
+            "parent": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "slides": [
+              "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
+              "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11",
+              "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12",
+              "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13",
+              "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
+              "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9"
+            ],
+            "covers": [
+              {
+                "concept": "Breaker Ratings",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Circuit Breaker",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Distribution",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Prime Movers",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Switchgear",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Turbine Types",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Gas Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydro Turbine",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Current",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Rated Voltage",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Short‑Circuit Interrupting Capacity",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Steam Turbine",
+                "score": 0.7,
                 "frequency": 1
               }
             ]
@@ -1967,174 +2047,149 @@
         ],
         "nodes": [
           {
-            "name": "Agenda",
-            "id": "concept_Agenda",
-            "salience": 1.0
-          },
-          {
             "name": "Armature winding",
             "id": "concept_Armature_winding",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Breaker Ratings",
             "id": "concept_Breaker_Ratings",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Brushless Excitation",
             "id": "concept_Brushless_Excitation",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Circuit Breaker",
             "id": "concept_Circuit_Breaker",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Circuit Breakers",
             "id": "concept_Circuit_Breakers",
-            "salience": 0.3
+            "domain": "TRAINING"
           },
           {
             "name": "Distribution",
             "id": "concept_Distribution",
-            "salience": 0.7
-          },
-          {
-            "name": "Distribution",
-            "id": "concept_Distribution",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Excitation",
             "id": "concept_Excitation",
-            "salience": 0.5
-          },
-          {
-            "name": "Excitation",
-            "id": "concept_Excitation",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Excitation Systems",
             "id": "concept_Excitation_Systems",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Field winding",
             "id": "concept_Field_winding",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
-            "name": "Gas Turbines",
-            "id": "concept_Gas_Turbines",
-            "salience": 0.7
+            "name": "Gas Turbine",
+            "id": "concept_Gas_Turbine",
+            "domain": "TRAINING"
           },
           {
             "name": "Generation",
             "id": "concept_Generation",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Generators",
             "id": "concept_Generators",
-            "salience": 0.5
+            "domain": "TRAINING"
           },
           {
-            "name": "Hydro Turbines",
-            "id": "concept_Hydro_Turbines",
-            "salience": 0.7
+            "name": "Hydro Turbine",
+            "id": "concept_Hydro_Turbine",
+            "domain": "TRAINING"
           },
           {
             "name": "Power Systems Overview",
             "id": "concept_Power_Systems_Overview",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Prime Movers",
             "id": "concept_Prime_Movers",
-            "salience": 0.5
+            "domain": "TRAINING"
           },
           {
-            "name": "Prime Movers",
-            "id": "concept_Prime_Movers",
-            "salience": 1.0
+            "name": "Rated Current",
+            "id": "concept_Rated_Current",
+            "domain": "TRAINING"
           },
           {
-            "name": "Rated voltage and current",
-            "id": "concept_Rated_voltage_and_current",
-            "salience": 0.7
+            "name": "Rated Voltage",
+            "id": "concept_Rated_Voltage",
+            "domain": "TRAINING"
           },
           {
             "name": "Rectifier",
             "id": "concept_Rectifier",
-            "salience": 0.5
+            "domain": "TRAINING"
           },
           {
             "name": "Rotating Diode Bridge",
             "id": "concept_Rotating_Diode_Bridge",
-            "salience": 0.5
+            "domain": "TRAINING"
           },
           {
             "name": "Rotor",
             "id": "concept_Rotor",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
-            "name": "Short‑circuit interrupting capacity",
-            "id": "concept_Short‑circuit_interrupting_capacity",
-            "salience": 0.7
+            "name": "Short‑Circuit Interrupting Capacity",
+            "id": "concept_Short‑Circuit_Interrupting_Capacity",
+            "domain": "TRAINING"
           },
           {
-            "name": "Speed–frequency relationship",
-            "id": "concept_Speed–frequency_relationship",
-            "salience": 0.5
+            "name": "Speed‑frequency relationship",
+            "id": "concept_Speed‑frequency_relationship",
+            "domain": "TRAINING"
           },
           {
             "name": "Static Excitation",
             "id": "concept_Static_Excitation",
-            "salience": 0.7
+            "domain": "TRAINING"
           },
           {
             "name": "Stator",
             "id": "concept_Stator",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
-            "name": "Steam Turbines",
-            "id": "concept_Steam_Turbines",
-            "salience": 0.7
-          },
-          {
-            "name": "Switchgear",
-            "id": "concept_Switchgear",
-            "salience": 0.5
+            "name": "Steam Turbine",
+            "id": "concept_Steam_Turbine",
+            "domain": "TRAINING"
           },
           {
             "name": "Switchgear",
             "id": "concept_Switchgear",
-            "salience": 1.0
+            "domain": "TRAINING"
           },
           {
             "name": "Synchronous Machines",
             "id": "concept_Synchronous_Machines",
-            "salience": 0.5
+            "domain": "TRAINING"
           },
           {
-            "name": "Synchronous Machines",
-            "id": "concept_Synchronous_Machines",
-            "salience": 1.0
-          },
-          {
-            "name": "Three‑level section hierarchy",
-            "id": "concept_Three‑level_section_hierarchy",
-            "salience": 0.7
+            "name": "Three‑level Section Hierarchy",
+            "id": "concept_Three‑level_Section_Hierarchy",
+            "domain": "TRAINING"
           },
           {
             "name": "Turbine Types",
             "id": "concept_Turbine_Types",
-            "salience": 1.0
+            "domain": "TRAINING"
           }
         ]
       },
@@ -2142,184 +2197,185 @@
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p1",
           "concept": "Power Systems Overview",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p1",
-          "concept": "Three‑level section hierarchy",
-          "salience": null
+          "concept": "Three‑level Section Hierarchy",
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
-          "concept": "Gas Turbines",
-          "salience": null
+          "concept": "Gas Turbine",
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
-          "concept": "Hydro Turbines",
-          "salience": null
+          "concept": "Hydro Turbine",
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
-          "concept": "Steam Turbines",
-          "salience": null
+          "concept": "Steam Turbine",
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
           "concept": "Turbine Types",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11",
           "concept": "Distribution",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12",
           "concept": "Switchgear",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13",
           "concept": "Circuit Breaker",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
           "concept": "Breaker Ratings",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
-          "concept": "Rated voltage and current",
-          "salience": null
+          "concept": "Rated Current",
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
-          "concept": "Short‑circuit interrupting capacity",
-          "salience": null
+          "concept": "Rated Voltage",
+          "salience": 0.7
         },
         {
-          "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
-          "concept": "Agenda",
-          "salience": null
+          "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
+          "concept": "Short‑Circuit Interrupting Capacity",
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
           "concept": "Circuit Breakers",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
           "concept": "Distribution",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
           "concept": "Excitation",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
           "concept": "Generation",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
           "concept": "Generators",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
           "concept": "Prime Movers",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
           "concept": "Switchgear",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
           "concept": "Synchronous Machines",
-          "salience": null
+          "salience": 0.5
+        },
+        {
+          "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p4",
+          "concept": "Generators",
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p5",
           "concept": "Synchronous Machines",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
           "concept": "Armature winding",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
           "concept": "Field winding",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
           "concept": "Rotor",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
-          "concept": "Speed–frequency relationship",
-          "salience": null
+          "concept": "Speed‑frequency relationship",
+          "salience": 0.5
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
           "concept": "Stator",
-          "salience": null
+          "salience": 0.8
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p7",
           "concept": "Excitation",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
           "concept": "Brushless Excitation",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
           "concept": "Excitation Systems",
-          "salience": null
+          "salience": 1.0
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
           "concept": "Rectifier",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
           "concept": "Rotating Diode Bridge",
-          "salience": null
+          "salience": 0.5
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
           "concept": "Static Excitation",
-          "salience": null
+          "salience": 0.7
         },
         {
           "slide": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9",
           "concept": "Prime Movers",
-          "salience": null
+          "salience": 1.0
         }
       ],
-      "salience_location": "concept_node",
+      "salience_location": "edge",
       "edges": {
         "HAS_SECTION": [
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0"
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
-            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1"
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
@@ -2338,12 +2394,20 @@
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0"
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0"
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1"
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0"
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0"
           }
         ],
         "section_slide": [
@@ -2504,1325 +2568,1409 @@
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p4"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p5"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p7"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p5"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p7"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p7"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p7"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8"
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9"
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10"
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11"
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12"
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13"
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14"
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
             "to": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9"
           }
         ],
         "COVERS": [
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Agenda",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Armature winding",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
             "to": "Breaker Ratings",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Brushless Excitation",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
             "to": "Circuit Breaker",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Circuit Breakers",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Distribution",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Distribution",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Excitation",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
             "to": "Excitation Systems",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Field winding",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Gas Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Generation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Generators",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Hydro Turbines",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
             "to": "Power Systems Overview",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Prime Movers",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Prime Movers",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Rated voltage and current",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Rectifier",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Rotating Diode Bridge",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
             "to": "Rotor",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Short‑circuit interrupting capacity",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Speed–frequency relationship",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Static Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Stator",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Steam Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Switchgear",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Switchgear",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Synchronous Machines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Synchronous Machines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
-            "to": "Three‑level section hierarchy",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
             "to": "Turbine Types",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Agenda",
-            "score": null,
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Distribution",
+            "score": 0.85,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Stator",
+            "score": 0.8,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Excitation",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Generators",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Prime Movers",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Switchgear",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Synchronous Machines",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
             "to": "Armature winding",
-            "score": null,
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Brushless Excitation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Field winding",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Gas Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Generation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Hydro Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Rated Current",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Rated Voltage",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Short‑Circuit Interrupting Capacity",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Static Excitation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Steam Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Three‑level Section Hierarchy",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Circuit Breakers",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Rectifier",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Rotating Diode Bridge",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0",
+            "to": "Speed‑frequency relationship",
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
             "to": "Breaker Ratings",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Brushless Excitation",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
             "to": "Circuit Breaker",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Circuit Breakers",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Distribution",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Distribution",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Excitation",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
             "to": "Excitation Systems",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Rotor",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Turbine Types",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Distribution",
+            "score": 0.85,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Stator",
+            "score": 0.8,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Excitation",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Generators",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Prime Movers",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Switchgear",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Synchronous Machines",
+            "score": 0.75,
+            "frequency": 2
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Armature winding",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Brushless Excitation",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
             "to": "Field winding",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Gas Turbines",
-            "score": null,
+            "to": "Gas Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
             "to": "Generation",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Hydro Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Rated Current",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Rated Voltage",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Short‑Circuit Interrupting Capacity",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Static Excitation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Steam Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Circuit Breakers",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Rectifier",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Rotating Diode Bridge",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "to": "Speed‑frequency relationship",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "Breaker Ratings",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "Circuit Breaker",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "Distribution",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "Excitation",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "Excitation Systems",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Generators",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Hydro Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Prime Movers",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Prime Movers",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Rated voltage and current",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Rectifier",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Rotating Diode Bridge",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Rotor",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Short‑circuit interrupting capacity",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Speed–frequency relationship",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Static Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Stator",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Steam Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Switchgear",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Switchgear",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Synchronous Machines",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
-            "to": "Synchronous Machines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Turbine Types",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "Stator",
+            "score": 0.8,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Armature winding",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Breaker Ratings",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Brushless Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Circuit Breaker",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Distribution",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Excitation Systems",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Field winding",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Gas Turbines",
-            "score": null,
+            "to": "Gas Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Hydro Turbines",
-            "score": null,
+            "to": "Hydro Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Prime Movers",
-            "score": null,
+            "to": "Rated Current",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Rated voltage and current",
-            "score": null,
+            "to": "Rated Voltage",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Rectifier",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Rotating Diode Bridge",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Rotor",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Short‑circuit interrupting capacity",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Speed–frequency relationship",
-            "score": null,
+            "to": "Short‑Circuit Interrupting Capacity",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
             "to": "Static Excitation",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Stator",
-            "score": null,
+            "to": "Steam Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
-            "to": "Steam Turbines",
-            "score": null,
+            "to": "Rectifier",
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "Rotating Diode Bridge",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "to": "Speed‑frequency relationship",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Breaker Ratings",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Circuit Breaker",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Distribution",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Excitation",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Excitation Systems",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Generators",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Prime Movers",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Rotor",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "Switchgear",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "Synchronous Machines",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
             "to": "Turbine Types",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Stator",
+            "score": 0.8,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Armature winding",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Brushless Excitation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Field winding",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Gas Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Hydro Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Rated Current",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Rated Voltage",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Short‑Circuit Interrupting Capacity",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Static Excitation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Steam Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Rectifier",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Rotating Diode Bridge",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s0",
+            "to": "Speed‑frequency relationship",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Breaker Ratings",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Circuit Breaker",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Distribution",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Excitation",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Excitation Systems",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Prime Movers",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Rotor",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Switchgear",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Synchronous Machines",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Turbine Types",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Stator",
+            "score": 0.8,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Armature winding",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Brushless Excitation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Field winding",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Gas Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Hydro Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Rated Current",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Rated Voltage",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Short‑Circuit Interrupting Capacity",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Static Excitation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Steam Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Rectifier",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Rotating Diode Bridge",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s0_s1",
+            "to": "Speed‑frequency relationship",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Breaker Ratings",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Circuit Breaker",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Distribution",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Excitation",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Excitation Systems",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Prime Movers",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Rotor",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Switchgear",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Turbine Types",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
+            "to": "Stator",
+            "score": 0.8,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "Armature winding",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Breaker Ratings",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "Brushless Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Circuit Breaker",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Distribution",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Excitation Systems",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "Field winding",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Gas Turbines",
-            "score": null,
+            "to": "Gas Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Hydro Turbines",
-            "score": null,
+            "to": "Hydro Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Prime Movers",
-            "score": null,
+            "to": "Rated Current",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Rated voltage and current",
-            "score": null,
+            "to": "Rated Voltage",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Rectifier",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Rotating Diode Bridge",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Rotor",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Short‑circuit interrupting capacity",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Speed–frequency relationship",
-            "score": null,
+            "to": "Short‑Circuit Interrupting Capacity",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
             "to": "Static Excitation",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Stator",
-            "score": null,
+            "to": "Steam Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Steam Turbines",
-            "score": null,
+            "to": "Rectifier",
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Switchgear",
-            "score": null,
+            "to": "Rotating Diode Bridge",
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Synchronous Machines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s0_s1",
-            "to": "Turbine Types",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Armature winding",
-            "score": null,
+            "to": "Speed‑frequency relationship",
+            "score": 0.5,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Breaker Ratings",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Brushless Excitation",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Circuit Breaker",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Distribution",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Excitation",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Excitation Systems",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Field winding",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Gas Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Hydro Turbines",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Prime Movers",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Rated voltage and current",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Rectifier",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Rotating Diode Bridge",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Rotor",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Short‑circuit interrupting capacity",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Speed–frequency relationship",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Static Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Stator",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Steam Turbines",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Switchgear",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
-            "to": "Synchronous Machines",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Turbine Types",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Armature winding",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Breaker Ratings",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Brushless Excitation",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Circuit Breaker",
-            "score": null,
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "to": "Gas Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Distribution",
-            "score": null,
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "to": "Hydro Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Excitation",
-            "score": null,
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "to": "Rated Current",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Excitation Systems",
-            "score": null,
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "to": "Rated Voltage",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Field winding",
-            "score": null,
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "to": "Short‑Circuit Interrupting Capacity",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Gas Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Hydro Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Prime Movers",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Rated voltage and current",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Rectifier",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Rotating Diode Bridge",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Rotor",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Short‑circuit interrupting capacity",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Speed–frequency relationship",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
             "to": "Static Excitation",
-            "score": null,
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Stator",
-            "score": null,
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "to": "Steam Turbine",
+            "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Steam Turbines",
-            "score": null,
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "to": "Rectifier",
+            "score": 0.5,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Switchgear",
-            "score": null,
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1",
+            "to": "Rotating Diode Bridge",
+            "score": 0.5,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1",
-            "to": "Turbine Types",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "Breaker Ratings",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Brushless Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "Circuit Breaker",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "Distribution",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "Excitation Systems",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Gas Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Hydro Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "Prime Movers",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Rated voltage and current",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Rectifier",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Rotating Diode Bridge",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Short‑circuit interrupting capacity",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Static Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
-            "to": "Steam Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "Switchgear",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
             "to": "Turbine Types",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Brushless Excitation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Gas Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Hydro Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Rated Current",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Rated Voltage",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Short‑Circuit Interrupting Capacity",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Static Excitation",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Steam Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Rectifier",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0",
+            "to": "Rotating Diode Bridge",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
             "to": "Breaker Ratings",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Brushless Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
             "to": "Circuit Breaker",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
             "to": "Distribution",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Excitation Systems",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Gas Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Hydro Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
             "to": "Prime Movers",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Rated voltage and current",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Rectifier",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Rotating Diode Bridge",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Short‑circuit interrupting capacity",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Static Excitation",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
-            "to": "Steam Turbines",
-            "score": null,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
             "to": "Switchgear",
-            "score": null,
+            "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s1_s0_s0",
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
             "to": "Turbine Types",
-            "score": null,
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "Gas Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "Hydro Turbine",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "Rated Current",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "Rated Voltage",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "Short‑Circuit Interrupting Capacity",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_s0_s1_s0_s0",
+            "to": "Steam Turbine",
+            "score": 0.7,
             "frequency": 1
           }
         ],
@@ -3830,172 +3978,177 @@
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p1",
             "to": "Power Systems Overview",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p1",
-            "to": "Three‑level section hierarchy",
-            "salience": null
+            "to": "Three‑level Section Hierarchy",
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
-            "to": "Gas Turbines",
-            "salience": null
+            "to": "Gas Turbine",
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
-            "to": "Hydro Turbines",
-            "salience": null
+            "to": "Hydro Turbine",
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
-            "to": "Steam Turbines",
-            "salience": null
+            "to": "Steam Turbine",
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
             "to": "Turbine Types",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11",
             "to": "Distribution",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12",
             "to": "Switchgear",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13",
             "to": "Circuit Breaker",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
             "to": "Breaker Ratings",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
-            "to": "Rated voltage and current",
-            "salience": null
+            "to": "Rated Current",
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
-            "to": "Short‑circuit interrupting capacity",
-            "salience": null
+            "to": "Rated Voltage",
+            "salience": 0.7
           },
           {
-            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
-            "to": "Agenda",
-            "salience": null
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
+            "to": "Short‑Circuit Interrupting Capacity",
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
             "to": "Circuit Breakers",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
             "to": "Distribution",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
             "to": "Excitation",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
             "to": "Generation",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
             "to": "Generators",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
             "to": "Prime Movers",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
             "to": "Switchgear",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
             "to": "Synchronous Machines",
-            "salience": null
+            "salience": 0.5
+          },
+          {
+            "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p4",
+            "to": "Generators",
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p5",
             "to": "Synchronous Machines",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
             "to": "Armature winding",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
             "to": "Field winding",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
             "to": "Rotor",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
-            "to": "Speed–frequency relationship",
-            "salience": null
+            "to": "Speed‑frequency relationship",
+            "salience": 0.5
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
             "to": "Stator",
-            "salience": null
+            "salience": 0.8
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p7",
             "to": "Excitation",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
             "to": "Brushless Excitation",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
             "to": "Excitation Systems",
-            "salience": null
+            "salience": 1.0
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
             "to": "Rectifier",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
             "to": "Rotating Diode Bridge",
-            "salience": null
+            "salience": 0.5
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
             "to": "Static Excitation",
-            "salience": null
+            "salience": 0.7
           },
           {
             "from": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9",
             "to": "Prime Movers",
-            "salience": null
+            "salience": 1.0
           }
         ]
       }
@@ -4019,17 +4172,34 @@
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "manifest_key": "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "prefix": "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
-      "updated_at": "2026-10-24T05:57:07.923875+00:00"
+      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "manifest_key": "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "prefix": "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+      "updated_at": "2026-10-25T03:26:38.802306+00:00"
     },
-    "prefix": "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/",
+    "prefix": "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
     "keys_required": [
       "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/current.json",
       "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
-      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json"
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_10.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_11.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_12.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_13.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_14.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_5.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_6.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_7.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_8.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_9.png",
+      "training/generated/79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
     ]
   },
   "weaviate": {
@@ -4040,154 +4210,154 @@
       {
         "uuid": "f585283e-ca27-5abd-bb03-fa89e36f7e36",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p1",
           "text": "[Title] Power Systems Overview\n[Title] Three-level section hierarchy",
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
           "section": null,
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p1"
         },
         "vector_length": 768
       },
       {
         "uuid": "ce5b3a68-c25b-59ec-98d7-9df5d5ef597d",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10",
           "text": "[Title] Turbine Types\n[Title] Steam turbines\n[Title] Gas turbines\n[Title] Hydro turbines",
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
           "section": null,
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p10"
         },
         "vector_length": 768
       },
       {
         "uuid": "278747ee-8a83-523e-81d4-45c40a5e29e9",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11",
           "text": "[Title] 2 Distribution",
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
           "section": null,
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p11"
         },
         "vector_length": 768
       },
       {
         "uuid": "8f19ea18-1209-5cf7-a0ec-200ae0e0e21e",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12",
           "text": "[Title] 2.1 Switchgear",
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
           "section": null,
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p12"
         },
         "vector_length": 768
       },
       {
         "uuid": "6f161f3a-4a75-5775-816b-39b34632e2ed",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13",
           "text": "[Title] 2.1.1 Circuit Breakers",
-          "section": null,
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
-          "domain": "TRAINING"
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p13"
         },
         "vector_length": 768
       },
       {
         "uuid": "a1f41b86-3807-585c-863b-f5eb6fe8946c",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14",
           "text": "[Title] Breaker Ratings\n[NarrativeText] Rated voltage and current\n[Title] Short-circuit interrupting capacity",
           "section": null,
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p14"
         },
         "vector_length": 768
       },
       {
         "uuid": "5f3ce996-59fe-5f76-9b60-130da6916bb5",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2",
           "text": "[Title] Agenda\n[Title] 1 Generation\n[Title] 1.1 Generators\n[Title] 1.1.1 Synchronous Machines\n[Title] 1.1.2 Excitation\n[Title] 1.2 Prime Movers\n[Title] 2 Distribution\n[Title] 2.1 Switchgear\n[Title] 2.1.1 Circuit Breakers",
-          "section": null,
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
-          "domain": "TRAINING"
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p2"
         },
         "vector_length": 768
       },
       {
         "uuid": "de2328d0-9f1c-5a90-b677-134e6e4e0317",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p3",
           "text": "[Title] 1 Generation",
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
           "section": null,
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p3"
         },
         "vector_length": 768
       },
       {
         "uuid": "0b6333bd-b324-5b39-b710-7ead1d232403",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p4",
           "text": "[Title] 1.1 Generators",
-          "section": null,
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
-          "domain": "TRAINING"
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p4"
         },
         "vector_length": 768
       },
       {
         "uuid": "13eadaef-ba98-536b-9d05-265985e52f72",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p5",
           "text": "[Title] 1.1.1 Synchronous Machines",
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
           "section": null,
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p5"
         },
         "vector_length": 768
       },
       {
         "uuid": "46651f3c-6c0a-5d53-a1c3-3a77028459b3",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6",
           "text": "[Title] Rotor and Stator\n[NarrativeText] Rotor carries the field winding\n[NarrativeText] Stator carries the armature winding\n[Title] Speed sets frequency",
-          "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
           "section": null,
-          "domain": "TRAINING"
+          "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p6"
         },
         "vector_length": 768
       },
       {
         "uuid": "c91d3e27-3549-5c68-ac37-17b724979210",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p7",
           "text": "[Title] 1.1.2 Excitation",
-          "section": null,
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
-          "domain": "TRAINING"
+          "section": null,
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p7"
         },
         "vector_length": 768
       },
       {
         "uuid": "ce21a136-1440-55f5-862d-fd0c2d920aa1",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8",
           "text": "[Title] Excitation Systems\n[NarrativeText] Static excitation uses a rectifier\n[NarrativeText] Brushless excitation uses a rotating diode bridge",
           "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
           "section": null,
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p8"
         },
         "vector_length": 768
       },
       {
         "uuid": "9e8fa691-473d-5df2-890b-6bdb16f8933a",
         "properties": {
-          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9",
           "text": "[Title] 1.2 Prime Movers",
-          "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
           "section": null,
-          "domain": "TRAINING"
+          "doc_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:79f9b2f71987ae6608878e1e78219558a778430b393d43b49a1e59e4de0fe0e1_p9"
         },
         "vector_length": 768
       }
@@ -4222,20 +4392,18 @@
       "partition_key": "training__course__nested-three-levels__nested-three-levels.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ac853308f4b176ea5ac40aaa6fff1d88e9669a07a2af7a554afa41e3c8e98ed5",
+      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": "7ad71e36cdbc8e68441b3b48589571854d54f48a",
-      "start_utc": "2026-10-24T05:57:06.373650+00:00",
-      "end_utc": "2026-10-24T06:09:24.365243+00:00",
-      "wall_seconds": 737.99
+      "candidate_sha": null,
+      "start_utc": "2026-10-25T03:26:22.367060+00:00",
+      "end_utc": "2026-10-25T03:32:36.010864+00:00",
+      "wall_seconds": 373.64
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
     "pending_steps": [
-      "d",
-      "e",
       "f",
       "g"
     ],
