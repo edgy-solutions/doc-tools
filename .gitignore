@@ -69,3 +69,7 @@ run_dagster_test.py
 
 # Local secret overlays — real credentials, NEVER commit (ADR-0038 telemetry keys, etc.)
 *.secret.yaml
+
+# Lane in-flight state. Durable findings go to project memory, published
+# reasoning to sessions/. Never committed: it is one lane's working notes.
+HANDOFF.md
