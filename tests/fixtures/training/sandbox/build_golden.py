@@ -221,9 +221,10 @@ def main(rb_path, runs_path, deck_path, meta_path, drop_folder, out_path):
             "old_layout_keys": len(mn.get("old_layout_keys", [])),
             "stem_id_node_count": nj.get("stem_id_node_count"),
             # Contract steps the producing code did not yet implement; their
-            # surfaces (TEACHES salience on the edge, pages/, vectors without
+            # surfaces (vectors without
             # _fig_ objects, outline sections) are NOT contract-shaped here.
-            "pending_steps": ["d", "e", "f", "g"],
+            # d (salience on the edge) and e (pages/) landed in #163 and #164.
+            "pending_steps": ["f", "g"],
             "copied_not_observed": ["weaviate.server", "embedder", "neo4j.never_written"],
         },
     }

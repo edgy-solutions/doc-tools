@@ -65,7 +65,7 @@ def row(slug, g, m, nw):
         f"{len(txt)}/{len(with_text)} {yn(wv_ok)}",
         f"{len(fig)}" + (" (f)" if fig else ""),
         yn(vec_ok),
-        f"{len(nd['teaches'])} on {nd['salience_location']} (d)" if nd["teaches"] else "0 (no concepts)",
+        f"{len(nd['teaches'])} on {nd['salience_location']}" + ("" if nd['salience_location'] == "edge" else " (d)") if nd["teaches"] else "0 (no concepts)",
         f"{pages}/{n_pptx} (e)" if pages != n_pptx else f"{pages}/{n_pptx}",
         f"{len(nd['sections']['nodes'])} (g)",
         f"{len(nd['edges']['section_slide'])} (g)",
