@@ -278,10 +278,36 @@ def _parse_drop(client, monkeypatch, key=None, body=None):
     return asset_def(ctx, config=cfg, s3=_FakeS3Resource(client))
 
 
-def _graph_run(manifest, client, monkeypatch, augment_calls=None):
+class FakeWeaviate:
+    """Weaviate resource whose collection records data.insert/replace kwargs."""
+
+    def __init__(self, existing=()):
+        from unittest.mock import MagicMock
+
+        self.inserts, self.replaces, self.existing = [], [], set(existing)
+        data = MagicMock()
+        data.exists.side_effect = lambda u: u in self.existing
+        data.insert.side_effect = lambda **kw: self.inserts.append(kw)
+        data.replace.side_effect = lambda **kw: self.replaces.append(kw)
+        self.data = data
+        self.client = MagicMock()
+        self.client.collections.get.return_value = MagicMock(data=data)
+
+    def get_client(self):
+        return self.client
+
+    @property
+    def objects(self):
+        return self.inserts + self.replaces
+
+
+def _graph_run(manifest, client, monkeypatch, augment_calls=None, weaviate=None,
+               reraise=False):
     """Run the graph asset with fake neo4j/weaviate and a stubbed plugin/LLM.
 
-    Returns (neo4j execute_query calls as (query, params), chunk_ids indexed)."""
+    Returns (neo4j execute_query calls as (query, params), chunk_ids indexed).
+    With `weaviate=` (a FakeWeaviate) the REAL _index_chunk runs against it;
+    otherwise _index_chunk is stubbed and `indexed` collects its properties."""
     from unittest.mock import MagicMock
 
     from dagster import build_asset_context
@@ -293,8 +319,9 @@ def _graph_run(manifest, client, monkeypatch, augment_calls=None):
 
     indexed = []
     monkeypatch.setattr(sa, "_ensure_weaviate_collection", lambda *a, **k: None)
-    monkeypatch.setattr(sa, "_index_chunk",
-                        lambda _c, _n, props: indexed.append(props) or "written")
+    if weaviate is None:
+        monkeypatch.setattr(sa, "_index_chunk",
+                            lambda _c, _n, props, **_k: indexed.append(props) or "written")
 
     def _augment(self, section, config):
         if augment_calls is not None:
@@ -309,9 +336,10 @@ def _graph_run(manifest, client, monkeypatch, augment_calls=None):
     try:
         sa.build_knowledge_graph(
             build_asset_context(), config, manifest, s3=_FakeS3Resource(client),
-            neo4j=neo4j, weaviate=MagicMock(), llm=MagicMock(), jena=MagicMock())
+            neo4j=neo4j, weaviate=weaviate or MagicMock(), llm=MagicMock(), jena=MagicMock())
     except Exception:  # noqa: BLE001 -- the writes under test precede any later stage
-        pass
+        if reraise:
+            raise
     calls = neo4j.get_client.return_value.execute_query.call_args_list
     return [(c.args[0], c.args[1]) for c in calls], indexed
 
@@ -367,8 +395,7 @@ def test_ids_and_versioned_layout(monkeypatch):
         assert p["text"] == golden["text"]
         for edge in GOLDEN["neo4j"]["course_slide_edges"]:
             assert f"MERGE (parent)-[:{edge}]->(child)" in q, edge
-    # The figure chunk still written for the embedded image is lane tr step f's to remove.
-    assert [o["chunk_id"] for o in indexed if "_fig_" not in o["chunk_id"]] == SLIDE_IDS
+    assert [o["chunk_id"] for o in indexed] == SLIDE_IDS
 
 
 def test_a_text_less_slide_still_gets_a_slide_node_and_no_weaviate_object(monkeypatch):
@@ -484,10 +511,23 @@ def test_render_pages_writes_page_pngs(monkeypatch, tmp_path):
     assert "pages_error" not in manifest
 
 
-@pytest.mark.xfail(strict=True, reason="lane tr step f")
-def test_vectors_written_and_no_figure_objects():
-    """Real test checks golden weaviate.objects carry vectors and no chunk_id has a forbidden substring."""
-    pytest.fail("not built: lane tr step f — the step's PR replaces this body with a real assertion against golden")
+def test_vectors_written_and_no_figure_objects(monkeypatch):
+    from tests.test_document_parser_versioning import _FakeS3Client
+
+    monkeypatch.setattr("doc_tools.utils.embed.embed_document", lambda text: [0.5] * 768)
+    client = _FakeS3Client()
+    manifest = _parse_drop(client, monkeypatch)
+    assert manifest.get("embedded_images"), "fixture drop must carry an embedded image"
+    weaviate = FakeWeaviate()
+    _graph_run(manifest, client, monkeypatch, weaviate=weaviate)
+
+    ids = [o["properties"]["chunk_id"] for o in weaviate.objects]
+    assert ids == SLIDE_IDS
+    for bad in GOLDEN["weaviate"]["forbidden_chunk_id_substrings"]:
+        assert not any(bad in cid for cid in ids), bad
+    assert weaviate.inserts and not weaviate.replaces
+    for o in weaviate.inserts:
+        assert len(o["vector"]) == 768
 
 
 @pytest.mark.xfail(strict=True, reason="lane tr step g")
