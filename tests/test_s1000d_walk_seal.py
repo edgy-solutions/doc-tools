@@ -218,9 +218,60 @@ def test_no_module_cross_references_itself(corpus):
 def test_the_corpus_has_five_cross_references_not_eleven(corpus):
     """320->520, 320->720, 421->520, 421->720, 720->941. Counted from the XML,
     not from the parser's own output. Eleven would mean the brexDmRef
-    self-references were harvested as content edges."""
-    rows = ask(corpus, "SELECT ?s ?o WHERE { ?s mil:refersToDataModule ?o }")
+    self-references were harvested as content edges.
+
+    `?s a mil:DataModule` is load-bearing and was added when the isolation
+    tree landed. 421A's isolation answers now assert `refersToDataModule` to
+    520A and 720A themselves, so a reader of the tree can cite the module an
+    answer sends them to without climbing back up to the enclosing document.
+    Those are the SAME two references this docstring already lists as the
+    third and fourth of the five -- the corpus did not grow two cross
+    references, two of them are now stated twice, at two subjects. An unbound
+    `?s` counts both subjects and reads 7.
+
+    So the count stays five and the subject carries the binding. It has to be
+    the subject: section 1b of the parser leaves the dmRef TARGET untyped on
+    purpose, because asserting a type there would fabricate a node for a
+    module that may not exist in this corpus. Binding the subject is safe for
+    the opposite reason -- section 1 emits `mil:DataModule` on every module
+    unconditionally, alongside any classified subtype, precisely so that an
+    unreasoned query for it keeps working.
+    """
+    rows = ask(corpus, """
+      SELECT ?s ?o WHERE { ?s a mil:DataModule ; mil:refersToDataModule ?o }""")
     assert len(rows) == 5, f"{len(rows)} cross-reference edges, expected 5"
+
+
+def test_the_answer_level_references_are_the_module_ones_restated(corpus):
+    """The other half of the arithmetic above, so neither number can drift
+    unnoticed: 5 module-level + 2 answer-level = the 7 an unbound query sees.
+
+    Written as a seal and not left implicit because the answer edges are the
+    only reason the count query needed a type binding, and a test that merely
+    excluded them would make them invisible -- the same green-and-inert shape
+    as a chunk nothing retrieves. This asserts they exist, that there are
+    exactly two, and that each target is also reachable from the module, which
+    is what makes them a restatement rather than a new claim.
+    """
+    rows = ask(corpus, """
+      SELECT ?ans ?o WHERE {
+        ?ans a mil:IsolationAnswer ; mil:refersToDataModule ?o .
+      }""")
+    assert len(rows) == 2, f"{len(rows)} answer-level references, expected 2"
+
+    from_modules = {
+        str(r[1]) for r in ask(corpus, """
+          SELECT ?s ?o WHERE {
+            ?s a mil:DataModule ; mil:refersToDataModule ?o .
+          }""")
+    }
+    for _ans, target in rows:
+        assert str(target) in from_modules, (
+            f"{target} is cited by an isolation answer but by no module: the "
+            "answer edges are meant to restate a module's own reference, so a "
+            "target reachable only from an answer means one of the two "
+            "extraction paths is reading markup the other misses"
+        )
 
 
 def test_no_subject_is_named_after_a_loop_index(corpus):

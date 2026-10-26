@@ -961,3 +961,145 @@ def test_milstd_40051_falls_back_to_unknown_wp():
     b = MilStd40051GraphBuilder()
     root = b.parse_data_module(b"<wp><content/></wp>")
     assert root == str(MIL["wpn-unknown_wp"])
+
+
+# --------------------------------------------------------------------------- #
+# S1000D MRAD four gaps: warnings, isolation tree, tool name, planning prose.
+# Real fixtures only; the point is that these six documents extract.
+# --------------------------------------------------------------------------- #
+def _mrad(infocode, doc_id="d"):
+    path = next(MRAD_FIXTURES.glob(f"*-{infocode}-A_001-*.xml"))
+    b = S1000dGraphBuilder(doc_id=doc_id)
+    root = b.parse_data_module(path.read_bytes())
+    return b, URIRef(root)
+
+
+def _mrad_chunks(infocode):
+    from doc_tools.utils.xml_chunks import extract_chunks_from_graph
+    b, root = _mrad(infocode)
+    return extract_chunks_from_graph(b.graph, str(root), "MAINTENANCE")
+
+
+_WARN = "Disconnect power before removal."
+
+
+def _dmc_for(infocode):
+    return _mrad(infocode)[1]
+
+
+def test_mrad_520a_and_720a_emit_the_warning_literal_and_node():
+    for code in ("520A", "720A"):
+        b, root = _mrad(code)
+        g = b.graph
+        assert (root, MIL.hasWarning, Literal(_WARN)) in g
+        assert (MIL["warning-d-1"], MIL.hasWarningText, Literal(_WARN)) in g
+        assert (MIL["warning-d-1"], RDF.type, MIL.Warning) in g
+        assert (root, MIL.hasWarningNode, MIL["warning-d-1"]) in g
+
+
+def test_mrad_modules_without_reqsafety_emit_no_warning_at_all():
+    for code in ("040A", "320A", "421A", "941A"):
+        b, root = _mrad(code)
+        assert not list(b.graph.triples((None, MIL.hasWarning, None))), code
+        assert not list(b.graph.triples((None, MIL.hasWarningNode, None))), code
+
+
+def test_mrad_520a_warning_chunks_once_with_no_duplicate_row():
+    chunks = _mrad_chunks("520A")
+    warn = [c for c in chunks if c["text"] == _WARN]
+    assert len(warn) == 1
+    assert warn[0]["section"] == "warning:1"
+
+
+def test_mrad_421a_isolation_tree_is_keyed_on_the_path():
+    b, root = _mrad("421A")
+    g = b.graph
+    steps = {str(s) for s in g.subjects(RDF.type, MIL.IsolationStep)}
+    assert steps == {str(MIL[f"isostep-d-{p}"])
+                     for p in ("1", "1-yes-1", "1-yes-1-yes-1")}
+    ans = MIL["isoanswer-d-1-yes-1-yes-1-yes"]
+    assert (ans, MIL.hasActionText, Literal("Replace array module.")) in g
+    targets = set(g.objects(ans, MIL.refersToDataModule))
+    assert targets == {_dmc_for("520A"), _dmc_for("720A")}
+    # the nesting is linked answer -> next step
+    assert (MIL["isoanswer-d-1-yes"], MIL.hasNextStep, MIL["isostep-d-1-yes-1"]) in g
+    # a dmRef of the deepest answer is not credited to a shallower one
+    assert not list(g.objects(MIL["isoanswer-d-1-yes"], MIL.refersToDataModule))
+
+
+def test_mrad_421a_module_level_dmrefs_are_unchanged():
+    b, root = _mrad("421A")
+    # brexDmRef self-reference is excluded; the two answer dmRefs remain.
+    assert set(b.graph.objects(root, MIL.refersToDataModule)) == {
+        _dmc_for("520A"), _dmc_for("720A")}
+    assert len(list(b.graph.objects(root, MIL.refersToDataModule))) == 2
+
+
+def test_mrad_421a_chunks_the_isolation_tree():
+    chunks = _mrad_chunks("421A")
+    by_section = {}
+    for c in chunks:
+        by_section.setdefault(c["section"], []).append(c["text"])
+    assert by_section["isolation:1-yes-1-yes-1:yes"] == ["Replace array module."]
+    assert by_section["isolation:1"] == [
+        "Re-run BIT. Does fault code MRAD-ARR-0417 report again?"]
+    assert len(by_section["isolation:1-yes-1"]) == 1
+    assert len(by_section["isolation:1-yes-1-yes-1"]) == 1
+
+
+def test_mrad_520a_tool_is_labelled_by_name_and_keeps_its_part_number():
+    b, root = _mrad("520A")
+    g = b.graph
+    tool = MIL["tool-d-ODM-SE-0001"]
+    assert (tool, MIL.hasPartNumber, Literal("ODM-SE-0001")) in g
+    assert (tool, RDFS.label, Literal("array module extraction tool")) in g
+    assert (tool, MIL.hasName, Literal("array module extraction tool")) in g
+    assert {str(t) for t in g.subjects(RDF.type, MIL.Tool)} == {str(tool)}
+
+
+def test_mrad_spares_and_catalog_items_are_not_tools():
+    for code in ("720A", "941A"):
+        b, root = _mrad(code)
+        g = b.graph
+        tools = set(g.subjects(RDF.type, MIL.Tool))
+        for spare_name in ("array module", "connector gasket", "screw"):
+            assert not any((t, RDFS.label, Literal(spare_name)) in g for t in tools)
+        assert not list(g.triples((None, MIL.hasName, Literal("array module")))), code
+    assert not list(_mrad("941A")[0].graph.subjects(RDF.type, MIL.Tool))
+
+
+def test_mrad_320a_planning_sections_carry_prose_and_the_interval():
+    b, root = _mrad("320A")
+    g = b.graph
+    secs = set(g.subjects(RDF.type, MIL.PlanningSection))
+    assert len(secs) == 2
+    periodic = MIL["mpsection-d-Periodic_Array_Inspection"]
+    oncond = MIL["mpsection-d-On-Condition_Replacement"]
+    assert secs == {periodic, oncond}
+    iv = MIL["interval-d-Periodic_Array_Inspection"]
+    assert (periodic, MIL.hasPlanningInterval, iv) in g
+    assert (iv, RDFS.label, Literal("180 days")) in g
+    assert any("inspect the array face" in str(t)
+               for t in g.objects(periodic, MIL.hasPlanningText))
+    assert any(str(t).startswith("Replace the array module on a confirmed BIT")
+               for t in g.objects(oncond, MIL.hasPlanningText))
+    assert not list(g.objects(oncond, MIL.hasPlanningInterval))
+    assert list(g.objects(root, MIL.hasPlanningInterval)) == [iv]
+
+
+def test_mrad_320a_chunks_the_planning_prose():
+    chunks = _mrad_chunks("320A")
+    plan = [c for c in chunks if c["section"].startswith("planning:")]
+    assert any("inspect the array face" in c["text"] for c in plan)
+    assert {c["section"] for c in plan} == {
+        "planning:Periodic_Array_Inspection", "planning:On-Condition_Replacement"}
+
+
+def test_mrad_extraction_is_deterministic_and_mints_no_blank_node():
+    for code in ("520A", "421A", "320A"):
+        outs = []
+        for _ in range(2):
+            b, _root = _mrad(code)
+            outs.append(b.graph.serialize(format="nt"))
+        assert outs[0] == outs[1], code
+        assert "_:" not in outs[0], code
