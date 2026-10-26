@@ -21,6 +21,7 @@ from pathlib import Path
 
 from weaviate.util import generate_uuid5
 
+from doc_tools.utils.concept_identity import concept_node_id, normalize_concept_name
 from doc_tools.utils.extraction import extract_text_and_metadata
 from doc_tools.utils.layout_detector import detect_layout
 from doc_tools.utils.pptx_media_extractor import extract_images_from_pptx
@@ -40,7 +41,8 @@ VOLATILE_ELEMENT_KEYS = ["element_id", "metadata.parent_id", "metadata.file_dire
 
 # EXAMPLE LLM output. Slide 4's "Hydraulic pressure" at 0.3 sits under the
 # workbench's salience >= 0.5 filter, and the concept is shared with slide 2, so
-# the example exercises both the filter and one-Concept-per-name.
+# the example exercises both the filter and one-Concept-per-identity: two slides
+# teaching one concept give ONE node, keyed on (domain, normalized name).
 EXAMPLE_TEACHES = {
     2: [("Pascal's law", 0.95), ("Hydraulic pressure", 0.8)],
     3: [("Hydraulic pump", 0.9), ("Gear pump", 0.6)],
@@ -137,7 +139,9 @@ def main() -> None:
 
     golden = {
         "contract": "docs/contracts/training-workbench.md",
-        "contract_version": 2,
+        # 3: concept nodes carry `id` and `name_normalized` (section 11's rule --
+        # non-placeholder content changed, so the version moves and wb gets a packet).
+        "contract_version": 3,
         "fixture": {
             "deck": DECK.name, "deck_sha256": hexd,
             "metadata": META.name, "metadata_sha256": hashlib.sha256(META.read_bytes()).hexdigest(),
@@ -157,11 +161,22 @@ def main() -> None:
                 "sections": {"labels": ["Section", DOMAIN],
                              "section_slide_edges": ["HAS_CHILD", "HAS_SLIDE"],
                              "nodes": sections},
+                # A concept node carries its KEY, not just its label: `id` =
+                # hash(domain, normalized name) is what the writer MERGEs on and what
+                # `concept_id_unique` constrains, so a fake store built from this
+                # fixture must be joinable the same way the real store is. Computed
+                # here rather than hardcoded, so the fixture cannot drift from
+                # `concept_identity.py` the way it drifted from the contract.
                 "concepts": {"labels": ["Concept", DOMAIN],
-                             "nodes": [{"name": c, "domain": DOMAIN} for c in concepts]},
+                             "nodes": [{"id": concept_node_id(DOMAIN, c),
+                                        "name": c,
+                                        "name_normalized": normalize_concept_name(c),
+                                        "domain": DOMAIN} for c in concepts]},
                 "teaches": teaches,
                 "edges": {
-                    "note": "Concept endpoints are names. section_slide is written as both "
+                    "note": "Concept endpoints are names (the node carries the `id` that "
+                            "is the real key; an edge names the concept so a fake store "
+                            "can resolve it without hashing). section_slide is written as both "
                             "HAS_CHILD and HAS_SLIDE. Each section's concept_summary is its "
                             "COVERS targets by score, descending, top 10.",
                     **edges,

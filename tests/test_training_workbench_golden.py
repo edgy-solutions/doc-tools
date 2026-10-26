@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from doc_tools.utils.concept_identity import concept_node_id, normalize_concept_name
 from doc_tools.utils.content_kind import KIND_MAPPING
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -34,9 +35,18 @@ def assert_llm_shape(sections, concepts, teaches, slide_ids, ingest_id):
     """Shape of LLM-derived graph data (sections, concepts, TEACHES rows)."""
     numbers = {int(i.rsplit("_p", 1)[1]) for i in slide_ids}
     names = [c["name"] for c in concepts]
-    assert len(names) == len(set(names)), "one Concept per name"
+    # A Concept's identity is (domain, normalized name) and `id` is its stable key
+    # (contract section 3). So the uniqueness that matters is on `id`, not on `name`:
+    # asserting unique names would pass on a fixture whose two nodes normalize alike,
+    # which is exactly the duplicate the id constraint exists to refuse. And the id is
+    # asserted RECOMPUTABLE from the node's own stored fields, so a fixture (or a node
+    # in a live store) cannot carry an id that nothing can re-derive.
+    ids = [c["id"] for c in concepts]
+    assert len(ids) == len(set(ids)), "one Concept per (domain, normalized name)"
     for c in concepts:
         assert c["domain"] == "TRAINING", c
+        assert c["name_normalized"] == normalize_concept_name(c["name"]), c
+        assert c["id"] == concept_node_id(c["domain"], c["name"]), c
     sec_ids = {s["id"] for s in sections}
     id_re = re.compile(rf"^{re.escape(ingest_id)}(_s\d+)+$")
     for s in sections:
@@ -233,9 +243,12 @@ def test_teaches_salience_is_on_the_edge():
             assert "salience" not in keys, "salience in the Concept MERGE key"
             # `id`, not `name`, since the architect's 2026-10-24 ruling: the id is
             # hash(domain, normalized name), which is one property and so can carry the
-            # uniqueness constraint Neo4j had on nothing. The contract's "one
-            # Concept:TRAINING per name across courses" still holds -- one domain, one
-            # normalized name, one id.
+            # uniqueness constraint Neo4j had on nothing. The contract no longer says
+            # "one Concept:TRAINING per name across courses" -- that wording called
+            # `name` the identity, and the identity is (domain, normalized name). The
+            # guarantee is one node per NORMALIZED name per domain, which is strictly
+            # stronger: two spellings that normalize alike now MERGE onto one node
+            # where merging on `name` left two.
             assert keys == ["id"], keys
         assert "TRAINING" in q["query"] or "TRAINING" in map(str, q["params"].values())
         assert re.search(r"\.domain\s*=|domain\s*:", q["query"]), "Concept domain not set"
