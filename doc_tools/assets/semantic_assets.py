@@ -13,6 +13,7 @@ from doc_tools.partitions import pdf_files_partition, user_pdf_files_partition, 
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.plugins import BaseSection, DocumentNode
 from doc_tools.plugins.training import TrainingPlugin
+from doc_tools.passes.structural import OutlineBuildError
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
 from doc_tools.plugins.sustainment import SustainmentPlugin
 from doc_tools.utils.ingest_rates import render_rates, summarize_rates
@@ -937,6 +938,7 @@ def _build_knowledge_graph_impl(
     full_text = "\n".join(full_text_parts)
 
     document_nodes = []
+    outline_build_error = None
     try:
         context.log.info(f"Executing global full-text pass for {type(plugin).__name__}...")
         # Sustainment's two-pass extractor also needs the manifest (embedded_images
@@ -952,6 +954,11 @@ def _build_knowledge_graph_impl(
             document_nodes.extend(global_nodes)
     except Exception as e:
         context.log.error(f"Global plugin extraction failed: {e}")
+        # TRAINING: an outline that could not be built completely must not replace
+        # the old one (no outline statement is emitted), and the run must fail.
+        # Every other write proceeds; the raise is at the end of the asset.
+        if domain_label == "TRAINING" and isinstance(e, OutlineBuildError):
+            outline_build_error = e
 
     # Tally _index_chunk verdicts across both the page-chunk loop and the
     # embedded-image figure loop below, so we can log a single reconciled
@@ -1440,6 +1447,12 @@ def _build_knowledge_graph_impl(
             f"were not indexed with a vector, so they are unsearchable. The run "
             f"must be rerun once embedding is available."
         )
+
+    if outline_build_error is not None:
+        raise OutlineBuildError(
+            f"doc_id={doc_id!r}: the Section outline was not built, so the Course's "
+            f"existing Sections were left in place: {outline_build_error}"
+        ) from outline_build_error
 
     return {"doc_id": doc_id, "status": "processed", "node_label": node_label, "collection": collection_name}
 

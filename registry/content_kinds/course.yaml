@@ -8,6 +8,7 @@
 # through ContentKindRegistration before it is rendered.
 kind: course
 passes:
+  - structural.outline
   - core.baml::ExtractOutline
   - training.baml::ExtractConcepts
   - render.pages

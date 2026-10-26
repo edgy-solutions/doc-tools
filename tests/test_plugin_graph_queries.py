@@ -163,7 +163,8 @@ def test_training_outline_builds_nested_section_tree():
     sec = BaseSection(title="Course", level=0, page_start=0, content="", node_id="course-1")
     outline = OutlineAugmentation(
         sections=[CourseSection(title="Intro", level=1, start_page=1, end_page=3,
-                                subsections=[CourseSection(title="Sub", level=2, start_page=1)])],
+                                subsections=[CourseSection(title="Sub", level=2, start_page=1, end_page=2)])],
+        outline_source="llm",
         metadata={"business_unit": "Avionics", "version": "v1"},
     )
     node = DocumentNode(base_extraction=sec, domain_augmentation=outline)
@@ -177,7 +178,7 @@ def test_training_outline_builds_nested_section_tree():
     meta_q = [q for q in cypher if q["params"].get("id") == "course-1"][0]
     assert meta_q["params"]["business_unit"] == "Avionics"
     # nested section ids: course-1_s0 and course-1_s0_s0
-    ids = [q["params"].get("id") for q in cypher]
+    ids = [r["id"] for q in cypher for r in q["params"].get("sections", [])]
     assert "course-1_s0" in ids and "course-1_s0_s0" in ids
     assert "HAS_SECTION" in blob
 
