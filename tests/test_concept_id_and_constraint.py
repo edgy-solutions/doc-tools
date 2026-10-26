@@ -188,12 +188,12 @@ def test_the_migration_shares_the_writers_id_function():
     assert mod.CREATE_CONCEPT_ID_CONSTRAINT is CREATE_CONCEPT_ID_CONSTRAINT
 
 
-def test_the_migration_can_relink_every_edge_the_writer_points_at_a_concept():
-    """A drift guard with teeth. The migration relinks by ENUMERATED type, because
-    `apoc.refactor.mergeNodes` is not assumed present and a dynamic relink would drop an
-    edge type nobody had thought about. So a new edge type written at a Concept must be
-    added to `RELINKABLE` deliberately -- and until it is, this fails here rather than
-    aborting a migration against the live graph.
+def test_the_migration_relinks_by_types_read_from_the_graph_not_a_literal_list():
+    """The writer points only TEACHES and COVERS at a Concept -- true and useful, kept.
+    But the ruling says EVERY edge on a merged node, wb's ALIGNS_TO included, so the
+    relink must be driven by what `type(r)` finds in the graph. A documentary allowlist
+    is the trap here, not the fix: leaving `RELINKABLE` in place as documentation would
+    be a list nothing reads, and the next edge type would be silently missing from it.
     """
     src = io.open(ROOT / "doc_tools" / "plugins" / "training.py",
                   encoding="utf-8").read()
@@ -204,7 +204,12 @@ def test_the_migration_can_relink_every_edge_the_writer_points_at_a_concept():
     pointed = {m.group(1) for m in re.finditer(r"\[\s*\w*\s*:(\w+)\s*\]->\((\w+)\)", src)
                if m.group(2) in concept_vars}
     assert pointed == {"TEACHES", "COVERS"}, pointed
-    assert pointed <= set(_migration().RELINKABLE), pointed
+
+    mig = io.open(ROOT / "scripts" / "neo4j_concept_id_migration.py",
+                  encoding="utf-8").read()
+    assert not hasattr(_migration(), "RELINKABLE")
+    assert not re.search(r"^[A-Z_]+\s*=\s*[(\[]\s*[\"'][A-Z_]+[\"']", mig, re.M)
+    assert "type(r) AS t" in mig
 
 
 def test_the_survivor_choice_is_degree_then_a_stable_tie_break():
@@ -230,15 +235,148 @@ def test_the_migration_groups_only_real_duplicates():
     assert sorted(by_id) == ["concept_aaaa", "concept_bbbb"]
 
 
-def test_the_migration_is_a_dry_run_unless_apply_is_passed():
-    """It deletes nodes. The default must not."""
+def test_the_migration_commits_only_under_apply_and_a_dry_run_rolls_back():
+    """It deletes nodes. The default must not. `tx.commit()` is reachable only inside an
+    `args.apply` branch; the dry run reaches `tx.rollback()`."""
     src = io.open(ROOT / "scripts" / "neo4j_concept_id_migration.py",
                   encoding="utf-8").read()
     assert '"--apply", action="store_true"' in src
-    for write in ("DELETE c", "SET c.id = $id", "CREATE CONSTRAINT"):
-        assert write in src or write in CREATE_CONCEPT_ID_CONSTRAINT
-    # every write is behind `args.apply`
-    assert src.count("if args.apply:") >= 2
+    for write in ("DELETE c", "SET c.id = $id"):
+        assert write in src
+    assert "CREATE CONSTRAINT" in CREATE_CONCEPT_ID_CONSTRAINT
+    lines = src.splitlines()
+    sites = [i for i, l in enumerate(lines) if re.search(r"\.commit\(\)", l)
+             and not l.lstrip().startswith("#")]
+    assert sites, "no commit call found"
+    for i in sites:
+        indent = len(lines[i]) - len(lines[i].lstrip())
+        j = i - 1
+        while j >= 0 and (not lines[j].strip()
+                          or len(lines[j]) - len(lines[j].lstrip()) >= indent):
+            j -= 1
+        assert lines[j].strip() == "if args.apply:", (i + 1, lines[j])
+    assert "tx.rollback()" in src
+    # the constraint is issued after the commit, and only under apply
+    assert src.index("client.execute_query(CREATE_CONCEPT_ID_CONSTRAINT)") \
+        > src.index("tx.commit()")
+
+
+# --------------------------------------------------------------------------- #
+# The hardened migration: pure logic, no database
+# --------------------------------------------------------------------------- #
+
+def _edge(t, other, outgoing=False, rid=None, props=None):
+    return {"type": t, "other": other, "outgoing": outgoing,
+            "rid": rid or "r:%s:%s:%s" % (t, other, outgoing), "props": props or {}}
+
+
+def _rec(eid, edges=(), labels=("Concept", "TRAINING")):
+    return {"eid": eid, "labels": list(labels), "props": {}, "edges": list(edges)}
+
+
+def _before():
+    return {"nodes_total": 10,
+            "nodes_by_label": {"Concept": 4, "TRAINING": 4, "Slide": 6},
+            "edges_by_type": {"TEACHES": 5, "ALIGNS_TO": 3, "NEXT": 7}}
+
+
+def test_a_collapse_is_predicted_for_the_same_direction_and_not_a_different_one():
+    mod = _migration()
+    surv = _rec("s", [_edge("TEACHES", "slide1")])
+    same = _rec("l", [_edge("TEACHES", "slide1")])
+    flipped = _rec("l", [_edge("TEACHES", "slide1", outgoing=True)])
+    assert mod.simulate_collapses(surv, [same]) == {"TEACHES": 1}
+    assert mod.simulate_collapses(surv, [flipped]) == {}
+
+
+def test_two_losers_pointing_at_one_node_collapse_to_one_edge():
+    """The sequential simulation. Each loser compared to the survivor alone sees no
+    collision; the second one collapses onto the first's relinked edge."""
+    mod = _migration()
+    surv = _rec("s")
+    l1 = _rec("l1", [_edge("COVERS", "sec1")])
+    l2 = _rec("l2", [_edge("COVERS", "sec1")])
+    assert mod.simulate_collapses(surv, [l1, l2]) == {"COVERS": 1}
+    plan = [{"new_id": "x", "survivor": surv, "losers": [l1, l2]}]
+    p = mod.predict(_before(), plan)
+    assert p["nodes_total"] == 8
+    assert p["nodes_by_label"]["Concept"] == 2
+    assert p["edges_by_type"]["TEACHES"] == 5      # untouched types carry over
+
+
+def test_an_untouched_edge_type_must_be_unchanged():
+    mod = _migration()
+    plan = [{"new_id": "x", "survivor": _rec("s"), "losers": [_rec("l")]}]
+    predicted = mod.predict(_before(), plan)
+    after = {"nodes_total": 9,
+             "nodes_by_label": {"Concept": 3, "TRAINING": 3, "Slide": 6},
+             "edges_by_type": {"TEACHES": 5, "ALIGNS_TO": 2, "NEXT": 7}}
+    bad = mod.compare_census(after, predicted)
+    assert [m["field"] for m in bad] == ["edges_by_type[ALIGNS_TO]"]
+    assert (bad[0]["expected"], bad[0]["actual"]) == (3, 2)
+    after["edges_by_type"]["ALIGNS_TO"] = 3
+    assert mod.compare_census(after, predicted) == []
+    # a type that appeared from nowhere fails as well
+    after["edges_by_type"]["NEW"] = 1
+    assert mod.compare_census(after, predicted)[0]["field"] == "edges_by_type[NEW]"
+
+
+def test_a_loser_label_the_survivor_lacks_aborts():
+    mod = _migration()
+    surv = _rec("s", labels=("Concept", "TRAINING"))
+    same = _rec("l", labels=("Concept", "TRAINING"))
+    extra = _rec("l", labels=("Concept", "TRAINING", "Deprecated"))
+    assert mod.abort_reasons([{"new_id": "x", "survivor": surv, "losers": [same]}]) == []
+    reasons = mod.abort_reasons([{"new_id": "x", "survivor": surv, "losers": [extra]}])
+    assert len(reasons) == 1 and "Deprecated" in reasons[0]
+
+
+def test_an_edge_between_two_members_of_one_group_aborts():
+    mod = _migration()
+    surv = _rec("s")
+    loser = _rec("l", [_edge("RELATED", "s", outgoing=True, rid="r1")])
+    reasons = mod.abort_reasons([{"new_id": "x", "survivor": surv, "losers": [loser]}])
+    assert len(reasons) == 1 and "self-loop" in reasons[0]
+
+
+def test_the_roll_lock_is_required_for_apply_and_must_be_fresh():
+    from datetime import datetime, timedelta, timezone
+    mod = _migration()
+    now = datetime(2026, 10, 25, 12, 0, tzinfo=timezone.utc)
+
+    def stamp(minutes_ago):
+        return (now - timedelta(minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    assert mod.check_lock("7f/" + stamp(10), True, now)["lane"] == "7f"
+    with pytest.raises(mod.LockError):
+        mod.check_lock("7f/" + stamp(91), True, now)
+    with pytest.raises(mod.LockError):
+        mod.check_lock(None, True, now)
+    with pytest.raises(mod.LockError):
+        mod.check_lock("/" + stamp(1), True, now)
+    with pytest.raises(mod.LockError):
+        mod.check_lock("7f/not-a-time", True, now)
+    assert mod.check_lock(None, False, now) is None     # a dry run needs none
+
+
+def test_the_relink_query_carries_every_property_of_the_old_edge():
+    """A property wb invented on ALIGNS_TO is not dropped."""
+    mod = _migration()
+    q = mod.relink_query("ALIGNS_TO", False)
+    assert "ON CREATE SET new += properties(old)" in q
+    assert "`ALIGNS_TO`" in q and "DELETE old" in q
+    with pytest.raises(ValueError):
+        mod.relink_query("X`) DETACH DELETE (n", False)
+
+
+def test_the_relink_query_exists_for_both_directions():
+    mod = _migration()
+    incoming = mod.relink_query("TEACHES", False)
+    outgoing = mod.relink_query("TEACHES", True)
+    assert "(other)-[old:`TEACHES`]->(lose)" in incoming
+    assert "(other)-[new:`TEACHES`]->(surv)" in incoming
+    assert "(lose)-[old:`TEACHES`]->(other)" in outgoing
+    assert "(surv)-[new:`TEACHES`]->(other)" in outgoing
 
 
 if __name__ == "__main__":
