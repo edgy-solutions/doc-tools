@@ -318,7 +318,7 @@ def test_unmeasured_is_counted_apart_from_disagreement(tmp_path):
         ("fire2", {"T.pdf": b}),
     ]
 
-    _notices, disagreements, unmeasured = hdr.compare(fires, hdr.RAW_FIELDS)
+    _notices, disagreements, unmeasured, _blank = hdr.compare(fires, hdr.RAW_FIELDS)
 
     assert disagreements == [("T.pdf", "mfr")]
     assert unmeasured == [("T.pdf", "doc_level_ltb_date")]

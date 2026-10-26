@@ -56,8 +56,14 @@ FIRE_COUNT = 3
 # --------------------------------------------------------------------------
 # Per-notice verdict / field lines, as printed by pcn_header_agreement.compare()
 # in PLAIN mode (no --written): this gate never runs --written (see (b) below).
+# That plain run measures the RAW model output and is ADVISORY since the
+# 2026-10-26 ruling; what blocks is `compare_written_headers` over the recorded
+# written values.
 #   "<notice>                                   agree"
 #   "<notice>                                   DISAGREE"
+#   "<notice>                                   BLANK"   (blank in one fire,
+#                                               populated in another; the
+#                                               field line names the blank fires)
 #   "<notice>                                   NOT MEASURED"
 #   "<notice>                                   ABSENT"
 #   "      <field>                 'v1' | 'v2' | 'v3'[   <- not in evidence...]"
@@ -69,7 +75,7 @@ FIRE_COUNT = 3
 # conflating them would let a damaged log be reported as extractor
 # instability. Both still block; there is just no declaration exemption for
 # the latter (see (d)).
-NOTICE_VERDICT_RE = re.compile(r"^(?P<notice>\S.*?)\s{2,}(?P<verdict>agree|DISAGREE)\s*$")
+NOTICE_VERDICT_RE = re.compile(r"^(?P<notice>\S.*?)\s{2,}(?P<verdict>agree|DISAGREE|BLANK)\s*$")
 NOTICE_ABSENT_RE = re.compile(r"^(?P<notice>\S.*?)\s{2,}ABSENT\s*$")
 NOTICE_NOT_MEASURED_RE = re.compile(r"^(?P<notice>\S.*?)\s{2,}NOT MEASURED\s*$")
 FIELD_LINE_RE = re.compile(r"^ {6}(?P<field>\S+) +(?P<vals>.+)$")
@@ -246,11 +252,19 @@ def _reconstruct_exit(results, totals, sealed=None):
 # (b) Header agreement — subprocess over the three logs, plain mode.
 
 def run_header_agreement(base_dir, log_paths):
-    # PLAIN MODE ONLY, never --written: the --written replay cannot build the
-    # vision witness the product consults and declines for the degraded
-    # notice, so a --written comparison would measure the pre-witness trust
-    # logic, not what the product does. The plain comparison is what this
-    # gate blocks on.
+    # PLAIN MODE ONLY, never --written, and since the 2026-10-26 ruling this run is
+    # ADVISORY: its exit code no longer contributes to the verdict (see score_fires).
+    # What blocks is `compare_written_headers`, which compares the `written_header`
+    # each fire recorded in its own corpus JSON. The ruling was "the blocking arm
+    # measures the WRITTEN value", and the way to get it is NOT `--written`: the
+    # --written replay cannot build the vision witness the product consults and
+    # declines for the degraded notice (WITNESS_DECLINED), so it would report TYC's
+    # written fields NOT MEASURED, which fails the gate -- a --written comparison would
+    # measure the pre-witness trust logic, not what the product does, and would newly
+    # block TYC on an instrument gap. The recorded values need no replay, no S3 and no
+    # log parsing. The plain run is kept because the RAW disagreement is still worth
+    # seeing: it is the report's `unstable_raw` block, an unsteady reader kept visible
+    # without blocking a pin.
     cmd = [sys.executable, "scripts/pcn_header_agreement.py"] + list(log_paths)
     proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True)
     stdout = proc.stdout or ""
@@ -292,6 +306,128 @@ def parse_header_agreement(stdout_text):
     not_measured_notices = sorted({m.group("notice") for m in
                                     (NOTICE_NOT_MEASURED_RE.match(l) for l in lines) if m})
     return notices, absent_notices, not_measured_notices
+
+
+_BLANK_SUFFIX = "   <- "
+
+
+def split_forms(vals):
+    """The printed forms of one field line: `'a' | 'b' | 'c'` -> ["'a'", "'b'", "'c'"].
+
+    The instrument joins repr()s with " | ", and a value may itself contain " | ", so a
+    plain split would tear one form in two (the 2026-10-09 line held two bars inside a
+    value). Each candidate form is therefore grown until it is a valid python literal.
+    A trailing annotation ("   <- BLANK vs POPULATED ...") is not a form and is cut
+    first. If a piece never parses (a value this cannot read back), fall back to the
+    plain split rather than dropping the evidence."""
+    import ast
+    vals = vals.split(_BLANK_SUFFIX, 1)[0].strip()
+    pieces = vals.split(" | ")
+    forms, cur = [], None
+    for piece in pieces:
+        cur = piece if cur is None else cur + " | " + piece
+        try:
+            ast.literal_eval(cur)
+        except (ValueError, SyntaxError):
+            continue
+        forms.append(cur)
+        cur = None
+    return forms if cur is None else pieces
+
+
+def unstable_raw_rows(parsed_notices):
+    """[{notice, field, forms}] for every field the plain-mode run printed under a
+    DISAGREE or BLANK notice: the RAW model output rotating between forms. ADVISORY --
+    nothing derived from this blocks; see `run_header_agreement`."""
+    rows = []
+    for notice, info in sorted(parsed_notices.items()):
+        if info["verdict"] not in ("DISAGREE", "BLANK"):
+            continue
+        for field, vals in info["fields"].items():
+            rows.append({"notice": notice, "field": field, "forms": split_forms(vals)})
+    return rows
+
+
+# THE BLOCKING HEADER ARM: the WRITTEN value, from the recorded corpus JSON.
+#
+# Compared tuple: `hdr_agreement.WRITTEN_FIELDS` (doc_type, mfr, pub_date,
+# doc_level_ltb_date), imported rather than copied so the two instruments cannot drift.
+# DELIBERATELY EXCLUDED, and the exclusions are rulings, not omissions:
+#   * `revision` -- unstable on PCN-2683 today, and the standing ruling is that the
+#     revision half NEVER blocks (section (c); the report prints it under "Revision-half
+#     unstable across fires (never blocks)"). Comparing it here would re-block 2683
+#     through a second door and silently reverse that ruling.
+#   * `doc_id` -- an identity field, already blocked on by (c)'s identity_half_unstable
+#     arm. One fact, one gate.
+WRITTEN_ARM_FIELDS = hdr_agreement.WRITTEN_FIELDS
+
+
+def compare_written_headers(from_corpus, expected=None):
+    """Compare each notice's `written_header` across the fires.
+
+    `from_corpus` is `{fire_n: {filename: written_header_dict}}`, i.e. what
+    `headers_from_corpus` returns per fire. Returns a dict:
+
+      verdicts      {filename: "agree" | "DISAGREE" | "BLANK" | "ABSENT"}
+      disagreements [(filename, field, [v_fire1, v_fire2, ...])] -- every fire populated
+      blank_rows    [(filename, field, {fire_n: value_or_None}, [blank_fire_ns])]
+      absent        [(filename, [fire_ns that did not record it])]
+      no_written    [(fire_n, filename_or_None)] -- a fire (None) or one notice's entry
+                    that carries no `written_header` (an image older than the recording).
+                    NOT a disagreement and reported under its own message.
+      unrecorded    filenames in `expected` that NO fire recorded. Reported, never
+                    blocked on here: the parts arm and `bytes_coverage` own that case.
+
+    WHY THIS EXISTS INSTEAD OF `--written`: see `run_header_agreement`. In short, the gate
+    already holds the written values and the replay cannot measure the degraded notice.
+
+    ABSENT IS A BLOCK, NOT A SKIP. A notice one fire recorded and another did not cannot
+    be said to agree. This arm is now the only place that is caught: the plain-mode check
+    used to be the one that noticed, and it no longer decides the verdict.
+
+    BLANK vs POPULATED is classified apart from a value difference (see
+    `pcn_header_agreement.compare`): None and "" are both blank, every fire blank is
+    agreement on an absence, and the fire that wrote nothing is held to a needs_review
+    (`apply_blank_fire_rule`).
+    """
+    fires = sorted(from_corpus)
+    out = {"verdicts": {}, "disagreements": [], "blank_rows": [], "absent": [],
+           "no_written": [], "unrecorded": []}
+    # A fire with nothing at all is an older image (or a dead fire), not N absent
+    # notices. Say it once, and compare the fires that do have values.
+    empty = [n for n in fires if not from_corpus[n]]
+    out["no_written"].extend((n, None) for n in empty)
+    live = [n for n in fires if n not in empty]
+    names = sorted(set().union(*[set(from_corpus[n]) for n in live]) if live else set())
+    for fn in names:
+        missing = [n for n in live if fn not in from_corpus[n]]
+        unshaped = [n for n in live
+                    if fn in from_corpus[n] and not isinstance(from_corpus[n][fn], dict)]
+        if missing:
+            out["absent"].append((fn, missing))
+        if unshaped:
+            out["no_written"].extend((n, fn) for n in unshaped)
+        if missing or unshaped:
+            out["verdicts"][fn] = "ABSENT"
+            continue
+        verdict = "agree"
+        for field in WRITTEN_ARM_FIELDS:
+            seen = {n: from_corpus[n][fn].get(field) for n in live}
+            blank = [n for n in live if hdr_agreement.is_blank(seen[n])]
+            if len(blank) == len(live):
+                continue                      # agreement on an absence
+            if blank:
+                out["blank_rows"].append((fn, field, seen, blank))
+                if verdict != "DISAGREE":
+                    verdict = "BLANK"
+            elif len({json.dumps(v, sort_keys=True, default=str)
+                      for v in seen.values()}) > 1:
+                out["disagreements"].append((fn, field, [seen[n] for n in live]))
+                verdict = "DISAGREE"
+        out["verdicts"][fn] = verdict
+    if expected is not None:
+        out["unrecorded"] = sorted(set(expected) - set(names))
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -534,12 +670,22 @@ def compute_stability(identity_records, filenames):
 # for an ABSENT or NOT MEASURED header-agreement condition (an instrument
 # gap, not a declared, handled value conflict) and none for
 # revision_half_unstable (which never blocks in the first place, per (c)).
+#
+# Since 2026-10-26 the "header disagrees" input is the WRITTEN comparison
+# (`compare_written_headers`), not the raw plain-mode run: the same rule, a different
+# measurement, because "undeclared silent write" is a statement about writes. A field
+# BLANK in one fire and populated in another has its own rule below
+# (`apply_blank_fire_rule`): needs_review on the blank fire, not all three.
+
+def needs_review_in_fire(corpus_by_fire, n, notice):
+    """Did fire `n` set needs_review for `notice`? The single lookup both the
+    all-fires rule and the blank-fire rule read, so they cannot disagree on what
+    "declared" means."""
+    return bool((corpus_by_fire.get(n, {}).get(notice) or {}).get("needs_review"))
+
 
 def needs_review_in_all_fires(corpus_by_fire, notice):
-    return all(
-        bool((corpus_by_fire.get(n, {}).get(notice) or {}).get("needs_review"))
-        for n in (1, 2, 3)
-    )
+    return all(needs_review_in_fire(corpus_by_fire, n, notice) for n in (1, 2, 3))
 
 
 # Markers of a declaration ABOUT A HEADER FIELD, as the plugin phrases them. Matched
@@ -663,12 +809,12 @@ def apply_declaration_rule(disagree_notices, identity_half_unstable, corpus_by_f
     for notice in sorted(disagree_notices):
         if needs_review_in_all_fires(corpus_by_fire, notice):
             exempted.append(
-                f"{notice}: header disagreement exempted — needs_review=True in all three fires"
+                f"{notice}: written-header disagreement exempted — needs_review=True in all three fires"
             )
         else:
             blocking.append(
-                f"{notice}: header fields disagree across fires and needs_review is not "
-                f"True in all three fires (undeclared silent write) — see header_agreement.log"
+                f"{notice}: WRITTEN header fields disagree across fires and needs_review is "
+                f"not True in all three fires (undeclared silent write)"
             )
     for notice in sorted(identity_half_unstable):
         if needs_review_in_all_fires(corpus_by_fire, notice):
@@ -681,6 +827,66 @@ def apply_declaration_rule(disagree_notices, identity_half_unstable, corpus_by_f
                 f"{notice}: identity half (mfr/doc_id) is unstable across fires and "
                 f"needs_review is not True in all three fires"
             )
+    return blocking, exempted
+
+
+def apply_blank_fire_rule(blank_rows, corpus_by_fire):
+    """The blank-fire rule: a header field that is blank in one fire and populated in
+    another is needs_review on the BLANK fire, always. `blank_rows` is
+    `compare_written_headers`'s `(filename, field, {fire_n: value}, [blank_fire_ns])`.
+    Returns `(blocking, exempted)` message lists.
+
+    THE BLANK FIRE, NOT ALL THREE. The blank fire is the one that wrote nothing while
+    another fire had a value, so it is the only fire with something to declare; the fires
+    that populated the field have nothing to flag. Requiring all three would make a
+    correct fire's silence the blocker, and the notice could then never be declared at
+    all. Conversely a populated fire's needs_review proves nothing about the fire that
+    wrote the blank, so only the blank fires are read.
+
+    No exemption for a blank that is not declared: that is a silent write of nothing,
+    the same defect `apply_declaration_rule` blocks for two populated values."""
+    blocking, exempted = [], []
+    for notice, field, seen, blank_fires in sorted(blank_rows, key=lambda r: (r[0], r[1])):
+        populated = "; ".join(f"fire {m}={v!r}" for m, v in sorted(seen.items())
+                              if m not in blank_fires)
+        for n in blank_fires:
+            if needs_review_in_fire(corpus_by_fire, n, notice):
+                exempted.append(
+                    f"{notice}: `{field}` blank in fire {n}, populated in the others "
+                    f"({populated}) — exempted: needs_review=True in fire {n}"
+                )
+            else:
+                blocking.append(
+                    f"{notice}: `{field}` is blank in fire {n} but populated in the "
+                    f"others ({populated}) and fire {n} did not set needs_review "
+                    f"(undeclared silent blank)"
+                )
+    return blocking, exempted
+
+
+def apply_written_arm(written, corpus_by_fire):
+    """The written arm's contribution to blocking/exempted: value differences through
+    the all-fires declaration rule, blanks through the blank-fire rule, and ABSENT / no
+    `written_header` as unexempted instrument gaps (a gate that cannot measure does not
+    pass)."""
+    disagree_notices = sorted({fn for fn, _f, _v in written["disagreements"]})
+    blocking, exempted = apply_declaration_rule(disagree_notices, [], corpus_by_fire)
+    b2, e2 = apply_blank_fire_rule(written["blank_rows"], corpus_by_fire)
+    blocking.extend(b2)
+    exempted.extend(e2)
+    for fn, fires_missing in written["absent"]:
+        blocking.append(
+            f"{fn}: written header not recorded by fire(s) {fires_missing} — cannot be "
+            f"said to agree; no declaration exemption for an instrument gap"
+        )
+    for n, fn in written["no_written"]:
+        what = (f"fire {n} recorded no `written_header` for any notice"
+                if fn is None else
+                f"fire {n} recorded no `written_header` for {fn}")
+        blocking.append(
+            f"{what} (an image older than the recording, or a fire that produced none) — "
+            f"not a disagreement, not measured"
+        )
     return blocking, exempted
 
 
@@ -1159,8 +1365,13 @@ def score_fires(base_dir, fires, expectations=None):
     log_paths = [f["log_path"] for f in fires]
     header_exit, header_stdout = run_header_agreement(base_dir, log_paths)
     parsed_notices, absent_notices, not_measured_notices = parse_header_agreement(header_stdout)
-    disagree_notices = sorted(n for n, info in parsed_notices.items()
-                               if info["verdict"] == "DISAGREE")
+    # RAW verdicts are ADVISORY (ruling 2026-10-26): they feed `unstable_raw`, never
+    # a blocking list. Only an ABSENT / NOT MEASURED line (a measurement gap in the
+    # plain run) or an unparseable crash still blocks below -- those are "the
+    # instrument could not measure", and nothing here turns that into a pass.
+    raw_flagged_notices = sorted(n for n, info in parsed_notices.items()
+                                 if info["verdict"] in ("DISAGREE", "BLANK"))
+    unstable_raw = unstable_raw_rows(parsed_notices)
 
     if absent_notices or not_measured_notices:
         parts = []
@@ -1175,9 +1386,11 @@ def score_fires(base_dir, fires, expectations=None):
             "value disagreement; there is no declaration exemption for it "
             "(see header_agreement.log)"
         )
-    elif header_exit != 0 and not disagree_notices:
-        # Defensive: an exit!=0 with none of the three known verdict categories
+    elif header_exit != 0 and not raw_flagged_notices:
+        # Defensive: an exit!=0 with none of the known verdict categories
         # parsed at all (e.g. a crash/traceback) must still block, not pass silently.
+        # This is the instrument failing, not the raw reader being unsteady, so the
+        # advisory ruling does not reach it.
         blocking.append(
             f"header_agreement exited {header_exit} but produced no parseable "
             f"per-notice verdict — treat as a hard failure (see header_agreement.log)"
@@ -1217,11 +1430,22 @@ def score_fires(base_dir, fires, expectations=None):
     all_filenames = sorted(set().union(*[set(h) for h in headers_by_fire.values()]) or set())
     identity_half_unstable, revision_half_unstable = compute_stability(identity_records, all_filenames)
 
+    # (b') The BLOCKING header arm: the WRITTEN values, compared across the fires. Uses
+    # `from_corpus` (the recorded written_header per fire) even when identity fell back
+    # to the logs: the written arm never reads a log, and an image with no recording
+    # is reported as such rather than compared on a different derivation.
+    expected_files = (set().union(*[set(c) for c in corpus_by_fire.values()])
+                      if corpus_by_fire else set())
+    written = compare_written_headers(from_corpus, expected=expected_files)
+
     # (d) The declaration rule.
     d_blocking, d_exempted = apply_declaration_rule(
-        disagree_notices, identity_half_unstable, corpus_by_fire)
+        [], identity_half_unstable, corpus_by_fire)
     blocking.extend(d_blocking)
     exempted.extend(d_exempted)
+    w_blocking, w_exempted = apply_written_arm(written, corpus_by_fire)
+    blocking.extend(w_blocking)
+    exempted.extend(w_exempted)
 
     # (e) Header correctness against ground truth — see check_header_correctness
     # for why agreement (b) cannot answer this.
@@ -1239,8 +1463,14 @@ def score_fires(base_dir, fires, expectations=None):
     verdict = "pass" if (fires_ok and not blocking) else "fail"
     if image_identity["void_reasons"]:
         verdict = "void"
+    # By the 2026-10-26 ruling a RAW-only disagreement no longer blocks a pin: what
+    # blocks is the written arm plus the identity arm. `header_exit` therefore left this
+    # expression; the written arm's findings (no exemptions here, like every term of the
+    # strict view) took its place. Nothing else in the expression changed.
+    written_unsettled = bool(written["disagreements"] or written["blank_rows"]
+                             or written["absent"] or written["no_written"])
     strict_verdict = "pass" if (
-        fires_ok and header_exit == 0 and not identity_half_unstable
+        fires_ok and not written_unsettled and not identity_half_unstable
         # A void report has no strict verdict either: both views describe a
         # score, and a score about the wrong image is not a stricter score.
         and not image_identity["void_reasons"]
@@ -1284,11 +1514,28 @@ def score_fires(base_dir, fires, expectations=None):
         # this is the copy a reader of the report sees.
         "corpus": pcn_score.load_corpus(),
         "header_correctness": header_correctness,
+        # The PLAIN-MODE (raw model output) run. `exit` is still measured and still
+        # recorded; `blocks` says outright that it does not decide the verdict.
         "header_agreement": {
             "exit": header_exit,
+            "blocks": False,
             "notices": parsed_notices,
             "absent": absent_notices,
             "not_measured": not_measured_notices,
+        },
+        # ADVISORY: the raw reader rotating between forms. Never blocks.
+        "unstable_raw": unstable_raw,
+        # THE BLOCKING header arm: written values compared across the fires.
+        "written_agreement": {
+            "verdicts": written["verdicts"],
+            "disagreements": [list(d) for d in written["disagreements"]],
+            "blank_rows": [{"notice": fn, "field": f,
+                            "seen": {str(n): v for n, v in seen.items()},
+                            "blank_fires": blank}
+                           for fn, f, seen, blank in written["blank_rows"]],
+            "absent": [list(a) for a in written["absent"]],
+            "no_written": [list(a) for a in written["no_written"]],
+            "unrecorded": written["unrecorded"],
         },
         "identity": {
             # Which derivation the identity numbers below came from, and whether the
@@ -1677,9 +1924,53 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     lines.append(_render_rates_block(report["rates_available"], report["rates"]))
     lines.append("")
-    lines.append("## Header agreement")
+    wa = report.get("written_agreement")
+    if wa is not None:
+        lines.append("## Written header agreement (BLOCKS unless declared)")
+        lines.append("")
+        lines.append("The values each fire WROTE (`written_header` in its corpus JSON), "
+                     "compared over doc_type, mfr, pub_date, doc_level_ltb_date. "
+                     "`revision` (never blocks) and `doc_id` (identity arm) are not "
+                     "compared here.")
+        lines.append("")
+        lines.append("| notice | verdict |")
+        lines.append("|---|---|")
+        for fn, v in sorted(wa["verdicts"].items()):
+            lines.append(f"| {fn} | {v} |")
+        lines.append("")
+        for fn, f, vals in wa["disagreements"]:
+            lines.append(f"- DISAGREE {fn} `{f}`: "
+                         + " | ".join(repr(v).replace("|", BAR_ESCAPE) for v in vals))
+        for r in wa["blank_rows"]:
+            lines.append(f"- BLANK vs POPULATED {r['notice']} `{r['field']}`: blank in "
+                         f"fire(s) {r['blank_fires']}; seen {r['seen']}")
+        for fn, missing in wa["absent"]:
+            lines.append(f"- ABSENT {fn}: not recorded by fire(s) {missing}")
+        for n, fn in wa["no_written"]:
+            lines.append(f"- NO written_header: fire {n}"
+                         + (f", {fn}" if fn else " (whole fire)"))
+        if wa["unrecorded"]:
+            lines.append(f"- not recorded by any fire (not blocked here; parts arm / "
+                         f"bytes coverage own it): {', '.join(wa['unrecorded'])}")
+        lines.append("")
+    lines.append("## Raw reader instability (advisory, never blocks)")
     lines.append("")
-    lines.append(f"exit: {report['header_agreement']['exit']}")
+    lines.append("The raw model output rotated between these forms across the fires. "
+                 "The written value (above) is what blocks; a row here with a clean "
+                 "written arm is an unsteady reader that the trust logic absorbed. It "
+                 "is listed so that stays visible.")
+    lines.append("")
+    if report.get("unstable_raw"):
+        for r in report["unstable_raw"]:
+            lines.append(f"- {r['notice']} `{r['field']}`: "
+                         + " | ".join(f.replace("|", BAR_ESCAPE) for f in r["forms"]))
+    else:
+        lines.append("(none)")
+    lines.append("")
+    lines.append("## Header agreement (raw plain-mode run; advisory)")
+    lines.append("")
+    lines.append(f"exit: {report['header_agreement']['exit']} "
+                 f"(does not decide the verdict)")
     lines.append("")
     if report["header_agreement"]["notices"]:
         lines.append("| notice | verdict | disagreeing fields |")
