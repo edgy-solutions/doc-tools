@@ -2,8 +2,13 @@
 the 90 s bound owes.
 
 `da7c1ee` bounded `ExtractHeader` at 90 s with a refuse-never-retry contract: on a cut
-the field is ABSENT and `needs_review` is True. That is only safe because the text-layer
-arm runs anyway — `_DOCUMENT_WINS` is consulted from `refuse_unsourced_header_values`
+the field is ABSENT and `needs_review` is True. **The never-retry half was reversed on
+2026-10-24** by the architect's order -- a cancelled pass now gets ONE more attempt
+before it is reported absent, see `tests/test_a_cancelled_header_retries_once.py` and
+`test_a_cancelled_header_retries_exactly_once` below. The REFUSAL half stands, and this
+file is still the seal on it: two cancels and the field is absent, review is forced, and
+a filename still does not reach the identity triple. That refusal is only safe because
+the text-layer arm runs anyway — `_DOCUMENT_WINS` is consulted from `refuse_unsourced_header_values`
 even when the model returned NOTHING, so a healthy document that names its own
 manufacturer does not lose `mfr` to a timeout.
 
@@ -87,11 +92,28 @@ def cut(monkeypatch):
     return nodes[0].domain_augmentation, fake
 
 
-def test_the_header_call_is_made_once_and_not_retried(cut):
-    """Refuse the field, never retry — the other half of the bound's contract. A retry
-    would turn one 90 s cut into two and is exactly what the ruling forbade."""
+def test_a_cancelled_header_retries_exactly_once(cut):
+    """REVERSED 2026-10-24, on the architect's order. The argument this test carried --
+
+        *"Refuse the field, never retry — the other half of the bound's contract. A
+        retry would turn one 90 s cut into two and is exactly what the ruling
+        forbade."*
+
+    -- is kept here because the cost half of it is still true: a retry does turn one
+    90 s cut into two, and `_CutB` cancels both times, so this fixture pays exactly
+    that. What changed is the measurement on the other side of the trade. The one cancel
+    in the 2026-10-25 corpus fire cost `onsemi_Generic_IPCN25300X` its `mfr` -- scored
+    `absent`, the only non-passing field of sixteen -- on a page the model answers
+    whenever it is asked, and the nine healthy calls in that same fire returned in
+    19.1-55.0 s. So one cancel is not evidence the next attempt fails, and the field was
+    being lost to recall rather than to the document. 90 s on one notice of ten buys it
+    back.
+
+    The bound is unchanged, and so is everything else this file pins: the second cancel
+    still refuses.
+    """
     _, fake = cut
-    assert fake.calls == 1
+    assert fake.calls == 2
 
 
 def test_the_documents_own_mfr_is_written_despite_the_cut(cut):
