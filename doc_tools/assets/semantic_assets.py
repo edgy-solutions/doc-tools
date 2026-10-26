@@ -204,6 +204,15 @@ class GraphWriteError(RuntimeError):
     """
 
 
+class LinkWriteError(RuntimeError):
+    """The Pass 2 link/roll-up (HAS_CHILD, HAS_SLIDE, COVERS, concept_summary) failed.
+
+    Raised by `_build_knowledge_graph_impl` AFTER the `failed:link_write` stage
+    post and the client close, so the asset fails in Dagster whether or not the
+    document has an ingest_id.
+    """
+
+
 def _graph_write_detail(failures: dict, attempted: dict) -> str:
     """One-line, <=500-char account of which stores failed and how many writes.
 
@@ -1062,6 +1071,7 @@ def _build_knowledge_graph_impl(
     # attempted, and the verdict (posted after the last write) names the store.
     _graph_failures: dict[str, list[str]] = {}
     _graph_attempted: dict[str, int] = {}
+    _link_failure: list[str] = []
 
     def _record_graph_failure(store: str, e: Exception) -> None:
         _graph_failures.setdefault(store, []).append(f"{type(e).__name__}: {e}")
@@ -1096,7 +1106,7 @@ def _build_knowledge_graph_impl(
         plugin.execute_pass2_rollup(neo4j_client, doc_id, config)
     except Exception as e:
         context.log.error(f"Pass 2 Roll-up failed: {e}")
-        _record_graph_failure("neo4j", e)
+        _link_failure.append(f"{type(e).__name__}: {e}")
 
     _graph_detail = _graph_write_detail(_graph_failures, _graph_attempted) if _graph_failures else ""
 
@@ -1150,6 +1160,19 @@ def _build_knowledge_graph_impl(
                 status.update(
                     ingest_id, "failed", reason_code="graph_write",
                     reason=_graph_detail, detail=_graph_detail,
+                    extracted_count=_count, extracted_total=_total,
+                    extraction_ref=_ref,
+                )
+                if posted is not None:
+                    posted["stage"] = "failed"
+            elif _link_failure:
+                _link_detail = _link_failure[0][:500]
+                context.log.error(
+                    f"ingest stage for {doc_id}: failed:link_write "
+                    f"({_link_detail})")
+                status.update(
+                    ingest_id, "failed", reason_code="link_write",
+                    reason=_link_detail, detail=_link_detail,
                     extracted_count=_count, extracted_total=_total,
                     extraction_ref=_ref,
                 )
@@ -1214,6 +1237,9 @@ def _build_knowledge_graph_impl(
     # cannot swallow this.
     if _graph_failures:
         raise GraphWriteError(_graph_detail)
+    if _link_failure:
+        raise LinkWriteError(
+            f"failed:link_write doc_id={doc_id!r}: {_link_failure[0][:500]}")
 
     # TRAINING objects must carry vectors (contract §6). Every other write has
     # happened; a rerun repairs this, as writes are upserts keyed by chunk_id.
