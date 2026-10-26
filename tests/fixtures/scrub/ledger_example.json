@@ -1,0 +1,200 @@
+{
+  "allowlisted": [
+    {
+      "count": 3,
+      "rule": "header_vocabulary",
+      "text": "Part Number"
+    },
+    {
+      "count": 1,
+      "rule": "header_vocabulary",
+      "text": "Alternative Part Number"
+    },
+    {
+      "count": 1,
+      "rule": "header_vocabulary",
+      "text": "CUSTOMER PART NUMBER"
+    },
+    {
+      "count": 1,
+      "rule": "notice_type_or_status",
+      "text": "Last Time Buy"
+    },
+    {
+      "count": 1,
+      "rule": "caption",
+      "text": "Table 4 - EOL Devices and No Replacement Parts"
+    },
+    {
+      "count": 3,
+      "rule": "date",
+      "text": "2024-06-06"
+    },
+    {
+      "count": 1,
+      "rule": "date",
+      "text": "06-Jun-2024"
+    }
+  ],
+  "fixture_id": "example-pair-table",
+  "ledger_version": 1,
+  "policy": {
+    "authority": "RECOMMENDATION ONLY -- 2026-10-22 design \u00a75 rulings 1-4 are unanswered as of 2026-10-25. Allowlisting the manufacturer and the dates, a one-way scrub, and no entry to the scored corpus are the safe answers, not ruled ones.",
+    "dates": "allowlisted",
+    "enters_scored_corpus": false,
+    "manufacturer_name": "allowlisted",
+    "mapping": "one_way"
+  },
+  "scrub": {
+    "allowlist_ref": "registry/scrub_allowlist.yaml@<sha>",
+    "mapping_ref": null,
+    "run_at": "2026-10-25T06:10:00Z",
+    "salt_ref": "sandbox/scrub-batch-salt#example",
+    "tool_version": "scrubber-0.0.0-schema-only"
+  },
+  "source": {
+    "bucket": "<corpus bucket>",
+    "key": "<prefix>/EXAMPLE-PAIR-TABLE.pdf",
+    "pages": 3,
+    "sha256": "len=43 sha256:6fa91f10",
+    "tables": 2
+  },
+  "substitutions": [
+    {
+      "class": "mpn_affected",
+      "occurrences": 2,
+      "original": "len=18 sha256:9d3ea4ef",
+      "redraws": 0,
+      "replacement": "XQB712T40M558BF23C",
+      "reserved_space": "XQB",
+      "shape": "AAA999A99A999AA99A",
+      "sites": [
+        {
+          "col": 0,
+          "kind": "table_cell",
+          "page": 2,
+          "row": 4
+        },
+        {
+          "col": null,
+          "kind": "body_text",
+          "page": 1,
+          "row": null
+        }
+      ]
+    },
+    {
+      "class": "mpn_replacement",
+      "occurrences": 1,
+      "original": "len=18 sha256:c17e898a",
+      "redraws": 1,
+      "replacement": "XQB884T40M558BF23C",
+      "reserved_space": "XQB",
+      "shape": "AAA999A99A999AA99A",
+      "sites": [
+        {
+          "col": 1,
+          "kind": "table_cell",
+          "page": 2,
+          "row": 4
+        }
+      ]
+    },
+    {
+      "class": "customer_name",
+      "occurrences": 1,
+      "original": "len=20 sha256:bb2cdac3",
+      "redraws": 0,
+      "replacement": "Yqpzvbjfs Mtudsgmxkk",
+      "reserved_space": "XQB",
+      "shape": "Aaaaaaaaa Aaaaaaaaaa",
+      "sites": [
+        {
+          "col": null,
+          "kind": "body_text",
+          "page": 1,
+          "row": null
+        }
+      ]
+    },
+    {
+      "class": "customer_part_number",
+      "occurrences": 1,
+      "original": "len=9 sha256:f98026cc",
+      "redraws": 0,
+      "replacement": "KZQR-14-B",
+      "reserved_space": "XQB",
+      "shape": "AAAA-99-A",
+      "sites": [
+        {
+          "col": 1,
+          "kind": "table_cell",
+          "page": 3,
+          "row": 2
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "checks": {
+      "allowlist_integrity": {
+        "detail": "each allowlisted string's count is unchanged",
+        "measurements": {
+          "count_deltas": 0,
+          "entries": 7
+        },
+        "result": "pass"
+      },
+      "collision_check": {
+        "detail": "each replacement drawn from the reserved space and checked against the corpus MPN set and ground truth",
+        "measurements": {
+          "corpus_mpns_checked": 522,
+          "redraws": 1,
+          "reserved_space": "XQB"
+        },
+        "result": "pass"
+      },
+      "equivalence_seal": {
+        "detail": "extractor output on source and fixture are equal after applying the mapping",
+        "measurements": {
+          "differences": 0,
+          "fields_compared": 14
+        },
+        "result": "pass"
+      },
+      "leak_test": {
+        "detail": "no substituted original appears in the scrubbed PDF's own text layer, annotations or XMP metadata",
+        "measurements": {
+          "hits": 0,
+          "min_page_text_retention": 0.98,
+          "pages_checked": 3
+        },
+        "result": "pass"
+      },
+      "shape_equality": {
+        "detail": "every replacement reduces to its declared shape",
+        "measurements": {
+          "mismatches": 0,
+          "substitutions": 4
+        },
+        "result": "pass"
+      },
+      "structure_invariance": {
+        "detail": "page, table and per-table row/col counts unchanged",
+        "measurements": {
+          "cols": [
+            2,
+            3
+          ],
+          "pages": 3,
+          "rows": [
+            5,
+            3
+          ],
+          "tables": 2
+        },
+        "result": "pass"
+      }
+    }
+  }
+}
