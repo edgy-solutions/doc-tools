@@ -434,10 +434,54 @@ def test_a_non_training_drop_keeps_the_filename_keyed_layout(monkeypatch):
     assert pointer["prefix"] == f"{gen}/{PIPELINE_VERSION}/"
 
 
-@pytest.mark.xfail(strict=True, reason="lane tr step e")
-def test_render_pages_writes_page_pngs():
-    """Real test checks that every pages/page_{n}.png in golden minio.keys_required is rendered."""
-    pytest.fail("not built: lane tr step e — the step's PR replaces this body with a real assertion against golden")
+def test_render_pages_writes_page_pngs(monkeypatch, tmp_path):
+    """Every pages/page_{n}.png in golden minio.keys_required is rendered and listed.
+
+    LibreOffice and Poppler are stubbed at the subprocess layer; pages() itself
+    (rename, dimensions, 1..N check) runs for real."""
+    import os
+
+    from pptx import Presentation
+    from PIL import Image
+
+    from doc_tools.passes import render
+    from tests.test_document_parser_versioning import _FakeS3Client
+
+    n_slides = len(Presentation(str(DECK)).slides)
+    assert n_slides == 4
+
+    monkeypatch.setattr(render, "_convert_to_pdf", lambda src, work_dir, t: str(tmp_path / "x.pdf"))
+
+    def _fake_rasterize(pdf_path, work_dir, dpi, timeout_s):
+        out = []
+        for n in range(1, n_slides + 1):
+            p = os.path.join(work_dir, f"p-{n}.png")
+            Image.new("RGB", (20, 10), "white").save(p)
+            out.append(p)
+        return out
+
+    monkeypatch.setattr(render, "_rasterize", _fake_rasterize)
+
+    client = _FakeS3Client()
+    content_types = {}
+    orig_upload = client.upload_file
+
+    def _recording_upload(Filename, Bucket, Key, ExtraArgs=None):
+        content_types[Key] = (ExtraArgs or {}).get("ContentType")
+        return orig_upload(Filename=Filename, Bucket=Bucket, Key=Key, ExtraArgs=ExtraArgs)
+
+    client.upload_file = _recording_upload
+    manifest = _parse_drop(client, monkeypatch)
+
+    want = {_sub(k) for k in GOLDEN["minio"]["keys_required"] if "/pages/" in k}
+    assert want, "golden lists no pages/ keys"
+    written_pages = {k for (_b, k) in client.write_order if "/pages/" in k}
+    assert written_pages == want
+    for k in want:
+        assert content_types[k] == "image/png", k
+    assert [p["page"] for p in manifest["pages"]] == list(range(1, n_slides + 1))
+    assert {p["key"] for p in manifest["pages"]} == want
+    assert "pages_error" not in manifest
 
 
 @pytest.mark.xfail(strict=True, reason="lane tr step f")
