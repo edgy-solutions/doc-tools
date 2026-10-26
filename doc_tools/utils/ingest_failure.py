@@ -47,6 +47,10 @@ REASON_CODES: frozenset[str] = frozenset({
     # failed store(s) named in `detail`. Must be listed: dagster_resources
     # coerces any code outside this set to `unexpected_error`.
     "graph_write",
+    # Pass 2 link/roll-up failed (TrainingPlugin.execute_pass2_rollup raised).
+    # Raised from semantic_assets.py as LinkWriteError, recorded apart from
+    # graph_write so the two are told apart; graph_write wins if both occur.
+    "link_write",
     # The watchdog (packet: `failed:timeout`). LANE 1 EMITS THIS, NOT US: see
     # RESERVED_TO_LANE_1. Kept here so it is RECOGNISED, never emitted.
     "timeout",
