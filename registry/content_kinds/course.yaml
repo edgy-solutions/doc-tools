@@ -6,6 +6,7 @@
 # deliberately, so the row stays the SDK's shape.
 kind: course
 passes:
+  - structural.outline
   - core.baml::ExtractOutline
   - training.baml::ExtractConcepts
   - render.pages

@@ -137,9 +137,10 @@ module_name = "doc_tools.definitions"
 markers = [
     "corpus_gate: reads docs/corpus-gate/latest.json, a report produced by an opt-in CronJob (charts/doc-tools/templates/corpus-gate-cronjob.yaml) and committed from that run by scripts/pcn_gate_publish.py (or by hand where publishing is unconfigured), not generated on a bare checkout. Run with `pytest -m corpus_gate`.",
     "corpus_gate_verdict: the OUTCOME half of the corpus gate, carried separately because it blocks a PIN rather than a merge. Also marked corpus_gate, so the required check selects `-m \"corpus_gate and not corpus_gate_verdict\"` and the advisory corpus-gate-verdict job selects `-m corpus_gate_verdict`. Keeping a red verdict out of the required check is what stops the gate wedging the repo shut against its own repair — see tests/test_corpus_gate_guard.py's docstring, section \"WHY THE REQUIRED CHECK NO LONGER ASSERTS THE OUTCOME\".",
+    "neo4j_live: needs a real Neo4j (NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD); writes and deletes only zz-survival- tagged data. Out of the default run. Run with `pytest -m neo4j_live`.",
 ]
 # A default `pytest` run must not fail on a machine with no committed report.
 # The report IS required reading for `corpus_gate` itself (see
 # tests/test_corpus_gate_guard.py: a missing report there fails, not skips) —
 # this addopts only keeps it out of the UNMARKED default run.
-addopts = "-m \"not corpus_gate\""
+addopts = "-m \"not corpus_gate and not neo4j_live\""
