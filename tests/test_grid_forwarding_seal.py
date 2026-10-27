@@ -181,14 +181,14 @@ def test_label_call_raising_falls_back_to_pixel_path_without_raising(plugin, mon
                                     replacement_mpn=None, replacement_mpn_source=None,
                                     ltb_date=None, ltb_date_source=None)
     fake = _patch_b(monkeypatch, label_results=[RuntimeError("vision endpoint down")],
-                    extract_parts_results=[[fallback_part]])
+                    extract_parts_results=[[fallback_part], [fallback_part]])  # 2nd: the short-crop re-sample, no better
     _patch_tokens(monkeypatch, round(VISION_MAX_TOKENS * 0.1))
     decline = _decline(page_number=2)
 
     parts, stats = plugin._extract_parts([_table_element(2)], None, None, "full text",
                                          tl_declines=[decline])
 
-    assert fake.extract_parts_calls == 1, "must fall through to the pixel path for this page"
+    assert fake.extract_parts_calls == 2, "falls through to the pixel path (1 call) and the short crop is re-sampled once (2)"
     assert [p["affected_mpn"] for p in parts] == ["PIXEL-READ-MPN"]
     assert stats["grid_label_failed"] == 1
     assert stats["grid_forwarded"] == 0
@@ -205,14 +205,14 @@ def test_out_of_range_affected_col_is_rejected_and_falls_back(plugin, monkeypatc
                                     ltb_date=None, ltb_date_source=None)
     bad_roles = _roles(affected_col=99)   # out of range for a 2-column grid
     fake = _patch_b(monkeypatch, label_results=[bad_roles],
-                    extract_parts_results=[[fallback_part]])
+                    extract_parts_results=[[fallback_part], [fallback_part]])  # 2nd: the short-crop re-sample, no better
     _patch_tokens(monkeypatch, round(VISION_MAX_TOKENS * 0.1))
     decline = _decline(page_number=2)
 
     parts, stats = plugin._extract_parts([_table_element(2)], None, None, "full text",
                                          tl_declines=[decline])
 
-    assert fake.extract_parts_calls == 1
+    assert fake.extract_parts_calls == 2  # pixel path + one re-sample of the short crop
     assert [p["affected_mpn"] for p in parts] == ["PIXEL-READ-MPN"], \
         "no garbage row from the invalid column index; the page fell back cleanly"
     assert stats["grid_label_failed"] == 1
