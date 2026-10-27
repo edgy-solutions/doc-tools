@@ -42,22 +42,37 @@ whatever its date, and a pin bump must carry a report for the digest it lands.
 a clock that no longer ticks, which would have blocked every `charts/` PR
 three days after the last manual fire, the pin-bump PR among them.
 
-TRANSITIONAL, AND IT BLOCKS — THE RED WINDOW IS ACCEPTED, DO NOT ROUTE ROUND
-IT. The pre-roll fire is not built yet; it is sequenced after the onsemi parts
-cause. Until it exists a pin bump cannot produce a report for its own digest,
-so it reds this arm, and the interim is merge -> roll -> fire -> a follow-up
-PR carrying the report. That leaves a window of roughly one gate run (~2.5 h,
-three fires) between the roll and the report in which this arm is RED and the
-red is CORRECT: there genuinely is no measurement of the newly pinned image.
+STILL TRANSITIONAL, AND IT STILL BLOCKS -- THE RED WINDOW IS ACCEPTED, DO NOT
+ROUTE ROUND IT. `pre_roll` was BUILT on 2026-10-27
+(scripts/pcn_gate_prefire.py, and `--identity-mode` on the gate) but has
+never been FIRED at a cluster. Existing is not the same as working: nothing
+has yet proved that a Job built from the CronJob with five overrides runs,
+pulls the candidate, and publishes a report to a preroll branch. So the
+interim stands until a pre-roll fire has actually produced a report -- merge
+-> roll -> fire -> a follow-up PR carrying the report -- and that leaves a
+window of roughly one gate run (~2.5 h, three fires) between the roll and the
+report in which this arm is RED and the red is CORRECT: there genuinely is no
+measurement of the newly pinned image.
 
 The architect ruled on 2026-10-27 that this cost is accepted until `pre_roll`
-exists. So the window is not a bug to be worked around, and in particular it
-is NOT to be cleared with an admin merge. A `--admin` merge here would land a
-pin whose image has never been measured, which is the exact condition this
-arm was added to make visible; it would also leave no trace that the gate was
-bypassed, because the arm reports nothing once it is skipped. Wait for the
-fire, or build `pre_roll`. If the wait is unacceptable for a given pin, that
-is an argument for building `pre_roll` sooner, not for merging past this.
+exists. It now exists in the tree; but what the ruling protects against is
+the absence of a MEASUREMENT, not the absence of a script, so the window
+closes when a pre-roll report lands in a pin-bump PR -- not when this code
+merges. Either way the window is not a bug to be worked around, and in
+particular it is NOT to be cleared with an admin merge. A `--admin` merge here
+would land a pin whose image has never been measured, which is the exact
+condition this arm was added to make visible; it would also leave no trace
+that the gate was bypassed, because the arm reports nothing once it is
+skipped. Wait for the fire, or run a pre-roll one. If the wait is unacceptable
+for a given pin, that is an argument for firing pre-roll, not for merging past
+this.
+
+THIS ARM NEEDS NO CHANGE FOR A PRE-ROLL REPORT, and never did. It compares the
+report's `measured_image` to the chart's pinned digest, and in a pin-bump PR
+carrying a pre-roll report those are the same image by construction -- which
+is the whole reason pre-roll closes the window. What the `pre_roll` label
+changes is what the REPORT says about its own digest (self-declared, not
+corroborable from inside the Job), not what this guard asserts.
 
 WHAT IT DOES ASSERT ABOUT THE IMAGE, since 2026-10-02. The architect ruled:
 "a report whose measured_image differs from the chart digest or the pods'
@@ -421,10 +436,11 @@ def test_the_report_measures_the_pin_this_chart_declares():
         f"(generated_at={report.get('generated_at')!r}, quoted as context and "
         f"NOT as a criterion -- age is no longer part of this check).\n"
         f"If this PR MOVES THE PIN: it must carry a report for the digest it "
-        f"lands, produced by a pre-roll fire of the candidate image. Until "
-        f"that fire is built the interim stands -- merge, roll, fire, then a "
-        f"follow-up PR carrying the report -- and this arm is red in the "
-        f"meantime by design.\n"
+        f"lands, produced by a pre-roll fire of the candidate image: "
+        f"scripts/pcn_gate_prefire.py --image <candidate>. Until a pre-roll "
+        f"fire has produced one, the interim stands -- merge, roll, fire, "
+        f"then a follow-up PR carrying the report -- and this arm is red in "
+        f"the meantime by design.\n"
         f"If this PR DOES NOT MOVE THE PIN: the committed report is for a "
         f"different digest than the chart declares, which means a pin bump "
         f"landed without its report. Fire the gate against the pinned image "
