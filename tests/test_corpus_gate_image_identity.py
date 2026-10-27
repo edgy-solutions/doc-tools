@@ -331,3 +331,126 @@ def _yaml_get(path, key):
         if stripped.startswith(f"{key}:"):
             return stripped.split(":", 1)[1].strip()
     raise AssertionError(f"{key} not found in {path}")
+
+
+# --------------------------------------------------------------------------
+# IDENTITY MODE. A pre-roll fire measures an image no pod is running, and the
+# only thing that says so afterwards is the label -- see
+# `resolve_identity_mode` for why an unknown value is refused while an absent
+# one defaults.
+
+def test_absent_identity_mode_defaults_to_rolled_but_an_unknown_one_is_refused():
+    """The asymmetry is the point, and it is not a style choice.
+
+    Absence has exactly one true meaning: every report written before
+    2026-10-27 was a rolled fire, so defaulting it is a correct reading of
+    history. An unknown value has no true meaning at all, and defaulting it
+    to `rolled` would label a measurement of some unpinned candidate as a
+    measurement of the deployed system -- which is the one claim the mode
+    exists to make checkable.
+    """
+    assert gate.resolve_identity_mode(None) == "rolled"
+    assert gate.resolve_identity_mode("") == "rolled"
+    assert gate.resolve_identity_mode("  ") == "rolled"
+    assert gate.resolve_identity_mode("pre_roll") == "pre_roll"
+    assert gate.resolve_identity_mode(" pre_roll ") == "pre_roll"
+    with pytest.raises(SystemExit) as e:
+        gate.resolve_identity_mode("preroll")
+    assert "unknown identity mode" in str(e.value)
+
+
+def test_pre_roll_records_the_digest_as_self_declared_and_does_not_void():
+    """Two claims a pre-roll report must make about itself, and one it must not.
+
+    MUST: that the mode was `pre_roll`, and that the digest is self-declared
+    -- this process cannot read its own imageID (no Role, no kubectl), so the
+    digest is whatever the Job creator asserted.
+
+    MUST NOT: void. A pre-roll fire has no chart pinning it and no pod to read
+    an imageID from, so there is normally nothing to compare; voiding on that
+    absence would make the feature useless, since a void report is not a
+    verdict and could never clear a pin bump.
+
+    And `checked` stays False, which is the honest state and is what
+    `_render_image_identity` already prints above the scores: no comparison
+    ran. `self_declared` is a SEPARATE key because the two answer different
+    questions -- `checked: false` says none ran, `self_declared` says none
+    could run from in here.
+    """
+    r = gate.check_image_identity(f"{REPO}@{A}", [], mode="pre_roll")
+    assert r["mode"] == "pre_roll"
+    assert r["self_declared"] is True
+    assert r["checked"] is False
+    assert r["void_reasons"] == []
+    assert r["measured_digest"] == A
+
+
+def test_rolled_is_recorded_too_and_is_never_self_declared():
+    """A label only written when it is interesting teaches that silence means
+    ordinary -- and then an UNLABELLED older report reads as rolled by the
+    same silence. So the ordinary case states itself."""
+    r = gate.check_image_identity(f"{REPO}@{A}", [], mode="rolled")
+    assert r["mode"] == "rolled"
+    assert r["self_declared"] is False
+
+
+def test_an_expectation_supplied_in_pre_roll_still_voids_on_a_mismatch():
+    """Nobody is silenced for having an answer.
+
+    The mode says what the image IS relative to the chart; it is not a licence
+    to ignore a comparison somebody went to the trouble of supplying. If a
+    pre-roll fire is given an expectation and misses it, the report is void in
+    `pre_roll` exactly as in `rolled`.
+    """
+    r = gate.check_image_identity(
+        f"{REPO}@{A}", [{"source": "pods", "ref": f"{REPO}@{B}"}],
+        mode="pre_roll")
+    assert r["checked"] is True
+    assert r["void_reasons"], "a supplied mismatch must still void in pre_roll"
+    assert r["comparisons"][0]["result"] == "mismatch"
+
+
+def test_the_markdown_says_pre_roll_fire_and_self_declared():
+    """The report is read as MARKDOWN, by people, after being cherry-picked
+    into a pin-bump PR. A mode that only exists in the JSON would be invisible
+    exactly where the decision gets made."""
+    md = gate._render_image_identity(
+        gate.check_image_identity(f"{REPO}@{A}", [], mode="pre_roll"))
+    assert "PRE-ROLL FIRE" in md
+    assert "self-declared" in md
+    assert "pcn_gate_prefire.py" in md, (
+        "the report must name what corroborates the digest, since it cannot "
+        "corroborate it itself")
+    assert "EXPECTED state" in md, (
+        "an unreconciled pre-roll fire is the designed state, not the defect "
+        "the rolled wording describes")
+
+
+def test_the_rolled_unreconciled_wording_is_unchanged():
+    """The pre-roll branch must not have softened the ordinary one. An
+    unreconciled ROLLED fire is a real gap: the chart pins the image and
+    somebody could have supplied the pods imageID, and nobody did."""
+    md = gate._render_image_identity(
+        gate.check_image_identity(f"{REPO}@{A}", [], mode="rolled"))
+    assert "NOT RECONCILED" in md
+    assert "not a pass of the identity check" in md
+    assert "PRE-ROLL" not in md
+    assert "EXPECTED state" not in md
+
+
+def test_the_flag_defaults_to_none_so_the_env_var_is_reachable():
+    """The arm that catches the override going inert.
+
+    `scripts/pcn_gate_prefire.py` sets the mode by env var, because the
+    CronJob's command is `pcn_corpus_gate.py --run` and a pre-roll fire copies
+    that command verbatim -- it overrides env, not argv. So the flag's default
+    MUST be None: give it `default="rolled"` and argv always has an answer,
+    `PCN_GATE_IDENTITY_MODE` is never read, and every pre-roll report is
+    labelled `rolled` while the override looks present in the manifest. This
+    repo has shipped that exact shape before -- an overlay key that rendered,
+    was reviewed, and executed nothing.
+    """
+    args = gate.build_parser().parse_args(["--run"])
+    assert args.identity_mode is None, (
+        "a non-None default would shadow PCN_GATE_IDENTITY_MODE and silently "
+        "label every pre-roll report `rolled`")

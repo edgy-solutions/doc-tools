@@ -1057,7 +1057,47 @@ def parse_expectations(values):
     return out
 
 
-def check_image_identity(measured, expectations):
+IDENTITY_MODES = ("rolled", "pre_roll")
+
+
+def resolve_identity_mode(value):
+    """`rolled` (the default) or `pre_roll`, and an unknown value is an ERROR.
+
+    WHAT THE MODE IS FOR. It does not change a single score. It records what
+    the measured image WAS at the time of the fire, which a reader of the
+    committed report cannot otherwise recover:
+
+    - `rolled` — the image is the one the chart pins and the pods run. This
+      is every report this gate has ever written, and the identity check can
+      be corroborated from inside the cluster by whoever reads a pod's
+      `imageID`.
+    - `pre_roll` — the image was BUILT but is not pinned by any chart and no
+      pod is running it. The Job was created with an explicit image override
+      (`scripts/pcn_gate_prefire.py`) so that a pin-bump PR can carry a
+      report for the digest it lands, which is what closes the window where
+      a new pin has no measurement.
+
+    WHY UNKNOWN IS AN ERROR RATHER THAN A FALLBACK TO `rolled`. A typo would
+    otherwise produce a report labelled as a measurement of the deployed
+    system when it is nothing of the kind, and the label is the only thing
+    distinguishing the two. Defaulting the ABSENT case to `rolled` is
+    different and is safe: every report written before this existed was a
+    rolled fire, so the absence has one true meaning.
+    """
+    mode = (value or "rolled").strip() or "rolled"
+    if mode not in IDENTITY_MODES:
+        raise SystemExit(
+            f"unknown identity mode {mode!r}; expected one of "
+            f"{', '.join(IDENTITY_MODES)}. This is refused rather than "
+            f"defaulted: the mode is the only thing in the report that says "
+            f"whether the measured image was one any pod was running, and a "
+            f"report mislabelled `rolled` claims to describe the deployed "
+            f"system."
+        )
+    return mode
+
+
+def check_image_identity(measured, expectations, mode="rolled"):
     """Compare `measured_image` against what it was SUPPOSED to be.
 
     THE RULING (architect, 2026-10-02): "a report whose measured_image
@@ -1091,6 +1131,29 @@ def check_image_identity(measured, expectations):
     report whose image is pinned by a moving tag cannot be reconciled with
     anything, and `:latest` is exactly the case that made "what is sandbox
     running?" unanswerable for weeks.
+
+    `mode` IS RECORDED AND CHANGES NOTHING HERE, deliberately. A `pre_roll`
+    fire measures an image no pod is running, so there is no `imageID` for
+    anyone to supply and no chart that pins it: the expectation list is
+    normally empty and `checked` is therefore False — UNRECONCILED, which is
+    what this function already says in that case and what
+    `_render_image_identity` already prints above the scores. That is the
+    honest state and it must not be dressed up: the gate cannot read its own
+    digest (no Role, no kubectl — see above), so in `pre_roll` the digest in
+    `measured_image` is SELF-DECLARED by whoever created the Job.
+
+    What corroborates it is outside this process, in two places, and neither
+    is a claim this report gets to make about itself:
+
+    1. `scripts/pcn_gate_prefire.py` reads the pod's `imageID` after the Job
+       starts and refuses the fire if it is not the candidate — which is the
+       cheap moment to find out, before 2.5 hours of vision calls.
+    2. `tests/test_corpus_gate_guard.py` compares this report's
+       `measured_image` against the digest the chart pins, in CI, from the
+       two files. Two instruments, neither sourcing its own expectation.
+
+    An expectation supplied in `pre_roll` is still compared, and still voids
+    on a mismatch. Nobody should be silenced for having an answer.
     """
     measured_digest = _digest_of(measured)
     comparisons = []
@@ -1137,6 +1200,16 @@ def check_image_identity(measured, expectations):
         "checked": bool(comparisons),
         "comparisons": comparisons,
         "void_reasons": void_reasons,
+        # `rolled` or `pre_roll`. Carried here as well as at the top of the
+        # report so that this block, which is what a reader quotes when
+        # arguing about what was measured, cannot be quoted without it.
+        "mode": mode,
+        # True only in `pre_roll`, and it means: the digest above was asserted
+        # by whoever created the Job and NOT verified by this process. It is a
+        # separate key rather than a reading of `checked` because the two
+        # answer different questions -- `checked: false` says no comparison
+        # ran, this says no comparison COULD run from in here.
+        "self_declared": mode == "pre_roll",
     }
 
 
@@ -1276,7 +1349,7 @@ def aggregate_seal_totals(totals_by_fire):
     return block
 
 
-def score_fires(base_dir, fires, expectations=None):
+def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
     blocking = []
     exempted = []
 
@@ -1458,7 +1531,7 @@ def score_fires(base_dir, fires, expectations=None):
     # other verdicts: see check_image_identity for why a mismatch is neither
     # a pass nor a fail.
     image_identity = check_image_identity(
-        os.environ.get("DOC_TOOLS_IMAGE") or None, expectations)
+        os.environ.get("DOC_TOOLS_IMAGE") or None, expectations, identity_mode)
 
     verdict = "pass" if (fires_ok and not blocking) else "fail"
     if image_identity["void_reasons"]:
@@ -1485,6 +1558,12 @@ def score_fires(base_dir, fires, expectations=None):
         "strict_verdict": strict_verdict,
         "generated_at": _utcnow_iso(),
         "measured_image": os.environ.get("DOC_TOOLS_IMAGE") or None,
+        # `rolled` (the chart pins it and pods run it) or `pre_roll` (built,
+        # measured, pinned by nothing yet). ABSENT in every report written
+        # before 2026-10-27, and absent means `rolled` -- see
+        # `resolve_identity_mode` for why the absent case defaults and an
+        # unknown one does not.
+        "identity_mode": identity_mode,
         "measured_pin_note": os.environ.get("DOC_TOOLS_PIN_NOTE") or None,
         # WHICH comparisons ran, and what each one found. `checked: false`
         # means none ran — a report that was never reconciled with the chart
@@ -1827,15 +1906,54 @@ def _render_image_identity(identity):
                 "image-identity check (it carries no `image_identity` block), so "
                 "whether it measured the declared image is **unknown**.")
     out = ["### Identity", ""]
+    pre_roll = identity.get("mode") == "pre_roll"
+    if pre_roll:
+        out.append(
+            "**PRE-ROLL FIRE.** This report measures an image that was BUILT "
+            "and that no chart pins; no pod was running it. It is a "
+            "measurement of that image's own extraction code against the "
+            "model hosts, which is the whole of what this gate ever "
+            "measures — but it is NOT a statement about the deployed "
+            "system, and it becomes the authority for this digest only when "
+            "a pin bump carrying it merges."
+        )
+        out.append("")
+        out.append(
+            "The digest below is **self-declared**: it is what whoever "
+            "created the Job said the image was, and this process cannot "
+            "check it — the gate's ServiceAccount has no Role and the "
+            "container carries no kubectl, so it cannot read its own "
+            "`imageID`. Two things outside this report corroborate it, and "
+            "a reader who needs the identity proven should look at them "
+            "rather than at this section: `scripts/pcn_gate_prefire.py` "
+            "compares the pod's `imageID` to the candidate before the run "
+            "spends its GPU time, and the CI guard compares this report's "
+            "`measured_image` to the digest the chart pins."
+        )
+        out.append("")
     if not identity.get("checked"):
         out.append(
             "**NOT RECONCILED.** No expectation was supplied (`--expect-image` / "
             "`PCN_GATE_EXPECT_IMAGE`), so this run never compared the image it "
-            "measured against the chart's pin or the pods' `imageID`. That is "
-            "not a pass of the identity check — it is the absence of one, and "
-            "the verdict below is only as trustworthy as the unverified claim "
-            "that `DOC_TOOLS_IMAGE` is the right image."
+            "measured against the chart's pin or the pods' `imageID`."
         )
+        out.append("")
+        if pre_roll:
+            out.append(
+                "In a pre-roll fire that is the EXPECTED state and not a "
+                "defect: the chart pins the OLD image, so a `chart=` "
+                "expectation would void this report by construction, and "
+                "there is no pod to read an `imageID` from. It is still the "
+                "absence of an identity check and not a pass of one — what "
+                "stands in for it is named above."
+            )
+        else:
+            out.append(
+                "That is not a pass of the identity check — it is the "
+                "absence of one, and the verdict below is only as "
+                "trustworthy as the unverified claim that `DOC_TOOLS_IMAGE` "
+                "is the right image."
+            )
         return "\n".join(out)
     out.append(f"- measured digest: `{identity.get('measured_digest') or 'none — not a digest'}`")
     out.append("")
@@ -1893,6 +2011,12 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     lines.append(f"- `DOC_TOOLS_IMAGE`: {report['measured_image'] or 'not set'}")
     lines.append(f"- `DOC_TOOLS_PIN_NOTE`: {report['measured_pin_note'] or 'not set'}")
+    # `rolled` is stated as well as `pre_roll`, rather than printed only
+    # when it is interesting. A section that is silent in the ordinary case
+    # teaches a reader that silence means ordinary, and then an older report
+    # with no mode at all reads as a rolled fire by the same silence when it
+    # is in fact unlabelled.
+    lines.append(f"- identity mode: `{report.get('identity_mode') or 'not recorded'}`")
     lines.append("")
     lines.append(_render_image_identity(report.get("image_identity")))
     lines.append("")
@@ -2095,7 +2219,16 @@ def dated_report_name(generated_at):
     return "report-%s.md" % generated_at.replace(":", "")
 
 
-def main(argv):
+def build_parser():
+    """The CLI, as its own function so a default can be ASSERTED.
+
+    Extracted from `main` for one reason: `--identity-mode` has to default
+    to None so that PCN_GATE_IDENTITY_MODE is reachable, and a default
+    nobody can read is a default nobody can test. The pre-roll path
+    overrides ENV, not argv -- it copies the CronJob command verbatim --
+    so if this flag ever acquires a non-None default the override goes
+    inert and every pre-roll report is labelled `rolled`.
+    """
     parser = argparse.ArgumentParser(
         description="Score the PCN/PDN corpus harness as a release gate: three "
                      "sequential fires, header agreement, and notice identity "
@@ -2142,6 +2275,31 @@ def main(argv):
                               "Supplying nothing leaves the run UNRECONCILED, "
                               "which the report says in as many words -- it is "
                               "not a pass of this check.")
+    parser.add_argument("--identity-mode", default=None,
+                         choices=IDENTITY_MODES,
+                         help="What the measured image IS, relative to the "
+                              "chart: `rolled` (default) means the chart pins "
+                              "it and the pods run it; `pre_roll` means it was "
+                              "BUILT and measured before anything pins it, so "
+                              "a pin-bump PR can carry a report for the digest "
+                              "it lands. It changes no score and no verdict -- "
+                              "it is a LABEL on the report, and the only thing "
+                              "that tells a later reader whether the measured "
+                              "image was one any pod was running. In `pre_roll` "
+                              "the digest is self-declared by whoever created "
+                              "the Job (this process cannot read its own: no "
+                              "Role, no kubectl), and the report says so. "
+                              "Defaults to PCN_GATE_IDENTITY_MODE, then "
+                              "`rolled`; an unknown value is refused rather "
+                              "than defaulted. Set by "
+                              "scripts/pcn_gate_prefire.py, which is also what "
+                              "corroborates the digest, from the pod imageID, "
+                              "before the run spends its GPU time.")
+    return parser
+
+
+def main(argv):
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     # The pods' imageID cannot be read from inside the gate's Job: its
@@ -2154,6 +2312,14 @@ def main(argv):
         args.expect_image
         if args.expect_image is not None
         else [os.environ.get("PCN_GATE_EXPECT_IMAGE", "")]
+    )
+
+    # Validated here, before any fire runs, so a typo costs nothing instead of
+    # 2.5 hours of vision calls and a mislabelled report.
+    identity_mode = resolve_identity_mode(
+        args.identity_mode
+        if args.identity_mode is not None
+        else os.environ.get("PCN_GATE_IDENTITY_MODE")
     )
 
     if args.from_logs:
@@ -2171,7 +2337,8 @@ def main(argv):
         fires = run_fires(base_dir)
         command_str = f"{sys.executable} scripts/pcn_corpus_gate.py --run"
 
-    report, header_stdout = score_fires(base_dir, fires, expectations)
+    report, header_stdout = score_fires(
+        base_dir, fires, expectations, identity_mode)
 
     # Report dir default is docs/corpus-gate, relative to repo root. ^docs/ is
     # the ENTIRE paths-ignore list on the build workflow, so a committed report
