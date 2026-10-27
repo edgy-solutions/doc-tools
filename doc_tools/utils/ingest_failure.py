@@ -51,6 +51,13 @@ REASON_CODES: frozenset[str] = frozenset({
     # Raised from semantic_assets.py as LinkWriteError, recorded apart from
     # graph_write so the two are told apart; graph_write wins if both occur.
     "link_write",
+    # A per-chunk `plugin.augment` raised, so that chunk contributed NO domain
+    # nodes -- for training, a slide with no TEACHES edges, which is
+    # indistinguishable from a slide that teaches nothing. Measured by lane tr
+    # at steps d+e: 2 of 20 decks, both BamlValidationError "Missing required
+    # field: summary", and both runs reported SUCCESS. Raised from
+    # semantic_assets.py as AugmentationError, posted as the run's last act.
+    "concept_parse",
     # The watchdog (packet: `failed:timeout`). LANE 1 EMITS THIS, NOT US: see
     # RESERVED_TO_LANE_1. Kept here so it is RECOGNISED, never emitted.
     "timeout",

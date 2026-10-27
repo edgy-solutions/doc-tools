@@ -293,6 +293,32 @@ class LinkWriteError(RuntimeError):
     """
 
 
+class AugmentationError(RuntimeError):
+    """A per-chunk `plugin.augment` raised, so that chunk contributed no domain nodes.
+
+    Raised by `_build_knowledge_graph_impl` AFTER the `failed:concept_parse` stage
+    post and the client close, so the asset fails in Dagster whether or not the
+    document has an ingest_id.
+    """
+
+
+def _augment_failure_detail(failures: list, attempted: int) -> str:
+    """One-line, <=500-char account of which chunks failed augmentation.
+
+    `failures` is a list of `"<chunk_id>: <ExcType>: <message>"` strings and
+    `attempted` the number of augment calls made. Chunk ids are sorted so the
+    string is stable, and at most 5 are named (then `(+k more)`) so a large
+    failure does not spend the cap on ids and lose the error.
+    """
+    ids = sorted(f.split(": ", 1)[0] for f in failures)
+    shown = ", ".join(ids[:5])
+    if len(ids) > 5:
+        shown += f" (+{len(ids) - 5} more)"
+    first = failures[0].split(": ", 1)[1] if failures and ": " in failures[0] else ""
+    return (f"concept parse failed on {len(failures)} of {attempted} chunk(s): "
+            f"{shown}; first error: {first}")[:500]
+
+
 def _graph_write_detail(failures: dict, attempted: dict) -> str:
     """One-line, <=500-char account of which stores failed and how many writes.
 
@@ -932,6 +958,10 @@ def _build_knowledge_graph_impl(
     # count of written / degraded / skipped-to-avoid-a-strip / erroring
     # chunk writes for this document.
     chunk_index_tally: collections.Counter = collections.Counter()
+    # Per-chunk augmentation failures ("<chunk_id>: <Type>: <msg>") and the
+    # number of augment attempts, for failed:concept_parse.
+    _augment_failures: list[str] = []
+    _augment_attempted = 0
 
     # Process each page/chunk
     for page_num, texts in pages.items():
@@ -966,12 +996,14 @@ def _build_knowledge_graph_impl(
         # exactly the defect this pass exists to prevent.
         citation = {}
         if chunk_text.strip():
+            _augment_attempted += 1
             try:
                 node = plugin.augment(section, config)
                 document_nodes.append(node)
                 citation = _chunk_citation(node)
             except Exception as e:
                 context.log.error(f"Plugin augmentation failed for chunk {chunk_id}: {e}")
+                _augment_failures.append(f"{chunk_id}: {type(e).__name__}: {e}")
 
         # Neo4j baseline chunk creation
         try:
@@ -1239,6 +1271,9 @@ def _build_knowledge_graph_impl(
         _link_failure.append(f"{type(e).__name__}: {e}")
 
     _graph_detail = _graph_write_detail(_graph_failures, _graph_attempted) if _graph_failures else ""
+    _augment_detail = (
+        _augment_failure_detail(_augment_failures, _augment_attempted)
+        if _augment_failures else "")
 
     # Phase 5b: the ingest stage POST (`review`, or `failed:extraction_empty`).
     # It lives HERE, not in document_parser.py, because the row count Lane 1
@@ -1308,6 +1343,29 @@ def _build_knowledge_graph_impl(
                 )
                 if posted is not None:
                     posted["stage"] = "failed"
+            elif _augment_failures:
+                # Ordering: a store write failing means the document is not in
+                # the graph at all and subsumes a lost chunk, so graph_write /
+                # link_write above still win. But concept_parse beats
+                # extraction_empty below: a raised augmentation is the CAUSE and
+                # zero rows is the symptom, and posting the symptom sends a
+                # steward to the wrong place. Deliberately EVERY domain, not
+                # training only (require_vector is training-gated because
+                # nearVector is a training query shape; this is not): a chunk
+                # whose augmentation raised contributed no domain nodes in any
+                # domain, and no other seal sees it (extraction_empty fires only
+                # at zero part rows).
+                context.log.error(
+                    f"ingest stage for {doc_id}: failed:concept_parse "
+                    f"({_augment_detail})")
+                status.update(
+                    ingest_id, "failed", reason_code="concept_parse",
+                    reason=_augment_detail, detail=_augment_detail,
+                    extracted_count=_count, extracted_total=_total,
+                    extraction_ref=_ref,
+                )
+                if posted is not None:
+                    posted["stage"] = "failed"
             elif rows_are_review_unit and rows == 0:
                 first = (review_payload or {}).get("review_reasons") or []
                 reason = "extraction produced zero part rows"
@@ -1370,6 +1428,9 @@ def _build_knowledge_graph_impl(
     if _link_failure:
         raise LinkWriteError(
             f"failed:link_write doc_id={doc_id!r}: {_link_failure[0][:500]}")
+    if _augment_failures:
+        raise AugmentationError(
+            f"failed:concept_parse doc_id={doc_id!r}: {_augment_detail}")
 
     # TRAINING objects must carry vectors (contract §6). Every other write has
     # happened; a rerun repairs this, as writes are upserts keyed by chunk_id.
