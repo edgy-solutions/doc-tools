@@ -321,11 +321,36 @@ def test_the_report_is_a_real_measurement_and_not_void():
             if blocking
             else "  (no per-condition detail — a fires_ok failure; read fires[] totals)"
         )
+        # WHAT THIS WARNING MUST NOT CLAIM. It used to end "and it still
+        # blocks the next pin through the corpus-gate-verdict job", which is
+        # false twice over, both legs measured and both recorded elsewhere in
+        # this file:
+        #
+        #   1. `corpus-gate-verdict` is ADVISORY. `corpus-gate` is the only
+        #      required context on main, so a red verdict job shows on the PR
+        #      and leaves the merge button live (see this module's docstring).
+        #   2. On a PIN BUMP it does not even go red — it SKIPS ITSELF.
+        #      `test_verdict_is_pass` skips when the report's measured digest
+        #      is not the chart's declared one, and moving the pin is exactly
+        #      what moves the chart away from the last report. Measured on the
+        #      v0.2.2 bump, 2026-10-26: green by skip.
+        #
+        # So a measured FAIL blocks nothing by itself today. What it does block
+        # is a chart diff that does NOT move the pin (where the digests still
+        # match, so the verdict arm actually runs) — and what refuses a pin
+        # carrying no measurement of the image it lands is the REQUIRED arm
+        # `test_the_report_measures_the_pin_this_chart_declares`, not this one.
+        # A warning that overstates its own teeth is worse than none: the next
+        # reader trusts a block that is not there.
         warnings.warn(
-            "corpus gate report is a measured FAIL. That does not block a merge "
-            "— currency and identity are what this check asserts — but it is the "
-            "current truth about the pinned image, and it still blocks the next "
-            "pin through the corpus-gate-verdict job:\n" + detail,
+            "corpus gate report is a measured FAIL. It blocks NOTHING by "
+            "itself: this check asserts currency and identity, and the "
+            "outcome arm (`corpus-gate-verdict`) is advisory and skips itself "
+            "on a pin bump. It is still the current truth about the pinned "
+            "image, and it goes red on a chart diff that leaves the pin "
+            "where it is. A pin bump is refused instead by the required "
+            "staleness arm when no report measures the image it lands:\n"
+            + detail,
             UserWarning,
             stacklevel=2,
         )
@@ -337,10 +362,18 @@ def test_verdict_is_pass():
     the only one that is not part of the required `corpus-gate` check.
 
     Selected by the advisory `corpus-gate-verdict` job, which runs this only
-    when the diff touches `charts/**`. That preserves the standing order "red
-    blocks the next pin" — a pin bump IS a chart change — while keeping a red
-    verdict off every ordinary code PR, which is the wedge this file's
-    docstring describes.
+    when the diff touches `charts/**` — which keeps a red verdict off every
+    ordinary code PR, the wedge this file's docstring describes.
+
+    IT DOES NOT, BY ITSELF, PRESERVE "RED BLOCKS THE NEXT PIN", and this
+    docstring used to say that it did. Two measured reasons, both already
+    written further down this file: the job is advisory until it is added to
+    main's required contexts, and on a pin bump the APPLICABILITY clause below
+    makes it SKIP, because moving the pin moves the chart away from the digest
+    the last report measured. What refuses a pin that carries no measurement
+    of the image it lands is the REQUIRED arm
+    `test_the_report_measures_the_pin_this_chart_declares`. This arm's real
+    scope is the other case: a chart diff that leaves the pin where it is.
 
     APPLICABILITY: the verdict is asserted only when the committed report
     measured the image the chart declares (`values-sandbox.yaml` `digest:`).
