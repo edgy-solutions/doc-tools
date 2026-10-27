@@ -42,9 +42,26 @@ def _fires(*headers, fn=FN):
     return {i + 1: {fn: h} for i, h in enumerate(headers)}
 
 
-def _reviews(**by_fire):
-    """corpus_by_fire carrying only needs_review: _reviews(f1=False, f2=True, ...)."""
-    return {int(k[1:]): {FN: {"needs_review": v}} for k, v in by_fire.items()}
+# Reasons in the product's own words (see the vocabulary in pcn_corpus_gate.py).
+DOC_ID_REASON = ("doc_id taken from the document ('PCN-24-210412', printed at "
+                 "page 1 header)")
+MFR_REFUSED = "header.mfr refused: 'TE' is not cited by anything in this document"
+PUB_REFUSED = "header.pub_date refused: '2024-04-12' is not cited"
+PASS_FAILED = "header pass failed: TimeoutError"
+WITNESS_DISABLED = "region witness DISABLED for this document: no raster"
+LTB_LOST = ("region witness LOST the ltb region on page 1 (unreadable); header fields "
+            "doc_level_ltb_date were neither supplied nor corroborated")
+
+
+def _reviews(reasons=None, **by_fire):
+    """corpus_by_fire: _reviews(f1=False, f2=True, ...). `reasons` is one list for every
+    fire, or {fire_n: list}; omitted, no reasons are carried (the old shape)."""
+    out = {}
+    for k, v in by_fire.items():
+        n = int(k[1:])
+        rs = reasons.get(n, []) if isinstance(reasons, dict) else (reasons or [])
+        out[n] = {FN: {"needs_review": v, "review_reasons": list(rs)}}
+    return out
 
 
 # 1 ------------------------------------------------------------------------
@@ -73,7 +90,8 @@ def test_a_populated_value_difference_without_needs_review_blocks():
 def test_the_same_difference_declared_in_all_three_fires_is_exempted():
     res = gate.compare_written_headers(
         _fires(_wh(mfr="TE Connecvity"), _wh(mfr="TE"), _wh(mfr="TE")))
-    blocking, exempted = gate.apply_written_arm(res, _reviews(f1=True, f2=True, f3=True))
+    blocking, exempted = gate.apply_written_arm(
+        res, _reviews([MFR_REFUSED], f1=True, f2=True, f3=True))
     assert blocking == []
     assert len(exempted) == 1 and "all three fires" in exempted[0]
 
@@ -114,7 +132,8 @@ def test_a_blank_fire_without_needs_review_blocks_and_names_fire_and_value():
 def test_needs_review_on_the_blank_fire_alone_exempts():
     res = gate.compare_written_headers(_fires(_wh(), _wh(pub_date=""), _wh()))
     # fires 1 and 3 say nothing: requiring all three would make the correct fires block
-    blocking, exempted = gate.apply_written_arm(res, _reviews(f1=False, f2=True, f3=False))
+    blocking, exempted = gate.apply_written_arm(
+        res, _reviews({2: [PUB_REFUSED]}, f1=False, f2=True, f3=False))
     assert blocking == []
     assert len(exempted) == 1 and "fire 2" in exempted[0]
 
@@ -275,3 +294,109 @@ def test_a_written_disagreement_still_blocks_whatever_the_raw_exit(tmp_path, mon
     assert report["verdict"] == "fail"
     assert any("WRITTEN header fields disagree" in b for b in report["blocking"])
     assert report["strict_verdict"] == "fail"
+
+
+# --------------------------------------------------------------------------
+# Ruling 2026-10-27: the exemption is keyed to the FIELD UNDER TEST.
+
+def _mfr_disagree():
+    return gate.compare_written_headers(
+        _fires(_wh(mfr="TE Connecvity"), _wh(mfr="TE"), _wh(mfr="TE")))
+
+
+def _all(reasons):
+    return _reviews(reasons, f1=True, f2=True, f3=True)
+
+
+def test_a_doc_id_reason_does_not_exempt_an_mfr_disagreement():
+    """The 10-of-10 case: the doc_id precedence ruling narrates a doc_id reason and sets
+    needs_review on every notice, which used to buy every field an exemption."""
+    blocking, exempted = gate.apply_written_arm(_mfr_disagree(), _all([DOC_ID_REASON]))
+    assert exempted == []
+    assert len(blocking) == 1 and "`mfr`" in blocking[0]
+    assert "no reason names `mfr`" in blocking[0]
+    assert "another field" in blocking[0]
+
+
+def test_a_refusal_names_one_field_and_exempts_only_that_field():
+    res = gate.compare_written_headers(_fires(
+        _wh(mfr="TE Connecvity", pub_date="2024-04-12"),
+        _wh(mfr="TE", pub_date="2024-04-13"),
+        _wh(mfr="TE", pub_date="2024-04-14")))
+    blocking, exempted = gate.apply_written_arm(res, _all([MFR_REFUSED]))
+    # one notice, two failing fields: one exempted line, one blocking, each naming its field
+    assert len(exempted) == 1 and "`mfr`" in exempted[0]
+    assert "header.mfr refused" in exempted[0]
+    assert len(blocking) == 1 and "`pub_date`" in blocking[0]
+    assert "no reason names `pub_date`" in blocking[0]
+
+
+def test_a_failed_header_pass_exempts_every_field():
+    cases = (("mfr", ("A", "B", "B")),
+             ("pub_date", ("2024-01-01", "2024-01-02", "2024-01-03")))
+    for field, vals in cases:
+        res = gate.compare_written_headers(_fires(*[_wh(**{field: v}) for v in vals]))
+        blocking, exempted = gate.apply_written_arm(res, _all([PASS_FAILED]))
+        assert blocking == [] and len(exempted) == 1 and field in exempted[0]
+        assert "header pass failed" in exempted[0]
+
+
+def test_a_disabled_witness_exempts_every_field():
+    blocking, exempted = gate.apply_written_arm(_mfr_disagree(), _all([WITNESS_DISABLED]))
+    assert blocking == [] and len(exempted) == 1
+    assert "region witness DISABLED" in exempted[0]
+
+
+def test_a_lost_region_naming_the_field_exempts_it_and_its_source_companion():
+    for field in ("doc_level_ltb_date", "doc_level_ltb_date_source"):
+        corpus = _all([LTB_LOST])
+        assert gate.header_declaration_for_field_in_all_fires(corpus, FN, field)
+        res = {"disagreements": [(FN, field, ["a", "b", "b"])], "blank_rows": [],
+               "absent": [], "no_written": []}
+        blocking, exempted = gate.apply_written_arm(res, corpus)
+        assert blocking == [] and len(exempted) == 1
+    # and says nothing about a field it does not name
+    assert not gate.header_declaration_for_field_in_all_fires(_all([LTB_LOST]), FN, "mfr")
+
+
+def test_the_source_base_strips_one_suffix_only():
+    assert gate._declaration_field_base("doc_level_ltb_date_source") == "doc_level_ltb_date"
+    assert gate._declaration_field_base("mfr") == "mfr"
+    assert gate._declaration_field_base("x_source_source") == "x_source"
+
+
+def test_a_declaration_in_two_fires_of_three_exempts_nothing():
+    corpus = _reviews({1: [MFR_REFUSED], 2: [MFR_REFUSED], 3: [DOC_ID_REASON]},
+                      f1=True, f2=True, f3=True)
+    blocking, exempted = gate.apply_written_arm(_mfr_disagree(), corpus)
+    assert exempted == [] and len(blocking) == 1
+
+
+def test_a_perfect_reason_without_the_flag_exempts_nothing():
+    corpus = _reviews([MFR_REFUSED], f1=False, f2=False, f3=False)
+    assert not gate.header_declaration_for_field_in_all_fires(corpus, FN, "mfr")
+    blocking, exempted = gate.apply_written_arm(_mfr_disagree(), corpus)
+    assert exempted == [] and len(blocking) == 1
+    assert "needs_review is not True" in blocking[0]
+
+
+def test_a_blank_fire_is_exempted_only_by_a_declaration_naming_its_field():
+    res = gate.compare_written_headers(_fires(_wh(), _wh(pub_date=None), _wh()))
+    named = _reviews({2: [PUB_REFUSED]}, f1=False, f2=True, f3=False)
+    blocking, exempted = gate.apply_written_arm(res, named)
+    assert blocking == [] and len(exempted) == 1 and "header.pub_date refused" in exempted[0]
+    other = _reviews({2: [DOC_ID_REASON]}, f1=False, f2=True, f3=False)
+    blocking, exempted = gate.apply_written_arm(res, other)
+    assert exempted == [] and len(blocking) == 1
+    assert "no reason names `pub_date`" in blocking[0] and "fire 2" in blocking[0]
+
+
+def test_the_identity_half_is_keyed_to_the_pair_either_name_exempts():
+    # the doc_id NARRATION is not a declaration, so it is absent from this list
+    doc_id_refused = "header.doc_id refused: x is not cited"
+    for reasons in ([doc_id_refused], [MFR_REFUSED], [PASS_FAILED]):
+        blocking, exempted = gate.apply_declaration_rule([], [FN], _all(reasons))
+        assert blocking == [] and len(exempted) == 1
+    blocking, exempted = gate.apply_declaration_rule(
+        [], [FN], _all([PUB_REFUSED, DOC_ID_REASON]))
+    assert exempted == [] and len(blocking) == 1

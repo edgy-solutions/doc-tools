@@ -465,10 +465,9 @@ def test_three_fires_agreeing_on_a_wrong_value_still_blocks():
 
 
 def test_a_declared_notice_is_exempted_and_not_blocking():
-    """Same exemption as the declaration rule in (d): a notice flagged
-    needs_review in all three fires has not been written silently -- and, since
-    2026-10-01, whose narration also NAMES the header. See
-    `header_declaration_in_all_fires`."""
+    """Same exemption as the declaration rule in (d): a field flagged
+    needs_review in all three fires has not been written silently -- and the
+    narration must NAME that field. See `header_declaration_for_field_in_all_fires`."""
     _, blocking, exempted = gate.check_header_correctness(
         {n: _totals(wrong=["TYC.pdf:pub_date"], exact=1, clean=False)
          for n in (1, 2, 3)},
@@ -482,7 +481,7 @@ def test_an_exempted_failure_is_still_a_failing_notice_for_the_strict_view():
     block, blocking, _ = gate.check_header_correctness(
         {n: _totals(absent=["TYC.pdf:mfr"], exact=1, clean=False)
          for n in (1, 2, 3)},
-        _corpus(True))
+        _corpus(True, reasons=("header.mfr refused: x is not cited",)))
     assert blocking == []
     # strict_verdict reads this key, and grants no exemptions.
     assert block["failing_notices"] == ["TYC.pdf"]
@@ -656,3 +655,19 @@ def test_aggregate_rates_render_with_the_disagreement_line():
 
 def test_legacy_aggregate_without_fires_key_still_renders():
     assert "INGEST RATES" in gate._render_rates_block(True, REAL_RATES)
+
+
+def test_the_ground_truth_arm_decides_per_field_and_a_doc_id_reason_exempts_nothing():
+    """Ruling 2026-10-27: one notice, two failing fields, one declared and one not gives
+    one exempted line and one blocking line, each naming its field; and a doc_id reason
+    (narrated on every notice) exempts neither."""
+    totals = {n: _totals(wrong=["TYC.pdf:pub_date"], absent=["TYC.pdf:mfr"],
+                         exact=0, clean=False) for n in (1, 2, 3)}
+    _, blocking, exempted = gate.check_header_correctness(
+        totals, _corpus(True, reasons=("header.mfr refused: x is not cited",)))
+    assert len(exempted) == 1 and "`mfr`" in exempted[0]
+    assert len(blocking) == 1 and "`pub_date`" in blocking[0]
+    assert "no reason names `pub_date`" in blocking[0]
+    _, blocking, exempted = gate.check_header_correctness(
+        totals, _corpus(True, reasons=("doc_id taken from the document ('X')",)))
+    assert exempted == [] and len(blocking) == 2

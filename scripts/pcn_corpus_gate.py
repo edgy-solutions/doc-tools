@@ -665,8 +665,10 @@ def compute_stability(identity_records, filenames):
 # pipeline getting better, not by the gate getting weaker.
 #
 # A notice whose header only disagrees (b), or whose identity half is
-# unstable (c), is exempt from blocking only if needs_review == True for that
-# notice in ALL THREE corpus_f{N}.json records. There is no exemption at all
+# unstable (c), is exempt from blocking only if needs_review == True in ALL THREE
+# corpus_f{N}.json records AND a review reason declares a problem with the FIELD in
+# question (ruling 2026-10-27; see `header_declaration_for_field_in_fire`) -- a flag
+# raised about `doc_id` exempts nothing about `mfr`. There is no exemption at all
 # for an ABSENT or NOT MEASURED header-agreement condition (an instrument
 # gap, not a declared, handled value conflict) and none for
 # revision_half_unstable (which never blocks in the first place, per (c)).
@@ -688,50 +690,116 @@ def needs_review_in_all_fires(corpus_by_fire, notice):
     return all(needs_review_in_fire(corpus_by_fire, n, notice) for n in (1, 2, 3))
 
 
-# Markers of a declaration ABOUT A HEADER FIELD, as the plugin phrases them. Matched
-# as substrings of `review_reasons` rather than by a flag, because there is no flag:
-# the product narrates, and narrowing this to a structured field would mean adding one
+# Declarations are matched as substrings of `review_reasons`, not by a flag, because
+# there is no flag: the product narrates, and a structured field would mean adding one
 # and keeping two representations of the same fact in step.
-_HEADER_DECLARATION_MARKERS = (
-    "refused",                 # refuse_unsourced_header_values blanked a field
-    "header pass failed",      # the header extraction itself raised
-    "region witness LOST",     # a located header region could not be read
-    "could not be located",    # no header region was locatable at all
-    "region witness DISABLED",
+#
+# KEYED TO THE FIELD UNDER TEST (architect's ruling, 2026-10-27). `needs_review` is a
+# DOCUMENT-level flag, and it went from 3/4/3 of ten notices on v0.2.1 to 10 of 10 on
+# v0.2.2 because the doc_id precedence ruling makes the plugin narrate a `doc_id`
+# reason on every notice (`sustainment.py:1670,1680`). Consumed as an exemption from
+# header correctness, that flag let a note about `doc_id` -- which is not a scored
+# header field -- buy a notice an exemption for `mfr`, `pub_date` and
+# `doc_level_ltb_date`. A declaration about one field must not exempt another.
+#
+# The vocabulary, as the product phrases it (verified in the tree):
+#   `header.<field> refused: '<v>' <clause>`  sustainment_header_trust.py:1533 -- ONE field
+#   `region witness LOST the <name> region on page N (<why>); header fields <a, b>
+#    were neither supplied nor corroborated`  sustainment.py:1804 -- the fields it NAMES
+#   `header pass failed: <error>`             sustainment.py:760 -- EVERY field: the
+#                                             pass raised, nothing was extracted
+#   `region witness DISABLED for this document: <e>`  sustainment.py:1384 -- EVERY field
+# Field names are shared vocabulary (witness_regions.py:83-88 declares the same keys
+# pcn_ground_truth.json scores), so there is no alias table and none may be added.
+#
+# "could not be located" is deliberately NOT a marker. It used to be one, commented "no
+# header region was locatable at all", and that was wrong: its only emitter is
+# sustainment_header_trust.py:1347, a `_REFUSAL_CLAUSE` value, so the string only ever
+# appears INSIDE a `header.<field> refused: ...` reason about one field, which the
+# refusal shape below already covers. Re-adding it as a header-wide marker would
+# re-widen the exemption to every field.
+_HEADER_WIDE_DECLARATION_MARKERS = (
+    "header pass failed",       # the header extraction itself raised: nothing extracted
+    "region witness DISABLED",  # no field could be corroborated
 )
 
+# The identity half is compared as a PAIR (see `apply_declaration_rule`).
+_IDENTITY_HALF_FIELDS = ("mfr", "doc_id")
 
-def header_declaration_in_all_fires(corpus_by_fire, notice):
-    """Did the product declare a problem WITH THE HEADER, in every fire?
 
-    Narrower than `needs_review_in_all_fires`, and the narrowing is the point. A
-    degraded text layer sets `needs_review` unconditionally
-    (`SustainmentPlugin._apply_text_layer_stats`), and degradation is a permanent
-    property of a PDF -- TYC-PCN-24-210412 can never stop declaring it. So the broad
-    predicate granted that notice a PERMANENT exemption from header correctness, which
-    is the one notice whose header was measured wrong. An exemption no measurement can
-    ever revoke is not an exemption, it is an exclusion.
+def _declaration_field_base(field):
+    """Strip one trailing `_source` and return the rest; otherwise `field` unchanged.
 
-    What makes degradation the wrong declaration to accept here: the region witness
-    exists precisely to survive it. On a degraded notice the header fields are read
-    from CROPS of the page raster and cited verbatim, evidence the text layer had no
-    part in. A notice that supplied its header from pixels and still wrote the wrong
-    value has published a wrong value with no warning attached to it, which is exactly
-    what condition (e) is for.
+    The `_source` companion is the citation for the same field, not a field of its own.
+    The product declares problems about `doc_level_ltb_date`; it never writes
+    `header.doc_level_ltb_date_source refused`. Without this, a correct, specific
+    declaration would fail to exempt the companion and the rule would be stricter than
+    the ruling -- and the live TYC-PCN-24-210412 disagreement is on exactly that
+    companion, so this is not hypothetical."""
+    return field[:-len("_source")] if field.endswith("_source") else field
 
-    So the exemption now has to be earned by a reason that names the HEADER: a refused
-    field, a failed header pass, a lost or unlocatable region. Any of those does mean a
-    human sees the field before it counts. `needs_review` is still required as well --
+
+def _field_declaration_basis(corpus_by_fire, n, notice, field):
+    """What, if anything, fire `n` declared about `field` -- as a phrase for the report,
+    or None. The single place the vocabulary is read, so the predicate and the messages
+    cannot disagree about what counted."""
+    if not needs_review_in_fire(corpus_by_fire, n, notice):
+        return None
+    base = _declaration_field_base(field)
+    reasons = [str(r) for r in
+               ((corpus_by_fire.get(n, {}).get(notice) or {}).get("review_reasons") or [])]
+    for marker in _HEADER_WIDE_DECLARATION_MARKERS:
+        if any(marker in r for r in reasons):
+            return f"a header-wide reason ({marker!r}) covers every field"
+    if any(f"header.{base} refused" in r for r in reasons):
+        return f"a review reason names `{base}` (header.{base} refused)"
+    if any("region witness LOST" in r and base in r for r in reasons):
+        return f"a review reason names `{base}` (region witness LOST)"
+    return None
+
+
+def header_declaration_for_field_in_fire(corpus_by_fire, n, notice, field):
+    """Did fire `n` declare a problem with THIS header field of `notice`?
+
+    True iff `needs_review` is set in that fire AND its `review_reasons` carry either a
+    header-wide marker or a reason naming the field. `needs_review` is still required:
     a narrated reason on a document nobody is told to review is not a declaration.
-    """
-    if not needs_review_in_all_fires(corpus_by_fire, notice):
-        return False
-    for n in (1, 2, 3):
-        reasons = (corpus_by_fire.get(n, {}).get(notice) or {}).get("review_reasons") or []
-        blob = " ".join(str(r) for r in reasons)
-        if not any(m in blob for m in _HEADER_DECLARATION_MARKERS):
-            return False
-    return True
+    Read by the blank-fire rule directly (it is already per fire) and, three times, by
+    the all-fires predicate."""
+    return _field_declaration_basis(corpus_by_fire, n, notice, field) is not None
+
+
+def header_declaration_for_field_in_all_fires(corpus_by_fire, notice, field):
+    """`header_declaration_for_field_in_fire` in all three fires.
+
+    Narrower than any document-level reading of `needs_review`, on two axes. Per
+    NOTICE: a degraded text layer sets it unconditionally and permanently, which gave
+    the one notice with a measurably wrong header an exemption no measurement could
+    revoke -- the reason must name the header. Per FIELD: a reason naming `doc_id`
+    must not exempt `mfr`. The region witness exists to survive a degraded layer, so a
+    notice that wrote a wrong value from pixels with no declaration about THAT value has
+    published it with no warning attached, which is what condition (e) is for."""
+    return all(header_declaration_for_field_in_fire(corpus_by_fire, n, notice, field)
+               for n in (1, 2, 3))
+
+
+def _all_fires_basis(corpus_by_fire, notice, field):
+    """The distinct bases across the three fires, as one string (for an exempted line)."""
+    return "; ".join(sorted({_field_declaration_basis(corpus_by_fire, n, notice, field)
+                             for n in (1, 2, 3)}))
+
+
+def _why_not_declared(corpus_by_fire, notice, field, fires=(1, 2, 3)):
+    """For a blocking line: a MISSING flag and a flag about the WRONG field are
+    different defects with different fixes, and a red report must say which."""
+    base = _declaration_field_base(field)
+    unflagged = [n for n in fires if not needs_review_in_fire(corpus_by_fire, n, notice)]
+    where = "all three fires" if len(fires) == 3 else f"fire {fires[0]}"
+    if unflagged:
+        return (f"needs_review is not True in fire(s) {unflagged} "
+                f"(undeclared silent write of `{field}`)")
+    return (f"needs_review=True in {where} but no reason names `{base}` -- a declaration "
+            f"about another field is not a declaration about this one")
 
 
 def check_header_correctness(header_totals_by_fire, corpus_by_fire):
@@ -751,16 +819,18 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
     does not block, exactly as `rates_available` does. It also is not reported
     as zero failures.
 
-    THE DECLARATION EXEMPTION APPLIES HERE TOO, BUT NARROWED — see
-    `header_declaration_in_all_fires`. A notice the product flagged `needs_review`
-    in all three fires has not silently published a wrong value — a human sees it
-    before it counts — which is the same reasoning that exempts a disagreeing
-    notice in (d). But `needs_review` ALONE is too weak here: a degraded text
-    layer sets it unconditionally and permanently, so the broad predicate handed
-    the one notice with a measurably wrong header an exemption that no future
-    measurement could revoke. The reason must now NAME the header (a refused
-    field, a failed header pass, a lost region). The failure is reported either
-    way, and `strict_verdict` (which grants no exemptions) counts it regardless.
+    THE DECLARATION EXEMPTION APPLIES HERE TOO, BUT NARROWED TO THE FIELD — see
+    `header_declaration_for_field_in_all_fires`. A field the product flagged
+    `needs_review` for, in all three fires, has not silently published a wrong
+    value — a human sees it before it counts — which is the same reasoning that
+    exempts a disagreeing field in (d). But `needs_review` ALONE is too weak: a
+    degraded text layer sets it unconditionally and permanently, and the doc_id
+    precedence ruling narrates a `doc_id` reason on every notice, so a
+    document-level flag handed a measurably wrong `mfr` or `pub_date` an
+    exemption no measurement could revoke. The decision is therefore made per
+    `(notice, field)`: one notice may have one field exempted and another
+    blocking, and each gets its own line. The failure is reported either way, and
+    `strict_verdict` (which grants no exemptions) counts it regardless.
     """
     observed = {n: t for n, t in header_totals_by_fire.items() if t}
     block = {"observed": bool(observed), "fires": {}}
@@ -771,7 +841,7 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
                            "headers were not measured against ground truth at all.")
         return block, blocking, exempted
 
-    failures = {}  # notice -> {fire: [ "field (status)" ]}
+    failures = {}  # notice -> {field: {fire: status}}
     for n, t in sorted(observed.items()):
         block["fires"][n] = {
             "exact": t.get("exact"), "fields_scored": t.get("fields_scored"),
@@ -786,54 +856,86 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
         for status in pcn_score.HEADER_FAILURES:
             for located in t.get(status, []):
                 notice, _, field = located.partition(":")
-                failures.setdefault(notice, {}).setdefault(n, []).append(
-                    f"{field} ({status})")
+                failures.setdefault(notice, {}).setdefault(field, {})[n] = status
     block["failing_notices"] = sorted(failures)
 
-    for notice, by_fire in sorted(failures.items()):
-        detail = "; ".join(f"fire {n}: {', '.join(sorted(v))}"
-                           for n, v in sorted(by_fire.items()))
-        line = (f"{notice}: written header does not match ground truth — {detail} "
-                f"(pcn_ground_truth.json notices[{notice}].headers)")
-        if header_declaration_in_all_fires(corpus_by_fire, notice):
-            exempted.append(line + " — exempted: needs_review=True in all three fires "
-                                   "AND a review reason names the header")
-        else:
-            blocking.append(line)
+    for notice, by_field in sorted(failures.items()):
+        for field, by_fire in sorted(by_field.items()):
+            detail = "; ".join(f"fire {n}: {field} ({s})" for n, s in sorted(by_fire.items()))
+            line = (f"{notice}: written header `{field}` does not match ground truth — "
+                    f"{detail} (pcn_ground_truth.json notices[{notice}].headers)")
+            if header_declaration_for_field_in_all_fires(corpus_by_fire, notice, field):
+                exempted.append(line + " — exempted: needs_review=True in all three "
+                                       "fires and "
+                                + _all_fires_basis(corpus_by_fire, notice, field))
+            else:
+                blocking.append(line + " — blocking: "
+                                + _why_not_declared(corpus_by_fire, notice, field))
     return block, blocking, exempted
 
 
-def apply_declaration_rule(disagree_notices, identity_half_unstable, corpus_by_fire):
+def apply_declaration_rule(disagreements, identity_half_unstable, corpus_by_fire):
+    """The all-fires declaration rule, decided PER FIELD.
+
+    `disagreements` is `compare_written_headers`'s per-field rows,
+    `(filename, field, [values])` -- NOT a collapsed notice set. Collapsing was the
+    defect: a reason about `doc_id` (narrated on every notice since the doc_id
+    precedence ruling) exempted a disagreement on `mfr`. Each row is exempt only if all
+    three fires declared a problem with THAT field
+    (`header_declaration_for_field_in_all_fires`).
+
+    THE ONE PLACE THE KEYING IS COARSER THAN THE RULING. `identity_half_unstable` is
+    keyed to the PAIR `{mfr, doc_id}`: a declaration naming either, or a header-wide
+    one, exempts it. `compute_stability` compares a composite identity key and records
+    only the filename, so which half moved is not recoverable where the decision is
+    made. Narrowing it means teaching `compute_stability` to report the moving half --
+    a separate change, deliberately not made here."""
     blocking = []
     exempted = []
-    for notice in sorted(disagree_notices):
-        if needs_review_in_all_fires(corpus_by_fire, notice):
+    for notice, field, values in sorted(disagreements, key=lambda r: (r[0], r[1])):
+        if header_declaration_for_field_in_all_fires(corpus_by_fire, notice, field):
             exempted.append(
-                f"{notice}: written-header disagreement exempted — needs_review=True in all three fires"
+                f"{notice}: written-header disagreement on `{field}` {values!r} exempted — "
+                f"needs_review=True in all three fires and "
+                + _all_fires_basis(corpus_by_fire, notice, field)
             )
         else:
             blocking.append(
-                f"{notice}: WRITTEN header fields disagree across fires and needs_review is "
-                f"not True in all three fires (undeclared silent write)"
+                f"{notice}: WRITTEN header fields disagree across fires on `{field}` "
+                f"{values!r} — blocking: "
+                + _why_not_declared(corpus_by_fire, notice, field)
             )
     for notice in sorted(identity_half_unstable):
-        if needs_review_in_all_fires(corpus_by_fire, notice):
+        # per fire, any of the pair's fields (see the docstring for why a pair)
+        bases = []
+        for n in (1, 2, 3):
+            basis = None
+            for f in _IDENTITY_HALF_FIELDS:
+                basis = basis or _field_declaration_basis(corpus_by_fire, n, notice, f)
+            bases.append(basis)
+        if all(bases):
             exempted.append(
                 f"{notice}: identity-half instability (mfr/doc_id differ across fires) "
-                f"exempted — needs_review=True in all three fires"
+                f"exempted — needs_review=True in all three fires and "
+                + "; ".join(sorted(set(bases)))
             )
         else:
             blocking.append(
-                f"{notice}: identity half (mfr/doc_id) is unstable across fires and "
-                f"needs_review is not True in all three fires"
+                f"{notice}: identity half (mfr/doc_id) is unstable across fires — blocking: "
+                + _why_not_declared(corpus_by_fire, notice, "mfr/doc_id")
+                + " (the identity half is keyed to the pair: a reason naming either "
+                  "`mfr` or `doc_id`, or a header-wide one, would exempt it)"
             )
     return blocking, exempted
 
 
 def apply_blank_fire_rule(blank_rows, corpus_by_fire):
     """The blank-fire rule: a header field that is blank in one fire and populated in
-    another is needs_review on the BLANK fire, always. `blank_rows` is
-    `compare_written_headers`'s `(filename, field, {fire_n: value}, [blank_fire_ns])`.
+    another is declared on the BLANK fire, always -- and declared FOR THAT FIELD
+    (`header_declaration_for_field_in_fire`), not merely `needs_review`: a flag raised
+    about `doc_id` says nothing about the `pub_date` that fire wrote as nothing.
+    `blank_rows` is `compare_written_headers`'s
+    `(filename, field, {fire_n: value}, [blank_fire_ns])`.
     Returns `(blocking, exempted)` message lists.
 
     THE BLANK FIRE, NOT ALL THREE. The blank fire is the one that wrote nothing while
@@ -850,16 +952,17 @@ def apply_blank_fire_rule(blank_rows, corpus_by_fire):
         populated = "; ".join(f"fire {m}={v!r}" for m, v in sorted(seen.items())
                               if m not in blank_fires)
         for n in blank_fires:
-            if needs_review_in_fire(corpus_by_fire, n, notice):
+            if header_declaration_for_field_in_fire(corpus_by_fire, n, notice, field):
                 exempted.append(
                     f"{notice}: `{field}` blank in fire {n}, populated in the others "
-                    f"({populated}) — exempted: needs_review=True in fire {n}"
+                    f"({populated}) — exempted: needs_review=True in fire {n} and "
+                    + _field_declaration_basis(corpus_by_fire, n, notice, field)
                 )
             else:
                 blocking.append(
                     f"{notice}: `{field}` is blank in fire {n} but populated in the "
-                    f"others ({populated}) and fire {n} did not set needs_review "
-                    f"(undeclared silent blank)"
+                    f"others ({populated}) — blocking, undeclared silent blank: "
+                    + _why_not_declared(corpus_by_fire, notice, field, fires=(n,))
                 )
     return blocking, exempted
 
@@ -869,8 +972,8 @@ def apply_written_arm(written, corpus_by_fire):
     the all-fires declaration rule, blanks through the blank-fire rule, and ABSENT / no
     `written_header` as unexempted instrument gaps (a gate that cannot measure does not
     pass)."""
-    disagree_notices = sorted({fn for fn, _f, _v in written["disagreements"]})
-    blocking, exempted = apply_declaration_rule(disagree_notices, [], corpus_by_fire)
+    blocking, exempted = apply_declaration_rule(
+        written["disagreements"], [], corpus_by_fire)
     b2, e2 = apply_blank_fire_rule(written["blank_rows"], corpus_by_fire)
     blocking.extend(b2)
     exempted.extend(e2)
