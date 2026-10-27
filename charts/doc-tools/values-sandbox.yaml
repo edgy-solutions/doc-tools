@@ -1133,12 +1133,19 @@ image:
   # against itself. Between the two rolls the gate is RED BY CONSTRUCTION; both
   # rolls land well clear of the 07:00Z window.
   # ------------------------------------------------------------------
-  # 2026-10-24, invincible-agent lane 01 (roll 207): v0.2.1, `b95a550`, index
-  # `sha256:086766d7`. THE TWO-STAGE NOTE ABOVE IS SUPERSEDED FOR THIS PIN: 7f's
-  # v0.2.1 packet moves `digest:` and `corpusGate.expectImage` in ONE commit, because
-  # v0.2.1 is a tag cut by digest on bytes CI already built, so the expectation is
-  # known before the roll. The pod `imageID` is still read back after the roll.
-  digest: "sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2"
+  # 2026-10-26, doc-tools lane 7f (doc-tools roll 55): v0.2.2, `38b7937` (#175),
+  # index `sha256:c056fa70`. THE TWO-STAGE NOTE ABOVE STAYS SUPERSEDED, for the same
+  # reason as the v0.2.1 pin this replaces: `digest:` and `corpusGate.expectImage` move
+  # in ONE commit, because v0.2.2 is a tag ADDED to the index CI already built and gated
+  # for `38b7937` -- resolve-release-image reported `exists=true, needs_build=false`, so
+  # no rebuild happened and the expectation is known before the roll.
+  #
+  # BOTH INDEX CHILDREN INSPECTED BEFORE THIS EDIT, per the arm64 rule stated above:
+  #     linux/amd64  sha256:4aaaed5ac9580422b0d8fa6bcf8fa3050d10470c38977b3578241d5e22fc08e0
+  #     linux/arm64  sha256:c153d3a0950a87bac0a07c3d344809de0a4f529c38fe78dec828c719334b7f71
+  # plus the two unknown/unknown buildx attestation manifests, which satisfy no platform.
+  # The pod `imageID` is still read back after the roll.
+  digest: "sha256:c056fa701ea3a876c5c79fa2bcd49998ecbf63f78f8cc855d27d212242c9226a"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -1424,7 +1431,7 @@ corpusGate:
   # appeared ZERO times in it, so the gate would have compared a `2bf85719` run
   # against a `5846f877` expectation. Both rolls were taken inside an hour,
   # ~3h clear of the 07:00Z nightly, so no gate run fell inside the window.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:c056fa701ea3a876c5c79fa2bcd49998ecbf63f78f8cc855d27d212242c9226a"
   publish:
     repo: edgy-solutions/doc-tools
 

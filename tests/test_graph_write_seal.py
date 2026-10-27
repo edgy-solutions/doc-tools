@@ -81,3 +81,118 @@ def test_graph_write_error_is_an_exception():
         raise GraphWriteError("graph write failed: neo4j (1 of 1 queries)")
     except Exception as e:
         assert "neo4j" in str(e)
+
+
+# --------------------------------------------------------------------------- #
+# failed:link_write -- the Pass 2 link/roll-up used to be swallowed by the
+# plugin's own try/except (print + success). It now propagates, is recorded
+# apart from `_graph_failures`, and fails the run with its own reason code.
+# --------------------------------------------------------------------------- #
+import contextlib
+from unittest.mock import MagicMock, patch
+
+import pytest
+from dagster import build_asset_context
+
+from doc_tools.assets.semantic_assets import LinkWriteError
+from doc_tools.config import IngestionConfig
+from doc_tools.plugins.manufacturing import ManufacturingPlugin
+from doc_tools.plugins.training import TrainingPlugin
+
+_CANON = "sha256:" + "ab" * 32
+
+
+def test_link_write_is_a_known_reason_code_and_will_not_be_coerced():
+    assert "link_write" in REASON_CODES
+    assert REASON_CODE_SLUG_RE.match("link_write")
+
+
+def test_training_rollup_propagates_a_failed_query_and_prints_nothing(capsys):
+    client = MagicMock()
+    client.execute_query.side_effect = RuntimeError("neo4j down")
+    cfg = IngestionConfig(graph_node_label="Course", graph_child_label="Slide",
+                          vector_collection_name="DocumentChunk", bucket="b")
+    with pytest.raises(RuntimeError, match="neo4j down"):
+        TrainingPlugin("TRAINING").execute_pass2_rollup(client, "doc-1", cfg)
+    out = capsys.readouterr()
+    assert out.out == "" and out.err == ""
+
+
+def _manifest(with_id=True):
+    m = {
+        "doc_id": "doc-1",
+        "text_location": "x/text.json",
+        "metadata": {"content_kind": "work-instructions"},
+    }
+    if with_id:
+        m["ingest_id"] = _CANON
+        m["provenance"] = {
+            "obtained_via": "user-drop", "authoritative_source": "user-upload",
+            "as_of": "unknown", "ingested_at": "2026-10-02T00:00:00+00:00",
+            "ingest_run": "run-1", "standing": "unverified",
+            "ingest_id": _CANON,
+        }
+    return m
+
+
+def _drive(manifest, *, rollup_raises, cypher_raises=False):
+    """Drive the impl with mocked resources; return (exception, status mock)."""
+    from doc_tools.assets.semantic_assets import build_knowledge_graph
+
+    cfg = IngestionConfig(graph_node_label="WorkInstruction",
+                          graph_child_label="Page",
+                          vector_collection_name="DocumentChunk", bucket="b")
+    neo4j = MagicMock()
+    if cypher_raises:
+        # The first write is the stamped parent MERGE, whose failure HALTS the
+        # ingest (ADR-0041); the domain cypher loop after it is what swallows.
+        calls = {"n": 0}
+
+        def _fail_after_parent(*a, **k):
+            calls["n"] += 1
+            if calls["n"] > 1:
+                raise RuntimeError("cypher boom")
+
+        neo4j.get_client.return_value.execute_query.side_effect = _fail_after_parent
+    status = MagicMock()
+    rollup = MagicMock(side_effect=RuntimeError("rollup boom")) if rollup_raises else MagicMock()
+    caught = None
+    with patch("doc_tools.utils.dagster_resources.IngestStatusResource",
+               return_value=status), \
+         patch.object(ManufacturingPlugin, "execute_pass2_rollup", rollup):
+        try:
+            build_knowledge_graph(
+                build_asset_context(), cfg, manifest,
+                s3=MagicMock(), neo4j=neo4j, weaviate=MagicMock(),
+                llm=MagicMock(), jena=MagicMock())
+        except Exception as e:  # noqa: BLE001
+            caught = e
+    return caught, status
+
+
+def _failed_posts(status):
+    return [c for c in status.update.call_args_list if c.args[1:2] == ("failed",)]
+
+
+def test_a_failed_rollup_raises_link_write_error_and_posts_link_write():
+    err, status = _drive(_manifest(), rollup_raises=True)
+    assert isinstance(err, LinkWriteError), repr(err)
+    assert str(err).startswith("failed:link_write")
+    posts = _failed_posts(status)
+    assert len(posts) == 1
+    kw = posts[0].kwargs
+    assert kw["reason_code"] == "link_write"
+    assert kw["detail"].strip() and "rollup boom" in kw["detail"]
+
+
+def test_a_failed_rollup_still_fails_the_run_without_an_ingest_id():
+    err, status = _drive(_manifest(with_id=False), rollup_raises=True)
+    assert isinstance(err, LinkWriteError), repr(err)
+    assert not _failed_posts(status)
+
+
+def test_graph_write_wins_when_both_the_cypher_and_the_rollup_fail():
+    err, status = _drive(_manifest(), rollup_raises=True, cypher_raises=True)
+    assert isinstance(err, GraphWriteError), repr(err)
+    posts = _failed_posts(status)
+    assert len(posts) == 1 and posts[0].kwargs["reason_code"] == "graph_write"

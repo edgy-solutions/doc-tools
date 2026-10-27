@@ -54,7 +54,8 @@ USAGE:
     python scripts/pcn_header_agreement.py --written fire1.log fire2.log ...
 
 Exit codes: 0 = every compared field agreed on every notice; 1 = at least one
-notice disagreed on at least one field; 2 = usage error (fewer than two logs).
+notice disagreed on at least one field (or was blank in one fire and populated in
+another, or could not be measured); 2 = usage error (fewer than two logs).
 """
 import json
 import os
@@ -319,22 +320,43 @@ def build_index_by_file():
     return index_by_file
 
 
+def is_blank(v):
+    """A field is BLANK in a fire when its value is None or "". NOT_MEASURED is not a
+    blank: it is the absence of evidence, and the caller checks for it first."""
+    return v is None or v == ""
+
+
 def compare(fires, fields):
     """Print the per-notice agreement table for `fires` (list of `(name, {notice:
     {field: value}})`) over `fields`.
 
-    Returns `(notices, disagreements, unmeasured)`, both lists of `(notice, field)`.
+    Returns `(notices, disagreements, unmeasured, blank_rows)`. `disagreements` and
+    `unmeasured` are lists of `(notice, field)`; `blank_rows` is a list of
+    `(notice, field, seen, blank_fire_names)`.
     They are kept apart deliberately: a DISAGREE is evidence the fires produced
     different values, a NOT MEASURED is evidence of nothing at all. Both fail the
     gate, and conflating them would let a damaged log be reported as instability in
-    the extractor."""
+    the extractor.
+
+    A third kind is kept apart for the same reason: BLANK vs POPULATED. A field that
+    one fire left blank (None or "") while another fire populated is not two values in
+    conflict, it is one fire that wrote NOTHING where another had something -- and the
+    fire that wrote nothing is the only one with anything to declare, so a consumer
+    holds it to a needs_review on THAT fire (`pcn_corpus_gate.apply_blank_fire_rule`).
+    Folded into DISAGREE it would be indistinguishable from two populated values
+    rotating, and the rule that applies to it (declare on the blank fire) could not be
+    stated. It still fails the exit -- a gate needs a measurement -- under its own name.
+    Every fire blank is agreement on an absence and prints no row. NOT_MEASURED keeps
+    precedence over a blank: a field the log never yielded is not a blank, whatever the
+    other fires hold.
+    """
     notices = []
     for _, h in fires:
         for n in h:
             if n not in notices:
                 notices.append(n)
 
-    disagreements, unmeasured = [], []
+    disagreements, unmeasured, blank_rows = [], [], []
     for n in notices:
         vals = [h.get(n) or {} for _, h in fires]
         missing = [name for (name, _), v in zip(fires, vals) if not v]
@@ -349,15 +371,26 @@ def compare(fires, fields):
             print(f"      not measured by: {missing}")
             disagreements.append((n, "<absent>"))
             continue
-        row_bad, row_unmeasured = [], []
+        row_bad, row_unmeasured, row_blank = [], [], []
         for f in fields:
             seen = [v.get(f, NOT_MEASURED) for v in vals]
             if any(s is NOT_MEASURED for s in seen):
                 row_unmeasured.append((f, seen))
+                continue
+            blank_fires = [name for (name, _), s in zip(fires, seen) if is_blank(s)]
+            if blank_fires and len(blank_fires) == len(seen):
+                # Agreement on an absence. None and "" are both blank, so this is
+                # decided before the json.dumps test below, which would call them two
+                # values.
+                continue
+            if blank_fires:
+                row_blank.append((f, seen, blank_fires))
             elif len({json.dumps(s, sort_keys=True, default=str) for s in seen}) > 1:
                 row_bad.append((f, seen))
         if row_bad:
             verdict = "DISAGREE"
+        elif row_blank:
+            verdict = "BLANK"
         elif row_unmeasured:
             verdict = "NOT MEASURED"
         else:
@@ -366,13 +399,17 @@ def compare(fires, fields):
         for f, seen in row_bad:
             print(f"      {f:22s} " + " | ".join(repr(s) for s in seen))
             disagreements.append((n, f))
+        for f, seen, blank_fires in row_blank:
+            print(f"      {f:22s} " + " | ".join(repr(s) for s in seen)
+                  + f"   <- BLANK vs POPULATED, blank in: {blank_fires}")
+            blank_rows.append((n, f, seen, blank_fires))
         for f, seen in row_unmeasured:
             # Named separately so nobody reads a damaged log as evidence that the
             # values differ. The gate still fails; the reason is different.
             print(f"      {f:22s} " + " | ".join(repr(s) for s in seen)
                   + "   <- not in evidence, not a value difference")
             unmeasured.append((n, f))
-    return notices, disagreements, unmeasured
+    return notices, disagreements, unmeasured, blank_rows
 
 
 def main(argv):
@@ -408,7 +445,7 @@ def main(argv):
     else:
         fires_cmp, fields = fires, RAW_FIELDS
 
-    notices, disagreements, unmeasured = compare(fires_cmp, fields)
+    notices, disagreements, unmeasured, blank_rows = compare(fires_cmp, fields)
 
     if written:
         print()
@@ -426,9 +463,13 @@ def main(argv):
             print(f"   {name:20s} {fn[:30]:30s} {reason}")
 
     print()
-    if disagreements or unmeasured:
+    if disagreements or unmeasured or blank_rows:
         if disagreements:
             print(f"HEADER AGREEMENT FAILED on {len(disagreements)} field(s)")
+        if blank_rows:
+            print(f"HEADER AGREEMENT FAILED: {len(blank_rows)} field(s) BLANK in one "
+                  f"fire and POPULATED in another (not a value difference: the blank "
+                  f"fire wrote nothing)")
         if unmeasured:
             # Say what is true: the gate is not met, but these fields carry no verdict
             # on whether the fires agree. Re-run the fire to measure them.

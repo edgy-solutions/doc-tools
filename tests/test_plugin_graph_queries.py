@@ -390,3 +390,18 @@ def test_a_path_fragment_doc_id_keys_both_stores_identically():
     assert "inbound/adi_23_0120" not in " ".join(q["query"] for q in cypher)
     assert "http://internal/sustainment/doc/%s" % expected in body
     assert "/" not in expected, "a normalized key must not still carry a path separator"
+
+
+def test_training_rollup_links_section_to_slide_by_child_and_overlay_edge():
+    from unittest.mock import MagicMock
+    client = MagicMock()
+    config = SimpleNamespace(graph_node_label="Course", graph_child_label="Slide")
+    TrainingPlugin(domain_type="training").execute_pass2_rollup(client, "doc1", config)
+    link = client.execute_query.call_args_list[0].args[0]
+    assert "MERGE (sec)-[:HAS_CHILD]->(s)" in link
+    assert "MERGE (sec)-[:HAS_SLIDE]->(s)" in link
+    assert "[:HAS_SECTION*]" in link
+    assert "s.number >= sec.start_page" in link
+    # the COVERS rollup still reads HAS_CHILD
+    rollup = client.execute_query.call_args_list[1].args[0]
+    assert "(sec)-[:HAS_CHILD]->(s:Slide" in rollup

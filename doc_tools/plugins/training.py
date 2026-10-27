@@ -4,6 +4,7 @@ from doc_tools.utils.concept_identity import (concept_node_id, normalize_concept
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
+from doc_tools.utils.graph_overlay import overlay_for
 # --- BAML-ready Schemas (Domain A: Training) ---
 class Concept(BaseModel):
     name: str
@@ -431,38 +432,37 @@ class TrainingPlugin(AugmentationPlugin):
         """
         Legacy Pass 2: Link Slides to Sections and roll up Concept hierarchies.
         """
-        try:
-            # 1. Link Slides (Pages) to Sections based on Page Numbers
-            link_query = f"""
-            MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section:{self.domain_label})
-            MATCH (c)-[:HAS_CHILD]->(s:{config.graph_child_label}:{self.domain_label})
-            WHERE s.number >= sec.start_page 
-              AND (sec.end_page = 0 OR s.number <= sec.end_page)
-            MERGE (sec)-[:HAS_CHILD]->(s)
-            """
-            neo4j_client.execute_query(link_query, {"doc_id": doc_id})
+        # 1. Link Slides (Pages) to Sections based on Page Numbers
+        # Contract training-workbench.md 4.2: the overlay edge (HAS_SLIDE) is
+        # written alongside HAS_CHILD, range-wide, same predicate.
+        slide_edge = overlay_for("training").edge
+        link_query = f"""
+        MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section:{self.domain_label})
+        MATCH (c)-[:HAS_CHILD]->(s:{config.graph_child_label}:{self.domain_label})
+        WHERE s.number >= sec.start_page 
+          AND (sec.end_page = 0 OR s.number <= sec.end_page)
+        MERGE (sec)-[:HAS_CHILD]->(s)
+        MERGE (sec)-[:{slide_edge}]->(s)
+        """
+        neo4j_client.execute_query(link_query, {"doc_id": doc_id})
 
-            # 2. Roll-up Concepts to Sections (COVERS Relationship)
-            rollup_query = f"""
-            MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section:{self.domain_label})
-            MATCH (sec)-[:HAS_CHILD]->(s:{config.graph_child_label}:{self.domain_label})-[t:TEACHES]->(con:Concept:{self.domain_label})
-            WITH sec, con, avg(t.salience) as avg_score, count(s) as frequency
-            MERGE (sec)-[r:COVERS]->(con)
-            SET r.score = avg_score, r.frequency = frequency
-            """
-            neo4j_client.execute_query(rollup_query, {"doc_id": doc_id})
+        # 2. Roll-up Concepts to Sections (COVERS Relationship)
+        rollup_query = f"""
+        MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section:{self.domain_label})
+        MATCH (sec)-[:HAS_CHILD]->(s:{config.graph_child_label}:{self.domain_label})-[t:TEACHES]->(con:Concept:{self.domain_label})
+        WITH sec, con, avg(t.salience) as avg_score, count(s) as frequency
+        MERGE (sec)-[r:COVERS]->(con)
+        SET r.score = avg_score, r.frequency = frequency
+        """
+        neo4j_client.execute_query(rollup_query, {"doc_id": doc_id})
 
-            # 3. Create Lightweight Summaries
-            summary_query = f"""
-            MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section:{self.domain_label})
-            OPTIONAL MATCH (sec)-[r:COVERS]->(con:Concept:{self.domain_label})
-            WITH sec, con, r.score as score
-            ORDER BY score DESC
-            WITH sec, collect(con.name) as concepts
-            SET sec.concept_summary = concepts[0..10]
-            """
-            neo4j_client.execute_query(summary_query, {"doc_id": doc_id})
-            print(f"Pass 2 successfully executed for {doc_id}")
-            
-        except Exception as e:
-            print(f"Pass 2 Rollup failed in TrainingPlugin: {e}")
+        # 3. Create Lightweight Summaries
+        summary_query = f"""
+        MATCH (c:{config.graph_node_label}:{self.domain_label} {{id: $doc_id}})-[:HAS_SECTION*]->(sec:Section:{self.domain_label})
+        OPTIONAL MATCH (sec)-[r:COVERS]->(con:Concept:{self.domain_label})
+        WITH sec, con, r.score as score
+        ORDER BY score DESC
+        WITH sec, collect(con.name) as concepts
+        SET sec.concept_summary = concepts[0..10]
+        """
+        neo4j_client.execute_query(summary_query, {"doc_id": doc_id})

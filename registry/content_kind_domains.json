@@ -3,6 +3,7 @@
   "domains": {
     "cad": null,
     "course": "training",
+    "document": "document",
     "doors-export": null,
     "dxf": null,
     "engineering-document": null,

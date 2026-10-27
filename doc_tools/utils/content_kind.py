@@ -229,6 +229,14 @@ PHANTOM_OUTPUTS = (
     # are registered now and the outputs resolve when the TTL lands.
     "mesh:StepAp242Artifact",
     "mesh:DxfArtifact",
+    # The SEVENTH, for the ``document`` kind (architect order 2026-10-25, "our
+    # own documents"). A leaf under ``mesh:PDFArtifact`` beside
+    # ``EngineeringDocumentArtifact`` and ``DoorsExportArtifact``, which is
+    # where the ContentKind tree already puts a PDF-shaped drop. Unlike its six
+    # predecessors this one backs a DOMAIN-DECLARING row, so the drop it
+    # describes reaches the graph on the day the row lands and the missing
+    # ``owl:Class`` is the only thing outstanding.
+    "mesh:GeneralDocumentArtifact",
 )
 
 
@@ -314,6 +322,99 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         outputs=("training:Course",),
         file_suffixes=(".pptx", ".pdf", ".docx"),
         ingress_prefix=None,
+    ),
+    # ── "Our own documents" ──────────────────────────────────────
+    #
+    # ARCHITECT ORDER 2026-10-25: *"a drop of a general document (manual,
+    # procedure, spec) that is not a PCN/PDN/S1000D should ingest as kind
+    # `document` with review_shape `document`, chunk to Weaviate with page refs,
+    # and land in the graph as Document -> Section -> Chunk so ask-the-manual can
+    # cite page + heading."*
+    #
+    # IT DECLARES A DOMAIN, AND THAT IS THE ONE DECISION IN THIS ROW.
+    #
+    # Measured, not assumed: a row with ``domain_type=None`` reaches the
+    # ORIGIN UNRESOLVED return in ``semantic_assets.py`` (the branch at
+    # ``if kind_entry is not None and kind_entry.domain_type is None``), which
+    # writes *"no domain graph, no Neo4j label, no chunks, no triples"* and
+    # returns before any resource client is fetched. A domain-less ``document``
+    # row could therefore not chunk to Weaviate and could not land a Document
+    # node -- it would satisfy the registry half of the order and silently drop
+    # the half the order is actually for.
+    #
+    # This does NOT reopen the 2026-10-02 ruling (*"engineering-document,
+    # doors-export, pdf -> none (origin resolved by evidence, not kind)"*). That
+    # ruling is about FILE FORMATS: a PDF can arrive from a supplier, a customer
+    # or a program office, so its format asserts nothing about where it came
+    # from. ``document`` is not a format -- it is the declaration *"this is one
+    # of OUR documents"*, which is a statement about origin, made by whoever
+    # declares the leaf. The format rows below keep ``None`` and nothing about
+    # them changes.
+    #
+    # ``domain_type="document"`` rather than a vetted domain (manufacturing,
+    # maintenance, sustainment) for the reason the ruling gives: choosing a
+    # vetted domain for a general manual would be asserting an origin the
+    # document has not evidenced. Our own documentation gets its own graph.
+    # NOTE FOR THE ARCHITECT: this mints a new domain, so it needs an explicit
+    # plugin branch -- ``semantic_assets.py``'s plugin selection ends in
+    # ``else: plugin = TrainingPlugin(domain_type)``, so an unbranched new domain
+    # is handed to the TRAINING plugin and extracts course concepts from a
+    # procedure. The branch is added in this same change; it is recorded here
+    # because the fallback is silent and the next new domain will meet it too.
+    #
+    # NO ``ingress_prefix``, deliberately. A prefix is a user-drop seam, and a
+    # seam needs a retry sensor behind it: ``ingress_user_prefixes()`` builds
+    # one pattern per declaring row and ``definitions.py`` wires sensors for
+    # ``pdf`` and ``xml`` only. Declaring ``ingress-user/document/`` would
+    # advertise a drop path that nothing drains -- the same defect the standing
+    # order holds ``xml`` out of ``ingestable_kinds()`` for.
+    #
+    # The route in is the one that already exists: a PDF lands at
+    # ``ingress-user/pdf/<sha256>/<name>``, its format-level row resolves no
+    # origin, and the LEAF GRANT branch asks Lane 1's door, which may answer
+    # ``content_kind="document"``. That branch adopts a granted kind only
+    # ``if granted is not None and granted.domain_type`` -- so a domain-less
+    # ``document`` row would have been refused by the very door that is meant to
+    # route to it. Hence the packet to Lane 1: ``document`` as a kind candidate
+    # in ``allowed_leaves``, with a label.
+    #
+    # ``review_shape`` is NOT here, and not because it was forgotten. The order
+    # names it, but ``ContentKindRegistration`` at our SDK pin (v0.9.8) has
+    # ``model_config extra="forbid"`` and no such field -- it arrives in
+    # v0.9.11 -- so emitting it from a generated row would RAISE at load. Under
+    # #161's split the platform owns what a kind IS and this repo owns what it
+    # RUNS, which puts ``review_shape: document`` in the overlay. Asked for in
+    # the same packet.
+    #
+    # ``.pdf`` ONLY in this slice. A manual can be a .docx and ``course``
+    # declares one, but the outline pass reads PAGE text and a .docx has no
+    # pages until something paginates it; claiming the suffix would register a
+    # drop that produces one synthetic section for a whole manual. Widening it
+    # is a measured change, not a tuple edit.
+    #
+    # The output is a PHANTOM, listed in PHANTOM_OUTPUTS below and owed by
+    # Lane 1: ``mesh:GeneralDocumentArtifact``, a leaf under ``mesh:PDFArtifact``
+    # beside ``EngineeringDocumentArtifact`` and ``DoorsExportArtifact``, which
+    # is where the ContentKind tree puts a PDF-shaped drop. NOT
+    # ``mesh:KnowledgeDocument``: that is a presentation ARCHETYPE whose own
+    # comment says *"never a payload shape itself"*.
+    "document": ContentKindEntry(
+        kind_source_value="document",
+        kind="document",
+        extractor_config="",
+        baml_function="",
+        target_ontology_class=(
+            "http://edgy-solutions.com/ontology/mesh#GeneralDocumentArtifact"
+        ),
+        domain_type="document",
+        # Deterministic, LLM-free, and in the order they run: the title block
+        # names the document, then the outline reads its sections. Neither is a
+        # BAML pass, so nothing here samples -- a page citation that moved
+        # between fires would be checkable and wrong.
+        passes=("identity.document_identity", "document.document_outline"),
+        outputs=("mesh:GeneralDocumentArtifact",),
+        ingress_prefix=None,
+        file_suffixes=(".pdf",),
     ),
     # ── Format-level kinds: NO DOMAIN (origin resolved by evidence) ────────
     "pdf": ContentKindEntry(
