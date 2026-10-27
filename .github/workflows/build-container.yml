@@ -111,9 +111,9 @@ jobs:
     # `git diff` this file's reader can verify by eye, not a dependency on
     # someone else's path-matching semantics.
     #
-    # THE IGNORE LIST IS `^docs/` AND NOTHING ELSE. Read this before adding
-    # anything to it, especially `charts/`. `charts/` MUST NOT go in this
-    # list. Skipping the build on a charts change would be the single worst
+    # THE IGNORE LIST IS `^docs/` AND `^sessions/`, AND NOTHING ELSE. Read this
+    # before adding anything to it, especially `charts/`. `charts/` MUST NOT go
+    # in this list. Skipping the build on a charts change would be the single worst
     # version of this optimization, because charts/ is precisely what
     # DEPLOYS: values-sandbox.yaml carries the image tag pin and the runtime
     # env — VISION_MAX_TOKENS is live in sandbox right now purely as a
@@ -125,6 +125,18 @@ jobs:
     # denylist of things that feel unlike code — and `charts/` fails that
     # test outright.
     #
+    # `sessions/` PASSES THAT TEST ON THE SAME GROUND `docs/` DOES, and is
+    # here because this lane's reports are committed there (one or two per
+    # work block) and each was buying a full ~30-minute multi-arch build.
+    # Note what "cannot reach the image" means precisely, because the build
+    # context is `.` with an EMPTY `.dockerignore` and the inline Dockerfile
+    # does `COPY . /app`: both trees DO land in the image as files, and
+    # neither can change what it does. Nothing under `docs/` or `sessions/`
+    # is importable, referenced by a prompt path, or read at runtime — they
+    # are markdown. A path that is read at runtime, however documentary it
+    # looks (`prompts/`, `registry/`, `baml_src/`), fails the test and must
+    # stay out of this list.
+    #
     # FAILS OPEN, ALWAYS. The only acceptable failure mode for this job is
     # "code=true, build anyway" — an unnecessary 29m53s build. The
     # unacceptable one is the workflow_dispatch incident this file already
@@ -132,7 +144,7 @@ jobs:
     # record that one was skipped, and the feature read as shipped while
     # existing in no image. A path-filter bug that skips a real build is
     # that same incident wearing a different hat, so every branch that
-    # cannot POSITIVELY PROVE "every changed path matches ^docs/" falls
+    # cannot POSITIVELY PROVE "every changed path matches ^docs/ or ^sessions/" falls
     # through to code=true: a non-push/pull_request event (workflow_dispatch
     # included), a tag push, a `before` SHA of all zeros (new branch or a
     # force-push history rewrite), a base or head commit this checkout
@@ -210,12 +222,12 @@ jobs:
               echo "git diff exited $STATUS -> code=true"
             elif [ -z "$CHANGED" ]; then
               echo "diff came back empty -> code=true (not proof of docs-only, just proof to distrust)"
-            elif echo "$CHANGED" | grep -qvE '^docs/'; then
-              echo "at least one changed path is not under docs/ -> code=true"
+            elif echo "$CHANGED" | grep -qvE '^(docs/|sessions/)'; then
+              echo "at least one changed path is not under docs/ or sessions/ -> code=true"
               echo "$CHANGED"
             else
               CODE=false
-              echo "every changed path matches ^docs/ -> code=false"
+              echo "every changed path matches ^docs/ or ^sessions/ -> code=false"
               echo "$CHANGED"
             fi
           fi
