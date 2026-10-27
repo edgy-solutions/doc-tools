@@ -1,5 +1,5 @@
-"""The PCN/PDN corpus gate report must be present, green, and fresh, or CI
-must say so loudly.
+"""The PCN/PDN corpus gate report must be present, green, and about the image
+this chart pins, or CI must say so loudly.
 
 WHAT THIS GUARDS. `scripts/pcn_corpus_gate.py --run` runs inside an opt-in
 Kubernetes CronJob (`charts/doc-tools/templates/corpus-gate-cronjob.yaml`),
@@ -21,14 +21,32 @@ the job stayed green throughout. A skip reads as "fine" to anyone scanning CI;
 it actually means "unproven". A report that has never been committed, or was
 deleted, is exactly the "unproven" case and must turn this job red, not grey.
 
-WHY THIS FILE DOES NOT ASSERT THE REPORT NAMES THE INCOMING DIGEST. A report
-for digest D can only exist after D has been built and rolled — and rolling D
-*is* the pin commit under review. Requiring the report to already name the
-digest of the diff that produces it would make every new pin permanently
-unmergeable (the report for pin N+1 cannot exist until pin N+1 merges). The
-order this gate implements says a red gate blocks the *next* pin, not that
-every pin must carry proof of itself: the gate is "green and not stale",
-never "green for the exact digest in this diff".
+WHY THIS FILE NOW ASSERTS THE REPORT NAMES THE PINNED DIGEST — architect
+ruling of 2026-10-27, which REVERSES the paragraph that stood here. That
+paragraph said a report for digest D can only exist after D had been built and
+*rolled*, so requiring one would make every new pin permanently unmergeable.
+The ruling replaces "rolled" with "built": the gate Job runs the candidate
+image as its own container and measures in-process — its own extraction code
+against the model hosts — so no pod has to run the candidate for a report
+about it to exist, and identity is the container's own digest. A pre-roll fire
+against a built-but-unpinned image is therefore possible, and the pin-bump PR
+carries that report.
+
+WHY WALL-CLOCK STALENESS IS GONE WITH IT. There is no nightly any more
+(`corpusGate.suspend: true`, same ruling), so age measures nothing except how
+long ago someone last chose to fire. The report is stale when its
+`measured_image` digest is not the digest the chart pins, and only then: a
+chart PR that does not move the pin reads the last report for that pin
+whatever its date, and a pin bump must carry a report for the digest it lands.
+`CORPUS_GATE_MAX_AGE_DAYS` is DELETED, not loosened — the age arm reddened on
+a clock that no longer ticks, which would have blocked every `charts/` PR
+three days after the last manual fire, the pin-bump PR among them.
+
+TRANSITIONAL, AND IT BLOCKS. The pre-roll fire is not built yet; it is
+sequenced after the onsemi parts cause. Until it exists a pin bump cannot
+produce a report for its own digest, so it reds this arm, and the interim is
+merge -> roll -> fire -> a follow-up PR carrying the report. A pin needed
+before the pre-roll fire exists needs the fire built first.
 
 WHAT IT DOES ASSERT ABOUT THE IMAGE, since 2026-10-02. The architect ruled:
 "a report whose measured_image differs from the chart digest or the pods'
@@ -121,14 +139,15 @@ So the `charts/**` scoping on the required job STAYS. It was written to prevent
 exactly the freeze that happened ("if a red gate blocked every PR, the fix for
 a red gate could not merge"); what inverted it was the OUTCOME assertion inside
 a required job, not the scoping. Removing the scoping would block every PR
-whenever the nightly stops producing or goes void — the same wedge class,
-reached from the staleness side.
+whenever no fire has yet measured the pinned image, or the last one went void
+— the same wedge class, reached from the evidence side rather than the score.
 
 THE SPLIT THIS FILE NOW IMPLEMENTS. Two different questions were being asked
 by one assertion, and only the first belongs in a required check:
 
   - IS THIS REPORT EVIDENCE ABOUT THIS CODE? — present, parseable, schema 1,
-    fresh, naming its corpus, naming its image, carrying a reconciled
+    measuring the digest this chart pins, naming its corpus, naming its image,
+    carrying a reconciled
     `image_identity` block, and not `void`. All required, all cheap, and all
     unfalsifiable by an extraction defect. A report that fails any of these is
     not a bad score, it is NO MEASUREMENT, and that must block everything.
@@ -149,9 +168,7 @@ Note the mirror image: making `corpus-gate-verdict` a required context would
 re-create the same wedge under a new name. If that is ever wanted, the escape
 hatch has to be explicit — an override label the job reads — and not an `if:`.
 """
-import datetime
 import json
-import os
 import re
 import warnings
 from pathlib import Path
@@ -163,12 +180,6 @@ pytestmark = pytest.mark.corpus_gate
 REPORT_PATH = (
     Path(__file__).resolve().parents[1] / "docs" / "corpus-gate" / "latest.json"
 )
-
-# Nightly cadence (see values.yaml corpusGate.schedule: "0 7 * * *") with two
-# nights of slack, so a single missed or delayed run does not itself turn the
-# gate red before anyone had a chance to act on the last real result.
-CORPUS_GATE_MAX_AGE_DAYS = int(os.environ.get("CORPUS_GATE_MAX_AGE_DAYS", "3"))
-
 
 CHART_VALUES_PATH = (
     Path(__file__).resolve().parents[1]
@@ -356,22 +367,57 @@ def test_verdict_is_pass():
     pytest.fail(f"corpus gate verdict is {verdict!r}, not 'pass'. {detail}")
 
 
-def test_report_is_not_stale():
+def test_the_report_measures_the_pin_this_chart_declares():
+    """STALENESS, and the only definition of it since the 2026-10-27 ruling: a
+    report is stale when it measured an image other than the one this chart
+    pins. Age does not enter into it.
+
+    WHAT THIS REPLACED. An arm comparing `generated_at` against
+    `CORPUS_GATE_MAX_AGE_DAYS` (default 3). That constant is deleted rather
+    than raised. Age was a proxy for "this report measures current code", and
+    the proxy held only while a nightly CronJob existed to refresh it. With
+    `corpusGate.suspend: true` nothing refreshes it on a clock, so the arm
+    would have reddened every `charts/` PR three days after the last manual
+    fire -- including the pin-bump PR whose own fire was the only cure, which
+    is a wedge of exactly the kind this module's docstring exists to prevent.
+
+    WHY THE DIGEST IS STRICTLY STRONGER, not a loosening. A report for exactly
+    this digest cannot go stale, because the digest cannot change underneath
+    it; a report for any other digest is not evidence about this chart at any
+    age, however fresh. The age limit was approximating this question.
+
+    THE SAME COMPARISON ALREADY GATED `test_verdict_is_pass`, where a mismatch
+    SKIPS. Here it FAILS, and that difference is the whole point. The skip let
+    a pin bump carry no measurement of the image it lands: measured
+    2026-10-26, the advisory verdict check went green BY SKIPPING ITSELF on the
+    v0.2.2 pin bump, because moving the pin moved the chart's digest away from
+    the one the last report measured. The required arm now refuses that instead
+    of waving it through.
+    """
     report = _load_report()
-    generated_at = report.get("generated_at")
-    assert generated_at, f"{REPORT_PATH} has no generated_at field"
-    try:
-        generated = datetime.datetime.strptime(
-            generated_at, "%Y-%m-%dT%H:%M:%SZ"
-        ).replace(tzinfo=datetime.timezone.utc)
-    except ValueError as e:
-        pytest.fail(f"generated_at={generated_at!r} does not parse as UTC ISO 8601: {e}")
-    age = datetime.datetime.now(datetime.timezone.utc) - generated
-    max_age = datetime.timedelta(days=CORPUS_GATE_MAX_AGE_DAYS)
-    assert age <= max_age, (
-        f"corpus gate report is {age} old (generated_at={generated_at}), older than "
-        f"CORPUS_GATE_MAX_AGE_DAYS={CORPUS_GATE_MAX_AGE_DAYS} days. A stale 'pass' is "
-        f"not evidence about the code currently on this branch — re-run the gate."
+    measured = _report_measured_digest(report)
+    declared = _chart_declared_digest()
+    if measured is None:
+        # `test_the_report_names_the_image_it_measured` owns this defect and
+        # fails on it loudly. Asserting it here too would report one fault
+        # twice and send a reader to the wrong remedy -- see
+        # `_report_measured_digest`, which documents the same division.
+        return
+    assert measured == declared, (
+        f"corpus gate report is STALE: it measured {measured}, but this chart "
+        f"pins {declared}. A report about another image is not evidence about "
+        f"this one, so there is no verdict for the digest in this diff "
+        f"(generated_at={report.get('generated_at')!r}, quoted as context and "
+        f"NOT as a criterion -- age is no longer part of this check).\n"
+        f"If this PR MOVES THE PIN: it must carry a report for the digest it "
+        f"lands, produced by a pre-roll fire of the candidate image. Until "
+        f"that fire is built the interim stands -- merge, roll, fire, then a "
+        f"follow-up PR carrying the report -- and this arm is red in the "
+        f"meantime by design.\n"
+        f"If this PR DOES NOT MOVE THE PIN: the committed report is for a "
+        f"different digest than the chart declares, which means a pin bump "
+        f"landed without its report. Fire the gate against the pinned image "
+        f"and commit docs/corpus-gate/latest.json."
     )
 
 
