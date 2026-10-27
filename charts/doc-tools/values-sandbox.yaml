@@ -1337,6 +1337,14 @@ autoscaling:
 # on its own merits and not merely be check-green.
 corpusGate:
   enabled: true
+  # THE NIGHTLY IS OFF. Set explicitly here as well as in values.yaml, because
+  # this is the file that decides what the live cluster does and a reader of
+  # it must not have to infer the clock from a default. Architect ruling of
+  # 2026-10-27, relayed by Chris: the gate runs only when something changed
+  # and someone will read the result. The two triggers are a pin bump and an
+  # explicit lane fire under the roll lock; both create a Job from this
+  # CronJob template, which is why the CronJob is kept.
+  suspend: true
   # WHAT THE GATE'S measured_image WAS SUPPOSED TO BE, so #55's VOID ruling has
   # something to fire on. Before this line the gate ran UNRECONCILED, which is
   # the ABSENCE of the check and not a pass of it.
