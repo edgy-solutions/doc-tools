@@ -623,8 +623,24 @@ def compute_collapse(identity_records):
 
 
 def compute_stability(identity_records, filenames):
+    """Returns `(identity_half_unstable, revision_half_unstable, moving_fields)`.
+
+    THE THIRD RETURN IS WHICH HALF MOVED, and it exists so the declaration rule can
+    be keyed to the FIELD, per the 2026-10-27 ruling: a declaration about one field
+    must not exempt another, and `{mfr, doc_id}` is two fields, not one. Without it
+    the decision site sees only a filename and has to treat the pair as a unit, which
+    lets a reason naming `doc_id` -- narrated on every notice since the doc_id
+    precedence ruling -- exempt an `mfr` that moved.
+
+    `moving_fields[fn]` is the subset of `_IDENTITY_HALF_FIELDS` whose value actually
+    differs across the three fires. For the `None` case it is BOTH fields, because an
+    identity that could not be formed at all names no moving half: requiring both to
+    be declared is the conservative reading and never grants a notice-level exemption
+    on the strength of one field's flag.
+    """
     identity_half_unstable = []
     revision_half_unstable = []
+    moving_fields = {}
     for fn in filenames:
         keys = [identity_records.get(n, {}).get(fn, {}).get("key") for n in (1, 2, 3)]
         distinct = set(keys)
@@ -637,14 +653,18 @@ def compute_stability(identity_records, filenames):
             # with the half that decides WHICH notice a document is, never
             # with the revision-only case.
             identity_half_unstable.append(fn)
+            moving_fields[fn] = tuple(_IDENTITY_HALF_FIELDS)
             continue
         components = [notice_identity.parse_notice_key(k) for k in keys]
         mfr_doc_id_pairs = {(c[0], c[1]) for c in components}
         if len(mfr_doc_id_pairs) > 1:
             identity_half_unstable.append(fn)
+            moving_fields[fn] = tuple(
+                f for i, f in enumerate(_IDENTITY_HALF_FIELDS)
+                if len({c[i] for c in components}) > 1)
         else:
             revision_half_unstable.append(fn)
-    return sorted(identity_half_unstable), sorted(revision_half_unstable)
+    return sorted(identity_half_unstable), sorted(revision_half_unstable), moving_fields
 
 
 # --------------------------------------------------------------------------
@@ -723,7 +743,9 @@ _HEADER_WIDE_DECLARATION_MARKERS = (
     "region witness DISABLED",  # no field could be corroborated
 )
 
-# The identity half is compared as a PAIR (see `apply_declaration_rule`).
+# The two fields the identity half is made of. Which of them MOVED is reported by
+# `compute_stability` and decided per field in `apply_declaration_rule`; this tuple is
+# the fallback when no moving half can be named (identity not formed in some fire).
 _IDENTITY_HALF_FIELDS = ("mfr", "doc_id")
 
 
@@ -874,7 +896,8 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
     return block, blocking, exempted
 
 
-def apply_declaration_rule(disagreements, identity_half_unstable, corpus_by_fire):
+def apply_declaration_rule(disagreements, identity_half_unstable, corpus_by_fire,
+                           identity_moving_fields=None):
     """The all-fires declaration rule, decided PER FIELD.
 
     `disagreements` is `compare_written_headers`'s per-field rows,
@@ -884,12 +907,14 @@ def apply_declaration_rule(disagreements, identity_half_unstable, corpus_by_fire
     three fires declared a problem with THAT field
     (`header_declaration_for_field_in_all_fires`).
 
-    THE ONE PLACE THE KEYING IS COARSER THAN THE RULING. `identity_half_unstable` is
-    keyed to the PAIR `{mfr, doc_id}`: a declaration naming either, or a header-wide
-    one, exempts it. `compute_stability` compares a composite identity key and records
-    only the filename, so which half moved is not recoverable where the decision is
-    made. Narrowing it means teaching `compute_stability` to report the moving half --
-    a separate change, deliberately not made here."""
+    THE IDENTITY HALF IS KEYED TO THE MOVING FIELD TOO. `identity_moving_fields[notice]`
+    is `compute_stability`'s report of which of `{mfr, doc_id}` actually differs across
+    the fires; EVERY field in it must be declared, in every fire, or the notice blocks.
+    A reason naming `doc_id` therefore no longer exempts an `mfr` that moved -- which
+    was the last place in this file where a declaration about one field bought an
+    exemption for another. Both fields are required when the caller supplies nothing
+    (the pre-2026-10-27 shape) and when identity could not be FORMED in some fire,
+    since an absent identity names no moving half."""
     blocking = []
     exempted = []
     for notice, field, values in sorted(disagreements, key=lambda r: (r[0], r[1])):
@@ -905,26 +930,34 @@ def apply_declaration_rule(disagreements, identity_half_unstable, corpus_by_fire
                 f"{values!r} — blocking: "
                 + _why_not_declared(corpus_by_fire, notice, field)
             )
+    moving_by_notice = identity_moving_fields or {}
     for notice in sorted(identity_half_unstable):
-        # per fire, any of the pair's fields (see the docstring for why a pair)
+        moving = tuple(moving_by_notice.get(notice) or _IDENTITY_HALF_FIELDS)
+        named = "/".join(moving)
+        # EVERY moving field, in EVERY fire. `any` here would be the collapsing
+        # defect again, one level down: `doc_id` declared, `mfr` moved, exempt.
         bases = []
         for n in (1, 2, 3):
-            basis = None
-            for f in _IDENTITY_HALF_FIELDS:
-                basis = basis or _field_declaration_basis(corpus_by_fire, n, notice, f)
-            bases.append(basis)
+            per_field = [_field_declaration_basis(corpus_by_fire, n, notice, f)
+                         for f in moving]
+            bases.append("; ".join(per_field) if all(per_field) else None)
         if all(bases):
             exempted.append(
-                f"{notice}: identity-half instability (mfr/doc_id differ across fires) "
+                f"{notice}: identity-half instability (`{named}` differs across fires) "
                 f"exempted — needs_review=True in all three fires and "
                 + "; ".join(sorted(set(bases)))
             )
         else:
+            undeclared = [
+                f for f in moving
+                if not all(_field_declaration_basis(corpus_by_fire, n, notice, f)
+                           for n in (1, 2, 3))
+            ]
             blocking.append(
-                f"{notice}: identity half (mfr/doc_id) is unstable across fires — blocking: "
-                + _why_not_declared(corpus_by_fire, notice, "mfr/doc_id")
-                + " (the identity half is keyed to the pair: a reason naming either "
-                  "`mfr` or `doc_id`, or a header-wide one, would exempt it)"
+                f"{notice}: identity half is unstable across fires on `{named}` — blocking: "
+                + _why_not_declared(corpus_by_fire, notice, undeclared[0])
+                + f" (every moving identity field must be declared; undeclared: "
+                  f"{', '.join(undeclared)})"
             )
     return blocking, exempted
 
@@ -1604,7 +1637,8 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
     identity_records = build_identity_records(headers_by_fire)
     collapse = compute_collapse(identity_records)
     all_filenames = sorted(set().union(*[set(h) for h in headers_by_fire.values()]) or set())
-    identity_half_unstable, revision_half_unstable = compute_stability(identity_records, all_filenames)
+    identity_half_unstable, revision_half_unstable, identity_moving_fields = compute_stability(
+        identity_records, all_filenames)
 
     # (b') The BLOCKING header arm: the WRITTEN values, compared across the fires. Uses
     # `from_corpus` (the recorded written_header per fire) even when identity fell back
@@ -1616,7 +1650,7 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
 
     # (d) The declaration rule.
     d_blocking, d_exempted = apply_declaration_rule(
-        [], identity_half_unstable, corpus_by_fire)
+        [], identity_half_unstable, corpus_by_fire, identity_moving_fields)
     blocking.extend(d_blocking)
     exempted.extend(d_exempted)
     w_blocking, w_exempted = apply_written_arm(written, corpus_by_fire)
@@ -1733,6 +1767,11 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
             "collapses": collapse["collapses"],
             "incomplete_identity": collapse["incomplete_identity"],
             "identity_half_unstable": identity_half_unstable,
+            # Which of {mfr, doc_id} actually moved, per notice. The declaration rule
+            # keys on this: a reason naming the other one exempts nothing. Both are
+            # listed when identity could not be FORMED in some fire.
+            "identity_moving_fields": {k: list(v)
+                                       for k, v in sorted(identity_moving_fields.items())},
             "revision_half_unstable": revision_half_unstable,
         },
         "blocking": blocking,
@@ -2257,7 +2296,10 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     lines.append("### Identity-half unstable across fires (BLOCKS unless declared)")
     lines.append("")
-    lines.append(", ".join(ident["identity_half_unstable"]) or "(none)")
+    _moving = ident.get("identity_moving_fields") or {}
+    lines.append(", ".join(
+        f"{fn} (`{'/'.join(_moving[fn])}` moved)" if _moving.get(fn) else fn
+        for fn in ident["identity_half_unstable"]) or "(none)")
     lines.append("")
     lines.append("### Revision-half unstable across fires (never blocks)")
     lines.append("")

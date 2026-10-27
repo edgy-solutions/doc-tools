@@ -391,12 +391,66 @@ def test_a_blank_fire_is_exempted_only_by_a_declaration_naming_its_field():
     assert "no reason names `pub_date`" in blocking[0] and "fire 2" in blocking[0]
 
 
-def test_the_identity_half_is_keyed_to_the_pair_either_name_exempts():
-    # the doc_id NARRATION is not a declaration, so it is absent from this list
-    doc_id_refused = "header.doc_id refused: x is not cited"
-    for reasons in ([doc_id_refused], [MFR_REFUSED], [PASS_FAILED]):
-        blocking, exempted = gate.apply_declaration_rule([], [FN], _all(reasons))
-        assert blocking == [] and len(exempted) == 1
+# the doc_id NARRATION is not a declaration, so it is absent from these lists
+DOC_ID_REFUSED = "header.doc_id refused: x is not cited"
+
+
+def test_the_identity_half_is_keyed_to_the_field_that_actually_moved():
+    """Ruling 2026-10-27, applied to the last arm that was keyed to the PAIR: a
+    declaration about `doc_id` must not exempt an `mfr` that moved."""
+    moving_mfr = {FN: ("mfr",)}
     blocking, exempted = gate.apply_declaration_rule(
-        [], [FN], _all([PUB_REFUSED, DOC_ID_REASON]))
+        [], [FN], _all([MFR_REFUSED]), moving_mfr)
+    assert blocking == [] and len(exempted) == 1 and "`mfr` differs" in exempted[0]
+
+    blocking, exempted = gate.apply_declaration_rule(
+        [], [FN], _all([DOC_ID_REFUSED]), moving_mfr)
     assert exempted == [] and len(blocking) == 1
+    assert "no reason names `mfr`" in blocking[0] and "undeclared: mfr" in blocking[0]
+
+    # a header-WIDE reason still covers whichever field moved
+    blocking, exempted = gate.apply_declaration_rule(
+        [], [FN], _all([PASS_FAILED]), moving_mfr)
+    assert blocking == [] and len(exempted) == 1
+
+
+def test_both_halves_moving_need_both_declared():
+    both = {FN: ("mfr", "doc_id")}
+    blocking, exempted = gate.apply_declaration_rule(
+        [], [FN], _all([MFR_REFUSED]), both)
+    assert exempted == [] and len(blocking) == 1
+    assert "undeclared: doc_id" in blocking[0]
+    blocking, exempted = gate.apply_declaration_rule(
+        [], [FN], _all([MFR_REFUSED, DOC_ID_REFUSED]), both)
+    assert blocking == [] and len(exempted) == 1
+
+
+def test_an_unsupplied_moving_half_requires_every_identity_field():
+    """No moving-field map (the pre-2026-10-27 call shape, and the case where identity
+    could not be FORMED in some fire): one field declared exempts nothing."""
+    blocking, exempted = gate.apply_declaration_rule([], [FN], _all([MFR_REFUSED]))
+    assert exempted == [] and len(blocking) == 1 and "undeclared: doc_id" in blocking[0]
+
+
+def test_compute_stability_reports_which_half_moved():
+    def recs(*keys):
+        return {n: {FN: {"key": k}} for n, k in enumerate(keys, start=1)}
+
+    sep = gate.notice_identity.SEPARATOR
+    mfr_moved = recs(*[sep.join([m, "PCN-1", "A"]) for m in ("TE", "TE Conn", "TE")])
+    unstable, revision, moving = gate.compute_stability(mfr_moved, [FN])
+    assert unstable == [FN] and revision == [] and moving == {FN: ("mfr",)}
+
+    doc_moved = recs(*[sep.join(["TE", d, "A"]) for d in ("PCN-1", "PCN-2", "PCN-1")])
+    _u, _r, moving = gate.compute_stability(doc_moved, [FN])
+    assert moving == {FN: ("doc_id",)}
+
+    # identity could not be FORMED in one fire: no moving half is named, so both
+    # fields are required rather than neither
+    missing = recs(sep.join(["TE", "PCN-1", "A"]), None, sep.join(["TE", "PCN-1", "A"]))
+    unstable, _r, moving = gate.compute_stability(missing, [FN])
+    assert unstable == [FN] and moving == {FN: ("mfr", "doc_id")}
+
+    rev_only = recs(*[sep.join(["TE", "PCN-1", r]) for r in ("A", "B", "A")])
+    unstable, revision, moving = gate.compute_stability(rev_only, [FN])
+    assert unstable == [] and revision == [FN] and moving == {}
