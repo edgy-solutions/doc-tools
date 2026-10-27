@@ -42,11 +42,22 @@ whatever its date, and a pin bump must carry a report for the digest it lands.
 a clock that no longer ticks, which would have blocked every `charts/` PR
 three days after the last manual fire, the pin-bump PR among them.
 
-TRANSITIONAL, AND IT BLOCKS. The pre-roll fire is not built yet; it is
-sequenced after the onsemi parts cause. Until it exists a pin bump cannot
-produce a report for its own digest, so it reds this arm, and the interim is
-merge -> roll -> fire -> a follow-up PR carrying the report. A pin needed
-before the pre-roll fire exists needs the fire built first.
+TRANSITIONAL, AND IT BLOCKS — THE RED WINDOW IS ACCEPTED, DO NOT ROUTE ROUND
+IT. The pre-roll fire is not built yet; it is sequenced after the onsemi parts
+cause. Until it exists a pin bump cannot produce a report for its own digest,
+so it reds this arm, and the interim is merge -> roll -> fire -> a follow-up
+PR carrying the report. That leaves a window of roughly one gate run (~2.5 h,
+three fires) between the roll and the report in which this arm is RED and the
+red is CORRECT: there genuinely is no measurement of the newly pinned image.
+
+The architect ruled on 2026-10-27 that this cost is accepted until `pre_roll`
+exists. So the window is not a bug to be worked around, and in particular it
+is NOT to be cleared with an admin merge. A `--admin` merge here would land a
+pin whose image has never been measured, which is the exact condition this
+arm was added to make visible; it would also leave no trace that the gate was
+bypassed, because the arm reports nothing once it is skipped. Wait for the
+fire, or build `pre_roll`. If the wait is unacceptable for a given pin, that
+is an argument for building `pre_roll` sooner, not for merging past this.
 
 WHAT IT DOES ASSERT ABOUT THE IMAGE, since 2026-10-02. The architect ruled:
 "a report whose measured_image differs from the chart digest or the pods'
