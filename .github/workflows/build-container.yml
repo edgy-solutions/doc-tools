@@ -620,6 +620,27 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      # THE CROSS-REPO DRIFT SEAL READS A PINNED REF, NOT A WORKING TREE. The pin
+      # is tests/pins/invincible-agent.ref; bumping it is a one-line PR carrying
+      # the drift report. `invincible-agent` is PUBLIC, so no PAT is involved --
+      # the default GITHUB_TOKEN is enough. The ref is a full 40-hex sha, so the
+      # checkout cannot drift under the seal (a branch or short sha is refused
+      # here, before it is ever fetched).
+      - name: Read the pinned platform ref
+        id: overlay
+        run: |
+          REF="$(grep -vE '^[[:space:]]*(#|$)' tests/pins/invincible-agent.ref | head -1 | tr -d '[:space:]')"
+          case "$REF" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+            *) echo "pin is not a 40-hex sha: $REF" >&2; exit 1 ;;
+          esac
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+      - name: Check out the platform at the pin
+        uses: actions/checkout@v4
+        with:
+          repository: edgy-solutions/invincible-agent
+          ref: ${{ steps.overlay.outputs.ref }}
+          path: .overlay-pin
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -683,6 +704,12 @@ jobs:
           JENA_INTEGRATION_USER: admin
           JENA_INTEGRATION_PASSWORD: ci-fuseki-admin
           REQUIRE_JENA: "1"
+          # The cross-repo drift seal (tests/test_overlay_kind_drift.py). BOTH
+          # are set so the seal can PROVE the directory is the pin rather than
+          # trust it: it fails if REF differs from tests/pins/invincible-agent.ref.
+          # With neither resolvable the seal FAILS in CI instead of skipping.
+          IAGENT_CONTENT_KIND_OVERLAY_DIR: ${{ github.workspace }}/.overlay-pin/policy/overlays/openddil-lab/content_kinds
+          IAGENT_CONTENT_KIND_OVERLAY_REF: ${{ steps.overlay.outputs.ref }}
         run: uv run -- python -m pytest -q -rs
 
   verify-image-pin:

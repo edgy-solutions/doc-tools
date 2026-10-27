@@ -31,28 +31,54 @@ WHAT IS AND IS NOT SEALED HERE, stated so nobody reads more into a green run:
     row nothing runs. The ``passes`` arm below says so in its failure, so that
     whoever reads the red knows which side owes the change; the ``outputs`` and
     domain arms stay symmetric, because those the platform does own.
- 2. **Absence is NOT sealed.** ``work-instruction``, ``pdf``, ``doors-export`` and
-    ``engineering-document`` are ours and are not in the overlay. That is a
-    registration gap, reported separately, not drift -- and making it a failure
-    here would mean a red suite for a decision owned by another repo.
+ 2. **The one-sided SET is sealed; absence as such is not.** A kind declared on
+    only one side is a registration gap, and making a gap a failure would mean a
+    red suite for a decision owned by another repo. But the SET of one-sided
+    kinds is pinned exactly (``OURS_ONLY`` / ``OVERLAY_ONLY`` below, one reason
+    per entry), so a NEW one-sided kind on either side is loud: it is a
+    registration decision the platform takes, never something to make green by
+    deleting a row here. At the pinned ref the sets are ours-only ``cad``,
+    ``document``, ``dxf``, ``step-ap242`` and overlay-only
+    ``maintenance-fault-event``. (This item used to name ``work-instruction``,
+    ``pdf``, ``doors-export`` and ``engineering-document`` as ours-only; the
+    overlay has since gained all four.)
  3. **The DEPLOYED fleet is not sealed at all.** These are both committed trees. At
     the time of writing the running pods still compose one kind, because the merge
     above is newer than the deployed image. A green test here says the two
     REGISTRIES agree, never that the fleet serves them.
 
-WHY IT SKIPS RATHER THAN VENDORS A COPY. The overlay lives in `invincible-agent`.
-Vendoring a snapshot into this repo would create exactly the cross-repo coupling
-AGENTS.md removed when the TBox TTLs moved out, and a stale snapshot is worse than
-no check: it would go green against a copy nobody updates. So this reads the real
-file when it can see it and skips, loudly and with the reason, when it cannot --
-which means it is INERT in single-repo CI and earns its keep locally and in any job
-that checks out both. The durable fix is for the overlay rows to be GENERATED from
-``KIND_MAPPING`` rather than hand-authored; then the seal moves inside one repo and
-stops depending on a checkout layout. That recommendation is in the architect
-packet of 2026-10-06.
+WHY IT READS A PINNED REF, AND NEVER A WORKING TREE. The overlay lives in
+`invincible-agent`. Vendoring a snapshot into this repo would create exactly the
+cross-repo coupling AGENTS.md removed when the TBox TTLs moved out, and a stale
+snapshot is worse than no check: it would go green against a copy nobody updates.
+That argument still holds, and it is why a pinned FETCH beats a copy.
+
+This file used to read the sibling checkout's working tree, and that was its
+defect. Measured 2026-10-27: the sibling sat on
+``lane/ca-resolve-instance-adoption``, 149 commits behind ``origin/master``, so
+the seal was reporting another lane's in-progress branch as the platform's
+registry. The red it showed (``doors-export``) was not the drift that exists --
+at ``origin/master`` ``doors-export`` agrees and the real divergence is
+``course``, whose overlay ``passes`` omit ``render.pages``. A working tree that
+far behind could as easily have reported a green that did not exist either.
+No seal reads "whatever branch is checked out."
+
+So the overlay is resolved from the sha in ``tests/pins/invincible-agent.ref``:
+CI checks the platform out at that sha and points
+``IAGENT_CONTENT_KIND_OVERLAY_DIR`` at it (setting
+``IAGENT_CONTENT_KIND_OVERLAY_REF`` too, so the seal can prove the directory IS
+the pin); locally, a sibling repo is read from the pinned commit's OBJECTS via
+``git archive``, never its files. A missing fetch FAILS in CI and skips only when
+CI's env var is absent. The pin is bumped in a one-line PR carrying the drift
+report.
 """
+import io
 import json
 import os
+import re
+import subprocess
+import sys
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -62,16 +88,70 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ROWS_DIR = REPO_ROOT / "registry" / "content_kinds"
 DOMAINS_FILE = REPO_ROOT / "registry" / "content_kind_domains.json"
 
-#: Where the platform's overlay rows are. The env var wins so a CI job that
-#: checks out both repos can point at them without assuming a layout; the
-#: sibling path is the local convention.
+#: The pinned platform commit. A full 40-hex sha, so it cannot move under the seal.
+PIN_FILE = REPO_ROOT / "tests" / "pins" / "invincible-agent.ref"
+
+#: Where the platform's overlay rows are. The DIR env var is the explicit CI/job
+#: path (CI checks out the pin and points here); the REF env var, when also set,
+#: must equal the pin so a job that fetched the wrong commit is caught.
 OVERLAY_ENV = "IAGENT_CONTENT_KIND_OVERLAY_DIR"
-SIBLING_OVERLAY = (REPO_ROOT.parent / "invincible-agent" / "policy" / "overlays"
-                   / "openddil-lab" / "content_kinds")
+OVERLAY_REF_ENV = "IAGENT_CONTENT_KIND_OVERLAY_REF"
+OVERLAY_SUBPATH = "policy/overlays/openddil-lab/content_kinds"
+SIBLING_REPO = REPO_ROOT.parent / "invincible-agent"
+FETCH_COMMAND = "git -C ../invincible-agent fetch origin master"
+
+_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
-def _overlay_dir():
-    """The overlay directory, or None. Never guesses past these two places."""
+def _read_pin(path=None):
+    """The pinned sha. Strips, ignores blanks and ``#`` comments, demands 40 hex."""
+    path = PIN_FILE if path is None else path
+    lines = [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines()]
+    lines = [ln for ln in lines if ln and not ln.startswith("#")]
+    sha = lines[0] if lines else ""
+    assert _SHA_RE.match(sha), (
+        f"{path} must hold one full 40-hex lowercase commit sha, got {sha!r}. A "
+        f"short sha or a branch name is not acceptable here: the whole point is "
+        f"that the ref cannot move under the seal.")
+    return sha
+
+
+def _overlay_from_pinned_objects(sibling, sha, scratch):
+    """Materialize the overlay from ``sha``'s git objects in ``sibling``, or None.
+
+    ``git archive`` reads the commit, never the working tree. Extracted by hand
+    from the tar (regular files only) rather than shelling out to ``tar``.
+    """
+    have = subprocess.run(
+        ["git", "-C", str(sibling), "cat-file", "-e", f"{sha}^{{commit}}"],
+        capture_output=True)
+    if have.returncode != 0:
+        return None
+    arc = subprocess.run(
+        ["git", "-C", str(sibling), "archive", sha, OVERLAY_SUBPATH],
+        capture_output=True)
+    if arc.returncode != 0:
+        return None
+    with tarfile.open(fileobj=io.BytesIO(arc.stdout)) as tf:
+        for m in tf.getmembers():
+            if not m.isfile():
+                continue
+            dest = (scratch / m.name).resolve()
+            assert scratch.resolve() in dest.parents, f"unsafe tar member {m.name}"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(tf.extractfile(m).read())
+    out = scratch / OVERLAY_SUBPATH
+    return out if out.is_dir() else None
+
+
+def _resolve_overlay(scratch_factory):
+    """The overlay directory at the PIN. Fails or skips; never guesses.
+
+    Order: (1) the explicit DIR env var, with REF (if set) proven equal to the
+    pin; (2) a sibling repo's pinned commit objects; (3) nothing -- FAIL under
+    CI, skip otherwise.
+    """
+    pin = _read_pin()
     env = os.environ.get(OVERLAY_ENV)
     if env:
         p = Path(env)
@@ -81,8 +161,29 @@ def _overlay_dir():
                 f"explicitly configured overlay path that does not resolve is a "
                 f"broken job, not a reason to skip -- skipping here would hide "
                 f"the seal while looking green.")
+        ref = os.environ.get(OVERLAY_REF_ENV)
+        if ref and ref.strip() != pin:
+            pytest.fail(
+                f"{OVERLAY_REF_ENV} is {ref.strip()!r} but {PIN_FILE.name} pins "
+                f"{pin!r}. The job fetched a different commit than the one this "
+                f"seal is pinned to; a seal that believed it would be measuring "
+                f"the wrong registry.")
         return p
-    return SIBLING_OVERLAY if SIBLING_OVERLAY.is_dir() else None
+    if (SIBLING_REPO / ".git").exists():
+        d = _overlay_from_pinned_objects(
+            SIBLING_REPO, pin, scratch_factory.mktemp("overlay-pin"))
+        if d is not None:
+            return d
+    msg = (f"the platform's content-kind overlay at pin {pin} cannot be resolved. "
+           f"Fetch it with `{FETCH_COMMAND}` (or check invincible-agent out "
+           f"beside this repo at {SIBLING_REPO}), or point {OVERLAY_ENV} at "
+           f"{OVERLAY_SUBPATH} of a checkout AT that sha.")
+    if os.environ.get("GITHUB_ACTIONS") or os.environ.get("CI"):
+        pytest.fail(
+            f"{msg} In CI a missing fetch is a broken job, not a skip: a seal "
+            f"that skips in the one place it is meant to run is the defect.")
+    pytest.skip(
+        f"{msg} The cross-repo seal cannot run. It is NOT satisfied, only unrun.")
 
 
 def _load_rows(d):
@@ -104,16 +205,8 @@ def _load_rows(d):
 
 
 @pytest.fixture(scope="module")
-def overlay_rows():
-    d = _overlay_dir()
-    if d is None:
-        pytest.skip(
-            f"the platform's content-kind overlay is not visible from here, so "
-            f"the cross-repo seal cannot run. It is NOT satisfied, only unrun. "
-            f"Point {OVERLAY_ENV} at "
-            f"invincible-agent/policy/overlays/openddil-lab/content_kinds, or "
-            f"check that repo out beside this one at {SIBLING_OVERLAY}.")
-    return _load_rows(d)
+def overlay_rows(tmp_path_factory):
+    return _load_rows(_resolve_overlay(tmp_path_factory))
 
 
 @pytest.fixture(scope="module")
@@ -335,3 +428,103 @@ def test_the_discrimination_is_on_key_presence_not_on_falsiness():
     # And a row that names a domain is in neither — the property that keeps
     # both assertions above from firing on a perfectly ordinary row.
     assert "named" not in explicit_null and "named" not in omitted
+
+
+# --- the one-sided-kind arm ---------------------------------------------------
+
+#: Kinds WE declare that the overlay does not, at the pinned ref. Each is a
+#: ruling, not an oversight; a new entry is a registration decision.
+OURS_ONLY = frozenset({
+    "cad",           # ours and unregistered on the platform
+    "document",      # #168; inert pending lane 1's allowed_leaves
+    "dxf",           # ours and unregistered on the platform
+    "step-ap242",    # ours and unregistered on the platform
+})
+
+#: Kinds the overlay declares that we do not.
+OVERLAY_ONLY = frozenset({
+    "maintenance-fault-event",  # the platform's; we run no pass for it
+})
+
+
+def test_the_one_sided_kinds_are_exactly_the_ones_we_have_ruled(
+        overlay_rows, our_rows):
+    ours_only = frozenset(set(our_rows) - set(overlay_rows))
+    overlay_only = frozenset(set(overlay_rows) - set(our_rows))
+    problems = []
+    if ours_only != OURS_ONLY:
+        problems.append(
+            f"OUR side gained {sorted(ours_only - OURS_ONLY)} and lost "
+            f"{sorted(OURS_ONLY - ours_only)} versus the ruled ours-only set")
+    if overlay_only != OVERLAY_ONLY:
+        problems.append(
+            f"the OVERLAY side gained {sorted(overlay_only - OVERLAY_ONLY)} and "
+            f"lost {sorted(OVERLAY_ONLY - overlay_only)} versus the ruled "
+            f"overlay-only set")
+    assert not problems, (
+        "; ".join(problems) + ". Whether a kind is registered on both sides is "
+        "a registration decision the platform takes -- update the ruled sets "
+        "above with a reason, never make this green by deleting a row here.")
+
+
+# --- the seal's own machinery (resolution of the pin) -------------------------
+
+class _NoScratch:
+    def mktemp(self, name):  # pragma: no cover - must not be reached
+        raise AssertionError("scratch requested with nothing to materialize")
+
+
+def _nothing_resolvable(monkeypatch, tmp_path):
+    monkeypatch.delenv(OVERLAY_ENV, raising=False)
+    monkeypatch.delenv(OVERLAY_REF_ENV, raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setattr(sys.modules[__name__], "SIBLING_REPO", tmp_path / "absent")
+
+
+def test_the_pin_file_is_one_lf_terminated_sha():
+    data = PIN_FILE.read_bytes()
+    assert b"\r" not in data, "pin file has a CR; write it as bytes with a bare LF"
+    assert data.endswith(b"\n")
+    assert _SHA_RE.match(_read_pin())
+    assert len([ln for ln in data.decode().splitlines() if ln.strip()]) == 1
+
+
+@pytest.mark.parametrize("content", ["abc1234\n", "master\n", "", "\n# only a comment\n"])
+def test_a_short_sha_a_branch_or_an_empty_pin_fails_the_reader(tmp_path, content):
+    f = tmp_path / "pin.ref"
+    f.write_bytes(content.encode())
+    with pytest.raises(AssertionError):
+        _read_pin(f)
+
+
+def test_a_ref_env_that_differs_from_the_pin_fails_naming_both(
+        monkeypatch, tmp_path):
+    other = "0" * 40
+    monkeypatch.setenv(OVERLAY_ENV, str(tmp_path))
+    monkeypatch.setenv(OVERLAY_REF_ENV, other)
+    with pytest.raises(pytest.fail.Exception) as e:
+        _resolve_overlay(_NoScratch())
+    assert other in str(e.value) and _read_pin() in str(e.value)
+
+
+def test_a_dir_env_that_is_not_a_directory_still_fails(monkeypatch, tmp_path):
+    monkeypatch.setenv(OVERLAY_ENV, str(tmp_path / "nope"))
+    monkeypatch.delenv(OVERLAY_REF_ENV, raising=False)
+    with pytest.raises(pytest.fail.Exception, match="not a directory"):
+        _resolve_overlay(_NoScratch())
+
+
+def test_nothing_resolvable_in_ci_fails_and_names_the_fetch(monkeypatch, tmp_path):
+    _nothing_resolvable(monkeypatch, tmp_path)
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    with pytest.raises(pytest.fail.Exception) as e:
+        _resolve_overlay(_NoScratch())
+    assert FETCH_COMMAND in str(e.value)
+
+
+def test_nothing_resolvable_outside_ci_skips_as_unrun(monkeypatch, tmp_path):
+    _nothing_resolvable(monkeypatch, tmp_path)
+    with pytest.raises(pytest.skip.Exception) as e:
+        _resolve_overlay(_NoScratch())
+    assert "NOT satisfied, only unrun" in str(e.value)
