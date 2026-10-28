@@ -227,4 +227,56 @@ on **`doors-export`** — pre-existing, unrelated, and the known false red from 
 unpinned seal reading the sibling working tree that sits ~149 commits behind.
 That is exactly what #181 replaces. Nothing in this work touches it.
 
+## 10. Addendum, same day: the inbox had two things that changed this work
+
+Checked `invincible-agent/sessions/` before closing the block. Three packets
+dated today touch the export directive; two of them changed what shipped.
+
+**1. `bbox` is now always present, and we already comply.** cortex relayed the
+architect: *"A ref without `bbox` is not legal; the shape is {page, bbox,
+note?}."* Nullable, but the key is always there — which reverses the 205 note
+that omitting it equalled null. **Measured:** both our emitters write the key
+unconditionally (`sustainment_merge._row_wire_evidence_ref` initialises
+`{"page": page, "bbox": None}`; `leaf_read.wire_evidence_ref` writes
+`list(bbox) if bbox else None`), and both were already sealed to it —
+`test_row_wire_evidence_ref.py` asserts `set(out) == {"page", "bbox"}` exactly
+and `test_leaf_read.py:262` asserts the whole dict. **Nothing in the producer
+changes.**
+
+What did change: the catalogue seal no longer derives the floor from the pin.
+My pinned extract reads `required: ["page"]` (the schema at `5522d8d2`, before
+lane 01 regenerates), so the seal now asserts `{"page", "bbox"} ⊆ keys`
+**itself**, citing the ruling, and the registry records it under
+`seal.stricter_than_the_pin`. **Deliberately stricter than the pin** — holding
+to the ruling now rather than finding the gap when they re-pin onto
+`required: [page, bbox]` and cortex turns an absent key malformed. That is the
+2683 shape of failure, declined in advance.
+
+**2. `scope` is a third collision, and it is worse than the two in §3.** Both
+proposed shared profile headers use the key, and they already disagree:
+
+| source | `scope` means | values |
+|---|---|---|
+| this catalogue | which **field scope** a field belongs to | `notice`, `row`, `steward_edit`, `provenance` |
+| cortex, route 1 | the **row granularity** of the export | `row`, `notice` |
+| lane fin, CDRL header | a **program-level** profile | `program` |
+
+The first two **collide on the literal tokens `row` and `notice` while meaning
+different things**. Here `scope: row` is *one value per (notice, part, field)*;
+there it is *the profile emits one row per (notice, part)*. A profile carrying
+`scope: row` beside a column list whose entries carry a `scope` reads wrong and
+looks right. And fin asked lane 01 explicitly to flag a differing `scope`
+vocabulary before `policy/exports/` merges — there are now two. Recorded as the
+third `collisions` entry, `severity: high`. **Not renamed unilaterally**: fin
+and cortex are both proposing headers against lane 01's, so the rename is
+theirs to pick (`granularity` on the header, or `field_scope` here).
+
+**3. Item 2 does not block cortex.** Their §4: the picker chooses profiles by
+name and does not read the catalogue for this slice. So the answers §8 asks for
+gate item 1 and the column-list half of the mapping language, not cortex's
+buttons.
+
+Seal after both changes: `14 passed`; with both evidence-ref suites,
+`97 passed in 9.97s`.
+
 — lane 7f

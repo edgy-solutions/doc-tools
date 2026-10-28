@@ -325,6 +325,22 @@ def test_wire_evidence_ref_can_never_break_the_pinned_evidence_ref():
         if "note" in ref:
             assert ref["note"], f"wire_evidence_ref note is {ref['note']!r}; omit the key instead."
 
+        # ARCHITECT RULING 2026-10-28, relayed in cortex-ui's packet of the same
+        # day: *"A ref without `bbox` is not legal; the shape is {page, bbox,
+        # note?}."* It stays NULLABLE -- null means "on this page, no box"
+        # (ruling 205) -- but the KEY is always present. This reverses the
+        # earlier 205 note that omitting it was the same as null.
+        #
+        # The pinned schema still says `required: ["page"]`, because lane 01 had
+        # not regenerated the doc when the pin was taken. So this leg is
+        # DELIBERATELY STRICTER THAN THE PIN: it holds us to the ruling now,
+        # rather than discovering a gap when they re-pin onto
+        # `required: [page, bbox]` and cortex turns an absent key malformed.
+        assert {"page", "bbox"} <= set(ref), (
+            f"wire_evidence_ref is {sorted(ref)}; the ruled shape requires the "
+            f"page AND bbox keys to be present (bbox may be null). Ruling 2026-10-28."
+        )
+
 
 def test_catalogued_review_item_fields_are_emitted():
     emitted = set()

@@ -7,6 +7,7 @@
     "test": "tests/test_export_field_catalogue.py",
     "producer_leg": "Every `producer.field` is checked against what the code actually emits: the BAML class property sets in doc_tools/baml_client/type_builder.py and the field_path/key sets written by doc_tools.utils.sustainment_merge.build_review_items.",
     "contract_leg": "Every `wire` entry is checked against tests/fixtures/cortex_bff_extraction_pin.json, an extract of invincible-agent:docs/api/cortex-bff.openapi.json pinned at a named sha.",
+    "stricter_than_the_pin": "ARCHITECT RULING 2026-10-28 (relayed in cortex-ui's packet of the same day): a ref without `bbox` is not legal; the shape is {page, bbox, note?}. It stays nullable -- null means 'on this page, no box' (ruling 205) -- but the key is always PRESENT, reversing the earlier 205 note that omitting it was the same as null. The pinned extract still reads required: [page] because lane 01 had not regenerated the doc when the pin was taken, so the seal asserts the floor {page, bbox} itself rather than deriving it from the pin. Both of our emitters already satisfy it, measured: sustainment_merge._row_wire_evidence_ref initialises bbox to None, and leaf_read.wire_evidence_ref always writes the key. Nothing in the producer changes.",
     "NOT_sealed": "That the pinned extract is still what the platform serves. The extract is a frozen copy; a platform-side change does not red this repo until the pin is re-taken. That freshness leg is #181's mechanism (tests/pins/invincible-agent.ref) and #181 is still a draft. Two green legs are not a covered span -- name the hop that is open."
   },
   "scopes": {
@@ -26,6 +27,12 @@
       "name": "obtained_via",
       "severity": "high",
       "detail": "On the extraction wire, row.obtained_via is the MATCH METHOD (the producer's match_method: unique / region_preferred / ambiguous / not_found / text_layer_cell / text_layer_word / inherited_doc_level / derived). In ADR-0041, obtained_via is the TRUST RUNG (None or 'user-drop', with siblings authoritative_source and standing). The packet's phrase 'provenance rung' means the ADR-0041 one. Cataloguing row.obtained_via as the rung would export match methods under a provenance heading.",
+      "mapping_unverified": false
+    },
+    {
+      "name": "scope",
+      "severity": "high",
+      "detail": "Three meanings, two of them sharing the SAME TOKENS. (1) In this catalogue, `scope` is the FIELD scope: notice / row / steward_edit / provenance -- which scope a field belongs to. (2) cortex-ui's proposed profile-listing route (packet 2026-10-28, 'what cortex needs on the wire', route 1) returns [{name, format, scope, label?}] where `scope` is 'row'|'notice' meaning the ROW GRANULARITY of the export -- the directive's 'one row per (notice, part) or per notice'. (3) lane fin's CDRL profile header (packet 2026-10-28, 'export profiles share your four header keys') uses the same key with the value 'program'. So the two proposed SHARED profile headers already disagree on the `scope` vocabulary, and meanings (1) and (2) collide on the literal tokens `row` and `notice` while saying different things: here `scope: row` means one value per (notice, part, field); there it means the profile emits one row per (notice, part). A profile file carrying `scope: row` beside a column list whose entries carry a `scope` will be read wrong. Rename one before policy/exports/ merges -- `granularity` on the profile header, or `field_scope` here. Cheap now, a silent mis-export later.",
       "mapping_unverified": false
     }
   ],
