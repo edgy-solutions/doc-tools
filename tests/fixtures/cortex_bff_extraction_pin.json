@@ -1,0 +1,425 @@
+{
+  "_pin": {
+    "path": "docs/api/cortex-bff.openapi.json",
+    "ref": "5522d8d28c30988ffce9903f456572be32880958",
+    "repo": "invincible-agent",
+    "sha256_of_whole_file": "a22a4e619b7e15e458923a3af5a488cbad9f99e1e76311328c661835f9001949",
+    "taken": "2026-10-28",
+    "why": "The schemas registry/export_field_catalogue.json is sealed against. An EXTRACT, so this file covers the catalogue-vs-contract hop only; that the platform still serves this is NOT sealed here."
+  },
+  "route": {
+    "GET /ingest/{ingest_id}/extraction": "GET /ingest/<id>/extraction -- the extracted part rows of a dropped notice, with the\nevidence reference (7f's `wire_evidence_ref`: page, bbox in page fractions, optional note) the review card draws. Gate: `_ingest_review_access`\n(the dropper, or a holder of the OPEN promotion task). `rows` are the `parts[i].*` items of\nreview.json in file order; a row with no usable page/bbox carries `evidence_ref: null` and\nis counted in `rows_without_evidence`. 422 `no_extraction_ref` / `extraction_unbound` /\n`extraction_rows_absent` / `extraction_unreadable`, 503 `artifact_store_unreachable`.\n`leaf` / `leaf_source` / `corrected_by` are the notice's pcn|pdn and where it came from, read from\nthe ROW only (`_row_leaf`); a row with no leaf shows `leaf: null` whatever review.json says.\nA REJECTED row's evidence was moved to `rejected/<id>/`; it is read there through the\nrejection record (`relocated_to` says where; `review_ref` stays the original key). Also 404\n`rejected_evidence_unlocated`, 503 `decision_ledger_unreachable`."
+  },
+  "schemas": {
+    "EvidenceRef": {
+      "additionalProperties": false,
+      "description": "7f's `wire_evidence_ref`, served as is (architect rulings 2026-10-21 and 2026-10-28).\n\n`bbox` is page fractions `[x0, y0, x1, y1]`, origin top-left, `0 <= x0 < x1 <= 1` and\n`0 <= y0 < y1 <= 1`. A null bbox means \"on this page, no box\" (ruling 205). Nothing else\nis served: no `bboxes`, `page_dims`, `units` or `quality`.",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "items": {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "note": {
+          "pattern": "\\S",
+          "title": "Note",
+          "type": "string"
+        },
+        "page": {
+          "minimum": 1.0,
+          "title": "Page",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "page"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "Extraction": {
+      "additionalProperties": false,
+      "description": "GET /ingest/{id}/extraction.",
+      "properties": {
+        "attempt": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Attempt"
+        },
+        "content_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Content Kind"
+        },
+        "corrected_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Corrected By"
+        },
+        "ingest_id": {
+          "title": "Ingest Id",
+          "type": "string"
+        },
+        "leaf": {
+          "anyOf": [
+            {
+              "enum": [
+                "pcn",
+                "pdn"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Leaf"
+        },
+        "leaf_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "declared",
+                "title",
+                "corrected"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Leaf Source"
+        },
+        "notice": {
+          "$ref": "#/components/schemas/Notice"
+        },
+        "notice_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Notice Id"
+        },
+        "part_count": {
+          "title": "Part Count",
+          "type": "integer"
+        },
+        "relocated_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Relocated To"
+        },
+        "review_ref": {
+          "title": "Review Ref",
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/components/schemas/ExtractionRow"
+          },
+          "title": "Rows",
+          "type": "array"
+        },
+        "rows_without_evidence": {
+          "title": "Rows Without Evidence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ingest_id",
+        "notice_id",
+        "content_kind",
+        "attempt",
+        "leaf",
+        "leaf_source",
+        "corrected_by",
+        "notice",
+        "part_count",
+        "rows",
+        "rows_without_evidence",
+        "review_ref",
+        "relocated_to"
+      ],
+      "title": "Extraction",
+      "type": "object"
+    },
+    "ExtractionRow": {
+      "additionalProperties": false,
+      "description": "One extracted part field, in file order.",
+      "properties": {
+        "evidence_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "extracted_value": {
+          "title": "Extracted Value"
+        },
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "match_confidence": {
+          "title": "Match Confidence"
+        },
+        "mpn": {
+          "title": "Mpn"
+        },
+        "needs_review": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Needs Review"
+        },
+        "obtained_via": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Obtained Via"
+        },
+        "part_index": {
+          "title": "Part Index",
+          "type": "integer"
+        },
+        "review_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Review Reason"
+        },
+        "row_index": {
+          "title": "Row Index",
+          "type": "integer"
+        },
+        "source_snippet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Snippet"
+        }
+      },
+      "required": [
+        "row_index",
+        "part_index",
+        "mpn",
+        "field",
+        "extracted_value",
+        "obtained_via",
+        "match_confidence",
+        "needs_review",
+        "review_reason",
+        "source_snippet",
+        "evidence_ref"
+      ],
+      "title": "ExtractionRow",
+      "type": "object"
+    },
+    "HeaderEdit": {
+      "additionalProperties": false,
+      "description": "A steward correction of one header field of a promotion (ruling 10-20, Q8 amended), on the\nsame wire and flag as row_edits.",
+      "properties": {
+        "evidence_ref": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Evidence Ref"
+        },
+        "field": {
+          "enum": [
+            "mfr",
+            "notice_id",
+            "notice_date"
+          ],
+          "title": "Field",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "value",
+        "evidence_ref",
+        "reason"
+      ],
+      "title": "HeaderEdit",
+      "type": "object"
+    },
+    "Notice": {
+      "additionalProperties": false,
+      "description": "The notice header read from review.json; the values are LLM-extracted, so unconstrained.",
+      "properties": {
+        "mfr": {
+          "title": "Mfr"
+        },
+        "mfr_parent": {
+          "title": "Mfr Parent"
+        },
+        "mfr_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "header",
+                "identity"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfr Source"
+        },
+        "notice_date": {
+          "title": "Notice Date"
+        }
+      },
+      "required": [
+        "mfr",
+        "mfr_source",
+        "mfr_parent",
+        "notice_date"
+      ],
+      "title": "Notice",
+      "type": "object"
+    },
+    "RowEditCounts": {
+      "additionalProperties": false,
+      "description": "How many of each edit a steward's correction carried.",
+      "properties": {
+        "added": {
+          "title": "Added",
+          "type": "integer"
+        },
+        "corrected": {
+          "title": "Corrected",
+          "type": "integer"
+        },
+        "deleted": {
+          "title": "Deleted",
+          "type": "integer"
+        },
+        "header": {
+          "title": "Header",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "corrected",
+        "added",
+        "deleted",
+        "header"
+      ],
+      "title": "RowEditCounts",
+      "type": "object"
+    },
+    "RowEdits": {
+      "additionalProperties": false,
+      "description": "Steward row edits on a grouped-review approval (architect ruling 2026-10-10). The workflow's\n`steward_correction.validate_row_edits` restates every rule against the server-authored batch;\nthis is the wire half, so a bad payload is a 422 before it reaches Restate. It is also the\ndocument_promotion wire (carried on a `promoted` decision, server-flagged by\nIAGENT_PROMOTION_ROW_EDITS).",
+      "properties": {
+        "added": {
+          "default": [],
+          "items": {
+            "$ref": "#/components/schemas/AddedRow"
+          },
+          "title": "Added",
+          "type": "array"
+        },
+        "corrected": {
+          "default": [],
+          "items": {
+            "$ref": "#/components/schemas/CorrectedRow"
+          },
+          "title": "Corrected",
+          "type": "array"
+        },
+        "deleted": {
+          "default": [],
+          "items": {
+            "$ref": "#/components/schemas/DeletedRow"
+          },
+          "title": "Deleted",
+          "type": "array"
+        }
+      },
+      "title": "RowEdits",
+      "type": "object"
+    }
+  }
+}

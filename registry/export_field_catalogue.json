@@ -1,0 +1,1190 @@
+{
+  "catalogue_version": 1,
+  "catalogue_date": "2026-10-28",
+  "owner": "doc-tools/lane/7f",
+  "purpose": "The field catalogue an export profile (policy/exports/<name>.yaml, lane 01) may reference by name. One entry per promoted field, plus steward edits and the ADR-0041 provenance rung. `served_by` is the load-bearing column: a field with `served_by: null` is produced by doc-tools but is NOT reachable on the extraction route, so no profile can emit it today without lane 01 widening the route.",
+  "seal": {
+    "test": "tests/test_export_field_catalogue.py",
+    "producer_leg": "Every `producer.field` is checked against what the code actually emits: the BAML class property sets in doc_tools/baml_client/type_builder.py and the field_path/key sets written by doc_tools.utils.sustainment_merge.build_review_items.",
+    "contract_leg": "Every `wire` entry is checked against tests/fixtures/cortex_bff_extraction_pin.json, an extract of invincible-agent:docs/api/cortex-bff.openapi.json pinned at a named sha.",
+    "NOT_sealed": "That the pinned extract is still what the platform serves. The extract is a frozen copy; a platform-side change does not red this repo until the pin is re-taken. That freshness leg is #181's mechanism (tests/pins/invincible-agent.ref) and #181 is still a draft. Two green legs are not a covered span -- name the hop that is open."
+  },
+  "scopes": {
+    "notice": "One value per notice. A per-notice profile emits one row of these; a per-(notice,part) profile repeats them on every row.",
+    "row": "One value per (notice, part, field). The extraction route serves ONLY the parts[i].* review items as rows, in review.json file order.",
+    "steward_edit": "A correction a steward made during promotion. Not an extracted value.",
+    "provenance": "ADR-0041 trust rung, written at ingest. NOT the row-level match method -- see collisions."
+  },
+  "collisions": [
+    {
+      "name": "mfr_source",
+      "severity": "high",
+      "detail": "Two unrelated fields share the name. The PRODUCER's header.mfr_source is a verbatim source substring (BAML: 'Verbatim source substring for mfr - MANDATORY whenever mfr is non-null'), one of a family with pub_date_source / mfr_parent_source / doc_level_ltb_date_source. The CONTRACT's notice.mfr_source is a closed enum {header, identity} naming which arm produced the value. A profile that writes `mfr_source` must say which it means; this catalogue names them `header.mfr_source` and `notice.mfr_source`.",
+      "mapping_unverified": true
+    },
+    {
+      "name": "obtained_via",
+      "severity": "high",
+      "detail": "On the extraction wire, row.obtained_via is the MATCH METHOD (the producer's match_method: unique / region_preferred / ambiguous / not_found / text_layer_cell / text_layer_word / inherited_doc_level / derived). In ADR-0041, obtained_via is the TRUST RUNG (None or 'user-drop', with siblings authoritative_source and standing). The packet's phrase 'provenance rung' means the ADR-0041 one. Cataloguing row.obtained_via as the rung would export match methods under a provenance heading.",
+      "mapping_unverified": false
+    }
+  ],
+  "unverified_mappings": [
+    "notice.notice_date <- header.pub_date. The contract declares notice_date with no type and no description, and nothing in doc-tools writes a field of that name. The mapping is lane 01's and is NOT asserted here.",
+    "notice.mfr_source <- (unknown). The enum values {header, identity} name doc-tools' two header arms, but no doc-tools field carries those values; header.mfr_source carries a substring. Lane 01 derives this somewhere on their side."
+  ],
+  "not_extracted": [
+    "change_type -- named by the batch-fixture ruling (closed vocabulary, free text to change_type_note). Measured absent: zero occurrences in doc_tools/utils/sustainment_merge.py and doc_tools/plugins/sustainment.py. Not a promoted field, so no profile can reference it.",
+    "effective_date -- same ruling, same measurement. Not a promoted field.",
+    "A batch column-map vocabulary. `column_map` / `column-map` has zero occurrences in doc_tools/, registry/ and docs/. Item 1's 'reuse 7f's batch column-map vocabulary' has nothing to reuse yet; the four batch-fixture rulings it would come from are unbuilt."
+  ],
+  "fields": [
+    {
+      "name": "notice.ingest_id",
+      "scope": "notice",
+      "type": "string",
+      "nullable": false,
+      "producer": {
+        "origin": "bff",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Extraction",
+        "name": "ingest_id"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "The ingest key, not a document field. Its shape is no SDK contract -- do not parse it."
+    },
+    {
+      "name": "notice.notice_id",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "doc_id"
+      },
+      "review_json": "header.doc_id",
+      "wire": {
+        "container": "Extraction",
+        "name": "notice_id"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Can be a path fragment, or a filename-derived string when the header call timed out. Not a stable key."
+    },
+    {
+      "name": "notice.content_kind",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Extraction",
+        "name": "content_kind"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Platform-owned: what a kind IS is theirs, what doc-tools RUNS is ours."
+    },
+    {
+      "name": "notice.attempt",
+      "scope": "notice",
+      "type": "integer",
+      "nullable": true,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Extraction",
+        "name": "attempt"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": null
+    },
+    {
+      "name": "notice.leaf",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "review_item",
+        "field": "leaf"
+      },
+      "review_json": "parts[i] row leaf",
+      "wire": {
+        "container": "Extraction",
+        "name": "leaf"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": {
+        "closed": true,
+        "values": [
+          "pcn",
+          "pdn"
+        ]
+      },
+      "evidence": "none",
+      "notes": "Read from the ROW only (_row_leaf). A row with no leaf shows leaf: null whatever review.json says."
+    },
+    {
+      "name": "notice.leaf_source",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "review_item",
+        "field": "leaf_source"
+      },
+      "review_json": "parts[i] row leaf_source",
+      "wire": {
+        "container": "Extraction",
+        "name": "leaf_source"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": {
+        "closed": true,
+        "values": [
+          "declared",
+          "title",
+          "corrected"
+        ]
+      },
+      "evidence": "none",
+      "notes": null
+    },
+    {
+      "name": "notice.corrected_by",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Extraction",
+        "name": "corrected_by"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Who corrected the leaf, if anyone."
+    },
+    {
+      "name": "notice.part_count",
+      "scope": "notice",
+      "type": "integer",
+      "nullable": false,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Extraction",
+        "name": "part_count"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Counts parts, not rows. A notice with zero parts still gets its notice node."
+    },
+    {
+      "name": "notice.rows_without_evidence",
+      "scope": "notice",
+      "type": "integer",
+      "nullable": false,
+      "producer": {
+        "origin": "bff",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Extraction",
+        "name": "rows_without_evidence"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Counted by the route: a row with no usable page/bbox carries evidence_ref: null. Derived, not extracted."
+    },
+    {
+      "name": "notice.review_ref",
+      "scope": "notice",
+      "type": "string",
+      "nullable": false,
+      "producer": {
+        "origin": "bff",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Extraction",
+        "name": "review_ref"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Stays the ORIGINAL key after a rejection; relocated_to says where the objects went."
+    },
+    {
+      "name": "notice.relocated_to",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "bff",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Extraction",
+        "name": "relocated_to"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Set for a REJECTED row, whose evidence moved to rejected/<id>/. A rejection strands every ref filed against the original location."
+    },
+    {
+      "name": "notice.mfr",
+      "scope": "notice",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "mfr"
+      },
+      "review_json": "header.mfr",
+      "wire": {
+        "container": "Notice",
+        "name": "mfr"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "not_served",
+      "notes": "LLM-extracted, so unconstrained. review.json carries a header.mfr review item WITH a wire_evidence_ref, but the Notice object has no evidence_ref field, so the header's evidence is unreachable on this route."
+    },
+    {
+      "name": "notice.mfr_parent",
+      "scope": "notice",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "mfr_parent"
+      },
+      "review_json": "header.mfr_parent",
+      "wire": {
+        "container": "Notice",
+        "name": "mfr_parent"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "not_served",
+      "notes": "Same evidence gap as notice.mfr."
+    },
+    {
+      "name": "notice.mfr_source",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "unknown",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Notice",
+        "name": "mfr_source"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": {
+        "closed": true,
+        "values": [
+          "header",
+          "identity"
+        ]
+      },
+      "evidence": "none",
+      "notes": "COLLISION: not the producer's header.mfr_source. This says which arm produced mfr, not what substring it was read from. Mapping unverified."
+    },
+    {
+      "name": "notice.notice_date",
+      "scope": "notice",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "unknown",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "Notice",
+        "name": "notice_date"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Mapping to header.pub_date is UNVERIFIED -- the contract gives it no type and no description, and no doc-tools field carries this name. A date transform in a profile needs the format settled first, and pub_date is a PRINT STAMP, not an effective date."
+    },
+    {
+      "name": "header.doc_id",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "doc_id"
+      },
+      "review_json": "header.doc_id",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Served as notice.notice_id, so reachable under that name only."
+    },
+    {
+      "name": "header.doc_type",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "doc_type"
+      },
+      "review_json": "header.doc_type",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Produced, not served. Not the same thing as notice.leaf."
+    },
+    {
+      "name": "header.revision",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "revision"
+      },
+      "review_json": "header.revision",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Produced, not served."
+    },
+    {
+      "name": "header.pub_date",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "pub_date"
+      },
+      "review_json": "header.pub_date",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "wire_evidence_ref",
+      "notes": "Carries a header-region review item WITH a wire_evidence_ref, none of which is served. A PRINT STAMP: agreement on pub_date is agreement on when the sheet was printed, not on when anything takes effect."
+    },
+    {
+      "name": "header.pub_date_source",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "pub_date_source"
+      },
+      "review_json": "header.pub_date_source",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Verbatim source substring, fed to the review item source_snippet."
+    },
+    {
+      "name": "header.mfr_source",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "mfr_source"
+      },
+      "review_json": "header.mfr_source",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "COLLISION: a verbatim source substring, NOT the contract {header, identity} enum. Measured set to None by sustainment_header_trust.py on at least two paths, despite BAML calling it mandatory whenever mfr is non-null."
+    },
+    {
+      "name": "header.mfr_parent_source",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "mfr_parent_source"
+      },
+      "review_json": "header.mfr_parent_source",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Verbatim source substring."
+    },
+    {
+      "name": "header.categories",
+      "scope": "notice",
+      "type": "array<string>",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "categories"
+      },
+      "review_json": "header.categories",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": {
+        "closed": false,
+        "values": null
+      },
+      "evidence": "none",
+      "notes": "A DERIVED review item: region 'derived', so it carries NO wire_evidence_ref by ruling. A list, so emitting it to csv needs a join transform the mapping language does not have yet."
+    },
+    {
+      "name": "header.summary",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "summary"
+      },
+      "review_json": "header.summary",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "DERIVED: region 'derived', no wire_evidence_ref by ruling. Free prose -- unsafe in a fixed-width csv column."
+    },
+    {
+      "name": "header.doc_level_ltb_date",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "doc_level_ltb_date"
+      },
+      "review_json": "header.doc_level_ltb_date",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "wire_evidence_ref",
+      "notes": "Produced with a header-region review item and evidence, and NOT served on this route. It is the value that unsourced part-level LTB rows INHERIT, so a per-part export omitting it loses the only source those dates have."
+    },
+    {
+      "name": "header.doc_level_ltb_date_source",
+      "scope": "notice",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:SustainmentHeader",
+        "field": "doc_level_ltb_date_source"
+      },
+      "review_json": "header.doc_level_ltb_date_source",
+      "wire": null,
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Verbatim source substring."
+    },
+    {
+      "name": "row.row_index",
+      "scope": "row",
+      "type": "integer",
+      "nullable": false,
+      "producer": {
+        "origin": "bff",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "row_index"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Position in review.json file order."
+    },
+    {
+      "name": "row.part_index",
+      "scope": "row",
+      "type": "integer",
+      "nullable": false,
+      "producer": {
+        "origin": "review_item",
+        "field": "field_path"
+      },
+      "review_json": "the i in parts[i].*",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "part_index"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "The grouping key for one-row-per-(notice,part). Up to three field rows share one part_index."
+    },
+    {
+      "name": "row.mpn",
+      "scope": "row",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:ImpactedPart",
+        "field": "affected_mpn"
+      },
+      "review_json": "parts[i].affected_mpn",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "mpn"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "The row part identity, repeated on all of that part field rows. An OCR ditto quote in an MPN has returned a 400 on a whole graph insert -- do not assume it is clean enough to key on."
+    },
+    {
+      "name": "row.field",
+      "scope": "row",
+      "type": "string",
+      "nullable": false,
+      "producer": {
+        "origin": "review_item",
+        "field": "field_path"
+      },
+      "review_json": "parts[i].<field>",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "field"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": {
+        "closed": false,
+        "values": [
+          "parts[i].affected_mpn",
+          "parts[i].replacement_mpn",
+          "parts[i].ltb_date"
+        ],
+        "schema_note": "The CONTRACT declares a bare string with no enum; the PRODUCER emits only these three on this route. Closed in practice, open in the schema -- a profile keying on it should tolerate an unknown value."
+      },
+      "evidence": "none",
+      "notes": "Renamed from the producer field_path. This is the discriminator a column list uses to pick which value a column takes."
+    },
+    {
+      "name": "row.extracted_value",
+      "scope": "row",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "review_item",
+        "field": "value"
+      },
+      "review_json": "parts[i].<field> value",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "extracted_value"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Renamed from the producer `value`. A null is EXCLUDED from corpus scoring, and a ruled None is indistinguishable from a missing one -- so a null here does not mean the field was absent from the document."
+    },
+    {
+      "name": "row.obtained_via",
+      "scope": "row",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "review_item",
+        "field": "match_method"
+      },
+      "review_json": "parts[i].<field> match_method",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "obtained_via"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": {
+        "closed": false,
+        "values": [
+          "unique",
+          "region_preferred",
+          "ambiguous",
+          "not_found",
+          "text_layer_cell",
+          "text_layer_word",
+          "inherited_doc_level",
+          "derived"
+        ],
+        "schema_note": "Two families: four from provenance.resolve_value, four set directly by the merge. The schema declares no enum, so this list is measured, not guaranteed."
+      },
+      "evidence": "none",
+      "notes": "COLLISION: this is the MATCH METHOD, not the ADR-0041 provenance rung. `inherited_doc_level` means the value came from header.doc_level_ltb_date, not from the part own row."
+    },
+    {
+      "name": "row.match_confidence",
+      "scope": "row",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "review_item",
+        "field": "match_confidence"
+      },
+      "review_json": "parts[i].<field> match_confidence",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "match_confidence"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Defaults to 0.0 when provenance carries none. Confidence in the LOCATION of the value, not in the value."
+    },
+    {
+      "name": "row.needs_review",
+      "scope": "row",
+      "type": "boolean",
+      "nullable": true,
+      "producer": {
+        "origin": "review_item",
+        "field": "needs_review"
+      },
+      "review_json": "parts[i].<field> needs_review",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "needs_review"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Hardcoded False on the parts[i].ltb_date path, so a false here is not a statement about that field."
+    },
+    {
+      "name": "row.review_reason",
+      "scope": "row",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "review_item",
+        "field": "review_reason"
+      },
+      "review_json": "parts[i].<field> review_reason",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "review_reason"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": {
+        "closed": false,
+        "values": [
+          "affected_mpn not found verbatim in OCR text (possible hallucination)",
+          "source not located"
+        ]
+      },
+      "evidence": "none",
+      "notes": "Free text; the two measured wordings are listed."
+    },
+    {
+      "name": "row.source_snippet",
+      "scope": "row",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:ImpactedPart",
+        "field": "affected_mpn_source"
+      },
+      "review_json": "parts[i].<field>_source",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "source_snippet"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "The verbatim substring the model says it read the value from: affected_mpn_source / replacement_mpn_source / ltb_date_source, by row. This is where the *_source family DOES reach the wire."
+    },
+    {
+      "name": "part.affected_mpn",
+      "scope": "row",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:ImpactedPart",
+        "field": "affected_mpn"
+      },
+      "review_json": "parts[i].affected_mpn",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "extracted_value"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "wire_evidence_ref",
+      "notes": "A profile names this field; the value is row.extracted_value on the row whose row.field is 'parts[i].affected_mpn', and its verbatim substring is row.source_snippet on that same row. One wire column carries all three part values, so the column list needs the selector, not just a name. Distinct from row.mpn: row.mpn is the part identity repeated on every row of the part, this is the extracted value of the one affected_mpn row. Carries review_reason 'affected_mpn not found verbatim in OCR text (possible hallucination)' when the value is not in the OCR text."
+    },
+    {
+      "name": "part.replacement_mpn",
+      "scope": "row",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:ImpactedPart",
+        "field": "replacement_mpn"
+      },
+      "review_json": "parts[i].replacement_mpn",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "extracted_value"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "wire_evidence_ref",
+      "notes": "A profile names this field; the value is row.extracted_value on the row whose row.field is 'parts[i].replacement_mpn', and its verbatim substring is row.source_snippet on that same row. One wire column carries all three part values, so the column list needs the selector, not just a name. The row is emitted ONLY when the part has a replacement_mpn, so a part with none has two rows, not three -- a per-part profile must tolerate the absent row rather than expect a null. The corpus scorer has no replacement arm, so this field is unscored."
+    },
+    {
+      "name": "part.ltb_date",
+      "scope": "row",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:ImpactedPart",
+        "field": "ltb_date"
+      },
+      "review_json": "parts[i].ltb_date",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "extracted_value"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "wire_evidence_ref",
+      "notes": "A profile names this field; the value is row.extracted_value on the row whose row.field is 'parts[i].ltb_date', and its verbatim substring is row.source_snippet on that same row. One wire column carries all three part values, so the column list needs the selector, not just a name. Emitted only when the part has an ltb_date. needs_review is hardcoded False on this path. Where the part had no date of its own the value is INHERITED from header.doc_level_ltb_date, flagged on the wire as obtained_via 'inherited_doc_level' -- so an export column of part LTB dates silently mixes row-level and doc-level facts unless it also carries obtained_via. No date format is guaranteed: the ISO-8601 normalisation the batch ruling calls for is not built."
+    },
+    {
+      "name": "row.evidence_ref",
+      "scope": "row",
+      "type": "object",
+      "nullable": true,
+      "producer": {
+        "origin": "review_item",
+        "field": "wire_evidence_ref"
+      },
+      "review_json": "parts[i].<field> wire_evidence_ref",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "evidence_ref"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "self",
+      "notes": "Served AS IS since invincible-agent ac77ef61. Keys are exactly {page, bbox, note?}: additionalProperties is false and nothing else is served -- no bboxes, page_dims, units or quality. ABSENT (not null) on the producer side when the field is derived or has no page; the route turns that into evidence_ref: null and counts it in rows_without_evidence."
+    },
+    {
+      "name": "row.evidence_ref.page",
+      "scope": "row",
+      "type": "integer",
+      "nullable": false,
+      "producer": {
+        "origin": "review_item",
+        "field": "wire_evidence_ref"
+      },
+      "review_json": "parts[i].<field> wire_evidence_ref.page",
+      "wire": {
+        "container": "EvidenceRef",
+        "name": "page"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "self",
+      "notes": "1-based (enumerate(pdf.pages, start=1)); the schema sets minimum 1. The ONLY required key of EvidenceRef."
+    },
+    {
+      "name": "row.evidence_ref.bbox",
+      "scope": "row",
+      "type": "array<number>[4]",
+      "nullable": true,
+      "producer": {
+        "origin": "review_item",
+        "field": "wire_evidence_ref"
+      },
+      "review_json": "parts[i].<field> wire_evidence_ref.bbox",
+      "wire": {
+        "container": "EvidenceRef",
+        "name": "bbox"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "self",
+      "notes": "Page fractions [x0, y0, x1, y1], origin top-left, each 0..1, with 0 <= x0 < x1 <= 1 and the same in y. Unit-free, so there is no page_dims and none is wanted. A null bbox means on-this-page-no-box. Several boxes are UNIONED into one outline."
+    },
+    {
+      "name": "row.evidence_ref.note",
+      "scope": "row",
+      "type": "string",
+      "nullable": false,
+      "producer": {
+        "origin": "review_item",
+        "field": "wire_evidence_ref"
+      },
+      "review_json": "parts[i].<field> wire_evidence_ref.note",
+      "wire": {
+        "container": "EvidenceRef",
+        "name": "note"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": {
+        "closed": true,
+        "values": [
+          "no page dimensions: the geometry could not be made unit-free, so no box is claimed",
+          "bbox lies outside the page, or has no area, so there is no box to draw",
+          "bbox extended past the page edge and was clamped",
+          "<N> boxes"
+        ]
+      },
+      "evidence": "self",
+      "notes": "OPTIONAL and never null: the producer writes the key only when the note is truthy, and the schema types it string with pattern \\S. The clamped wording still comes WITH a box; the other three come with a null bbox or a union. This is the per-row diagnostic -- a profile exporting evidence should carry it."
+    },
+    {
+      "name": "header_edit.field",
+      "scope": "steward_edit",
+      "type": "string",
+      "nullable": false,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "HeaderEdit",
+        "name": "field"
+      },
+      "served_by": null,
+      "vocabulary": {
+        "closed": true,
+        "values": [
+          "mfr",
+          "notice_id",
+          "notice_date"
+        ]
+      },
+      "evidence": "none",
+      "notes": "A steward may correct only these three. Their intersection with the four header review items the producer writes (pub_date, mfr, mfr_parent, doc_level_ltb_date) is {mfr} ALONE -- so a steward cannot correct an mfr_parent or a doc-level LTB date, and an export of steward-corrected header fields can only ever differ from extraction on mfr."
+    },
+    {
+      "name": "header_edit.value",
+      "scope": "steward_edit",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "HeaderEdit",
+        "name": "value"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "The corrected value."
+    },
+    {
+      "name": "header_edit.reason",
+      "scope": "steward_edit",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "HeaderEdit",
+        "name": "reason"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Why the steward changed it."
+    },
+    {
+      "name": "header_edit.evidence_ref",
+      "scope": "steward_edit",
+      "type": "object",
+      "nullable": true,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "HeaderEdit",
+        "name": "evidence_ref"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "self",
+      "notes": "The same EvidenceRef shape. A steward-supplied ref, not one doc-tools produced."
+    },
+    {
+      "name": "row_edits.added",
+      "scope": "steward_edit",
+      "type": "array",
+      "nullable": false,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "RowEdits",
+        "name": "added"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Rows the steward added. Defaults to []."
+    },
+    {
+      "name": "row_edits.corrected",
+      "scope": "steward_edit",
+      "type": "array",
+      "nullable": false,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "RowEdits",
+        "name": "corrected"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Rows the steward corrected. Defaults to []."
+    },
+    {
+      "name": "row_edits.deleted",
+      "scope": "steward_edit",
+      "type": "array",
+      "nullable": false,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "RowEdits",
+        "name": "deleted"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "Rows the steward deleted. Defaults to []."
+    },
+    {
+      "name": "row_edit_counts.added",
+      "scope": "steward_edit",
+      "type": "integer",
+      "nullable": false,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "RowEditCounts",
+        "name": "added"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": null
+    },
+    {
+      "name": "row_edit_counts.corrected",
+      "scope": "steward_edit",
+      "type": "integer",
+      "nullable": false,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "RowEditCounts",
+        "name": "corrected"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": null
+    },
+    {
+      "name": "row_edit_counts.deleted",
+      "scope": "steward_edit",
+      "type": "integer",
+      "nullable": false,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "RowEditCounts",
+        "name": "deleted"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": null
+    },
+    {
+      "name": "row_edit_counts.header",
+      "scope": "steward_edit",
+      "type": "integer",
+      "nullable": false,
+      "producer": {
+        "origin": "platform",
+        "field": null
+      },
+      "review_json": null,
+      "wire": {
+        "container": "RowEditCounts",
+        "name": "header"
+      },
+      "served_by": null,
+      "vocabulary": null,
+      "evidence": "none",
+      "notes": "How many header edits the correction carried -- bounded above by 3 by the header_edit.field enum."
+    },
+    {
+      "name": "provenance.obtained_via",
+      "scope": "provenance",
+      "type": "string",
+      "nullable": true,
+      "producer": {
+        "origin": "adr-0041",
+        "field": "obtained_via"
+      },
+      "review_json": null,
+      "wire": null,
+      "served_by": null,
+      "vocabulary": {
+        "closed": false,
+        "values": [
+          "user-drop"
+        ]
+      },
+      "evidence": "none",
+      "notes": "THE PROVENANCE RUNG the packet asks for. doc_tools/components/document_parser.py:32. None means this instance is a VETTED path and no provenance stamp is written at all -- so a null is not unknown-rung, it is no-stamp. NOT served on the extraction route, and NOT the same field as row.obtained_via."
+    },
+    {
+      "name": "provenance.authoritative_source",
+      "scope": "provenance",
+      "type": "string",
+      "nullable": false,
+      "producer": {
+        "origin": "adr-0041",
+        "field": "authoritative_source"
+      },
+      "review_json": null,
+      "wire": null,
+      "served_by": null,
+      "vocabulary": {
+        "closed": false,
+        "values": [
+          "user-upload"
+        ]
+      },
+      "evidence": "none",
+      "notes": "ADR-0041 sibling of the rung. Default user-upload. Not served."
+    },
+    {
+      "name": "provenance.standing",
+      "scope": "provenance",
+      "type": "string",
+      "nullable": false,
+      "producer": {
+        "origin": "adr-0041",
+        "field": "standing"
+      },
+      "review_json": null,
+      "wire": null,
+      "served_by": null,
+      "vocabulary": {
+        "closed": false,
+        "values": [
+          "unverified"
+        ]
+      },
+      "evidence": "none",
+      "notes": "ADR-0041 standing, the trust rung at write time. Default unverified. Not served."
+    }
+  ],
+  "review_json_only": [
+    {
+      "key": "region",
+      "values": [
+        "header",
+        "table",
+        "derived"
+      ],
+      "why_not_served": "Not in ExtractionRow. It is the discriminator for whether a field gets a wire_evidence_ref at all (derived gets none), so its effect is visible on the wire even though it is not."
+    },
+    {
+      "key": "page_number",
+      "why_not_served": "Folded into evidence_ref.page."
+    },
+    {
+      "key": "bboxes",
+      "why_not_served": "The internal fraction list; evidence_ref.bbox serves the single box, or the union of them."
+    },
+    {
+      "key": "approval_state",
+      "why_not_served": "Hardcoded to pending by the producer and never updated there -- review.json is an ingest OUTPUT, not a review store. An export must take approval from the promotion, never from this key."
+    },
+    {
+      "key": "parts[i].ltb_date_inherited",
+      "why_not_served": "A merge-added flag, not a BAML field. The same fact reaches the wire as obtained_via: inherited_doc_level."
+    }
+  ]
+}
