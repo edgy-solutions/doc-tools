@@ -623,8 +623,24 @@ def compute_collapse(identity_records):
 
 
 def compute_stability(identity_records, filenames):
+    """Returns `(identity_half_unstable, revision_half_unstable, moving_fields)`.
+
+    THE THIRD RETURN IS WHICH HALF MOVED, and it exists so the declaration rule can
+    be keyed to the FIELD, per the 2026-10-27 ruling: a declaration about one field
+    must not exempt another, and `{mfr, doc_id}` is two fields, not one. Without it
+    the decision site sees only a filename and has to treat the pair as a unit, which
+    lets a reason naming `doc_id` -- narrated on every notice since the doc_id
+    precedence ruling -- exempt an `mfr` that moved.
+
+    `moving_fields[fn]` is the subset of `_IDENTITY_HALF_FIELDS` whose value actually
+    differs across the three fires. For the `None` case it is BOTH fields, because an
+    identity that could not be formed at all names no moving half: requiring both to
+    be declared is the conservative reading and never grants a notice-level exemption
+    on the strength of one field's flag.
+    """
     identity_half_unstable = []
     revision_half_unstable = []
+    moving_fields = {}
     for fn in filenames:
         keys = [identity_records.get(n, {}).get(fn, {}).get("key") for n in (1, 2, 3)]
         distinct = set(keys)
@@ -637,14 +653,18 @@ def compute_stability(identity_records, filenames):
             # with the half that decides WHICH notice a document is, never
             # with the revision-only case.
             identity_half_unstable.append(fn)
+            moving_fields[fn] = tuple(_IDENTITY_HALF_FIELDS)
             continue
         components = [notice_identity.parse_notice_key(k) for k in keys]
         mfr_doc_id_pairs = {(c[0], c[1]) for c in components}
         if len(mfr_doc_id_pairs) > 1:
             identity_half_unstable.append(fn)
+            moving_fields[fn] = tuple(
+                f for i, f in enumerate(_IDENTITY_HALF_FIELDS)
+                if len({c[i] for c in components}) > 1)
         else:
             revision_half_unstable.append(fn)
-    return sorted(identity_half_unstable), sorted(revision_half_unstable)
+    return sorted(identity_half_unstable), sorted(revision_half_unstable), moving_fields
 
 
 # --------------------------------------------------------------------------
@@ -665,8 +685,10 @@ def compute_stability(identity_records, filenames):
 # pipeline getting better, not by the gate getting weaker.
 #
 # A notice whose header only disagrees (b), or whose identity half is
-# unstable (c), is exempt from blocking only if needs_review == True for that
-# notice in ALL THREE corpus_f{N}.json records. There is no exemption at all
+# unstable (c), is exempt from blocking only if needs_review == True in ALL THREE
+# corpus_f{N}.json records AND a review reason declares a problem with the FIELD in
+# question (ruling 2026-10-27; see `header_declaration_for_field_in_fire`) -- a flag
+# raised about `doc_id` exempts nothing about `mfr`. There is no exemption at all
 # for an ABSENT or NOT MEASURED header-agreement condition (an instrument
 # gap, not a declared, handled value conflict) and none for
 # revision_half_unstable (which never blocks in the first place, per (c)).
@@ -688,50 +710,118 @@ def needs_review_in_all_fires(corpus_by_fire, notice):
     return all(needs_review_in_fire(corpus_by_fire, n, notice) for n in (1, 2, 3))
 
 
-# Markers of a declaration ABOUT A HEADER FIELD, as the plugin phrases them. Matched
-# as substrings of `review_reasons` rather than by a flag, because there is no flag:
-# the product narrates, and narrowing this to a structured field would mean adding one
+# Declarations are matched as substrings of `review_reasons`, not by a flag, because
+# there is no flag: the product narrates, and a structured field would mean adding one
 # and keeping two representations of the same fact in step.
-_HEADER_DECLARATION_MARKERS = (
-    "refused",                 # refuse_unsourced_header_values blanked a field
-    "header pass failed",      # the header extraction itself raised
-    "region witness LOST",     # a located header region could not be read
-    "could not be located",    # no header region was locatable at all
-    "region witness DISABLED",
+#
+# KEYED TO THE FIELD UNDER TEST (architect's ruling, 2026-10-27). `needs_review` is a
+# DOCUMENT-level flag, and it went from 3/4/3 of ten notices on v0.2.1 to 10 of 10 on
+# v0.2.2 because the doc_id precedence ruling makes the plugin narrate a `doc_id`
+# reason on every notice (`sustainment.py:1670,1680`). Consumed as an exemption from
+# header correctness, that flag let a note about `doc_id` -- which is not a scored
+# header field -- buy a notice an exemption for `mfr`, `pub_date` and
+# `doc_level_ltb_date`. A declaration about one field must not exempt another.
+#
+# The vocabulary, as the product phrases it (verified in the tree):
+#   `header.<field> refused: '<v>' <clause>`  sustainment_header_trust.py:1533 -- ONE field
+#   `region witness LOST the <name> region on page N (<why>); header fields <a, b>
+#    were neither supplied nor corroborated`  sustainment.py:1804 -- the fields it NAMES
+#   `header pass failed: <error>`             sustainment.py:760 -- EVERY field: the
+#                                             pass raised, nothing was extracted
+#   `region witness DISABLED for this document: <e>`  sustainment.py:1384 -- EVERY field
+# Field names are shared vocabulary (witness_regions.py:83-88 declares the same keys
+# pcn_ground_truth.json scores), so there is no alias table and none may be added.
+#
+# "could not be located" is deliberately NOT a marker. It used to be one, commented "no
+# header region was locatable at all", and that was wrong: its only emitter is
+# sustainment_header_trust.py:1347, a `_REFUSAL_CLAUSE` value, so the string only ever
+# appears INSIDE a `header.<field> refused: ...` reason about one field, which the
+# refusal shape below already covers. Re-adding it as a header-wide marker would
+# re-widen the exemption to every field.
+_HEADER_WIDE_DECLARATION_MARKERS = (
+    "header pass failed",       # the header extraction itself raised: nothing extracted
+    "region witness DISABLED",  # no field could be corroborated
 )
 
+# The two fields the identity half is made of. Which of them MOVED is reported by
+# `compute_stability` and decided per field in `apply_declaration_rule`; this tuple is
+# the fallback when no moving half can be named (identity not formed in some fire).
+_IDENTITY_HALF_FIELDS = ("mfr", "doc_id")
 
-def header_declaration_in_all_fires(corpus_by_fire, notice):
-    """Did the product declare a problem WITH THE HEADER, in every fire?
 
-    Narrower than `needs_review_in_all_fires`, and the narrowing is the point. A
-    degraded text layer sets `needs_review` unconditionally
-    (`SustainmentPlugin._apply_text_layer_stats`), and degradation is a permanent
-    property of a PDF -- TYC-PCN-24-210412 can never stop declaring it. So the broad
-    predicate granted that notice a PERMANENT exemption from header correctness, which
-    is the one notice whose header was measured wrong. An exemption no measurement can
-    ever revoke is not an exemption, it is an exclusion.
+def _declaration_field_base(field):
+    """Strip one trailing `_source` and return the rest; otherwise `field` unchanged.
 
-    What makes degradation the wrong declaration to accept here: the region witness
-    exists precisely to survive it. On a degraded notice the header fields are read
-    from CROPS of the page raster and cited verbatim, evidence the text layer had no
-    part in. A notice that supplied its header from pixels and still wrote the wrong
-    value has published a wrong value with no warning attached to it, which is exactly
-    what condition (e) is for.
+    The `_source` companion is the citation for the same field, not a field of its own.
+    The product declares problems about `doc_level_ltb_date`; it never writes
+    `header.doc_level_ltb_date_source refused`. Without this, a correct, specific
+    declaration would fail to exempt the companion and the rule would be stricter than
+    the ruling -- and the live TYC-PCN-24-210412 disagreement is on exactly that
+    companion, so this is not hypothetical."""
+    return field[:-len("_source")] if field.endswith("_source") else field
 
-    So the exemption now has to be earned by a reason that names the HEADER: a refused
-    field, a failed header pass, a lost or unlocatable region. Any of those does mean a
-    human sees the field before it counts. `needs_review` is still required as well --
+
+def _field_declaration_basis(corpus_by_fire, n, notice, field):
+    """What, if anything, fire `n` declared about `field` -- as a phrase for the report,
+    or None. The single place the vocabulary is read, so the predicate and the messages
+    cannot disagree about what counted."""
+    if not needs_review_in_fire(corpus_by_fire, n, notice):
+        return None
+    base = _declaration_field_base(field)
+    reasons = [str(r) for r in
+               ((corpus_by_fire.get(n, {}).get(notice) or {}).get("review_reasons") or [])]
+    for marker in _HEADER_WIDE_DECLARATION_MARKERS:
+        if any(marker in r for r in reasons):
+            return f"a header-wide reason ({marker!r}) covers every field"
+    if any(f"header.{base} refused" in r for r in reasons):
+        return f"a review reason names `{base}` (header.{base} refused)"
+    if any("region witness LOST" in r and base in r for r in reasons):
+        return f"a review reason names `{base}` (region witness LOST)"
+    return None
+
+
+def header_declaration_for_field_in_fire(corpus_by_fire, n, notice, field):
+    """Did fire `n` declare a problem with THIS header field of `notice`?
+
+    True iff `needs_review` is set in that fire AND its `review_reasons` carry either a
+    header-wide marker or a reason naming the field. `needs_review` is still required:
     a narrated reason on a document nobody is told to review is not a declaration.
-    """
-    if not needs_review_in_all_fires(corpus_by_fire, notice):
-        return False
-    for n in (1, 2, 3):
-        reasons = (corpus_by_fire.get(n, {}).get(notice) or {}).get("review_reasons") or []
-        blob = " ".join(str(r) for r in reasons)
-        if not any(m in blob for m in _HEADER_DECLARATION_MARKERS):
-            return False
-    return True
+    Read by the blank-fire rule directly (it is already per fire) and, three times, by
+    the all-fires predicate."""
+    return _field_declaration_basis(corpus_by_fire, n, notice, field) is not None
+
+
+def header_declaration_for_field_in_all_fires(corpus_by_fire, notice, field):
+    """`header_declaration_for_field_in_fire` in all three fires.
+
+    Narrower than any document-level reading of `needs_review`, on two axes. Per
+    NOTICE: a degraded text layer sets it unconditionally and permanently, which gave
+    the one notice with a measurably wrong header an exemption no measurement could
+    revoke -- the reason must name the header. Per FIELD: a reason naming `doc_id`
+    must not exempt `mfr`. The region witness exists to survive a degraded layer, so a
+    notice that wrote a wrong value from pixels with no declaration about THAT value has
+    published it with no warning attached, which is what condition (e) is for."""
+    return all(header_declaration_for_field_in_fire(corpus_by_fire, n, notice, field)
+               for n in (1, 2, 3))
+
+
+def _all_fires_basis(corpus_by_fire, notice, field):
+    """The distinct bases across the three fires, as one string (for an exempted line)."""
+    return "; ".join(sorted({_field_declaration_basis(corpus_by_fire, n, notice, field)
+                             for n in (1, 2, 3)}))
+
+
+def _why_not_declared(corpus_by_fire, notice, field, fires=(1, 2, 3)):
+    """For a blocking line: a MISSING flag and a flag about the WRONG field are
+    different defects with different fixes, and a red report must say which."""
+    base = _declaration_field_base(field)
+    unflagged = [n for n in fires if not needs_review_in_fire(corpus_by_fire, n, notice)]
+    where = "all three fires" if len(fires) == 3 else f"fire {fires[0]}"
+    if unflagged:
+        return (f"needs_review is not True in fire(s) {unflagged} "
+                f"(undeclared silent write of `{field}`)")
+    return (f"needs_review=True in {where} but no reason names `{base}` -- a declaration "
+            f"about another field is not a declaration about this one")
 
 
 def check_header_correctness(header_totals_by_fire, corpus_by_fire):
@@ -751,16 +841,18 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
     does not block, exactly as `rates_available` does. It also is not reported
     as zero failures.
 
-    THE DECLARATION EXEMPTION APPLIES HERE TOO, BUT NARROWED — see
-    `header_declaration_in_all_fires`. A notice the product flagged `needs_review`
-    in all three fires has not silently published a wrong value — a human sees it
-    before it counts — which is the same reasoning that exempts a disagreeing
-    notice in (d). But `needs_review` ALONE is too weak here: a degraded text
-    layer sets it unconditionally and permanently, so the broad predicate handed
-    the one notice with a measurably wrong header an exemption that no future
-    measurement could revoke. The reason must now NAME the header (a refused
-    field, a failed header pass, a lost region). The failure is reported either
-    way, and `strict_verdict` (which grants no exemptions) counts it regardless.
+    THE DECLARATION EXEMPTION APPLIES HERE TOO, BUT NARROWED TO THE FIELD — see
+    `header_declaration_for_field_in_all_fires`. A field the product flagged
+    `needs_review` for, in all three fires, has not silently published a wrong
+    value — a human sees it before it counts — which is the same reasoning that
+    exempts a disagreeing field in (d). But `needs_review` ALONE is too weak: a
+    degraded text layer sets it unconditionally and permanently, and the doc_id
+    precedence ruling narrates a `doc_id` reason on every notice, so a
+    document-level flag handed a measurably wrong `mfr` or `pub_date` an
+    exemption no measurement could revoke. The decision is therefore made per
+    `(notice, field)`: one notice may have one field exempted and another
+    blocking, and each gets its own line. The failure is reported either way, and
+    `strict_verdict` (which grants no exemptions) counts it regardless.
     """
     observed = {n: t for n, t in header_totals_by_fire.items() if t}
     block = {"observed": bool(observed), "fires": {}}
@@ -771,7 +863,7 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
                            "headers were not measured against ground truth at all.")
         return block, blocking, exempted
 
-    failures = {}  # notice -> {fire: [ "field (status)" ]}
+    failures = {}  # notice -> {field: {fire: status}}
     for n, t in sorted(observed.items()):
         block["fires"][n] = {
             "exact": t.get("exact"), "fields_scored": t.get("fields_scored"),
@@ -786,54 +878,97 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
         for status in pcn_score.HEADER_FAILURES:
             for located in t.get(status, []):
                 notice, _, field = located.partition(":")
-                failures.setdefault(notice, {}).setdefault(n, []).append(
-                    f"{field} ({status})")
+                failures.setdefault(notice, {}).setdefault(field, {})[n] = status
     block["failing_notices"] = sorted(failures)
 
-    for notice, by_fire in sorted(failures.items()):
-        detail = "; ".join(f"fire {n}: {', '.join(sorted(v))}"
-                           for n, v in sorted(by_fire.items()))
-        line = (f"{notice}: written header does not match ground truth — {detail} "
-                f"(pcn_ground_truth.json notices[{notice}].headers)")
-        if header_declaration_in_all_fires(corpus_by_fire, notice):
-            exempted.append(line + " — exempted: needs_review=True in all three fires "
-                                   "AND a review reason names the header")
-        else:
-            blocking.append(line)
+    for notice, by_field in sorted(failures.items()):
+        for field, by_fire in sorted(by_field.items()):
+            detail = "; ".join(f"fire {n}: {field} ({s})" for n, s in sorted(by_fire.items()))
+            line = (f"{notice}: written header `{field}` does not match ground truth — "
+                    f"{detail} (pcn_ground_truth.json notices[{notice}].headers)")
+            if header_declaration_for_field_in_all_fires(corpus_by_fire, notice, field):
+                exempted.append(line + " — exempted: needs_review=True in all three "
+                                       "fires and "
+                                + _all_fires_basis(corpus_by_fire, notice, field))
+            else:
+                blocking.append(line + " — blocking: "
+                                + _why_not_declared(corpus_by_fire, notice, field))
     return block, blocking, exempted
 
 
-def apply_declaration_rule(disagree_notices, identity_half_unstable, corpus_by_fire):
+def apply_declaration_rule(disagreements, identity_half_unstable, corpus_by_fire,
+                           identity_moving_fields=None):
+    """The all-fires declaration rule, decided PER FIELD.
+
+    `disagreements` is `compare_written_headers`'s per-field rows,
+    `(filename, field, [values])` -- NOT a collapsed notice set. Collapsing was the
+    defect: a reason about `doc_id` (narrated on every notice since the doc_id
+    precedence ruling) exempted a disagreement on `mfr`. Each row is exempt only if all
+    three fires declared a problem with THAT field
+    (`header_declaration_for_field_in_all_fires`).
+
+    THE IDENTITY HALF IS KEYED TO THE MOVING FIELD TOO. `identity_moving_fields[notice]`
+    is `compute_stability`'s report of which of `{mfr, doc_id}` actually differs across
+    the fires; EVERY field in it must be declared, in every fire, or the notice blocks.
+    A reason naming `doc_id` therefore no longer exempts an `mfr` that moved -- which
+    was the last place in this file where a declaration about one field bought an
+    exemption for another. Both fields are required when the caller supplies nothing
+    (the pre-2026-10-27 shape) and when identity could not be FORMED in some fire,
+    since an absent identity names no moving half."""
     blocking = []
     exempted = []
-    for notice in sorted(disagree_notices):
-        if needs_review_in_all_fires(corpus_by_fire, notice):
+    for notice, field, values in sorted(disagreements, key=lambda r: (r[0], r[1])):
+        if header_declaration_for_field_in_all_fires(corpus_by_fire, notice, field):
             exempted.append(
-                f"{notice}: written-header disagreement exempted — needs_review=True in all three fires"
+                f"{notice}: written-header disagreement on `{field}` {values!r} exempted — "
+                f"needs_review=True in all three fires and "
+                + _all_fires_basis(corpus_by_fire, notice, field)
             )
         else:
             blocking.append(
-                f"{notice}: WRITTEN header fields disagree across fires and needs_review is "
-                f"not True in all three fires (undeclared silent write)"
+                f"{notice}: WRITTEN header fields disagree across fires on `{field}` "
+                f"{values!r} — blocking: "
+                + _why_not_declared(corpus_by_fire, notice, field)
             )
+    moving_by_notice = identity_moving_fields or {}
     for notice in sorted(identity_half_unstable):
-        if needs_review_in_all_fires(corpus_by_fire, notice):
+        moving = tuple(moving_by_notice.get(notice) or _IDENTITY_HALF_FIELDS)
+        named = "/".join(moving)
+        # EVERY moving field, in EVERY fire. `any` here would be the collapsing
+        # defect again, one level down: `doc_id` declared, `mfr` moved, exempt.
+        bases = []
+        for n in (1, 2, 3):
+            per_field = [_field_declaration_basis(corpus_by_fire, n, notice, f)
+                         for f in moving]
+            bases.append("; ".join(per_field) if all(per_field) else None)
+        if all(bases):
             exempted.append(
-                f"{notice}: identity-half instability (mfr/doc_id differ across fires) "
-                f"exempted — needs_review=True in all three fires"
+                f"{notice}: identity-half instability (`{named}` differs across fires) "
+                f"exempted — needs_review=True in all three fires and "
+                + "; ".join(sorted(set(bases)))
             )
         else:
+            undeclared = [
+                f for f in moving
+                if not all(_field_declaration_basis(corpus_by_fire, n, notice, f)
+                           for n in (1, 2, 3))
+            ]
             blocking.append(
-                f"{notice}: identity half (mfr/doc_id) is unstable across fires and "
-                f"needs_review is not True in all three fires"
+                f"{notice}: identity half is unstable across fires on `{named}` — blocking: "
+                + _why_not_declared(corpus_by_fire, notice, undeclared[0])
+                + f" (every moving identity field must be declared; undeclared: "
+                  f"{', '.join(undeclared)})"
             )
     return blocking, exempted
 
 
 def apply_blank_fire_rule(blank_rows, corpus_by_fire):
     """The blank-fire rule: a header field that is blank in one fire and populated in
-    another is needs_review on the BLANK fire, always. `blank_rows` is
-    `compare_written_headers`'s `(filename, field, {fire_n: value}, [blank_fire_ns])`.
+    another is declared on the BLANK fire, always -- and declared FOR THAT FIELD
+    (`header_declaration_for_field_in_fire`), not merely `needs_review`: a flag raised
+    about `doc_id` says nothing about the `pub_date` that fire wrote as nothing.
+    `blank_rows` is `compare_written_headers`'s
+    `(filename, field, {fire_n: value}, [blank_fire_ns])`.
     Returns `(blocking, exempted)` message lists.
 
     THE BLANK FIRE, NOT ALL THREE. The blank fire is the one that wrote nothing while
@@ -850,16 +985,17 @@ def apply_blank_fire_rule(blank_rows, corpus_by_fire):
         populated = "; ".join(f"fire {m}={v!r}" for m, v in sorted(seen.items())
                               if m not in blank_fires)
         for n in blank_fires:
-            if needs_review_in_fire(corpus_by_fire, n, notice):
+            if header_declaration_for_field_in_fire(corpus_by_fire, n, notice, field):
                 exempted.append(
                     f"{notice}: `{field}` blank in fire {n}, populated in the others "
-                    f"({populated}) — exempted: needs_review=True in fire {n}"
+                    f"({populated}) — exempted: needs_review=True in fire {n} and "
+                    + _field_declaration_basis(corpus_by_fire, n, notice, field)
                 )
             else:
                 blocking.append(
                     f"{notice}: `{field}` is blank in fire {n} but populated in the "
-                    f"others ({populated}) and fire {n} did not set needs_review "
-                    f"(undeclared silent blank)"
+                    f"others ({populated}) — blocking, undeclared silent blank: "
+                    + _why_not_declared(corpus_by_fire, notice, field, fires=(n,))
                 )
     return blocking, exempted
 
@@ -869,8 +1005,8 @@ def apply_written_arm(written, corpus_by_fire):
     the all-fires declaration rule, blanks through the blank-fire rule, and ABSENT / no
     `written_header` as unexempted instrument gaps (a gate that cannot measure does not
     pass)."""
-    disagree_notices = sorted({fn for fn, _f, _v in written["disagreements"]})
-    blocking, exempted = apply_declaration_rule(disagree_notices, [], corpus_by_fire)
+    blocking, exempted = apply_declaration_rule(
+        written["disagreements"], [], corpus_by_fire)
     b2, e2 = apply_blank_fire_rule(written["blank_rows"], corpus_by_fire)
     blocking.extend(b2)
     exempted.extend(e2)
@@ -1057,7 +1193,47 @@ def parse_expectations(values):
     return out
 
 
-def check_image_identity(measured, expectations):
+IDENTITY_MODES = ("rolled", "pre_roll")
+
+
+def resolve_identity_mode(value):
+    """`rolled` (the default) or `pre_roll`, and an unknown value is an ERROR.
+
+    WHAT THE MODE IS FOR. It does not change a single score. It records what
+    the measured image WAS at the time of the fire, which a reader of the
+    committed report cannot otherwise recover:
+
+    - `rolled` — the image is the one the chart pins and the pods run. This
+      is every report this gate has ever written, and the identity check can
+      be corroborated from inside the cluster by whoever reads a pod's
+      `imageID`.
+    - `pre_roll` — the image was BUILT but is not pinned by any chart and no
+      pod is running it. The Job was created with an explicit image override
+      (`scripts/pcn_gate_prefire.py`) so that a pin-bump PR can carry a
+      report for the digest it lands, which is what closes the window where
+      a new pin has no measurement.
+
+    WHY UNKNOWN IS AN ERROR RATHER THAN A FALLBACK TO `rolled`. A typo would
+    otherwise produce a report labelled as a measurement of the deployed
+    system when it is nothing of the kind, and the label is the only thing
+    distinguishing the two. Defaulting the ABSENT case to `rolled` is
+    different and is safe: every report written before this existed was a
+    rolled fire, so the absence has one true meaning.
+    """
+    mode = (value or "rolled").strip() or "rolled"
+    if mode not in IDENTITY_MODES:
+        raise SystemExit(
+            f"unknown identity mode {mode!r}; expected one of "
+            f"{', '.join(IDENTITY_MODES)}. This is refused rather than "
+            f"defaulted: the mode is the only thing in the report that says "
+            f"whether the measured image was one any pod was running, and a "
+            f"report mislabelled `rolled` claims to describe the deployed "
+            f"system."
+        )
+    return mode
+
+
+def check_image_identity(measured, expectations, mode="rolled"):
     """Compare `measured_image` against what it was SUPPOSED to be.
 
     THE RULING (architect, 2026-10-02): "a report whose measured_image
@@ -1091,6 +1267,29 @@ def check_image_identity(measured, expectations):
     report whose image is pinned by a moving tag cannot be reconciled with
     anything, and `:latest` is exactly the case that made "what is sandbox
     running?" unanswerable for weeks.
+
+    `mode` IS RECORDED AND CHANGES NOTHING HERE, deliberately. A `pre_roll`
+    fire measures an image no pod is running, so there is no `imageID` for
+    anyone to supply and no chart that pins it: the expectation list is
+    normally empty and `checked` is therefore False — UNRECONCILED, which is
+    what this function already says in that case and what
+    `_render_image_identity` already prints above the scores. That is the
+    honest state and it must not be dressed up: the gate cannot read its own
+    digest (no Role, no kubectl — see above), so in `pre_roll` the digest in
+    `measured_image` is SELF-DECLARED by whoever created the Job.
+
+    What corroborates it is outside this process, in two places, and neither
+    is a claim this report gets to make about itself:
+
+    1. `scripts/pcn_gate_prefire.py` reads the pod's `imageID` after the Job
+       starts and refuses the fire if it is not the candidate — which is the
+       cheap moment to find out, before 2.5 hours of vision calls.
+    2. `tests/test_corpus_gate_guard.py` compares this report's
+       `measured_image` against the digest the chart pins, in CI, from the
+       two files. Two instruments, neither sourcing its own expectation.
+
+    An expectation supplied in `pre_roll` is still compared, and still voids
+    on a mismatch. Nobody should be silenced for having an answer.
     """
     measured_digest = _digest_of(measured)
     comparisons = []
@@ -1137,6 +1336,16 @@ def check_image_identity(measured, expectations):
         "checked": bool(comparisons),
         "comparisons": comparisons,
         "void_reasons": void_reasons,
+        # `rolled` or `pre_roll`. Carried here as well as at the top of the
+        # report so that this block, which is what a reader quotes when
+        # arguing about what was measured, cannot be quoted without it.
+        "mode": mode,
+        # True only in `pre_roll`, and it means: the digest above was asserted
+        # by whoever created the Job and NOT verified by this process. It is a
+        # separate key rather than a reading of `checked` because the two
+        # answer different questions -- `checked: false` says no comparison
+        # ran, this says no comparison COULD run from in here.
+        "self_declared": mode == "pre_roll",
     }
 
 
@@ -1276,7 +1485,7 @@ def aggregate_seal_totals(totals_by_fire):
     return block
 
 
-def score_fires(base_dir, fires, expectations=None):
+def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
     blocking = []
     exempted = []
 
@@ -1428,7 +1637,8 @@ def score_fires(base_dir, fires, expectations=None):
     identity_records = build_identity_records(headers_by_fire)
     collapse = compute_collapse(identity_records)
     all_filenames = sorted(set().union(*[set(h) for h in headers_by_fire.values()]) or set())
-    identity_half_unstable, revision_half_unstable = compute_stability(identity_records, all_filenames)
+    identity_half_unstable, revision_half_unstable, identity_moving_fields = compute_stability(
+        identity_records, all_filenames)
 
     # (b') The BLOCKING header arm: the WRITTEN values, compared across the fires. Uses
     # `from_corpus` (the recorded written_header per fire) even when identity fell back
@@ -1440,7 +1650,7 @@ def score_fires(base_dir, fires, expectations=None):
 
     # (d) The declaration rule.
     d_blocking, d_exempted = apply_declaration_rule(
-        [], identity_half_unstable, corpus_by_fire)
+        [], identity_half_unstable, corpus_by_fire, identity_moving_fields)
     blocking.extend(d_blocking)
     exempted.extend(d_exempted)
     w_blocking, w_exempted = apply_written_arm(written, corpus_by_fire)
@@ -1458,7 +1668,7 @@ def score_fires(base_dir, fires, expectations=None):
     # other verdicts: see check_image_identity for why a mismatch is neither
     # a pass nor a fail.
     image_identity = check_image_identity(
-        os.environ.get("DOC_TOOLS_IMAGE") or None, expectations)
+        os.environ.get("DOC_TOOLS_IMAGE") or None, expectations, identity_mode)
 
     verdict = "pass" if (fires_ok and not blocking) else "fail"
     if image_identity["void_reasons"]:
@@ -1485,6 +1695,12 @@ def score_fires(base_dir, fires, expectations=None):
         "strict_verdict": strict_verdict,
         "generated_at": _utcnow_iso(),
         "measured_image": os.environ.get("DOC_TOOLS_IMAGE") or None,
+        # `rolled` (the chart pins it and pods run it) or `pre_roll` (built,
+        # measured, pinned by nothing yet). ABSENT in every report written
+        # before 2026-10-27, and absent means `rolled` -- see
+        # `resolve_identity_mode` for why the absent case defaults and an
+        # unknown one does not.
+        "identity_mode": identity_mode,
         "measured_pin_note": os.environ.get("DOC_TOOLS_PIN_NOTE") or None,
         # WHICH comparisons ran, and what each one found. `checked: false`
         # means none ran — a report that was never reconciled with the chart
@@ -1551,6 +1767,11 @@ def score_fires(base_dir, fires, expectations=None):
             "collapses": collapse["collapses"],
             "incomplete_identity": collapse["incomplete_identity"],
             "identity_half_unstable": identity_half_unstable,
+            # Which of {mfr, doc_id} actually moved, per notice. The declaration rule
+            # keys on this: a reason naming the other one exempts nothing. Both are
+            # listed when identity could not be FORMED in some fire.
+            "identity_moving_fields": {k: list(v)
+                                       for k, v in sorted(identity_moving_fields.items())},
             "revision_half_unstable": revision_half_unstable,
         },
         "blocking": blocking,
@@ -1827,15 +2048,54 @@ def _render_image_identity(identity):
                 "image-identity check (it carries no `image_identity` block), so "
                 "whether it measured the declared image is **unknown**.")
     out = ["### Identity", ""]
+    pre_roll = identity.get("mode") == "pre_roll"
+    if pre_roll:
+        out.append(
+            "**PRE-ROLL FIRE.** This report measures an image that was BUILT "
+            "and that no chart pins; no pod was running it. It is a "
+            "measurement of that image's own extraction code against the "
+            "model hosts, which is the whole of what this gate ever "
+            "measures — but it is NOT a statement about the deployed "
+            "system, and it becomes the authority for this digest only when "
+            "a pin bump carrying it merges."
+        )
+        out.append("")
+        out.append(
+            "The digest below is **self-declared**: it is what whoever "
+            "created the Job said the image was, and this process cannot "
+            "check it — the gate's ServiceAccount has no Role and the "
+            "container carries no kubectl, so it cannot read its own "
+            "`imageID`. Two things outside this report corroborate it, and "
+            "a reader who needs the identity proven should look at them "
+            "rather than at this section: `scripts/pcn_gate_prefire.py` "
+            "compares the pod's `imageID` to the candidate before the run "
+            "spends its GPU time, and the CI guard compares this report's "
+            "`measured_image` to the digest the chart pins."
+        )
+        out.append("")
     if not identity.get("checked"):
         out.append(
             "**NOT RECONCILED.** No expectation was supplied (`--expect-image` / "
             "`PCN_GATE_EXPECT_IMAGE`), so this run never compared the image it "
-            "measured against the chart's pin or the pods' `imageID`. That is "
-            "not a pass of the identity check — it is the absence of one, and "
-            "the verdict below is only as trustworthy as the unverified claim "
-            "that `DOC_TOOLS_IMAGE` is the right image."
+            "measured against the chart's pin or the pods' `imageID`."
         )
+        out.append("")
+        if pre_roll:
+            out.append(
+                "In a pre-roll fire that is the EXPECTED state and not a "
+                "defect: the chart pins the OLD image, so a `chart=` "
+                "expectation would void this report by construction, and "
+                "there is no pod to read an `imageID` from. It is still the "
+                "absence of an identity check and not a pass of one — what "
+                "stands in for it is named above."
+            )
+        else:
+            out.append(
+                "That is not a pass of the identity check — it is the "
+                "absence of one, and the verdict below is only as "
+                "trustworthy as the unverified claim that `DOC_TOOLS_IMAGE` "
+                "is the right image."
+            )
         return "\n".join(out)
     out.append(f"- measured digest: `{identity.get('measured_digest') or 'none — not a digest'}`")
     out.append("")
@@ -1893,6 +2153,12 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     lines.append(f"- `DOC_TOOLS_IMAGE`: {report['measured_image'] or 'not set'}")
     lines.append(f"- `DOC_TOOLS_PIN_NOTE`: {report['measured_pin_note'] or 'not set'}")
+    # `rolled` is stated as well as `pre_roll`, rather than printed only
+    # when it is interesting. A section that is silent in the ordinary case
+    # teaches a reader that silence means ordinary, and then an older report
+    # with no mode at all reads as a rolled fire by the same silence when it
+    # is in fact unlabelled.
+    lines.append(f"- identity mode: `{report.get('identity_mode') or 'not recorded'}`")
     lines.append("")
     lines.append(_render_image_identity(report.get("image_identity")))
     lines.append("")
@@ -2030,7 +2296,10 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     lines.append("")
     lines.append("### Identity-half unstable across fires (BLOCKS unless declared)")
     lines.append("")
-    lines.append(", ".join(ident["identity_half_unstable"]) or "(none)")
+    _moving = ident.get("identity_moving_fields") or {}
+    lines.append(", ".join(
+        f"{fn} (`{'/'.join(_moving[fn])}` moved)" if _moving.get(fn) else fn
+        for fn in ident["identity_half_unstable"]) or "(none)")
     lines.append("")
     lines.append("### Revision-half unstable across fires (never blocks)")
     lines.append("")
@@ -2095,7 +2364,16 @@ def dated_report_name(generated_at):
     return "report-%s.md" % generated_at.replace(":", "")
 
 
-def main(argv):
+def build_parser():
+    """The CLI, as its own function so a default can be ASSERTED.
+
+    Extracted from `main` for one reason: `--identity-mode` has to default
+    to None so that PCN_GATE_IDENTITY_MODE is reachable, and a default
+    nobody can read is a default nobody can test. The pre-roll path
+    overrides ENV, not argv -- it copies the CronJob command verbatim --
+    so if this flag ever acquires a non-None default the override goes
+    inert and every pre-roll report is labelled `rolled`.
+    """
     parser = argparse.ArgumentParser(
         description="Score the PCN/PDN corpus harness as a release gate: three "
                      "sequential fires, header agreement, and notice identity "
@@ -2142,6 +2420,31 @@ def main(argv):
                               "Supplying nothing leaves the run UNRECONCILED, "
                               "which the report says in as many words -- it is "
                               "not a pass of this check.")
+    parser.add_argument("--identity-mode", default=None,
+                         choices=IDENTITY_MODES,
+                         help="What the measured image IS, relative to the "
+                              "chart: `rolled` (default) means the chart pins "
+                              "it and the pods run it; `pre_roll` means it was "
+                              "BUILT and measured before anything pins it, so "
+                              "a pin-bump PR can carry a report for the digest "
+                              "it lands. It changes no score and no verdict -- "
+                              "it is a LABEL on the report, and the only thing "
+                              "that tells a later reader whether the measured "
+                              "image was one any pod was running. In `pre_roll` "
+                              "the digest is self-declared by whoever created "
+                              "the Job (this process cannot read its own: no "
+                              "Role, no kubectl), and the report says so. "
+                              "Defaults to PCN_GATE_IDENTITY_MODE, then "
+                              "`rolled`; an unknown value is refused rather "
+                              "than defaulted. Set by "
+                              "scripts/pcn_gate_prefire.py, which is also what "
+                              "corroborates the digest, from the pod imageID, "
+                              "before the run spends its GPU time.")
+    return parser
+
+
+def main(argv):
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     # The pods' imageID cannot be read from inside the gate's Job: its
@@ -2154,6 +2457,14 @@ def main(argv):
         args.expect_image
         if args.expect_image is not None
         else [os.environ.get("PCN_GATE_EXPECT_IMAGE", "")]
+    )
+
+    # Validated here, before any fire runs, so a typo costs nothing instead of
+    # 2.5 hours of vision calls and a mislabelled report.
+    identity_mode = resolve_identity_mode(
+        args.identity_mode
+        if args.identity_mode is not None
+        else os.environ.get("PCN_GATE_IDENTITY_MODE")
     )
 
     if args.from_logs:
@@ -2171,7 +2482,8 @@ def main(argv):
         fires = run_fires(base_dir)
         command_str = f"{sys.executable} scripts/pcn_corpus_gate.py --run"
 
-    report, header_stdout = score_fires(base_dir, fires, expectations)
+    report, header_stdout = score_fires(
+        base_dir, fires, expectations, identity_mode)
 
     # Report dir default is docs/corpus-gate, relative to repo root. ^docs/ is
     # the ENTIRE paths-ignore list on the build workflow, so a committed report

@@ -125,7 +125,9 @@ def test_comfortable_crop_trips_neither_truncation_nor_near_cap_counters(plugin,
 # --------------------------------------------------------------------------- #
 def test_a_completed_crop_short_of_tier_1s_row_count_is_flagged(plugin, monkeypatch):
     seventeen = [_part(f"MPN{i}") for i in range(17)]
-    _patch_b(monkeypatch, [seventeen])
+    # The short crop is now re-sampled once; the second read is no better, so the first
+    # is kept and the finding is unchanged.
+    _patch_b(monkeypatch, [seventeen, list(seventeen)])
     _patch_tokens(monkeypatch, round(VISION_MAX_TOKENS * 0.1))     # comfortable — a clean success
     decline = {"page_number": 2, "reason": "no column header, nothing to inherit, and no "
                                            "caption naming the contents",
@@ -146,7 +148,8 @@ def test_multiple_declines_on_one_page_produce_at_most_one_finding(plugin, monke
     positives were exactly this). The finding takes the MAX across the page's declines,
     not the sum."""
     sixteen = [_part(f"MPN{i}") for i in range(16)]
-    _patch_b(monkeypatch, [sixteen])
+    # Re-sampled once against the page max (20); the second read is no better.
+    _patch_b(monkeypatch, [sixteen, list(sixteen)])
     _patch_tokens(monkeypatch, round(VISION_MAX_TOKENS * 0.1))
     declines = [
         {"page_number": 2, "reason": "declined", "n_rows": 18, "n_grid_rows": 18},

@@ -283,7 +283,17 @@ autoscaling:
 # minutes end to end — so it is opt-in per environment, not on by default.
 corpusGate:
   enabled: false
+  # INERT. Kept only because a CronJob without `schedule` is rejected by the
+  # API server; `suspend` below is what decides whether it fires.
   schedule: "0 7 * * *"
+  # THE CLOCK IS OFF -- architect ruling of 2026-10-27, relayed by Chris: the
+  # gate runs only when something changed and someone will read the result.
+  # MEASURED, why it matters: one run is three sequential fires of ~49 min,
+  # and 99% of that wall clock is spent waiting on model calls -- 47 vision
+  # calls per fire (2412 s of a 3060 s fire) to an endpoint that serves one
+  # model at a time, plus 10 header calls (323 s). Nightly, over the same ten
+  # notices, whether or not a pin moved and whether or not anyone read it.
+  suspend: true
   # Defaults live under /tmp in-cluster, NOT docs/corpus-gate: the image's
   # /app is not a git checkout, so a report written to a repo-shaped path in
   # the pod would still be a file in a container. The report leaves the pod
@@ -368,7 +378,22 @@ corpusGate:
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
-  resources: {}
+  # SIZED FROM MEASUREMENT, 2026-10-27, on the 07:00Z run mid-fire-2:
+  # 4 millicores and 633 MiB. The work is not compute -- it is ~99% blocked
+  # on network waiting for vision and header calls -- so the requests are a
+  # scheduling floor, not a sizing. Before this the container had NO requests
+  # and NO limits: unbounded, and first to be evicted under node pressure,
+  # which for a 145-minute run means losing it at minute 140.
+  # The memory limit is deliberately well above the measurement: an OOM kill
+  # late in a run destroys three fires of GPU time, so the limit is here to
+  # bound a leak, not to size the job.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
 
 nodeSelector: {}
 tolerations: []

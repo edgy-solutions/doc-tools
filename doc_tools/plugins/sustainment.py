@@ -134,6 +134,9 @@ def _read_one_region(b, Image, media: str, b64: str, instructions: str, name: st
     A TIMEOUT is NOT retried. There is a hard ~300s server-side ceiling that is not ours
     and not configurable from this repo, and retrying into it turns a 300s stall into a
     600s one for the same answer. Only a fast rejection earns the second call.
+
+    The parts crop has the same retry in `_extract_parts_once`; the two detect a timeout
+    the same way so they cannot disagree about what one is.
     """
     try:
         return b.ReadRegion(region_image=Image.from_base64(media, b64),
@@ -147,6 +150,55 @@ def _read_one_region(b, Image, media: str, b64: str, instructions: str, name: st
         return b.ReadRegion(region_image=Image.from_base64(media, b64),
                             system_instructions=instructions,
                             baml_options=_vision_call_opts()[0])
+
+
+def _extract_parts_once(b, ocr, html, images, prompt):
+    """ONE `ExtractParts` crop read, with ONE retry on a fast rejection. Returns
+    `(res, collector)` for the attempt that answered.
+
+    Same retry as `_read_one_region`, for the same measured host behaviour: onsemi_Generic_
+    IPCN25300X.pdf lost 17 parts in the 2026-10-26 09:33Z gate run (fire 2) when the sixth
+    `ExtractParts` call -- the one crop carrying 17 of its 19 MPNs -- came back HTTP 400
+    `Failed to load image or audio file`, 0 rows, 2/19, `crops_failed=1`. The crop geometry
+    was identical in all six fires of the two runs, so the rejection is not a property of
+    the image, and the parts path used to accept whatever the first call returned.
+
+    A fresh `_vision_call_opts()` is built PER ATTEMPT: a reused collector would report the
+    first attempt's token usage against the second attempt's rows, and
+    `_vision_output_tokens` drives the truncation decision.
+
+    A TIMEOUT is NOT retried. There is a hard ~300s server-side ceiling that is not ours,
+    and retrying into it turns a 300s stall into a 600s one for the same answer; it is
+    detected exactly as `_read_one_region` detects it. If the retry also raises, it
+    propagates and the caller counts the crop failed, which is the correct outcome.
+    """
+    opts, collector = _vision_call_opts()
+    try:
+        res = b.ExtractParts(ocr_text=ocr, html_table=html, table_images=images,
+                             system_instructions=prompt, baml_options=opts)
+        return res, collector
+    except Exception as e:  # noqa: BLE001
+        if "timeout" in type(e).__name__.lower():
+            raise
+        print(f"[SustainmentPlugin] ExtractParts first attempt failed ({e}) — retrying "
+              f"once with the SAME bytes, which is the measured shape of this failure")
+    opts, collector = _vision_call_opts()
+    res = b.ExtractParts(ocr_text=ocr, html_table=html, table_images=images,
+                         system_instructions=prompt, baml_options=opts)
+    return res, collector
+
+
+def _best_declined_grid(declines_by_page, page_no):
+    """The declined grid on `page_no` with the most rows, or None. Only declines at or
+    above MIN_ROW_SHORT_BASELINE count.
+
+    ONE definition of "what tier 1 counted on this page", used by BOTH the in-loop
+    re-sample of a short crop and the post-loop row-short detector, so a crop can never
+    be re-sampled against one number and then judged against another.
+    """
+    ds = [d for d in (declines_by_page.get(page_no) or [])
+          if (d.get("n_rows") or 0) >= MIN_ROW_SHORT_BASELINE]
+    return max(ds, key=lambda d: d["n_rows"]) if ds else None
 
 
 def _crop_region_b64(s3_client, s3_url: str, region: dict):
@@ -1005,6 +1057,8 @@ class SustainmentPlugin(AugmentationPlugin):
         n_crops, missing, failed, truncated, near_cap = 0, 0, 0, 0, 0
         grid_forwarded, grid_label_failed, grid_rows_emitted = 0, 0, 0
         grid_no_parts_col = 0
+        resampled, resample_recovered = 0, 0
+        resample_detail: List[dict] = []
         tl_repairs: List[dict] = []
         # The row-short cross-check needs, PER PAGE, how many rows vision actually
         # returned and whether that page's crop is already known-bad (failed/truncated).
@@ -1063,10 +1117,7 @@ class SustainmentPlugin(AugmentationPlugin):
             else:
                 missing += 1  # borderless / undetected-crop table -> OCR+HTML only
             try:
-                opts, collector = _vision_call_opts()
-                res = b.ExtractParts(ocr_text=ocr, html_table=html,
-                                     table_images=images, system_instructions=prompt,
-                                     baml_options=opts)
+                res, collector = _extract_parts_once(b, ocr, html, images, prompt)
                 # TRUNCATION IS A FAILURE, NOT A PARTIAL SUCCESS. BAML fails OPEN here:
                 # a response cut at the cap parses to whatever complete objects it can
                 # and raises nothing, so accepting it would report "25 of 41 parts" as
@@ -1093,6 +1144,42 @@ class SustainmentPlugin(AugmentationPlugin):
                         print(f"[SustainmentPlugin] ExtractParts NEAR CAP: {used}/"
                               f"{VISION_MAX_TOKENS} output tokens ({ratio:.0%}) — this crop "
                               f"completed, but a denser table would truncate and lose rows")
+                # RE-SAMPLE A SHORT CROP ONCE. Measured on onsemi_Generic_IPCN25300X.pdf:
+                # the same prompt (2563 input tokens) on the same crop in the same
+                # invocation returned 8 rows in one fire and 17 in the next, both with
+                # StopReason `stop`, so a short read is the host being unreliable and not a
+                # property of the image. Only the page's FIRST successful crop is compared:
+                # a later crop of a banded table is expected to return fewer rows than the
+                # page total. The bar is `_best_declined_grid`, the SAME number the post-loop
+                # row-short detector judges against.
+                best = _best_declined_grid(declines_by_page, page_no)
+                if (best is not None and rows_by_page.get(page_no, 0) == 0
+                        and len(res or []) < best["n_rows"]):
+                    resampled += 1
+                    first_rows = len(res or [])
+                    second_rows, kept = None, "first"
+                    # A re-sample must never be able to make a crop worse than not
+                    # re-sampling it: on ANY exception the first attempt's rows are kept.
+                    try:
+                        res2, collector2 = _extract_parts_once(b, ocr, html, images, prompt)
+                        used2 = _vision_output_tokens(collector2)
+                        second_rows = len(res2 or [])
+                        truncated2 = used2 is not None and used2 >= VISION_MAX_TOKENS
+                        # Never merged: the two are reads of the same crop, so
+                        # concatenating them would double every row they share.
+                        if not truncated2 and second_rows > first_rows:
+                            res, kept = res2, "second"
+                            resample_recovered += 1
+                    except Exception as e2:  # noqa: BLE001
+                        print(f"[SustainmentPlugin] re-sample on page {page_no} raised "
+                              f"({e2}) — keeping the first attempt's {first_rows} row(s)")
+                    print(f"[SustainmentPlugin] re-sampled a short crop on page {page_no}: "
+                          f"tier 1 counted {best['n_rows']}, first attempt {first_rows}, "
+                          f"second attempt {second_rows} — kept the {kept}")
+                    resample_detail.append({"page_number": page_no,
+                                            "tier1_rows": best["n_rows"],
+                                            "first_rows": first_rows,
+                                            "second_rows": second_rows, "kept": kept})
                 # SUCCESS PATH ONLY — a page that reaches here neither truncated nor
                 # raised, so its row count is a fair thing to compare against tier 1's.
                 # Accumulated rather than assigned: a table that spans multiple crops on
@@ -1164,12 +1251,14 @@ class SustainmentPlugin(AugmentationPlugin):
         # declined on a given page.
         row_short: List[Dict[str, Any]] = []
         for page, all_ds in declines_by_page.items():
-            ds = [d for d in all_ds if (d.get("n_rows") or 0) >= MIN_ROW_SHORT_BASELINE]
             # Baseline floor: a DECLINED grid is one whose columns could not be
             # decided, so its row count is not confident enough evidence to accuse
             # the vision pass below this many rows — see MIN_ROW_SHORT_BASELINE.
-            if not ds:
+            best = _best_declined_grid(declines_by_page, page)
+            if best is None:
                 continue
+            n_declines = sum(1 for d in all_ds
+                             if (d.get("n_rows") or 0) >= MIN_ROW_SHORT_BASELINE)
             if page not in rows_by_page:
                 continue  # vision never produced a successful crop for this page at all
             if page in failed_pages:
@@ -1179,10 +1268,9 @@ class SustainmentPlugin(AugmentationPlugin):
                 # that completed, reported no error, and still came back short — so a
                 # page already known bad for a different, louder reason is skipped.
                 continue
-            best = max(ds, key=lambda d: d["n_rows"])
             if rows_by_page[page] < best["n_rows"]:
                 row_short.append({"page_number": page, "tier1_rows": best["n_rows"],
-                                  "vision_rows": rows_by_page[page], "n_declines": len(ds)})
+                                  "vision_rows": rows_by_page[page], "n_declines": n_declines})
         # PER-ROW boxes for vision rows that have no cell geometry (IDT: one flattened
         # cell, so every row would otherwise share the enclosing table rectangle). Only
         # a COUNT goes into the stats: the word index must not bloat the manifests.
@@ -1191,6 +1279,9 @@ class SustainmentPlugin(AugmentationPlugin):
                            "crops_failed": failed, "crops_truncated": truncated,
                            "crops_near_cap": near_cap, "crops_row_short": len(row_short),
                            "row_short_detail": row_short,
+                           "crops_resampled": resampled,
+                           "crops_resample_recovered": resample_recovered,
+                           "resample_detail": resample_detail,
                            "grid_forwarded": grid_forwarded, "grid_label_failed": grid_label_failed,
                            "grid_rows_emitted": grid_rows_emitted,
                            "grid_no_parts_col": grid_no_parts_col,
@@ -1574,6 +1665,8 @@ class SustainmentPlugin(AugmentationPlugin):
         ocr_norm = provenance._norm(full_text)
         stats = {"n_tables": 0, "n_crops_used": 0, "crops_missing": 0, "crops_failed": 0,
                  "crops_truncated": 0, "crops_near_cap": 0, "crops_row_short": 0,
+                 "crops_resampled": 0, "crops_resample_recovered": 0,
+                 "resample_detail": [],
                  "vision_used": False, "grid_forwarded": 0, "grid_label_failed": 0,
                  "grid_rows_emitted": 0, "grid_no_parts_col": 0,
                  "text_layer_repairs": 0, "text_layer_repair_detail": []}

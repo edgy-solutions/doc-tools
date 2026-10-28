@@ -225,18 +225,24 @@ def _gate():
 
 
 def test_a_recovered_cut_claims_no_header_exemption(monkeypatch):
-    """`pcn_corpus_gate.header_declaration_in_all_fires` matches
-    `_HEADER_DECLARATION_MARKERS` as SUBSTRINGS of `review_reasons`, and a declaration
-    about the header exempts that notice's header fields from correctness. A pass that
-    was cut and then ANSWERED has no header problem, so its reason is phrased to match
-    none of those markers -- asserted against the gate's own tuple rather than a copy of
-    it, so adding a marker that catches this phrasing fails here.
+    """`pcn_corpus_gate.header_declaration_for_field_in_fire` matches
+    `_HEADER_WIDE_DECLARATION_MARKERS` (and the per-field `header.<field> refused` /
+    `region witness LOST` shapes) as SUBSTRINGS of `review_reasons`, and a declaration
+    exempts header fields from correctness. A pass that was cut and then ANSWERED has no
+    header problem, so its reason is phrased to match none of those -- asserted against
+    the gate's own tuple rather than a copy of it, so adding a marker that catches this
+    phrasing fails here, and through the predicate itself for the per-field shapes.
     """
     aug, _ = _run(monkeypatch, _CancelsThenAnswers())
     cut = [r for r in aug.review_reasons if "header pass cut" in r]
     assert len(cut) == 1, aug.review_reasons
-    markers = _gate()._HEADER_DECLARATION_MARKERS
+    gate = _gate()
+    markers = gate._HEADER_WIDE_DECLARATION_MARKERS
     assert not [m for m in markers if m in cut[0]]
+    corpus = {n: {"N.pdf": {"needs_review": True, "review_reasons": [cut[0]]}}
+              for n in (1, 2, 3)}
+    for field in ("mfr", "doc_id", "pub_date", "doc_level_ltb_date"):
+        assert not gate.header_declaration_for_field_in_all_fires(corpus, "N.pdf", field)
     assert not [r for r in aug.review_reasons if "header pass failed" in r]
 
 

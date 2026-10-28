@@ -24,6 +24,12 @@ metadata:
     {{- include "doc-tools.labels" . | nindent 4 }}
 spec:
   schedule: {{ .Values.corpusGate.schedule | quote }}
+  # THE CLOCK IS OFF BY RULING, not by deleting the schedule: the API server
+  # rejects a CronJob with no `schedule`, so the field above stays and this is
+  # what decides whether anything fires. The CronJob is kept for its Job
+  # template, which `kubectl create job --from=cronjob/...` copies -- that is
+  # now the only way a gate run starts.
+  suspend: {{ .Values.corpusGate.suspend }}
   # Two overlapping gate runs would both hit a vision endpoint that serves one
   # model at a time and would contend and mis-time each other (the same reason
   # pcn_corpus_gate.py itself runs its three fires strictly sequentially).
