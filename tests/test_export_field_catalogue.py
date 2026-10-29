@@ -408,6 +408,19 @@ def test_baml_producer_fields_match_the_catalogue():
         f"The row.source_snippet entry that carries the three *_source names is "
         f"missing. {hint}"
     )
+    # TOTAL, as the header leg above already is. Asserting only that the three
+    # VALUE fields are claimed left the part side one-way: a seventh
+    # ImpactedPart property arriving from a BAML regen would be claimed by no
+    # entry, and nothing here would say so -- the catalogue would quietly stop
+    # naming every promoted field while every assertion stayed green. The three
+    # `*_source` names are exempt because `row.source_snippet` claims them
+    # collectively, by row, and that entry is required just above.
+    assert part_set <= part_claimed | sources, (
+        f"ImpactedPart fields {sorted(part_set - part_claimed - sources)} are "
+        f"claimed by no catalogue entry. Every promoted field must be named: "
+        f"add an entry, or extend the `row.source_snippet` exemption if it is "
+        f"another verbatim-source sibling. {hint}"
+    )
 
 
 # ---------------------------------------------------------------- Leg 8
