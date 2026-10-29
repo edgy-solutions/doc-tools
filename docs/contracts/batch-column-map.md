@@ -272,3 +272,43 @@ than implicit ones.
    prior art only, and note it is an **inbound** parser despite the name.
 5. **Where profiles are stored and how they are picked.** That is the ledger
    route, and this vocabulary is reviewed against it rather than specifying it.
+
+## 12. External corroboration: LlamaIndex's Document Parsing Protocol
+
+**Nothing in this contract binds to DPP.** This section cites an external draft
+that independently reaches some of the same conclusions as the rulings above. It
+adds no requirement, closes no vocabulary, and changes no validation. It is here so
+that a reader asking "is this rule just our habit?" has an answer, and
+`contract_version` is deliberately **not** bumped by its addition.
+
+> *Document Parsing Protocol*, LlamaIndex — working draft 0.1, repo
+> `run-llama/document_parsing_protocol` at commit `a9c49e2` (2026-10-27),
+> <https://parseprotocol.com>. Licensed **CC BY 4.0**
+> (<https://creativecommons.org/licenses/by/4.0/>). Rule text below is quoted
+> verbatim and cited by the draft's own `rule_id`; the mapping to our sections, and
+> the selection of which rules to quote, are our changes and our responsibility, not
+> LlamaIndex's.
+>
+> DPP specifies a **document representation** (faithful Markdown/HTML per source
+> document). This contract specifies a **field export**. The two overlap only on
+> what a parsing stage must decide, which is why the citations below are partial by
+> nature.
+
+| this contract | DPP rule | what it corroborates |
+|---|---|---|
+| §1 (resolve or refuse), §9 (producibility gate) | `principles-never-drop-never-invent` | that an unresolvable column must be refused rather than filled. DPP's formulation: content is never invented to satisfy a shape. |
+| §3 (a no-parts notice emits one flagged row, not zero rows) | `tables-header-only-tables` | that an absence must be *stated* rather than represented by nothing. DPP refuses an orphan header standing alone as a table for the same reason we refuse zero rows: nothing is indistinguishable from not-processed. |
+| §4 (`absent_row: empty_cell`) | `tables-header-body-column-count-mismatch` — pad the short side with empty cells, and "MUST NOT be padded with a duplicated or invented value" | that the correct filler for a missing position is an **empty cell**, never a repeated neighbouring value. This is `absent_row: empty_cell` arrived at independently. |
+| §5–§6 (an ambiguous date lands verbatim, is not guessed) | `principles-the-page-is-the-ground-truth` — text is transcribed verbatim, typos included; `forms-values-are-verbatim` | that the printed form is what survives. Our `landing` column is the place to put it; DPP has no landing concept, having no export, but its verbatim rule is the same commitment. |
+| §6 (`format: iso8601` with a landing escape, never a normalised twin) | `tables-accounting-number-formats` — "The output MUST NOT carry a normalised twin of the value beside it, and MUST NOT replace the printed form with a normalised one." | that normalising in place is the error. Note we apply this to the *landed* value, while the mapped column is by design normalised — our two-column shape is the reconciliation, not an exception. |
+| §7 (`change_type` closed, free text to `change_type_note`) | `tables-cell-text-fidelity` | that unparseable text keeps a home of its own rather than being forced into a closed vocabulary. |
+| §8 (manufacturer class buckets by printed name shape only — no gazetteer, no parent lookup, no network) | `principles-the-page-is-the-ground-truth` | that the page, not an external register, is the authority on what the document says. |
+
+**One divergence, recorded rather than reconciled.** `strip_enclosing_quotes`
+removes a balanced enclosing quote pair from an MPN before it becomes a join key.
+Under `tables-accounting-number-formats` that is non-conforming. We keep it: our MPN
+is a key, not a transcription, and the un-stripped form (`"090-44310-31"`, quotes
+included) matches nothing downstream. The full rule-by-rule comparison, including
+the four misses found by running DPP's two example PDFs through our tier-1
+extractor, is in
+[`sessions/2026-10-29-report-7f-the-document-parsing-protocol-tabled-against-the-ten.md`](../../sessions/2026-10-29-report-7f-the-document-parsing-protocol-tabled-against-the-ten.md).
