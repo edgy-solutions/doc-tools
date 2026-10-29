@@ -99,7 +99,12 @@ def test_training_asset_fails_the_run_but_indexes_the_other_slides(monkeypatch):
     cid = "sha256:" + "c" * 64
     client = _FakeS3Client()
     weaviate = FakeWeaviate()
-    with pytest.raises(sa.MissingVectorError, match="1 training chunk"):
+    # `_graph_run` stubs `augment` to raise on every chunk, so the run now fails
+    # first as failed:concept_parse (AugmentationError, raised ahead of the
+    # MissingVectorError block). It used to swallow that and reach
+    # MissingVectorError; the indexing of the other slides, which is what this
+    # test is about, is unchanged and still asserted below.
+    with pytest.raises(sa.AugmentationError, match="failed:concept_parse"):
         _graph_run(_manifest(client, "training", cid), client, monkeypatch,
                    weaviate=weaviate, reraise=True)
     ids = [o["properties"]["chunk_id"] for o in weaviate.objects]

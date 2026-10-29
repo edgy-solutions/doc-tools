@@ -563,6 +563,18 @@ def test_the_image_identity_block_is_present_and_consistent():
     now a finding. See the module docstring for the remedy when this reds —
     which is to make the gate reconcile, never to restore the early return.
 
+    NARROWED 2026-10-29 FOR `pre_roll`, AND ONLY FOR `pre_roll`. A pre-roll
+    report cannot reconcile and is not supposed to: no pod runs the candidate,
+    no chart pins it, and the prefire script blanks the expectation on purpose.
+    The unconditional `checked is True` therefore made the required check
+    unpassable for the very strategy pre-roll exists to enable, and its stated
+    remedy was unreachable before the roll. The relaxation is bounded: it
+    applies in no other mode, it still requires the producer's own
+    `self_declared` flag to agree, and it demands the substitute instrument
+    the producer names in `check_image_identity` — this file comparing the
+    report's measured digest against the chart's pin. The early return is not
+    back: a report with no identity block still fails above.
+
     NOTE ON THE DIGEST CHECK at the end. The old test could only ask whether
     the producer LABELLED each comparison a match. That trusts a label against
     the data sitting beside it, which is the failure this repo keeps paying
@@ -590,16 +602,71 @@ def test_the_image_identity_block_is_present_and_consistent():
         f"wrote this file."
     )
 
-    assert identity.get("checked") is True, (
-        f"image_identity.checked is {identity.get('checked')!r}. This field is "
-        f"the difference between 'reconciled and agreed' and 'never "
-        f"reconciled', and `False` means the run was handed no expectation to "
-        f"compare against — so the report is silent on whether it measured the "
-        f"declared image. Supply `corpusGate.expectImage` from a pod imageID "
-        f"reading at helm-upgrade time and re-run the gate. `is True` and not "
-        f"a truthiness test on purpose: a non-empty string here would "
-        f"otherwise read as reconciled."
-    )
+    mode = identity.get("mode")
+    if mode == "pre_roll" and identity.get("checked") is not True:
+        # NARROWED 2026-10-29, on the first pre-roll report ever to reach this
+        # arm. `checked is True` was written on 2026-10-03, when every report
+        # came from the gate the chart pinned, and it asserted something a
+        # `pre_roll` report CANNOT satisfy: there is no pod running the
+        # candidate and no chart pinning it, so there is no imageID for anyone
+        # to supply, and `scripts/pcn_gate_prefire.py` sets
+        # `PCN_GATE_EXPECT_IMAGE=""` ON PURPOSE because the chart still pins
+        # the OLD image and comparing against it would void every pre-roll
+        # report by construction. The producer says so in terms
+        # (`pcn_corpus_gate.check_image_identity`): "`checked` is therefore
+        # False — UNRECONCILED ... That is the honest state and it must not be
+        # dressed up." So the old assertion's own remedy — "supply expectImage
+        # and re-run" — is unreachable before the roll that the pin causes,
+        # and this arm, left as it was, made the required check unpassable for
+        # exactly the strategy pre-roll was built to enable.
+        #
+        # This is NOT the 2026-10-03 early return coming back, and not an
+        # exemption. It relaxes nothing for a `rolled` report, it accepts
+        # `checked: False` only in the one mode where False is the truth, and
+        # it does not take the producer's word for the mode: it demands the
+        # substitute instrument the producer names, which is this file
+        # comparing the report's measured digest to the digest the chart pins.
+        # If that substitute does not hold, this arm still fails. An
+        # expectation supplied in `pre_roll` is still compared and still
+        # voids, so a pre-roll report MAY arrive with `checked: True`; this
+        # branch is only for the normal empty-expectation case, and the
+        # `checked == bool(comparisons)` assertion below still holds either
+        # way — a check that did not run stays distinguishable from one that
+        # passed.
+        assert identity.get("self_declared") is True, (
+            f"image_identity.mode is 'pre_roll' but self_declared is "
+            f"{identity.get('self_declared')!r}. The producer sets "
+            f"self_declared from `mode == 'pre_roll'`, so these two cannot "
+            f"disagree in a report the gate wrote. Something else wrote this "
+            f"file, or `mode` was edited after the fact to reach the pre-roll "
+            f"branch of this assertion."
+        )
+        chart_digest = _chart_declared_digest()
+        measured = _report_measured_digest(report)
+        assert measured is not None and measured == chart_digest, (
+            f"image_identity.mode is 'pre_roll' with checked="
+            f"{identity.get('checked')!r}, which is only acceptable because "
+            f"this file compares the measured image to the chart's pin "
+            f"instead — and that comparison does NOT hold: the report "
+            f"measured {measured!r} and the chart pins {chart_digest!r}. An "
+            f"unreconciled report measuring an image this branch does not "
+            f"pin is evidence about nothing. Either land this report in the "
+            f"pin-bump PR for the image it measured, or supply "
+            f"`corpusGate.expectImage` and re-run the gate."
+        )
+    else:
+        assert identity.get("checked") is True, (
+            f"image_identity.checked is {identity.get('checked')!r} with "
+            f"mode={mode!r}. This field is "
+            f"the difference between 'reconciled and agreed' and 'never "
+            f"reconciled', and `False` means the run was handed no expectation to "
+            f"compare against — so the report is silent on whether it measured the "
+            f"declared image. Supply `corpusGate.expectImage` from a pod imageID "
+            f"reading at helm-upgrade time and re-run the gate. `is True` and not "
+            f"a truthiness test on purpose: a non-empty string here would "
+            f"otherwise read as reconciled. A `pre_roll` report is the one "
+            f"exception and this is not one: see the branch above."
+        )
     comparisons = identity.get("comparisons")
     assert isinstance(comparisons, list), (
         f"image_identity.comparisons is {type(comparisons).__name__}, not a list"
