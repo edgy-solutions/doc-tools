@@ -1145,7 +1145,33 @@ image:
   #     linux/arm64  sha256:c153d3a0950a87bac0a07c3d344809de0a4f529c38fe78dec828c719334b7f71
   # plus the two unknown/unknown buildx attestation manifests, which satisfy no platform.
   # The pod `imageID` is still read back after the roll.
-  digest: "sha256:c056fa701ea3a876c5c79fa2bcd49998ecbf63f78f8cc855d27d212242c9226a"
+  # ------------------------------------------------------------------
+  # 2026-10-29, doc-tools lane 7f (doc-tools roll 56): `main` at `96d7b705`
+  # (#179), index `sha256:01f016e4`. THE TWO-STAGE NOTE ABOVE IS BACK IN FORCE.
+  # Unlike the last two pins, this is NOT a tag added to an index CI had already
+  # built and gated -- it is a fresh build of a new `main` sha, so the
+  # expectation is not known before the roll. `digest:` moves in THIS commit;
+  # `corpusGate.expectImage` moves in a SECOND roll, written from the pod
+  # `imageID` read back off the running pods. Between the two rolls the gate is
+  # RED BY CONSTRUCTION; both rolls land clear of the 07:00Z window.
+  #
+  # BOTH INDEX CHILDREN INSPECTED BEFORE THIS EDIT, per the arm64 rule above,
+  # and both carry the SAME revision label, so arm64 is present and not stale:
+  #     linux/amd64  sha256:9f80bb5b40bddc7a7d601574a0e7c4e8cfaf88384eced8104cfdf9cad41735b9
+  #     linux/arm64  sha256:fb9183d8fa53545bfff058208397a5705516227967d604366b0d948ddae69b75
+  #       both: org.opencontainers.image.revision = 96d7b705689c
+  #             created 2026-10-28T15:21:18Z (amd64) / 15:30:16Z (arm64)
+  # plus the two unknown/unknown buildx attestation manifests, which satisfy no platform.
+  #
+  # MEASURED BEFORE THE PIN, not after. The pre-roll gate fire
+  # `pcn-gate-preroll-01f016e430eb` ran THIS EXACT INDEX in `sandbox` from
+  # 2026-10-29T00:09Z; its report lands on `corpus-gate/preroll-01f016e430eb`
+  # and is cherry-picked into this PR, so the pin and its measurement land
+  # together. The pin this replaces (`c056fa70` = `38b7937`, #175) PREDATES
+  # both #176 and `8ccda54`: the header arm that blocks on the WRITTEN value,
+  # and the onsemi parts-crop retry (`bd235fb`), have never once run in a
+  # deployed gate. This pin is the first that carries them.
+  digest: "sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because

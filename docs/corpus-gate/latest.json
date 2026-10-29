@@ -1,31 +1,27 @@
 {
   "schema": 1,
-  "verdict": "pass",
+  "verdict": "fail",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-27T09:29:41Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:c056fa701ea3a876c5c79fa2bcd49998ecbf63f78f8cc855d27d212242c9226a",
+  "generated_at": "2026-10-29T02:37:48Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5",
+  "identity_mode": "pre_roll",
   "measured_pin_note": null,
   "image_identity": {
-    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:c056fa701ea3a876c5c79fa2bcd49998ecbf63f78f8cc855d27d212242c9226a",
-    "measured_digest": "sha256:c056fa701ea3a876c5c79fa2bcd49998ecbf63f78f8cc855d27d212242c9226a",
-    "checked": true,
-    "comparisons": [
-      {
-        "source": "pods",
-        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:c056fa701ea3a876c5c79fa2bcd49998ecbf63f78f8cc855d27d212242c9226a",
-        "expected_digest": "sha256:c056fa701ea3a876c5c79fa2bcd49998ecbf63f78f8cc855d27d212242c9226a",
-        "result": "match"
-      }
-    ],
-    "void_reasons": []
+    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5",
+    "measured_digest": "sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5",
+    "checked": false,
+    "comparisons": [],
+    "void_reasons": [],
+    "mode": "pre_roll",
+    "self_declared": true
   },
   "fires": [
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-10-27T07:00:23Z",
-      "ended_at": "2026-10-27T07:51:38Z",
-      "elapsed_s": 3074.9,
+      "started_at": "2026-10-29T00:10:42Z",
+      "ended_at": "2026-10-29T00:57:34Z",
+      "elapsed_s": 2812.3,
       "log": "fire1.log",
       "totals": {
         "gt": 522,
@@ -71,16 +67,16 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 450728,
-      "log_echoed": false,
-      "log_echo_cap_bytes": null
+      "log_bytes": 453031,
+      "log_echoed": true,
+      "log_echo_cap_bytes": 262144
     },
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-10-27T07:51:38Z",
-      "ended_at": "2026-10-27T08:40:50Z",
-      "elapsed_s": 2952.5,
+      "started_at": "2026-10-29T00:57:34Z",
+      "ended_at": "2026-10-29T01:47:46Z",
+      "elapsed_s": 3011.7,
       "log": "fire2.log",
       "totals": {
         "gt": 522,
@@ -126,16 +122,16 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 453063,
-      "log_echoed": false,
-      "log_echo_cap_bytes": null
+      "log_bytes": 456574,
+      "log_echoed": true,
+      "log_echo_cap_bytes": 262144
     },
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-10-27T08:40:50Z",
-      "ended_at": "2026-10-27T09:29:41Z",
-      "elapsed_s": 2930.8,
+      "started_at": "2026-10-29T01:47:46Z",
+      "ended_at": "2026-10-29T02:37:48Z",
+      "elapsed_s": 3002.1,
       "log": "fire3.log",
       "totals": {
         "gt": 522,
@@ -181,9 +177,9 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 450821,
-      "log_echoed": false,
-      "log_echo_cap_bytes": null
+      "log_bytes": 459186,
+      "log_echoed": true,
+      "log_echo_cap_bytes": 262144
     }
   ],
   "rates_available": true,
@@ -518,7 +514,7 @@
     "observed": true,
     "fires": {
       "1": {
-        "exact": 14,
+        "exact": 15,
         "fields_scored": 16,
         "clean": true,
         "observed": true,
@@ -526,7 +522,7 @@
         "pending": []
       },
       "2": {
-        "exact": 14,
+        "exact": 15,
         "fields_scored": 16,
         "clean": true,
         "observed": true,
@@ -546,11 +542,15 @@
   },
   "header_agreement": {
     "exit": 1,
+    "blocks": false,
     "notices": {
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "doc_level_ltb_date_source": "'06-JUN-2024' | '06-JUN-2024' | '-2024'"
+          "mfr": "'TE' | 'TE Connecvity' | 'TE Connecvity'",
+          "mfr_source": "'TE' | 'TE Connecvity' | 'TE Connecvity'",
+          "doc_level_ltb_date": "'2024-06-06' | '2024-06-06' | None   <- BLANK vs POPULATED, blank in: ['fire3.log']",
+          "doc_level_ltb_date_source": "'-2024' | '06-JUN-2024' | None   <- BLANK vs POPULATED, blank in: ['fire3.log']"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
@@ -582,8 +582,11 @@
         "fields": {}
       },
       "TI_PCN_20210316000.pdf": {
-        "verdict": "agree",
-        "fields": {}
+        "verdict": "DISAGREE",
+        "fields": {
+          "mfr": "'Texas Instruments Incorporated' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'",
+          "mfr_source": "'Texas Instruments Incorporated' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'"
+        }
       },
       "IDT_PDN_OV-19-05.pdf": {
         "verdict": "agree",
@@ -592,6 +595,91 @@
     },
     "absent": [],
     "not_measured": []
+  },
+  "unstable_raw": [
+    {
+      "notice": "TI_PCN_20210316000.pdf",
+      "field": "mfr",
+      "forms": [
+        "'Texas Instruments Incorporated'",
+        "'Texas Instruments Incorporated'",
+        "'TEXAS INSTRUMENTS'"
+      ]
+    },
+    {
+      "notice": "TI_PCN_20210316000.pdf",
+      "field": "mfr_source",
+      "forms": [
+        "'Texas Instruments Incorporated'",
+        "'Texas Instruments Incorporated'",
+        "'TEXAS INSTRUMENTS'"
+      ]
+    },
+    {
+      "notice": "TYC-PCN-24-210412.pdf",
+      "field": "mfr",
+      "forms": [
+        "'TE'",
+        "'TE Connecvity'",
+        "'TE Connecvity'"
+      ]
+    },
+    {
+      "notice": "TYC-PCN-24-210412.pdf",
+      "field": "mfr_source",
+      "forms": [
+        "'TE'",
+        "'TE Connecvity'",
+        "'TE Connecvity'"
+      ]
+    },
+    {
+      "notice": "TYC-PCN-24-210412.pdf",
+      "field": "doc_level_ltb_date",
+      "forms": [
+        "'2024-06-06'",
+        "'2024-06-06'",
+        "None"
+      ]
+    },
+    {
+      "notice": "TYC-PCN-24-210412.pdf",
+      "field": "doc_level_ltb_date_source",
+      "forms": [
+        "'-2024'",
+        "'06-JUN-2024'",
+        "None"
+      ]
+    }
+  ],
+  "written_agreement": {
+    "verdicts": {
+      "ADI_PDN_23_0120.pdf": "agree",
+      "Diodes_PCN_2683_Rev1_EOL.pdf": "agree",
+      "EOL-36_BYV34-400,-BYV34-500.pdf": "agree",
+      "IDT_PDN_OV-19-05.pdf": "agree",
+      "PCN23-002.pdf": "agree",
+      "PCN24-029.pdf": "agree",
+      "TI_PCN_20210316000.pdf": "DISAGREE",
+      "TYC-PCN-24-210412.pdf": "agree",
+      "onsemi_Generic_IPCN25300X.pdf": "agree",
+      "onsemi_Generic_PD26044X1.pdf": "agree"
+    },
+    "disagreements": [
+      [
+        "TI_PCN_20210316000.pdf",
+        "mfr",
+        [
+          "Texas Instruments Incorporated",
+          "Texas Instruments Incorporated",
+          "TEXAS INSTRUMENTS"
+        ]
+      ]
+    ],
+    "blank_rows": [],
+    "absent": [],
+    "no_written": [],
+    "unrecorded": []
   },
   "identity": {
     "source": "corpus_json",
@@ -623,10 +711,11 @@
     "collapses": [],
     "incomplete_identity": [],
     "identity_half_unstable": [],
+    "identity_moving_fields": {},
     "revision_half_unstable": []
   },
-  "blocking": [],
-  "exempted": [
-    "TYC-PCN-24-210412.pdf: header disagreement exempted \u2014 needs_review=True in all three fires"
-  ]
+  "blocking": [
+    "TI_PCN_20210316000.pdf: WRITTEN header fields disagree across fires on `mfr` ['Texas Instruments Incorporated', 'Texas Instruments Incorporated', 'TEXAS INSTRUMENTS'] \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one"
+  ],
+  "exempted": []
 }
