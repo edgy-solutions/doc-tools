@@ -43,7 +43,7 @@
   "not_extracted": [
     "change_type -- named by the batch-fixture ruling (closed vocabulary, free text to change_type_note). Measured absent: zero occurrences in doc_tools/utils/sustainment_merge.py and doc_tools/plugins/sustainment.py. Not a promoted field, so no profile can reference it.",
     "effective_date -- same ruling, same measurement. Not a promoted field.",
-    "A batch column-map vocabulary. `column_map` / `column-map` has zero occurrences in doc_tools/, registry/ and docs/. Item 1's 'reuse 7f's batch column-map vocabulary' has nothing to reuse yet; the four batch-fixture rulings it would come from are unbuilt."
+    "A batch column-map vocabulary. SUPERSEDED 2026-10-29: it is now written, at docs/contracts/batch-column-map.md (contract_version 1), after the architect ruled the vocabulary 7f's to write and lane 01's to review. It remains correct that `column_map` / `column-map` has zero occurrences in doc_tools/, registry/ and docs/ OUTSIDE that contract -- it is a contract with no implementation, so nothing here is reachable from a profile yet. Two of the four batch-fixture rulings name fields this catalogue records as not extracted at all: `change_type` and `effective_date`, immediately above, which that contract declares a hard stop at profile-validation time rather than working around."
   ],
   "fields": [
     {
