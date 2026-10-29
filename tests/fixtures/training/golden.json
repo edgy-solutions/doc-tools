@@ -1,6 +1,6 @@
 {
   "contract": "docs/contracts/training-workbench.md",
-  "contract_version": 2,
+  "contract_version": 3,
   "fixture": {
     "deck": "hydraulics_fixture.pptx",
     "deck_sha256": "895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
@@ -381,23 +381,33 @@
         ],
         "nodes": [
           {
+            "id": "concept_5a824e82384be6eb",
             "name": "Gear pump",
+            "name_normalized": "gear pump",
             "domain": "TRAINING"
           },
           {
+            "id": "concept_9e9de3a9dfd9c376",
             "name": "Hydraulic pressure",
+            "name_normalized": "hydraulic pressure",
             "domain": "TRAINING"
           },
           {
+            "id": "concept_90ffbc33d2608c12",
             "name": "Hydraulic pump",
+            "name_normalized": "hydraulic pump",
             "domain": "TRAINING"
           },
           {
+            "id": "concept_82d99ef2d2fb22fb",
             "name": "Hydraulic reservoir",
+            "name_normalized": "hydraulic reservoir",
             "domain": "TRAINING"
           },
           {
+            "id": "concept_7c49b5ad1562ac98",
             "name": "Pascal's law",
+            "name_normalized": "pascal's law",
             "domain": "TRAINING"
           }
         ]
@@ -435,7 +445,7 @@
         }
       ],
       "edges": {
-        "note": "Concept endpoints are names. section_slide is written as both HAS_CHILD and HAS_SLIDE. Each section's concept_summary is its COVERS targets by score, descending, top 10.",
+        "note": "Concept endpoints are names (the node carries the `id` that is the real key; an edge names the concept so a fake store can resolve it without hashing). section_slide is written as both HAS_CHILD and HAS_SLIDE. Each section's concept_summary is its COVERS targets by score, descending, top 10.",
         "HAS_SECTION": [
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",

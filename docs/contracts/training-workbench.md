@@ -63,7 +63,10 @@ The workbench has no upload endpoint. A course arrives only as a drop into MinIO
 - **A revised deck is a NEW Course.** New bytes give a new ingest id. The old Course, its Slides and the users' edges into them stay. doc-tools records no lineage between the two.
 - **`Slide.id` = `{Course.id}_p{n}`**, where `n` is the 1-based slide or page number. The workbench may use `rsplit("_p", 1)`, because an ingest id never ends in `_p<digits>`.
 - **`Section.id` = `{parent.id}_s{i}`**, where `i` is 0-based within the parent. Nested sections give `{Course.id}_s1_s0`.
-- **A Concept's identity is its `name`.** There is one `(:Concept:TRAINING)` per name across all courses. Its `id` property, if present, is not an identity.
+- **A Concept's identity is `(domain, normalized name)`, and `id` is that identity's stable key** — `id` = `hash(domain, normalized name)`, *not* a second identity. There is one `(:Concept:TRAINING)` per `(domain, normalized name)` across all courses. Two names differing only in case, whitespace or Unicode form are the SAME concept; `Torque Control` in two different domains is two concepts, which is why the constraint is on `id` and **not** on `name`. MERGE on `id`; `concept_id_unique` constrains it.
+  - **`name` is a display label, never a join key.** It is written `ON CREATE` only, so of two spellings that normalize alike the node keeps whichever was written first. Show `name`; match on `id`.
+  - **`name_normalized` is stored on the node**, so the id is recomputable from the node itself — an audit or a migration does not have to trust that whatever wrote the node used `doc_tools/utils/concept_identity.py`.
+  - This supersedes the earlier wording, which called `name` the identity and said `id` "is not an identity". That was wrong in both halves, and lane tr was right to object: it described neither the shape the architect ruled on 2026-10-24 nor what `#167` ships.
 
 ## 4. Neo4j
 
@@ -74,7 +77,7 @@ The workbench has no upload endpoint. A course arrives only as a drop into MinIO
 | `Document:Course:TRAINING` | `id` | `id`, `title`, `filename`, `current_key`, `business_unit`, `discipline`, `audience`, `level`, `delivery_method`, `duration_hours`, `version` |
 | `Chunk:Slide:TRAINING` | `id` | `id`, `number` (int, 1-based), `text`, `elements` (JSON string), `layout_style`, `asset_type` |
 | `Section:TRAINING` | `id` | `id`, `title`, `level` (int), `start_page`, `end_page` (int; `0` means open), `concept_summary` (list of up to 10 names, by COVERS score descending) |
-| `Concept:TRAINING` | `name` | `name`, `domain` = `"TRAINING"` |
+| `Concept:TRAINING` | `id` | `id`, `name`, `name_normalized`, `domain` = `"TRAINING"` |
 
 Course properties:
 - `title` is metadata.json `title`, or the filename stem if there is none.
@@ -191,7 +194,7 @@ The fixture lives in `tests/fixtures/training/`:
 - **Pinned hashes.** `golden.json` pins the deck and sidecar sha256 values. wb vendors byte-identical copies and asserts those hashes.
 - **Placeholders.** `<pipeline_version>` and `<iso8601>` match any value.
 - **Volatile element keys.** The keys in `volatile_element_keys` are stripped from both sides before `elements` is compared (temp path, mtime, element hashes).
-- **`nondeterministic`** (sections, concepts, teaches) is LLM-derived EXAMPLE data. doc-tools asserts its SHAPE only: labels, id grammar, `start_page` naming a real slide, salience in [0, 1], one Concept per name. wb loads it as fake-store data. The example includes a salience under 0.5 (slide 4, "Hydraulic pressure") and a concept shared by two slides.
+- **`nondeterministic`** (sections, concepts, teaches) is LLM-derived EXAMPLE data. doc-tools asserts its SHAPE only: labels, id grammar, `start_page` naming a real slide, salience in [0, 1], one Concept per `(domain, normalized name)` (§3). wb loads it as fake-store data. The example includes a salience under 0.5 (slide 4, "Hydraulic pressure") and a concept shared by two slides.
   - Its `edges` block lists every `HAS_SECTION`, Section → Slide, `COVERS` and `TEACHES` edge explicitly, already computed by the §4.2 rules, so a fake store loads edges and derives nothing.
   - Each Section's `concept_summary` agrees with its `COVERS` scores.
 - **The doc-tools gate.** `tests/test_training_workbench_golden.py` holds one test per surface. A surface that a later lane-tr step delivers is `xfail(strict=True)` until that step's PR, which must flip it. Each step's PR is green only with its surface passing.
@@ -204,7 +207,8 @@ The fixture lives in `tests/fixtures/training/`:
 | this contract, fixture and golden | a |
 | `course` kind row (domain `training`) and sensor on `training/course/` (§2) | b |
 | ids (§3); `training/generated/<hex>/<ver>/`; `current.json` with `prefix`; `Course.current_key`/`title`/`filename`; `Course`/`Slide`/`HAS_SLIDE` overlay; slide text without empty-text lines | c |
-| TEACHES salience on the edge; Concept merged on `name` with `domain` | d |
+| TEACHES salience on the edge | d |
+| Concept keyed on `id` = `hash(domain, normalized name)` with a uniqueness constraint (§3) | d merged it on `name`; re-keyed by `#167` (lane 7f) |
 | `pages/page_{n}.png` (`render.pages`, LibreOffice + Poppler) | e |
 | vectors written for `nearVector`; no `_fig_` objects for training | f |
 | Section page numbers from element metadata, never from the LLM (`structural.outline`) | g |
