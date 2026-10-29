@@ -1465,7 +1465,29 @@ corpusGate:
   # appeared ZERO times in it, so the gate would have compared a `2bf85719` run
   # against a `5846f877` expectation. Both rolls were taken inside an hour,
   # ~3h clear of the 07:00Z nightly, so no gate run fell inside the window.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:c056fa701ea3a876c5c79fa2bcd49998ecbf63f78f8cc855d27d212242c9226a"
+  #
+  # ------------------------------------------------------------------
+  # 2026-10-29, ROLL 2 OF 2 for the `01f016e4` pin (doc-tools roll 57).
+  # WRITTEN FROM THE POD, NOT FROM `digest:` ABOVE. The value below was
+  # produced by substituting the output of
+  #     kubectl get pod -n sandbox <the one pod> \
+  #       -o jsonpath='{.status.containerStatuses[0].imageID}'
+  # into this line programmatically, so no digest was transcribed by hand and
+  # the chart is not being compared against itself. The read was taken AFTER
+  # the pod count came back to 1 (the old pod gone, not merely Terminating),
+  # per the warning above: a read taken on the strength of the rollout message
+  # alone can capture the digest being replaced.
+  #
+  # It agrees with `digest:` above, and that agreement is the RESULT being
+  # asserted, not the source of this value.
+  #
+  # The window between roll 1 (22:34 local) and this roll was RED on image
+  # identity by construction, and the pre-roll diff proved it rather than
+  # assuming it: `expectImage` appeared ZERO times in
+  # scratchpad/preroll_diff_roll56.log. The nightly CronJob is `suspend: true`
+  # as of this same pin (#179), so no scheduled run could fall inside the
+  # window at all -- the first roll of the two that has had that protection.
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5"
   publish:
     repo: edgy-solutions/doc-tools
 
