@@ -113,7 +113,7 @@ def test_shipped_ground_truth_is_self_consistent():
         assert len(e["mpns"]) == e["count"], fn
         assert len(set(e["mpns"])) == e["count"], f"{fn} has duplicate MPNs"
         assert all(m and m.strip() for m in e["mpns"]), fn
-    # 522, and there are exactly THREE legitimate reasons for this number to move.
+    # 512, and there are exactly FOUR legitimate reasons for this number to move.
     #
     # A CORRECTION, where a count in the JSON was wrong. 898 is the standing example:
     # two tier-1 cells in TYC-PCN-24-210412.pdf each held two real MPNs glued by
@@ -134,9 +134,17 @@ def test_shipped_ground_truth_is_self_consistent():
     # (one sha256), so its 402 parts were counted twice. Every part number stayed;
     # only the denominator fell, so a score at 522 is NOT comparable to one at 924.
     #
-    # If you are here because this assert went red, say which of the three you did. An
-    # edit that is neither is a tune, and the number was right before you touched it.
-    assert sum(e["count"] for e in gt.values()) == 522
+    # A RE-LABEL, where one count was CONFLATING two different things. 522 -> 512 on
+    # 2026-10-29 is that case: a "Customer Part Number" column is never an affected
+    # part, it is the customer's alias for the affected part beside it, and TYC's 26
+    # held 10 of them. The 10 did not vanish -- they moved to `customer_mpns` on the
+    # same notice and are scored as their own column. Nothing became unextractable, so
+    # unlike a correction this does NOT lower the rate: an extractor scoring 522/522
+    # scores 512/512. The RATE is comparable across a re-label; the COUNT is not.
+    #
+    # If you are here because this assert went red, say which of the four you did. An
+    # edit that is none of them is a tune, and the number was right before you touched it.
+    assert sum(e["count"] for e in gt.values()) == 512
 
 
 def test_shipped_ground_truth_declares_its_provenance():

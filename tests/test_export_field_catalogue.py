@@ -395,7 +395,10 @@ def test_baml_producer_fields_match_the_catalogue():
         f"BAML SustainmentHeader fields {sorted(header_set - header_claimed)} "
         f"are claimed by no catalogue entry. {hint}"
     )
-    values = {"affected_mpn", "replacement_mpn", "ltb_date"}
+    # customer_mpn joined these on 2026-10-29 (the customer-alias ruling). It is a
+    # VALUE field like the other three and must be claimed by a catalogue entry; it
+    # deliberately has no *_source, so the count asserted below stays at three.
+    values = {"affected_mpn", "replacement_mpn", "customer_mpn", "ltb_date"}
     assert values <= part_claimed, (
         f"ImpactedPart value fields {sorted(values - part_claimed)} are claimed "
         f"by no catalogue entry. {hint}"

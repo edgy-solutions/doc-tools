@@ -97,6 +97,53 @@ def _is_replacement(cell: Optional[str]) -> bool:
     return any(k in h for k in REPLACEMENT_HEADERS)
 
 
+# THE CUSTOMER'S OWN ID FOR THE AFFECTED PART. Ruled 2026-10-29: a "Customer Part Number"
+# column is never an affected part — it is the customer's alias for the row's affected
+# part, and it is the field a customer needs most, their id beside the manufacturer's.
+#
+# Distinct from ALIAS_HEADERS in what it DOES, which is why it is a separate vocabulary
+# and not three more entries there: an alias column is DECLINED (dropped, unread), while a
+# customer column is READ and EMITTED as its own row field. Same veto, opposite fate.
+#
+# TWO cues are required, both of them, and that is measured rather than stylistic. The ten
+# -notice corpus carries exactly three header cells containing "customer":
+#   'Customer Part\nNumber'  TYC    — the real thing: 8 cells, 10 part numbers
+#   'Customer\nDrawing'      TYC    — a DRAWING number, not a part number, and it sits
+#                                     BETWEEN `Part Number` and `Customer Part Number`.
+#                                     A "nearest customer column to the right" rule with
+#                                     no part cue pairs THIS one and TYC yields nothing.
+#   a 600-char IPCN paragraph onsemi — "...sent to customers... devices affected...", a
+#                                     prose cell find_tables() returned as a header. It
+#                                     matches "customer" and would match a bare "device"
+#                                     part cue, so the LENGTH bound is what excludes it.
+# Hence: a customer cue AND a part cue AND short enough to be a column name rather than a
+# paragraph. The onsemi cell is deliberately left classified exactly as it is today, so
+# the silent-zero decline it currently produces — the only independent check on the vision
+# pass for that page — is not quietly converted into a customer column.
+CUSTOMER_HEADERS: Tuple[str, ...] = (
+    "customer", "cust.", "cust ", "client", "end user", "end-user",
+)
+_CUSTOMER_PART_CUES: Tuple[str, ...] = (
+    "part number", "part no", "part num", "part #", "partnumber", "mpn", "part id",
+)
+# A column NAME, not a paragraph. Matches the `is_parts_table_label` bounds deliberately:
+# the same shape of defect (a prose cell read as a label) is being excluded.
+_MAX_CUSTOMER_HEADER_LEN = 48
+_MAX_CUSTOMER_HEADER_SPACES = 4
+
+
+def _is_customer(cell: Optional[str]) -> bool:
+    """True for a column holding the CUSTOMER's part number for the row's affected part."""
+    h = _norm_header(cell)
+    if not h or len(h) > _MAX_CUSTOMER_HEADER_LEN:
+        return False
+    if h.count(" ") > _MAX_CUSTOMER_HEADER_SPACES:
+        return False
+    if not any(k in h for k in CUSTOMER_HEADERS):
+        return False
+    return any(k in h for k in _CUSTOMER_PART_CUES)
+
+
 # An MPN is a short token carrying digits. find_tables() also returns prose blocks that
 # merely look tabular (a 130-char "Unless a Sales representative is contacted..." paragraph
 # was emitted as a part before this guard), so a plausibility floor is required. Real MPNs
@@ -106,13 +153,31 @@ _MAX_MPN_LEN = 48
 _MAX_MPN_SPACES = 2
 
 
+def _whitespace_count(value: str) -> int:
+    """Every whitespace character, not just U+0020.
+
+    The budget below was written as `v.count(" ")` and so was blind to the newline and
+    the tab — which are exactly the whitespace a PDF cell carries, because a wrapped
+    cell joins its lines with "\\n". A three-line prose cell with no space in it spent
+    ZERO of its two-space budget and was measured only by the 48-char ceiling, so the
+    guard that exists to keep prose out of the parts list was the one guard a wrapped
+    prose cell did not have to pass.
+
+    Counting all whitespace fails toward NOT emitting: a value that was admitted on a
+    technicality is now declined. That direction is the approved one — a dropped part is
+    visible to the corpus gate as a miss, while a fabricated part is asserted onto a
+    SHARED component IRI and cannot be withdrawn by re-ingesting.
+    """
+    return sum(1 for ch in value if ch.isspace())
+
+
 def looks_like_mpn(value: Optional[str]) -> bool:
     """The plausibility floor. A DATE ("Jun 22, 2021": 12 chars, two spaces, digits) and a
     form LABEL (ends with ":") both passed the length/space/digit test and a date reached
     a review queue as the only affected part of TI PCN#20210316000.1. Both are rejected
     here. Shared with `pair_columns`' cell matching, where neither is an MPN either."""
     v = (value or "").strip()
-    if not v or len(v) > _MAX_MPN_LEN or v.count(" ") > _MAX_MPN_SPACES:
+    if not v or len(v) > _MAX_MPN_LEN or _whitespace_count(v) > _MAX_MPN_SPACES:
         return False
     if v.endswith(":") or is_entirely_a_date(v):
         return False
@@ -305,10 +370,27 @@ def pair_columns(header: Sequence[Optional[str]]) -> List[Tuple[int, Optional[in
     # "...and No Replacement Parts": vetoing there turns their caption into no caption
     # and declines 144 genuine EOL devices. A header cell and a caption read the same
     # words to opposite ends.
-    replacement = [i for i, c in enumerate(header) if _is_replacement(c)]
+    # THE CUSTOMER VETO, ahead of both, and for the same reason the replacement veto is
+    # ahead of affected: the wording CONTAINS the vocabulary it must beat. "Customer Part
+    # Number" matches `part number`, so TYC's customer column read as a SECOND AFFECTED
+    # COLUMN — 8 cells, 10 part numbers, emitted as 10 discontinued parts that the
+    # manufacturer never discontinued because they are not the manufacturer's part
+    # numbers at all. That is 10 of TYC's 26, and like the Murata defect it lands on a
+    # SHARED component IRI carrying no reference to the asserting notice, so it cannot be
+    # withdrawn by re-ingesting.
+    #
+    # Customer wins over replacement too, on the same fail-safe reasoning rather than on
+    # any corpus instance (no header in the ten matches both). Read as a replacement, a
+    # mis-classified column asserts a replacement edge that cannot be withdrawn; read as
+    # a customer id it populates a new, reviewable row field that asserts no edge yet.
+    customer = [i for i, c in enumerate(header) if _is_customer(c)]
+    _customer_cols = set(customer)
+    replacement = [i for i, c in enumerate(header)
+                   if _is_replacement(c) and i not in _customer_cols]
     _replacement_cols = set(replacement)
     affected = [i for i, c in enumerate(header)
-                if _is_affected(c) and i not in _replacement_cols]
+                if _is_affected(c)
+                and i not in _replacement_cols and i not in _customer_cols]
     pairs: List[Tuple[int, Optional[int]]] = []
     used: set = set()
     for idx, a in enumerate(affected):
@@ -318,6 +400,36 @@ def pair_columns(header: Sequence[Optional[str]]) -> List[Tuple[int, Optional[in
             used.add(mate)
         pairs.append((a, mate))
     return pairs
+
+
+def customer_columns(header: Sequence[Optional[str]],
+                     pairs: Sequence[Tuple[int, Optional[int]]]) -> List[Optional[int]]:
+    """The customer-part-number column for each pair of `pair_columns(header)`, aligned
+    index-for-index with it, `None` where that affected column has no customer column.
+
+    A SEPARATE function rather than a third element of `pair_columns`' tuples, and that is
+    a compatibility decision, not a stylistic one: `pair_columns` returns 2-tuples that
+    roughly two dozen tests compare against literal `[(0, 1), (2, 3)]`, and the pairing is
+    read positionally in several places. Widening the tuple would have rewritten all of
+    them to prove nothing. This adds a column role without disturbing the one in use.
+
+    Same geometry as the replacement pairing — nearest unclaimed customer column to the
+    RIGHT, before the next affected column — so a page repeating `Part | Customer Part`
+    across its width pairs each to its own, exactly as the three-pair Diodes header does.
+    """
+    customer = [i for i, c in enumerate(header) if _is_customer(c)]
+    if not customer:
+        return [None] * len(pairs)
+    starts = [a for a, _r in pairs]
+    out: List[Optional[int]] = []
+    used: set = set()
+    for idx, a in enumerate(starts):
+        stop = starts[idx + 1] if idx + 1 < len(starts) else len(header)
+        mate = next((c for c in customer if a < c < stop and c not in used), None)
+        if mate is not None:
+            used.add(mate)
+        out.append(mate)
+    return out
 
 
 class InheritedHeader(NamedTuple):
@@ -336,10 +448,17 @@ class InheritedHeader(NamedTuple):
     `EOL | Replacement` pairing onto them turns 144 genuine EOL devices into replacements
     and drops them from the affected list. A caption that numbers its table is the
     document stating which table this is; two numbers that differ are two tables.
+
+    `customers` is the customer-part-number column for each pair, aligned index-for-index
+    with `pairs`, and defaults to empty so that a continuation page inheriting an older
+    pairing simply reads no customer column rather than reading the WRONG one — an absent
+    customer column emits `customer_mpn: None`, which is the fail-toward-silence
+    direction this module takes everywhere.
     """
     pairs: List[Tuple[int, Optional[int]]]
     width: int
     label: Optional[str] = None
+    customers: Tuple[Optional[int], ...] = ()
 
 
 class GridDecline(NamedTuple):
@@ -438,7 +557,8 @@ def header_pairing(
     pairs = pair_columns(grid[hi])
     if not pairs:
         return None
-    return InheritedHeader(pairs, len(grid[hi]), _caption_label(grid))
+    return InheritedHeader(pairs, len(grid[hi]), _caption_label(grid),
+                           tuple(customer_columns(grid[hi], pairs)))
 
 
 def _names_a_different_table(
@@ -588,8 +708,14 @@ def grid_outcome(
     # Which rule decided the columns — carried only so a zero-part outcome can say what
     # it tried. See the silent-zero decline at the end of this function.
     basis = "a declared header row"
+    # The customer-part-number column of each pair, decided ONLY by a declared header.
+    # The caption and `labelled` rules make every column affected and name no roles at
+    # all, so there is nothing there that could identify a customer column; they get None
+    # and emit `customer_mpn: None`.
+    customers: List[Optional[int]] = []
     if hi is not None:
         pairs = pair_columns(grid[hi])
+        customers = customer_columns(grid[hi], pairs)
         start = hi + 1
     elif (inherited is not None
           and _grid_width(grid) == inherited.width
@@ -608,6 +734,7 @@ def grid_outcome(
         # this same inheritance without the caption check. See
         # docs/pcn-corpus-validation-2026-09-21.md.
         pairs = inherited.pairs
+        customers = list(inherited.customers)
         start = 0
         basis = "an inherited header from the preceding table"
     else:
@@ -637,10 +764,15 @@ def grid_outcome(
         return GridOutcome([], GridDecline(
             "header row produced no affected/replacement column pairs",
             _mpn_bearing_rows(grid), len(grid), grid))
+    # Aligned index-for-index with `pairs`, whatever decided them. A stale inherited
+    # tuple of the wrong length reads as no customer column rather than as some other
+    # pair's column.
+    if len(customers) != len(pairs):
+        customers = [None] * len(pairs)
     out: List[Dict[str, Optional[str]]] = []
     for r in range(start, len(grid)):
         row = grid[r]
-        for a_col, r_col in pairs:
+        for (a_col, r_col), c_col in zip(pairs, customers):
             if a_col >= len(row):
                 continue
             affected = (row[a_col] or "").strip()
@@ -660,6 +792,17 @@ def grid_outcome(
             rep_value = rep if keep_rep else None
             rep_col_value = r_col if keep_rep else None
 
+            cust = ""
+            if c_col is not None and c_col < len(row):
+                cust = (row[c_col] or "").strip()
+            # The MPN floor does the work the header veto cannot reach, because these are
+            # VALUES: TI page 2 prints a literal "null" in three of its fifteen customer
+            # cells, and a table continued across pages reprints "CUSTOMER PART NUMBER"
+            # into the cell itself. Neither carries a digit, so both decline here.
+            keep_cust = bool(cust and looks_like_mpn(cust))
+            cust_value = cust if keep_cust else None
+            cust_col_value = c_col if keep_cust else None
+
             # A cell can hold SEVERAL part-shaped strings joined by comma+newline
             # (TYC-PCN-24-210412.pdf) — split_composite_cell returns [] unless every
             # fragment independently checks out, so this never fires on an ordinary
@@ -675,10 +818,21 @@ def grid_outcome(
                 rep_fragments = split_composite_cell(rep) if keep_rep else []
                 positional = (bool(rep_fragments)
                              and len(rep_fragments) == len(affected_fragments))
+                # The customer cell splits on exactly the same rule as the replacement
+                # one, for the same reason: fragment i <-> fragment i is the only reading
+                # the page supports when the counts match, and when they do not the page
+                # states no correspondence, so every fragment takes the whole un-split
+                # cell rather than a guessed alignment.
+                cust_fragments = split_composite_cell(cust) if keep_cust else []
+                cust_positional = (bool(cust_fragments)
+                                   and len(cust_fragments) == len(affected_fragments))
                 for i, frag in enumerate(affected_fragments):
                     out.append({
                         "affected_mpn": frag,
                         "replacement_mpn": rep_fragments[i] if positional else rep_value,
+                        "customer_mpn": (cust_fragments[i] if cust_positional
+                                         else cust_value),
+                        "cust_col": cust_col_value,
                         # SAME row/col/rep_col as the cell they both came from — the
                         # bbox provenance really does point at that one cell.
                         "row": r,
@@ -693,11 +847,19 @@ def grid_outcome(
             out.append({
                 "affected_mpn": affected,
                 "replacement_mpn": rep_value,
+                # THE CUSTOMER'S OWN ID for this affected part, verbatim. A cell holding
+                # two ids for one affected part (TYC prints two of these, comma+newline,
+                # against a single-valued affected cell) is carried WHOLE: the page
+                # asserts that both ids name that one part, and splitting it into two
+                # rows would duplicate the affected part and move the denominator the
+                # parts score is measured against. 8 cells, 10 ids, 16 affected parts.
+                "customer_mpn": cust_value,
                 "row": r,
                 "col": a_col,
                 # the replacement lives in its OWN cell — carried so provenance can
                 # highlight THAT cell rather than reusing the affected one.
                 "rep_col": rep_col_value,
+                "cust_col": cust_col_value,
             })
     # THE SILENT ZERO. A pairing was decided and then NO row yielded a part, while the
     # grid plainly carries MPN-bearing rows. Until 2026-10-05 that returned
@@ -984,12 +1146,23 @@ def _parts_from_page(
                              "n_rows": d.n_rows, "n_grid_rows": d.n_grid_rows,
                              "grid": [list(r) for r in d.grid]})
         for p in outcome.parts:
+            # EVERY FIELD A ROW CARRIES MUST BE NAMED HERE. This is a projection, not
+            # a pass-through: `grid_outcome` returns a richer dict (it also carries the
+            # column indices the bboxes are computed from), so a field added there and
+            # not added here is captured and then silently dropped, with no error and no
+            # missing-key warning anywhere. `customer_mpn` was added to `grid_outcome`
+            # and omitted here, and the cost was a whole fire -- 8 customer cells read
+            # correctly off the real TYC header and 0 of them reaching the corpus JSON,
+            # while the veto that shares the same header worked, which is exactly the
+            # evidence pattern that sends you looking at the header code instead of here.
             results.append({
                 "affected_mpn": p["affected_mpn"],
                 "replacement_mpn": p["replacement_mpn"],
+                "customer_mpn": p.get("customer_mpn"),
                 "page_number": page_number,
                 "bbox": _cell_bbox(p["row"], p["col"]),
                 "replacement_bbox": _cell_bbox(p["row"], p.get("rep_col")),
+                "customer_bbox": _cell_bbox(p["row"], p.get("cust_col")),
                 "page_dims": dims,
                 "source": "text_layer",
             })

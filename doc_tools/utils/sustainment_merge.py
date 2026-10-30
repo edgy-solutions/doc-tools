@@ -45,6 +45,8 @@ def part_to_dict(p: Any) -> dict:
         "affected_mpn_source": _g(p, "affected_mpn_source"),
         "replacement_mpn": _g(p, "replacement_mpn"),
         "replacement_mpn_source": _g(p, "replacement_mpn_source"),
+        "customer_mpn": _g(p, "customer_mpn"),
+        "customer_mpn_source": _g(p, "customer_mpn_source"),
         "ltb_date": _g(p, "ltb_date"),
         "ltb_date_source": _g(p, "ltb_date_source"),
     }
@@ -75,7 +77,7 @@ def dequote_parts(parts: List[dict]) -> int:
     """
     n = 0
     for p in parts:
-        for field in ("affected_mpn", "replacement_mpn"):
+        for field in ("affected_mpn", "replacement_mpn", "customer_mpn"):
             raw = p.get(field)
             if not raw:
                 continue
@@ -154,6 +156,9 @@ def reconcile_ltb(parts: List[dict], doc_level_ltb: Optional[str]) -> List[dict]
     return parts
 
 
+# NOTE: customer_mpn is deliberately NOT passed through clean_replacement below. A customer
+# cell can legitimately hold two ids for one affected part (TYC prints two such cells) and
+# tier 1 carries them verbatim on purpose; nulling a comma-separated value would erase it.
 def clean_replacements(parts: List[dict]) -> List[dict]:
     """Null out replacement_mpn values that are comma-separated lists (a vision
     model copying a Qualification Vehicle column into replacement on a PCN with
@@ -415,6 +420,31 @@ def build_review_items(header: dict, parts: List[dict], index: List[dict],
             items.append(_review_item(f"parts[{i}].replacement_mpn", p["replacement_mpn"],
                                       p.get("replacement_mpn_source"), "table", rprov, rnr,
                                       "source not located" if rnr else None))
+        if p.get("customer_mpn"):
+            # The customer's own id for this row's affected part: an alias, reviewable but
+            # never a graph edge. Same authority rule as the replacement, and the same
+            # three-step ladder: the CELL bbox from the text-layer pass first, then the
+            # word-box lookup from the vision pass, then the string search. A two-id cell
+            # ("A, B") will not match a single word box, so on the vision path it falls
+            # through to the string search -- but on the text-layer path the cell bbox
+            # covers both ids, which is what the page actually prints.
+            cust_bbox = p.get("text_layer_customer_bbox")
+            if cust_bbox:
+                cprov = {"found": True, "page_number": p.get("text_layer_page"),
+                         "bboxes": [cust_bbox], "page_dims": p.get("text_layer_page_dims"),
+                         "match_method": "text_layer_cell", "match_confidence": 1.0}
+            elif p.get("text_layer_word_customer_bbox"):
+                cprov = {"found": True, "page_number": p.get("text_layer_word_page"),
+                         "bboxes": [p["text_layer_word_customer_bbox"]],
+                         "page_dims": p.get("text_layer_word_page_dims"),
+                         "match_method": "text_layer_word", "match_confidence": 1.0}
+            else:
+                cprov = provenance.resolve_value(
+                    p.get("customer_mpn_source") or p["customer_mpn"], index, prefer_region="table")
+            cnr = not cprov["found"]
+            items.append(_review_item(f"parts[{i}].customer_mpn", p["customer_mpn"],
+                                      p.get("customer_mpn_source"), "table", cprov, cnr,
+                                      "source not located" if cnr else None))
         if p.get("ltb_date"):
             lsrc = p.get("ltb_date_source")
             if p.get("ltb_date_inherited") and doc_ltb_prov:

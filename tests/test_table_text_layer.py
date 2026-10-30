@@ -10,6 +10,7 @@ import pytest
 
 from doc_tools.utils.table_text_layer import (
     REPLACEMENT_HEADERS,
+    customer_columns,
     find_header_row, find_title_row, grid_outcome, header_pairing, looks_like_mpn,
     pair_columns, parts_from_grid, parts_from_pages, split_composite_cell,
     strip_enclosing_quotes, word_boxes_for_mpns,
@@ -40,7 +41,8 @@ def test_three_column_pairs_are_all_read():
     parts = parts_from_grid([_CAPTION, _HEADER, _ROW1, _ROW2])
     assert len(parts) == 6, f"expected 3 pairs x 2 rows = 6 parts, got {len(parts)}"
     assert parts[0] == {"affected_mpn": "FJ3330013", "replacement_mpn": "FJ3330401",
-                        "row": 2, "col": 0, "rep_col": 1}, parts[0]
+                        "customer_mpn": None, "row": 2, "col": 0, "rep_col": 1,
+                        "cust_col": None}, parts[0]
     assert [p["affected_mpn"] for p in parts[:3]] == ["FJ3330013", "FKA000010", "HX1112202Q"]
 
 
@@ -382,27 +384,38 @@ def test_a_caption_naming_replacement_parts_still_names_its_table():
     assert all(p["replacement_mpn"] is None for p in parts)
 
 
-def test_a_customer_part_number_column_is_not_touched_by_the_precedence():
-    """Whether `Customer Part Number` is an affected column is a DEFERRED question with
-    both sides argued, and this fix must not close it by accident. It carries no
-    replacement wording, so the precedence never reaches it and its behaviour is
-    whatever it was -- which is the point of the test."""
-    assert pair_columns(["CUSTOMER PART NUMBER"]) == [(0, None)]
-    # MEASURED, and NOT the reading you would choose: with a customer column between
-    # them, the replacement pairs with the CUSTOMER part number. That follows from the
-    # pre-existing rule -- a replacement goes to the nearest affected column on its
-    # LEFT -- and it is visible with a plain `Replacement` header, which this fix does
-    # not touch at all, so it is not something the precedence introduced:
-    assert pair_columns(["Part Number", "CUSTOMER PART NUMBER",
-                         "Replacement"]) == [(0, None), (1, 2)]
-    # The precedence does change this header, because it is the only thing that makes
-    # the third column a replacement rather than a third affected column (it was
-    # [(0, None), (1, None), (2, None)] -- three affected, no pair). What it does NOT do
-    # is decide whether a customer column is an affected column; that is the deferred
-    # Customer-Part-Number question, still open, and the mis-pairing above is its live
-    # form. Recorded rather than changed, because closing it needs a ruling.
-    assert pair_columns(["Part Number", "CUSTOMER PART NUMBER",
-                         "Alternative Part Number"]) == [(0, None), (1, 2)]
+def test_a_customer_part_number_column_is_never_an_affected_column():
+    """RULED 2026-10-29: a `Customer Part Number` column is never an affected part. It is
+    the customer's own alias for the affected part printed beside it. This test was
+    written the other way round -- recording the DEFERRED question, and two mis-pairings
+    as known defects -- and those two mis-pairings are exactly what the ruling fixes.
+
+    The veto lives in `pair_columns`, not in `_is_affected`, for the same reason the
+    replacement veto does: `_is_affected` also feeds `find_title_row`."""
+    # A customer column ALONE yields no pair at all. There is no affected part for the
+    # alias to belong to, so nothing is emitted -- the fail-safe direction, because a
+    # wrongly-asserted part lands on a SHARED component IRI and cannot be withdrawn by
+    # re-ingesting.
+    assert pair_columns(["CUSTOMER PART NUMBER"]) == []
+    assert customer_columns(["CUSTOMER PART NUMBER"], []) == []
+    # WAS [(0, None), (1, 2)] -- the replacement pairing with the CUSTOMER column,
+    # because a replacement goes to the nearest affected column on its LEFT and the
+    # customer column was counted as affected. Now the customer column is out of the
+    # affected role entirely, so the replacement reaches the real affected part:
+    h = ["Part Number", "CUSTOMER PART NUMBER", "Replacement"]
+    assert pair_columns(h) == [(0, 2)]
+    assert customer_columns(h, pair_columns(h)) == [1]
+    # The same, with the replacement spelled as a part-number column. WAS
+    # [(0, None), (1, 2)] for the same reason.
+    h = ["Part Number", "CUSTOMER PART NUMBER", "Alternative Part Number"]
+    assert pair_columns(h) == [(0, 2)]
+    assert customer_columns(h, pair_columns(h)) == [1]
+    # TWO cues are required, which is what keeps `Customer Drawing` out: it names a
+    # DRAWING, not a part, and on the real TYC page it sits between `Part Number` and
+    # `Customer Part Number`. It is neither affected nor customer -- simply ignored.
+    h = ["Part Number", "Customer\nDrawing", "Customer Part Number"]
+    assert pair_columns(h) == [(0, None)]
+    assert customer_columns(h, pair_columns(h)) == [2]
 
 
 def test_an_mpn_containing_an_alias_WORD_is_not_dropped_as_a_header():
@@ -665,12 +678,23 @@ def test_composite_affected_cell_yields_two_parts_sharing_row_and_col():
 
 def test_composite_cell_with_a_non_mpn_fragment_is_not_split():
     """If even one fragment fails the MPN-shape floor, a PARTIAL split would invent a
-    part the document never separated out — the whole value is kept, unsplit."""
+    part the document never separated out — the whole value is kept, unsplit.
+
+    MEASURED CONSEQUENCE of the 2026-10-29 whitespace-budget fix, recorded rather than
+    papered over. This cell used to be emitted WHOLE as one affected part: the budget
+    was written `v.count(" ")` and so counted 2 of its allowed 2 spaces while being
+    blind to the newline. Counting ALL whitespace makes it 3 of 2, the cell fails the
+    MPN floor, and nothing is emitted.
+
+    Neither behaviour recovers the real part `TYC1056344-1`. The difference is that the
+    old one asserted the glued prose string `'TYC1056344-1,\nsee note 4'` as an
+    affected_mpn -- a fabricated part on a SHARED component IRI, unwithdrawable by
+    re-ingesting -- and the new one asserts nothing, which the corpus gate sees as a
+    plain miss. That is the approved direction: fails toward not-emitting."""
     assert split_composite_cell("TYC1056344-1,\nsee note 4") == []
     grid = [["Affected Part", "Replacement"], ["TYC1056344-1,\nsee note 4", ""]]
     parts = parts_from_grid(grid)
-    assert len(parts) == 1
-    assert parts[0]["affected_mpn"] == "TYC1056344-1,\nsee note 4"
+    assert parts == [], parts
 
 
 def test_prose_fragments_are_rejected_by_shape_not_by_luck():

@@ -305,6 +305,19 @@ def uncorroborated_parts(parts: Optional[List[dict]],
         # The part's own page first; the whole witness as a fallback, because a table
         # spanning a page break can carry a row whose page number is one off.
         haystack = by_page.get(page) or ""
+        # `customer_mpn` IS NOT CHECKED HERE, and the omission is a decision, not an
+        # oversight -- do not "complete" this tuple without re-reading the next sentence.
+        # Every finding this function returns sets `needs_review` at its call site in
+        # `doc_tools/plugins/sustainment.py`, and a needs-review notice earns a corpus-gate
+        # exemption that does not lapse. The customer column was ruled ADVISORY on
+        # 2026-10-29 precisely so that it contributes to neither `blocking` nor `exempted`;
+        # checking it here would hand an advisory field the one path into the gate's
+        # exemption state that the ruling closed. The cost is real and is named in the
+        # report: a dropped ligature inside a customer id is not flagged. It is empty today
+        # -- the one notice with both a damaged text layer and a declared customer column
+        # prints ids that are digits and a dash, so there is no ligature pair to lose -- and
+        # it will not stay empty for ever. The fix, when a case arrives, is a SEPARATE
+        # advisory finding that does not touch `needs_review`, not a third entry below.
         for field in ("affected_mpn", "replacement_mpn"):
             mpn = part.get(field)
             key = _mpn_key(mpn)

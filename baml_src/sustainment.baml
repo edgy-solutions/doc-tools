@@ -32,6 +32,7 @@ class PartImpact {
     affected_mpn_source string @description("The exact substring, VERBATIM and unnormalized, as affected_mpn appears in the OCR text / table cell. Copy character-for-character - this is the provenance join key. Usually identical to affected_mpn.")
     replacement_mpn string? @description("The recommended replacement/substitute part number for THIS row, exactly as written. Null if the notice lists no replacement for this part.")
     replacement_mpn_source string? @description("Verbatim source substring for replacement_mpn, or null if none.")
+    customer_mpn string? @description("The CUSTOMER's own part number for THIS row's affected part, exactly as written; null if none. Emit ONLY from an explicit customer-numbering column ('Customer Part Number', 'Cust. Part No', 'Customer P/N'). It is the customer's alias for the SAME physical part as affected_mpn - never a replacement, never a second affected part. A literal 'null', a blank or a dash means null here. Carries no _source of its own: the row's source snippet covers it.")
     ltb_date string? @description("The PER-ROW last-time-buy date for this specific part, ISO 8601 (YYYY-MM-DD), IF the table row carries its own date. Null if this row has no per-row date (a single document-level date lives on the header instead).")
     ltb_date_source string? @description("Verbatim source substring for a per-row ltb_date, or null.")
 }
@@ -95,6 +96,7 @@ function ExtractHeader(doc: string, system_instructions: string) -> NoticeHeader
 class PartRow {
     affected_mpn string @description("The affected/discontinued part number, EXACTLY as written - preserve suffixes, slashes, '#' reel codes, module dashes (e.g. 'LTC6226HDC#TRMPBF', '090-44310-31'). Never normalize.")
     replacement_mpn string? @description("The recommended replacement for THIS row, exactly as written; null if none. Qualification / evaluation vehicles are NOT replacements.")
+    customer_mpn string? @description("The CUSTOMER's own part number for the affected part in THIS row, exactly as written; null if none. Emit this ONLY when the table has an explicit customer-numbering column - a heading like 'Customer Part Number', 'Cust. Part No', 'Customer P/N'. It is the customer's alias for the SAME physical part as affected_mpn, NOT a different part: never a replacement, never a second affected part. A literal 'null', a blank or a dash in that column means null here. If the table has no such column, this is null on every row - do not infer a customer number from any other column.")
     ltb_date string? @description("Per-row last-time-buy date (ISO 8601) if the row carries its own; else null.")
 }
 
@@ -157,6 +159,7 @@ function ExtractParts(ocr_text: string, html_table: string, table_images: image[
 class GridColumnRoles {
     affected_col int? @description("Index of the grid column holding the affected/discontinued manufacturer part number, read off its cN heading. NULL when this table has NO affected-part column at all - a change-description table, a spec/material table, a revision history. Null is a real answer, not a failure: guessing a column on a table that holds no parts emits whatever sits in the guessed column as if it were a part number.")
     replacement_col int? @description("0-based index of the column holding the recommended replacement/substitute part number, or null if this table has no replacement column at all.")
+    customer_col int? @description("0-based index of the column holding the CUSTOMER's own part number for the affected part - a heading like 'Customer Part Number', 'Cust. Part No', 'Customer P/N' - or null if this table has no such column. It is an ALIAS column for the affected part, so it is neither the affected column nor the replacement column. A 'Customer Drawing' or 'Customer Reference' column is NOT this: the column must number a PART.")
     ltb_date_col int? @description("0-based index of a PER-ROW last-time-buy date column, or null if the table carries no per-row dates.")
     header_rows int[] @description("0-based indices of rows that are headers, captions or spacers rather than parts. Empty list if every row is a part row.")
     reason string @description("One sentence naming the evidence in the image or grid for this column assignment.")

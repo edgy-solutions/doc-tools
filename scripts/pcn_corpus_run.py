@@ -177,8 +177,22 @@ SEAL_OUT = os.getenv("PCN_SEAL_OUT", "/tmp/pcn_crop_seal.json")
 # stayed. FULLGREEN survives only as a declared alias in `_corpus`.documents.
 # Direction of the change: the denominator drops and no part is added or removed,
 # so a score measured at 924 is NOT comparable to one measured at 522.
+#
+# RE-LABELLED 2026-10-29, the FOURTH permitted kind of change to these numbers: ground
+# truth was CONFLATING two different things under one count. A "Customer Part Number"
+# column is never an affected part -- it is the customer's own alias for the affected
+# part printed beside it -- ruled 2026-10-29 for EVERY notice, closing the question
+# docs/pcn-corpus-validation-2026-09-21.md s69-72 left open. TYC's count held 26 because
+# 10 of its entries came from exactly that column; those 10 now live in `customer_mpns`
+# in pcn_ground_truth.json and are scored as their own column, and TYC falls 26 -> 16
+# with the corpus 522 -> 512. Note that the 2026-09-24 note above already said what the
+# cells were -- "two customer part numbers each" -- while counting them as affected.
+# This is NOT a recall loss and NOT a correction in that earlier sense: no part number
+# left the file and nothing became unextractable. An extractor that was scoring 522/522
+# scores 512/512. Numerator and denominator fall together by the same 10, so a RATE at
+# 512 is comparable to one at 522 while a COUNT is not -- cite the denominator.
 TARGETS = [
-    {"file": "TYC-PCN-24-210412.pdf",           "gt": 26},
+    {"file": "TYC-PCN-24-210412.pdf",           "gt": 16},
     {"file": "Diodes_PCN_2683_Rev1_EOL.pdf",    "gt": 402},
     {"file": "EOL-36_BYV34-400,-BYV34-500.pdf", "gt": 4},
     {"file": "ADI_PDN_23_0120.pdf",             "gt": 1},
@@ -458,6 +472,13 @@ def run_one(plugin, c, fn, manifest_key, manifest):
         "elapsed_s": elapsed,
         "parts": len(parts),
         "mpns": [p.affected_mpn for p in parts],
+        # The customer column, as CELLS and not as ids: one cell can hold two ids for
+        # one affected part (TYC prints two such cells) and tier 1 carries them
+        # verbatim on purpose, so the splitting is the scorer's job and is done once,
+        # there. Rows with no customer value are dropped rather than carried as nulls:
+        # a null is not a reading, and the parts denominator is the only one that
+        # counts rows.
+        "customer_mpns": [p.customer_mpn for p in parts if p.customer_mpn],
         "needs_review": bool(aug.needs_review),
         "review_reasons": list(aug.review_reasons or []),
         "doc_review_reasons": list((aug.review or {}).get("doc_review_reasons") or []),

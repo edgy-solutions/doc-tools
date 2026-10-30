@@ -519,8 +519,8 @@ def test_the_gate_copies_the_corpus_enumeration_into_its_report():
     corpus = gate.pcn_score.load_corpus()
     assert corpus["distinct_documents"] == 10
     assert corpus["scored_entries"] == 10
-    assert corpus["gt_parts"] == 522
-    assert corpus["distinct_parts"] == 522
+    assert corpus["gt_parts"] == 512
+    assert corpus["distinct_parts"] == 512
     rendered = gate._render_corpus_block(corpus)
     assert "distinct documents: **10**" in rendered
     # The WHOLE statement, not a phrase out of it: the point is that the gate
@@ -549,9 +549,9 @@ def test_targets_and_the_enumeration_must_agree_or_the_run_aborts():
         # the shipped ones -- otherwise a case passes for the wrong reason and would
         # keep passing after the real check was removed.
         for bad in ({"documents": [], "distinct_documents": 0,
-                     "scored_entries": 10, "gt_parts": 522, "distinct_parts": 522},
-                    dict(real(), gt_parts=925),
-                    dict(real(), distinct_parts=924),
+                     "scored_entries": 10, "gt_parts": 512, "distinct_parts": 512},
+                    dict(real(), gt_parts=513),
+                    dict(real(), distinct_parts=511),
                     dict(real(), scored_entries=11),
                     {}):
             run.pcn_score.load_corpus = lambda *a, _b=bad, **k: _b
@@ -565,7 +565,7 @@ def test_targets_and_the_enumeration_must_agree_or_the_run_aborts():
 
 
 def test_the_distinct_parts_arithmetic_is_recomputed_not_restated():
-    """522 is the sum of each document's representative filename over the notices
+    """512 is the sum of each document's representative filename over the notices
     block, not a second copy of the number. Since the 2026-10-12 sha256 re-key each
     document is scored once, so that sum IS the harness total (the Diodes pair was
     924 = 522 + 402 while it was scored under both names)."""

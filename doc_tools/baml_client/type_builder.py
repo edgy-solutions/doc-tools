@@ -610,7 +610,7 @@ class GridColumnRolesAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("GridColumnRoles")
-        self._properties: typing.Set[str] = set([  "affected_col",  "replacement_col",  "ltb_date_col",  "header_rows",  "reason",  ])
+        self._properties: typing.Set[str] = set([  "affected_col",  "replacement_col",  "customer_col",  "ltb_date_col",  "header_rows",  "reason",  ])
         self._props = GridColumnRolesProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -645,6 +645,10 @@ class GridColumnRolesProperties:
     @property
     def replacement_col(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("replacement_col"))
+    
+    @property
+    def customer_col(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("customer_col"))
     
     @property
     def ltb_date_col(self) -> type_builder.ClassPropertyViewer:
@@ -1160,7 +1164,7 @@ class PartImpactAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("PartImpact")
-        self._properties: typing.Set[str] = set([  "affected_mpn",  "affected_mpn_source",  "replacement_mpn",  "replacement_mpn_source",  "ltb_date",  "ltb_date_source",  ])
+        self._properties: typing.Set[str] = set([  "affected_mpn",  "affected_mpn_source",  "replacement_mpn",  "replacement_mpn_source",  "customer_mpn",  "ltb_date",  "ltb_date_source",  ])
         self._props = PartImpactProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -1205,6 +1209,10 @@ class PartImpactProperties:
         return type_builder.ClassPropertyViewer(self.__bldr.property("replacement_mpn_source"))
     
     @property
+    def customer_mpn(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("customer_mpn"))
+    
+    @property
     def ltb_date(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("ltb_date"))
     
@@ -1219,7 +1227,7 @@ class PartRowAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("PartRow")
-        self._properties: typing.Set[str] = set([  "affected_mpn",  "replacement_mpn",  "ltb_date",  ])
+        self._properties: typing.Set[str] = set([  "affected_mpn",  "replacement_mpn",  "customer_mpn",  "ltb_date",  ])
         self._props = PartRowProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -1254,6 +1262,10 @@ class PartRowProperties:
     @property
     def replacement_mpn(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("replacement_mpn"))
+    
+    @property
+    def customer_mpn(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("customer_mpn"))
     
     @property
     def ltb_date(self) -> type_builder.ClassPropertyViewer:

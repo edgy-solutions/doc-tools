@@ -606,9 +606,10 @@
         "values": [
           "parts[i].affected_mpn",
           "parts[i].replacement_mpn",
+          "parts[i].customer_mpn",
           "parts[i].ltb_date"
         ],
-        "schema_note": "The CONTRACT declares a bare string with no enum; the PRODUCER emits only these three on this route. Closed in practice, open in the schema -- a profile keying on it should tolerate an unknown value."
+        "schema_note": "The CONTRACT declares a bare string with no enum; the PRODUCER emits only these four on this route. Closed in practice, open in the schema -- a profile keying on it should tolerate an unknown value."
       },
       "evidence": "none",
       "notes": "Renamed from the producer field_path. This is the discriminator a column list uses to pick which value a column takes."
@@ -744,7 +745,7 @@
       "served_by": "GET /ingest/{ingest_id}/extraction",
       "vocabulary": null,
       "evidence": "none",
-      "notes": "The verbatim substring the model says it read the value from: affected_mpn_source / replacement_mpn_source / ltb_date_source, by row. This is where the *_source family DOES reach the wire."
+      "notes": "The verbatim substring the model says it read the value from: affected_mpn_source / replacement_mpn_source / customer_mpn_source / ltb_date_source, by row. This is where the *_source family DOES reach the wire."
     },
     {
       "name": "part.affected_mpn",
@@ -783,6 +784,25 @@
       "vocabulary": null,
       "evidence": "wire_evidence_ref",
       "notes": "A profile names this field; the value is row.extracted_value on the row whose row.field is 'parts[i].replacement_mpn', and its verbatim substring is row.source_snippet on that same row. One wire column carries all three part values, so the column list needs the selector, not just a name. The row is emitted ONLY when the part has a replacement_mpn, so a part with none has two rows, not three -- a per-part profile must tolerate the absent row rather than expect a null. The corpus scorer has no replacement arm, so this field is unscored."
+    },
+    {
+      "name": "part.customer_mpn",
+      "scope": "row",
+      "type": "unconstrained",
+      "nullable": true,
+      "producer": {
+        "origin": "baml:ImpactedPart",
+        "field": "customer_mpn"
+      },
+      "review_json": "parts[i].customer_mpn",
+      "wire": {
+        "container": "ExtractionRow",
+        "name": "extracted_value"
+      },
+      "served_by": "GET /ingest/{ingest_id}/extraction",
+      "vocabulary": null,
+      "evidence": "wire_evidence_ref",
+      "notes": "The CUSTOMER's own part number for the row's affected part: an alias of affected_mpn, NOT a replacement and NOT a second affected part. A profile names this field; the value is row.extracted_value on the row whose row.field is 'parts[i].customer_mpn', and its verbatim substring is row.source_snippet on that same row. The row is emitted ONLY when the part has a customer_mpn, so a part with none simply lacks the row rather than carrying a null. A customer cell may legitimately hold two ids for one affected part (carried verbatim, not split). Row field and review surface ONLY: it is never written to the graph, because component IRIs are shared across notices and a wrongly written alias cannot be withdrawn. The corpus scorer has no customer arm, so this field is unscored."
     },
     {
       "name": "part.ltb_date",

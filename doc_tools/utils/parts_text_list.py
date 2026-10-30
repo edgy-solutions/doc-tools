@@ -82,6 +82,8 @@ def parse_family_model(text: str, page_number: Optional[int] = None) -> List[dic
             "affected_mpn_source": model,
             "replacement_mpn": None,
             "replacement_mpn_source": None,
+            "customer_mpn": None,          # ADI's FAMILY / MODEL list has no customer column
+            "customer_mpn_source": None,
             "ltb_date": None,
             "ltb_date_source": None,
             "text_layer_bbox": None,

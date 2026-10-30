@@ -68,6 +68,12 @@ class PartImpact(BaseModel):
     affected_mpn_source: Optional[str] = None
     replacement_mpn: Optional[str] = None
     replacement_mpn_source: Optional[str] = None
+    # The CUSTOMER's own id for this row's affected part: an alias, never a replacement and
+    # never a second affected part. Row field + review surface ONLY -- deliberately absent
+    # from every graph write below (component IRIs are shared across notices, so a wrongly
+    # written alias could not be withdrawn).
+    customer_mpn: Optional[str] = None
+    customer_mpn_source: Optional[str] = None
     ltb_date: Optional[str] = None
     ltb_date_source: Optional[str] = None
 
@@ -643,7 +649,7 @@ def _valid_grid_roles(roles: Any, n_cols: int) -> bool:
         return True
     if not (0 <= roles.affected_col < n_cols):
         return False
-    for col in (roles.replacement_col, roles.ltb_date_col):
+    for col in (roles.replacement_col, roles.customer_col, roles.ltb_date_col):
         if col is not None and not (0 <= col < n_cols):
             return False
     return True
@@ -883,10 +889,13 @@ class SustainmentPlugin(AugmentationPlugin):
             "affected_mpn_source": p["affected_mpn"],   # verbatim: the cell IS the source
             "replacement_mpn": p.get("replacement_mpn"),
             "replacement_mpn_source": p.get("replacement_mpn"),
+            "customer_mpn": p.get("customer_mpn"),
+            "customer_mpn_source": p.get("customer_mpn"),
             "ltb_date": None,          # per-row dates are not a column in this shape;
             "ltb_date_source": None,   # the header pass supplies the doc-level date
             "text_layer_bbox": p.get("bbox"),
             "text_layer_replacement_bbox": p.get("replacement_bbox"),
+            "text_layer_customer_bbox": p.get("customer_bbox"),
             "text_layer_page": p.get("page_number"),
             "text_layer_page_dims": p.get("page_dims"),
         } for p in parts]
@@ -965,6 +974,7 @@ class SustainmentPlugin(AugmentationPlugin):
                               f"out-of-range column index on page {page_no} "
                               f"(affected_col={roles.affected_col!r}, "
                               f"replacement_col={roles.replacement_col!r}, "
+                              f"customer_col={roles.customer_col!r}, "
                               f"ltb_date_col={roles.ltb_date_col!r}, n_cols={n_cols}) — "
                               f"degrading this page to the pixel path")
                         page_ok = False
@@ -1001,6 +1011,10 @@ class SustainmentPlugin(AugmentationPlugin):
                     r_col = roles.replacement_col
                     if r_col is not None and r_col < len(row):
                         rep = (row[r_col] or "").strip() or None
+                    cust = None
+                    c_col = roles.customer_col
+                    if c_col is not None and c_col < len(row):
+                        cust = (row[c_col] or "").strip() or None
                     ltb = None
                     l_col = roles.ltb_date_col
                     if l_col is not None and l_col < len(row):
@@ -1012,6 +1026,7 @@ class SustainmentPlugin(AugmentationPlugin):
                     all_parts.append({
                         "affected_mpn": affected, "affected_mpn_source": affected,
                         "replacement_mpn": rep, "replacement_mpn_source": rep,
+                        "customer_mpn": cust, "customer_mpn_source": cust,
                         "ltb_date": ltb, "ltb_date_source": ltb,
                     })
                     page_emitted += 1
@@ -1204,7 +1219,8 @@ class SustainmentPlugin(AugmentationPlugin):
                     # The audit trail of what the model actually returned is in
                     # `text_layer_repair_detail`, which records every field it changed.
                     for key in ("affected_mpn", "affected_mpn_source",
-                                "replacement_mpn", "replacement_mpn_source"):
+                                "replacement_mpn", "replacement_mpn_source",
+                                "customer_mpn", "customer_mpn_source"):
                         was = d.get(key)
                         now = text_layer.prefer_text_layer_mpn(was, doc_tokens)
                         if now != was:
@@ -1306,7 +1322,7 @@ class SustainmentPlugin(AugmentationPlugin):
             import pdfplumber  # noqa: PLC0415 — heavy import, only on this path
             mpns = set()
             for p in targets:
-                for k in ("affected_mpn", "replacement_mpn"):
+                for k in ("affected_mpn", "replacement_mpn", "customer_mpn"):
                     if p.get(k):
                         mpns.add(p[k])
             body = s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
@@ -1329,6 +1345,9 @@ class SustainmentPlugin(AugmentationPlugin):
                 # the review item reuses the affected box's page and page_dims.
                 if rep and hit and rep["page_number"] == hit["page_number"]:
                     p["text_layer_word_replacement_bbox"] = rep["bbox"]
+                cust = boxes.get(p.get("customer_mpn"))
+                if cust and hit and cust["page_number"] == hit["page_number"]:
+                    p["text_layer_word_customer_bbox"] = cust["bbox"]
             return n
         except Exception as e:  # noqa: BLE001 — degrade to no boxes, never fail the doc
             print(f"[SustainmentPlugin] word-box attachment unavailable ({e}); rows keep table-level provenance")
@@ -2468,6 +2487,11 @@ class SustainmentPlugin(AugmentationPlugin):
                 "params": {"section_id": section_id, "title": sec.title},
             })
 
+            # `customer_mpn` IS DELIBERATELY NOT WRITTEN BELOW (Neo4j or RDF). It is the
+            # customer's alias for the row's affected part: component IRIs are shared
+            # across notices, so a wrongly written alias could never be withdrawn. It lives
+            # on the row and the review item only.
+            #
             # `ltb_date` IS SET, NEVER MERGED ON — AND THAT IS NOT COSMETIC.
             #
             # Neo4j refuses a MERGE whose relationship pattern carries a null

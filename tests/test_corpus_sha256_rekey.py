@@ -3,7 +3,10 @@
 `Diodes_PCN_2683_Rev1_EOL.pdf` and `Diodes_PCN_2683_FULLGREEN.pdf` are byte-identical
 (sha256 af5bfad3..., measured 2026-10-12 inside the sandbox doc-tools pod), so scoring
 both counted one document twice at 402 parts: 924 harness parts over 522 distinct ones.
-After the re-key `gt_parts == distinct_parts == 522` holds by assertion.
+After the re-key `gt_parts == distinct_parts` holds by assertion -- 522 at the re-key,
+512 since the 2026-10-29 customer-alias re-label took 10 of TYC's 26 out of the affected
+count and into `customer_mpns`. The two numbers that are HISTORY (924, and 522 as the
+re-key's own result) stay as literals here; the live total is asserted below.
 
 Claims about the corpus are asserted against the REAL ground-truth file. The mutation
 checks deep-copy it and monkeypatch the loaders; they never write to the real file.
@@ -67,8 +70,8 @@ def test_check_ground_truth_passes_on_the_real_tree():
 def test_the_four_corpus_numbers_after_the_rekey():
     c = score.load_corpus()
     assert c["scored_entries"] == c["distinct_documents"] == 10
-    assert c["gt_parts"] == c["distinct_parts"] == 522
-    assert run.GT_TOTAL == 522
+    assert c["gt_parts"] == c["distinct_parts"] == 512
+    assert run.GT_TOTAL == 512
 
 
 def test_scored_notices_are_exactly_targets_and_the_alias_is_not_scored():
@@ -191,7 +194,7 @@ def test_mutation_gt_parts_differs_from_distinct_parts_aborts(mutate, monkeypatc
     monkeypatch.setattr(run, "TARGETS", targets)
     monkeypatch.setattr(run, "GT_TOTAL", sum(t["gt"] for t in targets))
     corpus["gt_parts"] = run.GT_TOTAL
-    with pytest.raises(SystemExit, match="gt_parts=523 != distinct_parts=522"):
+    with pytest.raises(SystemExit, match="gt_parts=513 != distinct_parts=512"):
         run.check_corpus_enumeration(gt)
 
 
