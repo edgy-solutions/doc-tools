@@ -3,6 +3,7 @@
 No cluster: records and existing state are built by hand, Neo4j is a recording fake.
 """
 import math
+import re
 
 import pytest
 
@@ -173,10 +174,141 @@ def test_rejected_pair_is_never_reproposed():
     assert p.stats["rejected_pairs"] == 1
 
 
-def test_co_taught_pair_is_excluded():
+def test_co_taught_pair_is_proposed_and_ranks_above_an_equal_pair_with_no_shared_slides():
     a = rec("PLC", terms=["Programmable Logic Controller"], slides=["s1"])
     b = rec("Programmable Logic Controller", slides=["s1", "s2"])
-    assert plan([a, b]).proposals == []
+    p = plan([a, b])
+    assert len(p.proposals) == 2 and p.proposal_pool[0].shared == 1
+    # two equal-confidence pairs: only the co-taught one has shared slides, so it ranks first
+    x, y = rec("Box", slides=["t1"]), rec("Boxes", slides=["t1"])
+    u, v = rec("Pump", slides=["u1"]), rec("Pumps", slides=["u2"])
+    pool = plan([x, y, u, v]).proposal_pool
+    assert [(pp.a, pp.b) for pp in pool][0] == (min(x.id, y.id), max(x.id, y.id))
+    assert [pp.shared for pp in pool] == [1, 0]
+
+
+def _pairs(n, course="c1", shared_for=()):
+    """n disjoint plural pairs ("Wn" / "Wns"), equal confidence; shared_for lists pair numbers
+    whose two sides are co-taught."""
+    out = []
+    for k in range(n):
+        sl = [f"sl{k}"] if k in shared_for else None
+        out.append(rec(f"Widget{k:03d}", courses=(course,), slides=sl or [f"a{k}"]))
+        out.append(rec(f"Widget{k:03d}s", courses=(course,), slides=sl or [f"b{k}"]))
+    return out
+
+
+def test_sixty_candidate_pairs_emit_the_top_fifty_by_the_ranking():
+    shared = set(range(50))
+    recs = _pairs(60, shared_for=shared)
+    p = plan(recs)
+    assert p.stats["proposals_computed"] == 60 and p.stats["proposals_emitted"] == 50
+    assert len(p.proposals) == 100 and len(p.proposal_pool) == 60
+    names = {x.concept_id for x in p.proposals}
+    for k in range(60):
+        want = k in shared
+        assert (concept_node_id(D, f"Widget{k:03d}") in names) is want
+
+
+def test_fleet_run_emits_the_union_of_each_courses_top_n():
+    recs = _pairs(5, "c1", shared_for={0, 1}) + [
+        rec(r.name.replace("Widget", "Gadget"), courses=("c2",), slides=[s.replace("a", "g").replace("b", "h") for s in r.slides])
+        for r in _pairs(5, "c2", shared_for={3, 4})]
+    p = plan(recs, proposals_per_course=2)
+    got = {frozenset((x.concept_id, x.other_id)) for x in p.proposals}
+    assert len(got) == 4 and p.stats["proposals_computed"] == 10 and p.stats["proposals_emitted"] == 4
+    names = {concept_node_id(D, n) for n in ("Widget000", "Widget001", "Gadget003", "Gadget004")}
+    assert {i for pair in got for i in pair} >= names
+    # a course run emits only that course's pairs
+    one = plan(recs, scope="c2", proposals_per_course=2)
+    assert len({frozenset((x.concept_id, x.other_id)) for x in one.proposals}) == 2
+
+
+def test_a_course_run_keeps_a_cross_course_pair_another_course_selected():
+    # Widget pair ranks first in c1 (a shared slide); the Gizmo pair spans c1 and c2 and is
+    # c2's only pair. Cap 1: c1 selects Widget, c2 selects Gizmo. The c1 run must still emit
+    # Gizmo, or its `managed` delete would drop the proposal c2's run writes back.
+    recs = [rec("Widget", slides=["sl1"]), rec("Widgets", slides=["sl1"]),
+            rec("Gizmo", courses=("c1",)), rec("Gizmos", courses=("c2",))]
+    fleet = plan(recs, proposals_per_course=1)
+    ex = Existing(canon={cc: C.SOURCE for cc in fleet.canonicals})
+    pairs = lambda p: {frozenset((x.concept_id, x.other_id)) for x in p.proposals}
+    gizmo = frozenset(concept_node_id(D, n) for n in ("Gizmo", "Gizmos"))
+    c1 = plan(recs, ex, scope="c1", proposals_per_course=1)
+    assert gizmo in pairs(c1) and pairs(c1) == pairs(fleet)
+    assert pairs(plan(recs, ex, scope="c2", proposals_per_course=1)) == {gizmo}
+
+
+def test_from_env_reads_both_settings(monkeypatch):
+    monkeypatch.setenv("TRAINING_ALIGN_PROPOSALS_PER_COURSE", "3")
+    monkeypatch.setenv("TRAINING_ALIGN_PROPOSE_MIN", "0.5")
+    s = AlignSettings.from_env()
+    assert s.proposals_per_course == 3 and s.propose_min == 0.5
+    p = plan_alignment(_pairs(10), Existing(), settings=s, domain=D)
+    assert p.stats["proposals_emitted"] == 3 and p.stats["proposals_computed"] == 10
+    monkeypatch.delenv("TRAINING_ALIGN_PROPOSALS_PER_COURSE")
+    monkeypatch.delenv("TRAINING_ALIGN_PROPOSE_MIN")
+    assert AlignSettings.from_env() == AlignSettings() and AlignSettings().proposals_per_course == 50
+
+
+def test_a_pair_cut_by_the_cap_loses_its_stale_open_proposal():
+    recs = _pairs(3)
+    full = plan(recs, proposals_per_course=3)
+    open_ = {(x.cc_id, x.concept_id) for x in full.proposals}
+    ex = Existing(canon={cc: C.SOURCE for cc, _ in open_}, open_proposals=open_)
+    capped = plan(recs, ex, proposals_per_course=1)
+    assert capped.stats["proposals_emitted"] == 1
+    assert len(capped.stale_proposals) == 4
+    r = Recorder()
+    apply_plan(r, capped, D)
+    assert any("$stale" in q for q, _ in r.calls)
+
+
+def test_reversed_legacy_edge_pins_the_concept_and_is_counted():
+    r = rec("Pump A")
+    ex = Existing(canon={"legacy name": None}, pinned={r.id: {"legacy name": None}}, legacy_reversed=1)
+    p = plan([r, rec("pump-a")], ex)
+    assert all(e.concept_id != r.id for e in p.auto_edges)
+    assert p.stats["legacy_reversed_edges"] == 1 and p.stats["pinned_legacy"] == 1
+    q = Recorder()
+    apply_plan(q, p, D)
+    assert not any("(cc)-[" in norm(c) and "MERGE" in c and "ALIGNS_TO" in c for c, _ in q.calls)
+
+
+def test_an_accepted_proposal_becomes_an_aligns_to_and_the_auto_edge_goes():
+    r, other = rec("PLC"), rec("Programmable Logic Controller")
+    ex = Existing(canon={"cc_x": C.SOURCE, "cc_old": C.SOURCE}, auto={r.id: {"cc_old"}},
+                  accepted={("cc_x", r.id): 0.6})
+    p = plan([r, other], ex)
+    assert [(m.concept_id, m.cc_id, m.confidence) for m in p.materialise] == [(r.id, "cc_x", 0.6)]
+    assert p.drop_auto == [r.id] and all(e.concept_id != r.id for e in p.auto_edges)
+    assert p.stats["accepted_materialised"] == 1 and p.stats["pinned_accepted"] == 1
+    assert all((x.cc_id, x.concept_id) != ("cc_x", r.id) for x in p.proposals)
+    rec_ = Recorder()
+    apply_plan(rec_, p, D)
+    qs = [norm(q) for q, _ in rec_.calls]
+    mat = next(q for q in qs if "r.method = 'review'" in q)
+    assert "MERGE (c)-[r:ALIGNS_TO]->(cc)" in mat and "r.status = 'accepted'" in mat
+    assert not any("DELETE p" in q and "accepted" in q for q in qs)  # the proposal is the record
+    # already materialised: nothing to do
+    ex.aligned.add(("cc_x", r.id))
+    assert plan([r, other], ex).materialise == []
+
+
+def test_every_written_relationship_runs_concept_to_canonical():
+    r = Recorder()
+    p = plan(_pairs(2, shared_for={0}) + [rec("Box"), rec("Boxes")],
+             Existing(canon={"cc_x": C.SOURCE}, accepted={("cc_x", concept_node_id(D, "Box")): 0.7},
+                      auto={concept_node_id(D, "Boxes"): {"cc_stale"}}))
+    apply_plan(r, p, D)
+    bad = re.compile(r"\((cc|other)\b[^)]*\)-\[\w*:(PROPOSED_)?ALIGNS_TO[^\]]*\]->")
+    good = re.compile(r"\(c\b[^)]*\)-\[\w*:(PROPOSED_)?ALIGNS_TO[^\]]*\]->\((cc|other)\b")
+    seen = 0
+    for q, _ in r.calls:
+        n = norm(q)
+        assert not bad.search(n), n
+        seen += len(good.findall(n))
+    assert seen >= 6
 
 
 V1, V2, V0 = [1.0, 0.0], [0.6, 0.8], [0.0, 1.0]
@@ -215,18 +347,6 @@ def test_propose_min_filter():
     recs = [rec("PLC"), rec("Programmable Logic Controller")]  # acronym, no vectors: 0.60
     assert plan(recs).proposals == []
     assert len(plan(recs, propose_min=0.60).proposals) == 2
-
-
-def test_cap_is_five_per_target_highest_confidence_first():
-    recs = [rec("Pump", vec=[1.0, 0.0])] + [rec(f"Pump {w}", vec=[1.0, 0.1 * i])
-                                            for i, w in enumerate("ABCDEFGH")]
-    # "Pump" vs "Pump X": token_overlap needs a shared token of 4+ chars and Jaccard 0.5: 1/2
-    got = proposals(plan(recs, propose_min=0.0), "Pump")
-    assert len(got) == 5
-    assert [x.confidence for x in got] == sorted((x.confidence for x in got), reverse=True)
-    best = {x.other_id for x in got}
-    assert concept_node_id(D, "Pump A") in best  # the nearest vector made the cut
-    assert concept_node_id(D, "Pump H") not in best
 
 
 # --- scope
@@ -293,9 +413,9 @@ def test_apply_statements_guard_every_non_owned_edge():
             assert "status = 'auto'" in q
         if "DELETE p" in q:
             assert "p.status = 'open'" in q
-        if "MERGE (cc)-[r:ALIGNS_TO]" in q:
+        if "MERGE (c)-[r:ALIGNS_TO]" in q:
             assert "ex IS NULL OR ex.status = 'auto'" in q
-        if "MERGE (cc)-[p:PROPOSED_ALIGNS_TO]" in q:
+        if "MERGE (c)-[p:PROPOSED_ALIGNS_TO]" in q:
             assert "old IS NULL OR old.status = 'open'" in q
         if "DETACH DELETE" in q:
             assert "cc.source = 'concepts.normalise'" in q and "NOT (cc)-[:ALIGNS_TO]-()" in q
@@ -385,13 +505,19 @@ def test_load_existing_classifies_edges():
         def execute_query(self, q, p=None, db=None):
             if "PROPOSED_ALIGNS_TO" in q:
                 return [{"cc": "a", "source": C.SOURCE, "concept": "x", "status": "rejected"},
-                        {"cc": "a", "source": C.SOURCE, "concept": "y", "status": "open"}]
+                        {"cc": "a", "source": C.SOURCE, "concept": "y", "status": "open"},
+                        {"cc": "h", "source": "x", "concept": "w", "status": "accepted", "confidence": 0.7}]
+            if "(cc:CanonicalConcept)-[r:ALIGNS_TO]->(c:Concept" in q:  # wb's old, reversed shape
+                return [{"cc": "old", "source": None, "concept": "v", "status": None}]
             return [{"cc": "a", "source": C.SOURCE, "concept": "x", "status": "auto"},
                     {"cc": "legacy", "source": None, "concept": "y", "status": None},
                     {"cc": "h", "source": "x", "concept": "z", "status": "accepted"}]
 
     ex = C.load_existing(Neo(), D)
-    assert ex.auto == {"x": {"a"}} and ex.pinned == {"y": {"legacy": None}, "z": {"h": "accepted"}}
+    assert ex.auto == {"x": {"a"}}
+    assert ex.pinned == {"y": {"legacy": None}, "z": {"h": "accepted"}, "v": {"old": None}}
+    assert ex.legacy_reversed == 1 and ex.accepted == {("h", "w"): 0.7}
+    assert ex.aligned == {("legacy", "y"), ("h", "z"), ("old", "v")}
     assert ex.rejected == {("a", "x")} and ex.open_proposals == {("a", "y")}
 
 
