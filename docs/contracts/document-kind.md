@@ -180,12 +180,17 @@ ask-the-manual could retrieve a chunk and had nothing to cite.
 
 ## 7. What doc-tools does NOT emit
 
-* **`review_shape: document`** — the order asks for it, and it cannot be emitted
-  from here. `ContentKindRegistration` at our SDK pin (**v0.9.8**) has
-  `model_config extra="forbid"` and no such field; it arrives in **v0.9.11**.
-  Emitting it today would **raise at registry load**. Under #161's split
-  (*the platform owns what a kind IS, doc-tools owns what it RUNS*) it belongs in
-  the overlay regardless. Asked of Lane 1 in §9.
+* **`review_shape: document`** — the order asks for it, and it is still not
+  emitted from here. THE REASON CHANGED on 2026-10-29: the pin is now
+  **v0.9.11**, `review_shape` exists on `ContentKindRegistration`, and emitting
+  it would no longer raise. What remains is the ownership rule, which was always
+  the stronger of the two reasons — under #161's split, affirmed by the
+  architect's 2026-10-24 ruling (*the platform owns what a kind IS — kind,
+  domain, `arrives_as`, `review_shape`, `label`; doc-tools owns what it RUNS*),
+  it belongs in the overlay. So this is now a DECLINE on ownership, not a
+  deferral on shape, and `tests/test_kind_registry.py::
+  test_the_platform_owned_fields_are_absent_by_ruling` pins it as one. Asked of
+  Lane 1 in §9.
 * **SPARQL.** `to_graph_queries` returns an empty SPARQL arm while
   `mesh:GeneralDocumentArtifact` is a phantom: emitting triples against an
   undeclared class writes data no shape can validate. Not because the domain has

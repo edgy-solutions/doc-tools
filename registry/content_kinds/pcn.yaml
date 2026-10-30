@@ -2,8 +2,10 @@
 # doc_tools/utils/content_kind.py's KIND_MAPPING. Do not edit by hand:
 # the mapping table is the authority and tests/test_kind_registry.py
 # fails on drift. The SDK's ContentKindRegistration now HAS a domain field,
-# but we still publish domain beside the rows in content_kind_domains.json
-# deliberately, so the row stays the SDK's shape.
+# but domain is the platform overlay's field by the 2026-10-24 ownership
+# ruling, so it is published beside the rows in content_kind_domains.json
+# and the row stays the fields doc-tools owns. Each row below is built
+# through ContentKindRegistration before it is rendered.
 kind: pcn
 passes:
   - sustainment.baml::ExtractHeader

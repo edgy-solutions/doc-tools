@@ -256,8 +256,16 @@ def test_a_domain_key_in_a_row_would_be_refused_at_the_pin():
             "invent a domain for a format-level kind to satisfy the model -- "
             "take it back to the architect and to lane/ca."
         )
-        # The ruled shape. The rows still do not carry `domain` -- see the
-        # docstring: that migration belongs to the pin bump.
+        # The ruled shape. AND THE ROWS STILL DO NOT CARRY `domain`, which is
+        # no longer "pending the pin bump": the pin bump happened (v0.9.11,
+        # 2026-10-29) and the migration this comment used to promise is
+        # WITHDRAWN. The architect's 2026-10-24 ownership ruling gives `domain`
+        # to the platform's deployment overlay, so moving it into our rows
+        # would make this repo a second source of truth for a field another
+        # repo rules on. The sidecar is not a workaround for `extra="forbid"`
+        # any more -- it is where a field we declare but do not own belongs.
+        # See doc_tools/utils/kind_registrations.py and
+        # test_the_platform_owned_fields_are_absent_by_ruling below.
         return
     assert fields == {"kind", "passes", "outputs"}, sorted(fields)
     with pytest.raises(Exception):
@@ -360,3 +368,90 @@ def test_every_row_has_a_nonempty_pass_and_output():
         assert entry.outputs, f"{source!r} has no outputs"
         assert len(set(entry.passes)) == len(entry.passes), source
         assert len(set(entry.outputs)) == len(entry.outputs), source
+
+
+def test_the_rows_on_disk_are_the_sdk_projection():
+    """THE ADOPTION, PINNED. Seam 1 above (`--check`) says the files match the
+    table; this says the files ARE ``ContentKindRegistration`` objects.
+
+    ``scripts/generate_kind_registrations.py`` renders from
+    ``doc_tools.utils.kind_registrations.registrations()``, so a row the SDK
+    would refuse cannot reach the directory -- building it is the step that
+    produces the bytes. Loading them back through the SDK's own composer and
+    comparing to the projection closes the loop in the other direction: the
+    disk and the model agree field for field, not merely kind for kind.
+
+    The row PAYLOADS were byte-unchanged when this landed (only the generated
+    header comment moved), which is the point -- the adoption changes where the
+    bytes come from, not what they say.
+    """
+    ingest = pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.kind_registrations import registrations
+
+    projected = registrations()
+    assert len(projected) == len(KIND_MAPPING)
+    loaded = ingest.load_content_kind_registrations(ROWS_DIR)
+    assert tuple(sorted(loaded, key=lambda r: r.kind)) == projected
+
+
+def test_the_platform_owned_fields_are_absent_by_ruling():
+    """``domain``/``arrives_as``/``review_shape``/``label`` are the platform's.
+
+    The architect's ruling of 2026-10-24, amending 10-07, quoted in
+    ``tests/test_overlay_kind_drift.py``: *"the platform owns what a kind IS
+    (kind, domain, arrives_as, review_shape, label); doc-tools owns what it RUNS
+    (passes)."* All four exist on the model at the v0.9.11 pin, so leaving them
+    unset is now a CHOICE and has to be pinned as one -- otherwise the next
+    reader finds four empty fields and fills them, which is how a mirrored
+    registry becomes a second source of truth.
+
+    THERE IS A LIVE DISAGREEMENT behind this arm, and it is not this test's to
+    settle: iagent-mesh's v0.9.11 changelog says of ``arrives_as`` *"ca adds the
+    field, 7f fills in KIND_MAPPING's rows with it"* -- 2026-10-21, three days
+    before the ownership ruling moved the field to the platform. Nothing has
+    filled it on either side: on platform master the overlay rows carry only
+    kind/domain/passes/outputs. If a ruling later puts these fields here, this
+    arm is the one to delete, deliberately, with that ruling named.
+    """
+    ingest = pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.kind_registrations import (
+        PLATFORM_OWNED_FIELDS,
+        registrations,
+    )
+
+    model_fields = ingest.ContentKindRegistration.model_fields
+    absent = [f for f in PLATFORM_OWNED_FIELDS if f not in model_fields]
+    assert not absent, (
+        f"{absent} no longer exist on ContentKindRegistration. These are the "
+        f"fields the ownership ruling assigns to the platform; if the SDK "
+        f"dropped one, the ruling has nothing to attach to -- take it to "
+        f"lane/ca rather than deleting the name here."
+    )
+    for reg in registrations():
+        for field in PLATFORM_OWNED_FIELDS:
+            assert getattr(reg, field) == model_fields[field].default, (
+                f"row {reg.kind!r} declares {field!r}, which the 2026-10-24 "
+                f"ownership ruling gives to the platform's overlay. doc-tools' "
+                f"rows MIRROR that side; they do not author it."
+            )
+
+
+def test_the_projection_fills_exactly_what_doc_tools_owns():
+    """Three of thirteen fields are set; eight stay at their defaults by reason.
+
+    ``exclude_defaults`` is the whole assertion: what a row SAYS is what it
+    sets, and today every row sets exactly the three fields doc-tools owns.
+    ``identity_field`` and ``seeds_workflow`` are projected when a row declares
+    one and no row does, so a row that starts declaring one adds its key here
+    and this arm is the place that records it. ``branch``/``refresh`` have no
+    counterpart on ``ContentKindEntry`` at all (ADR-0063 section 1, unchanged by
+    this pin), and ``parent_link_field``/``id_namespaces`` are unset pending a
+    measurement rather than a decision -- see the projection module.
+    """
+    pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.kind_registrations import registrations
+
+    for reg in registrations():
+        assert set(reg.model_dump(exclude_defaults=True)) == {
+            "kind", "passes", "outputs"
+        }, reg.kind
