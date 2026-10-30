@@ -13,6 +13,7 @@ from doc_tools.components.processable_kinds_publisher import (
 )
 from doc_tools.assets import semantic_assets, xml_ingestion, ontology_assets, semantic_linker, dds_ingestion, rabbitmq_ingestion, global_semantic_ingestion, aitool_linker, global_aitool_ingestion, iads_ingestion, doors_ingestion
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
+from doc_tools.concept_alignment_job import normalise_concepts_job
 from doc_tools.partitions import ontology_partitions, design_files_partition, iads_files_partition, xml_files_partition
 from doc_tools.utils.content_kind import ingress_user_prefixes, inbound_suffix_pattern, KIND_MAPPING
 import os
@@ -577,7 +578,7 @@ defs = Definitions(
     # one-off manual syncs through the Dagster launchpad. The SENSOR
     # is what's gone — no automatic polling of DataHub for mlModel MCPs.
     assets=list(_document_parser_defs.assets) + list(_user_document_parser_defs.assets) + list(_sqlserver_extractor_defs.assets) + list(_oracle_extractor_defs.assets) + list(_design_parser_defs.assets) + list(_datahub_sensor_defs.assets) + all_assets,
-    jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job, doors_ingest_job],
+    jobs=list(_document_parser_defs.jobs) + list(_user_document_parser_defs.jobs) + list(_datahub_sensor_defs.jobs) + [xml_graph_sync_job, ingest_ontology_job, ontology_readiness_job, design_metadata_job, iads_ingest_job, doors_ingest_job, normalise_concepts_job],
     sensors=list(_pdf_sensor_defs.sensors) + list(_sustainment_sensor_defs.sensors) + list(_training_sensor_defs.sensors) + list(_ingress_user_sensor_defs.sensors) + list(_ingress_user_xml_sensor_defs.sensors) + list(_ontology_sensor_defs.sensors) + list(_design_sensor_defs.sensors) + list(_datahub_sensor_defs.sensors) + list(_iads_sensor_defs.sensors) + list(_xml_sensor_defs.sensors) + list(_doors_sensor_defs.sensors) + [ingest_retry_sensor, ingest_retry_sensor_xml, processable_kinds_publisher_sensor],
     resources={
         "io_manager": s3_io_manager,

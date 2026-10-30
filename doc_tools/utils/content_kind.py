@@ -319,6 +319,7 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         domain_type="training",
         passes=("structural.outline", "core.baml::ExtractOutline",
                 "training.baml::ExtractSectionConcepts",
+                "concepts.normalise",
                 "render.pages"),
         outputs=("training:Course",),
         file_suffixes=(".pptx", ".pdf", ".docx"),

@@ -447,6 +447,32 @@ def _dagster_run_id(context) -> "str | None":
     return getattr(context, "run_id", None)
 
 
+def _run_concept_alignment(context, neo4j_client, weaviate_client, collection_name, doc_id) -> None:
+    """`concepts.normalise` for one Course, gated by TRAINING_CONCEPT_ALIGNMENT
+    (`dry` default, `on`, `off`). Never raises."""
+    from doc_tools.passes import concepts
+
+    mode = os.getenv("TRAINING_CONCEPT_ALIGNMENT", "dry").strip().lower()
+    summary: dict = {}
+    if mode == "off":
+        status = "off"
+    else:
+        try:
+            summary = concepts.normalise(neo4j_client, weaviate_client, collection_name,
+                                         "TRAINING", course_id=doc_id, dry_run=(mode == "dry"))
+            status = "dry" if mode == "dry" else "ok"
+        except Exception as e:
+            context.log.error(f"Concept alignment failed for {doc_id}: {type(e).__name__}: {e}")
+            status = f"failed:{type(e).__name__}: {str(e)[:200]}"
+    meta = {"concept_alignment": status}
+    if summary:
+        meta["concept_alignment_summary"] = json.dumps(summary, sort_keys=True, default=str)
+    try:
+        context.add_output_metadata(meta)
+    except Exception as e:  # metadata is reporting, never the reason a run fails
+        context.log.error(f"Could not record concept_alignment metadata: {e}")
+
+
 def _build_knowledge_graph_impl(
     context: AssetExecutionContext,
     config: IngestionConfig,
@@ -1360,6 +1386,13 @@ def _build_knowledge_graph_impl(
     except Exception as e:
         context.log.error(f"Pass 2 Roll-up failed: {e}")
         _link_failure.append(f"{type(e).__name__}: {e}")
+
+    # TRAINING: unify the domain's Concepts into CanonicalConcepts (contract v5 section 4.7).
+    # Deliberately NOT a failure of the ingest: the Course is complete without it and the
+    # fleet-wide run (scripts/normalise_concepts.py, normalise_concepts_job) repairs it.
+    # It is loud instead: an error log and `concept_alignment` in the run's metadata.
+    if domain_label == "TRAINING":
+        _run_concept_alignment(context, neo4j_client, weaviate_client, collection_name, doc_id)
 
     _graph_detail = _graph_write_detail(_graph_failures, _graph_attempted) if _graph_failures else ""
     _augment_detail = (

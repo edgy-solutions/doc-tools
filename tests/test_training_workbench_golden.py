@@ -217,14 +217,22 @@ def test_extraction_reproduces_the_golden_slides(tmp_path):
 
 def test_never_written_lists_the_workbench_owned_names():
     nw = GOLDEN["neo4j"]["never_written"]
-    assert set(nw["labels"]) == {"Project", "TargetNode", "User", "CanonicalConcept"}
-    assert set(nw["relations"]) == {"OWNS", "ALIGNS_TO", "SUGGESTED_SOURCE", "DERIVED_FROM"}
-    banned = [":Project", ":TargetNode", ":CanonicalConcept", ":ALIGNS_TO",
-              ":SUGGESTED_SOURCE", ":DERIVED_FROM", ":OWNS"]
+    assert set(nw["labels"]) == {"Project", "TargetNode", "User"}
+    assert set(nw["relations"]) == {"OWNS", "SUGGESTED_SOURCE", "DERIVED_FROM"}
+    assert GOLDEN["neo4j"]["written_only_by"] == {
+        "concepts.normalise": {"labels": ["CanonicalConcept"],
+                               "relations": ["ALIGNS_TO", "PROPOSED_ALIGNS_TO"]}}
+    banned = [":Project", ":TargetNode", ":SUGGESTED_SOURCE", ":DERIVED_FROM", ":OWNS"]
+    # Contract v5 section 4.4/4.7: only `concepts.normalise` (doc_tools/passes/concepts.py)
+    # may name these; everywhere else they stay banned.
+    only_concepts = [":CanonicalConcept", ":ALIGNS_TO", ":PROPOSED_ALIGNS_TO"]
+    sanctioned = Path("doc_tools") / "passes" / "concepts.py"
     hits = []
     for py in (REPO_ROOT / "doc_tools").rglob("*.py"):
         src = py.read_text(encoding="utf-8", errors="replace")
-        hits += [f"{py.relative_to(REPO_ROOT)}: {b}" for b in banned if b in src]
+        rel = py.relative_to(REPO_ROOT)
+        names = banned + ([] if rel == sanctioned else only_concepts)
+        hits += [f"{rel}: {b}" for b in names if b in src]
     assert not hits, hits
 
 
@@ -356,7 +364,8 @@ class FakeWeaviate:
 
 
 def _graph_run(manifest, client, monkeypatch, augment_calls=None, weaviate=None,
-               reraise=False, fulltext=None, neo4j_out=None, extract=None):
+               reraise=False, fulltext=None, neo4j_out=None, extract=None, normalise=None,
+               ctx_out=None):
     """Run the graph asset with fake neo4j/weaviate and a stubbed plugin/LLM.
 
     Returns (neo4j execute_query calls as (query, params), chunk_ids indexed).
@@ -375,6 +384,9 @@ def _graph_run(manifest, client, monkeypatch, augment_calls=None, weaviate=None,
     from tests.test_document_parser_versioning import _FakeS3Resource
 
     indexed = []
+    # The per-course concepts.normalise call is stubbed: it reads the whole domain from the
+    # graph, which this harness fakes. `normalise=` (a callable) replaces the stub.
+    monkeypatch.setattr("doc_tools.passes.concepts.normalise", normalise or (lambda *a, **k: {}))
     monkeypatch.setattr(sa, "_ensure_weaviate_collection", lambda *a, **k: None)
     if weaviate is None:
         monkeypatch.setattr(sa, "_index_chunk",
@@ -395,8 +407,11 @@ def _graph_run(manifest, client, monkeypatch, augment_calls=None, weaviate=None,
     config = IngestionConfig(graph_node_label="Document", graph_child_label="Chunk",
                              vector_collection_name="DocumentChunk", bucket=BUCKET)
     try:
+        ctx = build_asset_context()
+        if ctx_out is not None:
+            ctx_out.append(ctx)
         sa.build_knowledge_graph(
-            build_asset_context(), config, manifest, s3=_FakeS3Resource(client),
+            ctx, config, manifest, s3=_FakeS3Resource(client),
             neo4j=neo4j, weaviate=weaviate or MagicMock(), llm=MagicMock(), jena=MagicMock())
     except Exception:  # noqa: BLE001 -- the writes under test precede any later stage
         if reraise:
