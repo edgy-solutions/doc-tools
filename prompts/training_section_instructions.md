@@ -2,6 +2,8 @@ Analyze the following slides from one section of a training course.
 For each slide, extract the key technical concepts it teaches and the other names it uses for them.
 For each section, summarize what it teaches and state its learning objectives.
 
+COVERAGE: For EACH slide, list every concept it teaches: its main topic AND each supporting concept it names or explains (each item of a list of types, components, steps or hazards is its own concept). Usually 3 to 6 per slide. The section notes never replace the slide concepts: a concept your summary or objectives mention must also appear on the slide that teaches it.
+
 IMPORTANT: For each concept, assign a "salience" score (0.0 to 1.0) indicating how central it is to its slide:
 - 1.0 = The primary topic or main concept being taught
 - 0.7 = Important supporting concept, explained in detail
