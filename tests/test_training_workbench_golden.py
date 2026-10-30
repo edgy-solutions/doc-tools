@@ -56,11 +56,14 @@ def assert_llm_shape(sections, concepts, teaches, slide_ids, ingest_id):
         assert s["start_page"] in numbers, s["start_page"]
         assert isinstance(s["end_page"], int) and s["end_page"] >= 0
         assert len(s["concept_summary"]) <= 10
+        assert s.get("summary") is None or (isinstance(s["summary"], str) and s["summary"]), s["id"]
+        assert isinstance(s["objectives"], list) and all(isinstance(o, str) for o in s["objectives"])
         assert all(n in names for n in s["concept_summary"]), s["concept_summary"]
     for t in teaches:
         assert t["slide"] in slide_ids, t
         assert t["concept"] in names, t
         assert isinstance(t["salience"], float) and 0.0 <= t["salience"] <= 1.0, t
+        assert isinstance(t["related_terms"], list) and all(isinstance(r, str) for r in t["related_terms"]), t
 
 
 def test_fixture_bytes_are_pinned():
@@ -122,7 +125,8 @@ def test_example_edges_follow_the_section_4_2_rules():
     exactly what the contract's rules give from the example sections and TEACHES."""
     sections, edges = NONDET["sections"]["nodes"], NONDET["edges"]
     assert edges["HAS_SECTION"] == [{"from": s["parent"], "to": s["id"]} for s in sections]
-    assert edges["TEACHES"] == [{"from": t["slide"], "to": t["concept"], "salience": t["salience"]}
+    assert edges["TEACHES"] == [{"from": t["slide"], "to": t["concept"], "salience": t["salience"],
+                                 "related_terms": t["related_terms"]}
                                 for t in NONDET["teaches"]]
     numbers = {s["id"]: s["number"] for s in SLIDES}
     covers = []
@@ -139,6 +143,36 @@ def test_example_edges_follow_the_section_4_2_rules():
         assert sec["concept_summary"] == [r["to"] for r in mine][:10], sec["id"]
         covers += mine
     assert sorted(edges["COVERS"], key=json.dumps) == sorted(covers, key=json.dumps)
+    # ALIAS_OF (contract 4.2): both endpoints are Concepts of the example, the status
+    # is a candidate, and the edge is exactly what related_terms gives under the rule.
+    names = {c["name"]: c for c in NONDET["concepts"]["nodes"]}
+    want_alias = []
+    for t in NONDET["teaches"]:
+        for term in t["related_terms"]:
+            pair = {"from": t["concept"], "to": term}
+            if (term in names and normalize_concept_name(term) != normalize_concept_name(t["concept"])
+                    and not any(a["from"] == pair["from"] and a["to"] == pair["to"] for a in want_alias)):
+                want_alias.append({**pair, "status": "candidate", "source": "related_terms",
+                                   "course_id": INGEST_ID})
+    assert edges["ALIAS_OF"] == want_alias and want_alias
+    assert all(a["from"] in names and a["to"] in names for a in edges["ALIAS_OF"])
+    assert "ALIAS_OF" not in GOLDEN["neo4j"]["never_written"]["relations"]
+
+    # Section objects: one per Section with notes, keyed by the Section id.
+    from weaviate.util import generate_uuid5
+    sec_ids = {s["id"]: s for s in sections}
+    objs = NONDET["section_objects"]["objects"]
+    assert objs
+    assert {o["properties"]["chunk_id"] for o in objs} == \
+        {s["id"] for s in sections if s.get("summary") or s["objectives"]}
+    for o in objs:
+        p = o["properties"]
+        sec = sec_ids[p["chunk_id"]]
+        assert o["uuid"] == str(generate_uuid5(p["chunk_id"]))
+        assert p["chunk_kind"] == "section" and p["section_id"] == p["chunk_id"]
+        assert p["page"] == sec["start_page"] and p["heading"] == sec["title"]
+        assert p["doc_id"] == INGEST_ID and p["domain"] == "TRAINING"
+    assert all(o["properties"]["chunk_kind"] == "slide" for o in GOLDEN["weaviate"]["objects"])
 
 
 def _strip(el, keys):
@@ -225,7 +259,7 @@ def test_teaches_salience_is_on_the_edge():
     rows = [t for t in NONDET["teaches"] if t["slide"] == sid]
     assert rows
     aug = SlideAugmentation(concepts=[Concept(name=t["concept"], salience=t["salience"])
-                                      for t in rows], objectives=[])
+                                      for t in rows])
     node = DocumentNode(
         base_extraction=BaseSection(title="s2", level=1, page_start=2, content="x", node_id=sid),
         domain_augmentation=aug)
@@ -320,14 +354,15 @@ class FakeWeaviate:
 
 
 def _graph_run(manifest, client, monkeypatch, augment_calls=None, weaviate=None,
-               reraise=False, fulltext=None, neo4j_out=None, augment=None):
+               reraise=False, fulltext=None, neo4j_out=None, extract=None):
     """Run the graph asset with fake neo4j/weaviate and a stubbed plugin/LLM.
 
     Returns (neo4j execute_query calls as (query, params), chunk_ids indexed).
     With `weaviate=` (a FakeWeaviate) the REAL _index_chunk runs against it;
     otherwise _index_chunk is stubbed and `indexed` collects its properties.
-    The default augment RAISES, so with `reraise=True` the run fails on
-    failed:concept_parse; pass `augment=` to reach a later failure."""
+    The default concept call (`_extract_section`) RAISES, so with `reraise=True` the run fails on
+    failed:concept_parse; pass `extract=` (self, section_text, instructions) to reach a later
+    failure. `augment_calls` collects the slide numbers each call carried."""
     from unittest.mock import MagicMock
 
     from dagster import build_asset_context
@@ -343,12 +378,14 @@ def _graph_run(manifest, client, monkeypatch, augment_calls=None, weaviate=None,
         monkeypatch.setattr(sa, "_index_chunk",
                             lambda _c, _n, props, **_k: indexed.append(props) or "written")
 
-    def _augment(self, section, config):
+    def _extract(self, section_text, instructions):
         if augment_calls is not None:
-            augment_calls.append(section.node_id)
+            augment_calls.extend(int(n) for n in re.findall(r"=== Slide (\d+) ===", section_text))
+        if extract is not None:
+            return extract(self, section_text, instructions)
         raise RuntimeError("plugin/LLM stubbed out")
 
-    monkeypatch.setattr(TrainingPlugin, "augment", augment or _augment)
+    monkeypatch.setattr(TrainingPlugin, "_extract_section", _extract)
     monkeypatch.setattr(TrainingPlugin, "process_fulltext", fulltext or (lambda *a, **k: []))
     neo4j = MagicMock()
     if neo4j_out is not None:
@@ -445,7 +482,7 @@ def test_a_text_less_slide_still_gets_a_slide_node_and_no_weaviate_object(monkey
     assert slides[f"{cid}_p1"]["text"] == "[Title] Has text"
     assert slides[f"{cid}_p2"]["text"] == ""
     assert [o["chunk_id"] for o in indexed] == [f"{cid}_p1"]
-    assert augmented == [f"{cid}_p1"]
+    assert set(augmented) == {1}  # the call is retried once, so slide 1 is seen twice
 
 
 def test_a_non_training_drop_keeps_the_filename_keyed_layout(monkeypatch):
@@ -602,3 +639,13 @@ def test_outline_pages_come_from_element_metadata(monkeypatch):
     collect(fallback)
     differing = [s for s in got if llm_pages.get(s["title"]) not in (None, (s["start_page"], s["end_page"]))]
     assert differing, "the stub's pages must differ from the derived ones for this test to bite"
+
+
+def empty_section_reply(section_text):
+    """A concept-call reply with an entry for every slide in the text and no concepts."""
+    from doc_tools.baml_client.types import SectionAugmentation, SlideConcepts
+
+    return SectionAugmentation(
+        slides=[SlideConcepts(slide=int(n), concepts=[], figure_references=[])
+                for n in re.findall(r"=== Slide (\d+) ===", section_text)],
+        sections=[])

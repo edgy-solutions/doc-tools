@@ -141,8 +141,7 @@ def run(client) -> dict:
             slide_nodes.append(DocumentNode(
                 base_extraction=BaseSection(title=f"s{n}", level=1, page_start=n, content="", node_id=sid),
                 domain_augmentation=SlideAugmentation(
-                    concepts=[Concept(name=names[c], salience=s) for c, s in TEACHES.get(n, [])],
-                    objectives=[])))
+                    concepts=[Concept(name=names[c], salience=s) for c, s in TEACHES.get(n, [])])))
         slide_queries, _ = plugin.to_graph_queries(slide_nodes, CONFIG)
         for q in slide_queries:
             client.execute_query(q["query"], q["params"])

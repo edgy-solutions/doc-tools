@@ -20,7 +20,7 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["ComplianceAugmentation","ComplianceRule","Concept","GridColumnRoles","LearningObjective","MaintenanceStep","ManufacturingStep","MatAugmentation","MroAugmentation","NoticeHeader","Outline","PartImpact","PartRow","Section","SlideAugmentation","StrategicAssessment","SustainmentNotice",]
+          ["ComplianceAugmentation","ComplianceRule","Concept","GridColumnRoles","MaintenanceStep","ManufacturingStep","MatAugmentation","MroAugmentation","NoticeHeader","Outline","PartImpact","PartRow","Section","SectionAugmentation","SectionNotes","SlideConcepts","StrategicAssessment","SustainmentNotice",]
         ), enums=set(
           ["ChangeCategory","DocType","HazardClass","InspectionType","MaintenanceLevel","PersonnelRole","ProcessCategory",]
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
@@ -59,7 +59,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 17
+    # Generated classes 18
     # #########################################################################
 
     @property
@@ -77,10 +77,6 @@ class TypeBuilder(type_builder.TypeBuilder):
     @property
     def GridColumnRoles(self) -> "GridColumnRolesViewer":
         return GridColumnRolesViewer(self)
-
-    @property
-    def LearningObjective(self) -> "LearningObjectiveViewer":
-        return LearningObjectiveViewer(self)
 
     @property
     def MaintenanceStep(self) -> "MaintenanceStepViewer":
@@ -119,8 +115,16 @@ class TypeBuilder(type_builder.TypeBuilder):
         return SectionViewer(self)
 
     @property
-    def SlideAugmentation(self) -> "SlideAugmentationViewer":
-        return SlideAugmentationViewer(self)
+    def SectionAugmentation(self) -> "SectionAugmentationViewer":
+        return SectionAugmentationViewer(self)
+
+    @property
+    def SectionNotes(self) -> "SectionNotesViewer":
+        return SectionNotesViewer(self)
+
+    @property
+    def SlideConcepts(self) -> "SlideConceptsViewer":
+        return SlideConceptsViewer(self)
 
     @property
     def StrategicAssessment(self) -> "StrategicAssessmentViewer":
@@ -458,7 +462,7 @@ class ProcessCategoryValues:
 
 
 # #########################################################################
-# Generated classes 17
+# Generated classes 18
 # #########################################################################
 
 class ComplianceAugmentationAst:
@@ -559,7 +563,7 @@ class ConceptAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("Concept")
-        self._properties: typing.Set[str] = set([  "name",  "description",  "related_terms",  "salience",  ])
+        self._properties: typing.Set[str] = set([  "name",  "salience",  "related_terms",  ])
         self._props = ConceptProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -592,16 +596,12 @@ class ConceptProperties:
         return type_builder.ClassPropertyViewer(self.__bldr.property("name"))
     
     @property
-    def description(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("description"))
+    def salience(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("salience"))
     
     @property
     def related_terms(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("related_terms"))
-    
-    @property
-    def salience(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("salience"))
     
     
 
@@ -657,45 +657,6 @@ class GridColumnRolesProperties:
     @property
     def reason(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("reason"))
-    
-    
-
-
-class LearningObjectiveAst:
-    def __init__(self, tb: type_builder.TypeBuilder):
-        _tb = tb._tb # type: ignore (we know how to use this private attribute)
-        self._bldr = _tb.class_("LearningObjective")
-        self._properties: typing.Set[str] = set([  "description",  ])
-        self._props = LearningObjectiveProperties(self._bldr, self._properties)
-
-    def type(self) -> baml_py.FieldType:
-        return self._bldr.field()
-
-    @property
-    def props(self) -> "LearningObjectiveProperties":
-        return self._props
-
-
-class LearningObjectiveViewer(LearningObjectiveAst):
-    def __init__(self, tb: type_builder.TypeBuilder):
-        super().__init__(tb)
-
-    
-    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
-        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
-    
-
-
-class LearningObjectiveProperties:
-    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
-        self.__bldr = bldr
-        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
-
-    
-    
-    @property
-    def description(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("description"))
     
     
 
@@ -1317,22 +1278,22 @@ class SectionProperties:
     
 
 
-class SlideAugmentationAst:
+class SectionAugmentationAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
-        self._bldr = _tb.class_("SlideAugmentation")
-        self._properties: typing.Set[str] = set([  "concepts",  "objectives",  "summary",  "figure_references",  ])
-        self._props = SlideAugmentationProperties(self._bldr, self._properties)
+        self._bldr = _tb.class_("SectionAugmentation")
+        self._properties: typing.Set[str] = set([  "slides",  "sections",  ])
+        self._props = SectionAugmentationProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
         return self._bldr.field()
 
     @property
-    def props(self) -> "SlideAugmentationProperties":
+    def props(self) -> "SectionAugmentationProperties":
         return self._props
 
 
-class SlideAugmentationViewer(SlideAugmentationAst):
+class SectionAugmentationViewer(SectionAugmentationAst):
     def __init__(self, tb: type_builder.TypeBuilder):
         super().__init__(tb)
 
@@ -1342,7 +1303,7 @@ class SlideAugmentationViewer(SlideAugmentationAst):
     
 
 
-class SlideAugmentationProperties:
+class SectionAugmentationProperties:
     def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
         self.__bldr = bldr
         self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
@@ -1350,16 +1311,102 @@ class SlideAugmentationProperties:
     
     
     @property
-    def concepts(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("concepts"))
+    def slides(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("slides"))
+    
+    @property
+    def sections(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("sections"))
+    
+    
+
+
+class SectionNotesAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("SectionNotes")
+        self._properties: typing.Set[str] = set([  "section",  "summary",  "objectives",  ])
+        self._props = SectionNotesProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "SectionNotesProperties":
+        return self._props
+
+
+class SectionNotesViewer(SectionNotesAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class SectionNotesProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def section(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("section"))
+    
+    @property
+    def summary(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("summary"))
     
     @property
     def objectives(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("objectives"))
     
+    
+
+
+class SlideConceptsAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("SlideConcepts")
+        self._properties: typing.Set[str] = set([  "slide",  "concepts",  "figure_references",  ])
+        self._props = SlideConceptsProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
     @property
-    def summary(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("summary"))
+    def props(self) -> "SlideConceptsProperties":
+        return self._props
+
+
+class SlideConceptsViewer(SlideConceptsAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class SlideConceptsProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def slide(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("slide"))
+    
+    @property
+    def concepts(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("concepts"))
     
     @property
     def figure_references(self) -> type_builder.ClassPropertyViewer:

@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (17)
+# Generated classes (18)
 # #########################################################################
 
 class ComplianceAugmentation(BaseModel):
@@ -37,10 +37,9 @@ class ComplianceRule(BaseModel):
     rule_description: typing.Optional[str] = Field(default=None, description='A concise summary of what the rule requires.')
 
 class Concept(BaseModel):
-    name: typing.Optional[str] = None
-    description: typing.Optional[str] = None
-    related_terms: typing.List[str]
-    salience: typing.Optional[float] = None
+    name: typing.Optional[str] = Field(default=None, description='A noun phrase of at most 4 words naming what is taught. Never a sentence.')
+    salience: typing.Optional[float] = Field(default=None, description='0.0-1.0: how central the concept is to THIS slide.')
+    related_terms: typing.List[str] = Field(description='Other names for this SAME concept: abbreviations, acronyms, synonyms, spelled-out forms. Each a noun phrase of at most 4 words. Not broader or narrower topics. Empty if none.')
 
 class GridColumnRoles(BaseModel):
     affected_col: typing.Optional[int] = Field(default=None, description='Index of the grid column holding the affected/discontinued manufacturer part number, read off its cN heading. NULL when this table has NO affected-part column at all - a change-description table, a spec/material table, a revision history. Null is a real answer, not a failure: guessing a column on a table that holds no parts emits whatever sits in the guessed column as if it were a part number.')
@@ -48,9 +47,6 @@ class GridColumnRoles(BaseModel):
     ltb_date_col: typing.Optional[int] = Field(default=None, description='0-based index of a PER-ROW last-time-buy date column, or null if the table carries no per-row dates.')
     header_rows: typing.List[int] = Field(description='0-based indices of rows that are headers, captions or spacers rather than parts. Empty list if every row is a part row.')
     reason: typing.Optional[str] = Field(default=None, description='One sentence naming the evidence in the image or grid for this column assignment.')
-
-class LearningObjective(BaseModel):
-    description: typing.Optional[str] = None
 
 class MaintenanceStep(BaseModel):
     procedure_id: typing.Optional[str] = Field(default=None, description='The parent maintenance procedure this step belongs to')
@@ -139,11 +135,19 @@ class Section(BaseModel):
     end_page: typing.Optional[int] = Field(default=None, description='The page number where this section ends')
     subsections: typing.List["Section"]
 
-class SlideAugmentation(BaseModel):
+class SectionAugmentation(BaseModel):
+    slides: typing.List["SlideConcepts"] = Field(description='Exactly one entry per \'=== Slide N ===\' marker, in order, including slides that teach nothing.')
+    sections: typing.List["SectionNotes"] = Field(description='Exactly one entry per \'=== Section: ... ===\' marker, in order.')
+
+class SectionNotes(BaseModel):
+    section: typing.Optional[str] = Field(default=None, description='The section title exactly as written in its \'=== Section: ... ===\' marker.')
+    summary: typing.Optional[str] = Field(default=None, description='2-3 sentences: what this section of the course teaches.')
+    objectives: typing.List[str] = Field(description='What a learner can do after this section, each starting with a verb. Empty if the section teaches nothing.')
+
+class SlideConcepts(BaseModel):
+    slide: typing.Optional[int] = Field(default=None, description='The N of this slide\'s \'=== Slide N ===\' marker.')
     concepts: typing.List["Concept"]
-    objectives: typing.List["LearningObjective"]
-    summary: typing.Optional[str] = None
-    figure_references: typing.List[str] = Field(description='Extract explicit figure, diagram, or graphic identifiers referenced in the slide text (e.g., \'Figure 4\', \'ICN-12345\', \'Diagram 2A\'). Do NOT extract vague references like \'see the image below\'. Return empty array if none.')
+    figure_references: typing.List[str] = Field(description='Explicit figure, diagram, or graphic identifiers referenced in the slide text (e.g., \'Figure 4\', \'ICN-12345\', \'Diagram 2A\'). Do NOT extract vague references like \'see the image below\'. Empty if none.')
 
 class StrategicAssessment(BaseModel):
     proprietary_score: typing.Optional[float] = Field(default=None, description='0.0 (Common) to 1.0 (Secret Sauce). Score based on how specific/complex the process is.')

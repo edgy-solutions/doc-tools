@@ -108,20 +108,6 @@ class BamlSyncClient:
                 "text": text,"system_instructions": system_instructions,
             })
             return typing.cast(types.ComplianceAugmentation, __result__.cast_to(types, types, stream_types, False, __runtime__))
-    def ExtractConcepts(self, slide_text: str,system_instructions: str,
-        baml_options: BamlCallOptions = {},
-    ) -> types.SlideAugmentation:
-        # Check if on_tick is provided
-        if 'on_tick' in baml_options:
-            __stream__ = self.stream.ExtractConcepts(slide_text=slide_text,system_instructions=system_instructions,
-                baml_options=baml_options)
-            return __stream__.get_final_response()
-        else:
-            # Original non-streaming code
-            __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="ExtractConcepts", args={
-                "slide_text": slide_text,"system_instructions": system_instructions,
-            })
-            return typing.cast(types.SlideAugmentation, __result__.cast_to(types, types, stream_types, False, __runtime__))
     def ExtractHeader(self, doc: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> types.NoticeHeader:
@@ -178,6 +164,20 @@ class BamlSyncClient:
                 "ocr_text": ocr_text,"html_table": html_table,"table_images": table_images,"system_instructions": system_instructions,
             })
             return typing.cast(typing.List["types.PartRow"], __result__.cast_to(types, types, stream_types, False, __runtime__))
+    def ExtractSectionConcepts(self, section_text: str,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> types.SectionAugmentation:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            __stream__ = self.stream.ExtractSectionConcepts(section_text=section_text,system_instructions=system_instructions,
+                baml_options=baml_options)
+            return __stream__.get_final_response()
+        else:
+            # Original non-streaming code
+            __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="ExtractSectionConcepts", args={
+                "section_text": section_text,"system_instructions": system_instructions,
+            })
+            return typing.cast(types.SectionAugmentation, __result__.cast_to(types, types, stream_types, False, __runtime__))
     def ExtractSustainment(self, doc: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> types.SustainmentNotice:
@@ -269,18 +269,6 @@ class BamlStreamClient:
           lambda x: typing.cast(types.ComplianceAugmentation, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
-    def ExtractConcepts(self, slide_text: str,system_instructions: str,
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.BamlSyncStream[stream_types.SlideAugmentation, types.SlideAugmentation]:
-        __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="ExtractConcepts", args={
-            "slide_text": slide_text,"system_instructions": system_instructions,
-        })
-        return baml_py.BamlSyncStream[stream_types.SlideAugmentation, types.SlideAugmentation](
-          __result__,
-          lambda x: typing.cast(stream_types.SlideAugmentation, x.cast_to(types, types, stream_types, True, __runtime__)),
-          lambda x: typing.cast(types.SlideAugmentation, x.cast_to(types, types, stream_types, False, __runtime__)),
-          __ctx__,
-        )
     def ExtractHeader(self, doc: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[stream_types.NoticeHeader, types.NoticeHeader]:
@@ -327,6 +315,18 @@ class BamlStreamClient:
           __result__,
           lambda x: typing.cast(typing.List["stream_types.PartRow"], x.cast_to(types, types, stream_types, True, __runtime__)),
           lambda x: typing.cast(typing.List["types.PartRow"], x.cast_to(types, types, stream_types, False, __runtime__)),
+          __ctx__,
+        )
+    def ExtractSectionConcepts(self, section_text: str,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlSyncStream[stream_types.SectionAugmentation, types.SectionAugmentation]:
+        __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="ExtractSectionConcepts", args={
+            "section_text": section_text,"system_instructions": system_instructions,
+        })
+        return baml_py.BamlSyncStream[stream_types.SectionAugmentation, types.SectionAugmentation](
+          __result__,
+          lambda x: typing.cast(stream_types.SectionAugmentation, x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(types.SectionAugmentation, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
     def ExtractSustainment(self, doc: str,system_instructions: str,
@@ -404,13 +404,6 @@ class BamlHttpRequestClient:
             "text": text,"system_instructions": system_instructions,
         }, mode="request")
         return __result__
-    def ExtractConcepts(self, slide_text: str,system_instructions: str,
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.baml_py.HTTPRequest:
-        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractConcepts", args={
-            "slide_text": slide_text,"system_instructions": system_instructions,
-        }, mode="request")
-        return __result__
     def ExtractHeader(self, doc: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -437,6 +430,13 @@ class BamlHttpRequestClient:
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractParts", args={
             "ocr_text": ocr_text,"html_table": html_table,"table_images": table_images,"system_instructions": system_instructions,
+        }, mode="request")
+        return __result__
+    def ExtractSectionConcepts(self, section_text: str,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractSectionConcepts", args={
+            "section_text": section_text,"system_instructions": system_instructions,
         }, mode="request")
         return __result__
     def ExtractSustainment(self, doc: str,system_instructions: str,
@@ -489,13 +489,6 @@ class BamlHttpStreamRequestClient:
             "text": text,"system_instructions": system_instructions,
         }, mode="stream")
         return __result__
-    def ExtractConcepts(self, slide_text: str,system_instructions: str,
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.baml_py.HTTPRequest:
-        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractConcepts", args={
-            "slide_text": slide_text,"system_instructions": system_instructions,
-        }, mode="stream")
-        return __result__
     def ExtractHeader(self, doc: str,system_instructions: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -522,6 +515,13 @@ class BamlHttpStreamRequestClient:
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractParts", args={
             "ocr_text": ocr_text,"html_table": html_table,"table_images": table_images,"system_instructions": system_instructions,
+        }, mode="stream")
+        return __result__
+    def ExtractSectionConcepts(self, section_text: str,system_instructions: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ExtractSectionConcepts", args={
+            "section_text": section_text,"system_instructions": system_instructions,
         }, mode="stream")
         return __result__
     def ExtractSustainment(self, doc: str,system_instructions: str,
