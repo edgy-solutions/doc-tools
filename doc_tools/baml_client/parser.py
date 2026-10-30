@@ -29,12 +29,6 @@ class LlmResponseParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractComplianceRules", llm_response=llm_response, mode="request")
         return typing.cast(types.ComplianceAugmentation, __result__)
 
-    def ExtractConcepts(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> types.SlideAugmentation:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractConcepts", llm_response=llm_response, mode="request")
-        return typing.cast(types.SlideAugmentation, __result__)
-
     def ExtractHeader(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> types.NoticeHeader:
@@ -58,6 +52,12 @@ class LlmResponseParser:
     ) -> typing.List["types.PartRow"]:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractParts", llm_response=llm_response, mode="request")
         return typing.cast(typing.List["types.PartRow"], __result__)
+
+    def ExtractSectionConcepts(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> types.SectionAugmentation:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractSectionConcepts", llm_response=llm_response, mode="request")
+        return typing.cast(types.SectionAugmentation, __result__)
 
     def ExtractSustainment(
         self, llm_response: str, baml_options: BamlCallOptions = {},
@@ -103,12 +103,6 @@ class LlmStreamParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractComplianceRules", llm_response=llm_response, mode="stream")
         return typing.cast(stream_types.ComplianceAugmentation, __result__)
 
-    def ExtractConcepts(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> stream_types.SlideAugmentation:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractConcepts", llm_response=llm_response, mode="stream")
-        return typing.cast(stream_types.SlideAugmentation, __result__)
-
     def ExtractHeader(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> stream_types.NoticeHeader:
@@ -132,6 +126,12 @@ class LlmStreamParser:
     ) -> typing.List["stream_types.PartRow"]:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractParts", llm_response=llm_response, mode="stream")
         return typing.cast(typing.List["stream_types.PartRow"], __result__)
+
+    def ExtractSectionConcepts(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> stream_types.SectionAugmentation:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractSectionConcepts", llm_response=llm_response, mode="stream")
+        return typing.cast(stream_types.SectionAugmentation, __result__)
 
     def ExtractSustainment(
         self, llm_response: str, baml_options: BamlCallOptions = {},

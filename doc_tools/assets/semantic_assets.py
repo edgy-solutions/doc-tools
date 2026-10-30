@@ -4,6 +4,7 @@ import json
 import httpx
 import urllib.parse
 import collections
+import time
 from typing import Any, Dict
 from dagster import asset, AssetExecutionContext, AssetIn, MaterializeResult, AutomationCondition
 from neo4j import GraphDatabase
@@ -12,8 +13,9 @@ from dagster_aws.s3 import S3Resource
 from doc_tools.partitions import pdf_files_partition, user_pdf_files_partition, xml_files_partition
 from doc_tools.utils.dagster_resources import Neo4jResource, WeaviateResource, LLMExtractorResource, JenaResource
 from doc_tools.plugins import BaseSection, DocumentNode
-from doc_tools.plugins.training import TrainingPlugin
+from doc_tools.plugins.training import CourseAugmentation, OutlineAugmentation, TrainingPlugin
 from doc_tools.passes.structural import OutlineBuildError
+from doc_tools.utils import concept_groups
 from doc_tools.plugins.manufacturing import ManufacturingPlugin
 from doc_tools.plugins.sustainment import SustainmentPlugin
 from doc_tools.utils.ingest_rates import render_rates, summarize_rates
@@ -80,6 +82,9 @@ def _ensure_weaviate_collection(client, name: str) -> None:
                 wvc.config.Property(name="page", data_type=wvc.config.DataType.INT),
                 wvc.config.Property(name="heading", data_type=wvc.config.DataType.TEXT),
                 wvc.config.Property(name="section_id", data_type=wvc.config.DataType.TEXT),
+                # `slide` or `section` on a TRAINING object (contract v4 section 6); absent on
+                # every other domain and on objects written before v4.
+                wvc.config.Property(name="chunk_kind", data_type=wvc.config.DataType.TEXT),
             ],
         )
         # FOLD, NOT HAND-RUN — inside the `if`, in the same act that creates the
@@ -112,6 +117,7 @@ def _ensure_weaviate_collection(client, name: str) -> None:
         "page": wvc.config.DataType.INT,
         "heading": wvc.config.DataType.TEXT,
         "section_id": wvc.config.DataType.TEXT,
+        "chunk_kind": wvc.config.DataType.TEXT,
     }
     try:
         collection = client.collections.get(name)
@@ -970,19 +976,49 @@ def _build_knowledge_graph_impl(
     _augment_failures: list[str] = []
     _augment_attempted = 0
 
-    # Process each page/chunk
-    for page_num, texts in pages.items():
+    def _page_chunk_text(page_num, texts) -> str:
         if overlay:
             # Contract section 4.1: one line per element, elements with no text left
             # out. A slide with NO text still gets its Slide node (text ""), but no
             # plugin pass and no Weaviate object.
-            chunk_text = "\n".join(
+            return "\n".join(
                 f"[{el.get('type', 'Text')}] {el.get('text')}"
                 for el in page_elements.get(page_num, []) if (el.get("text") or "").strip()
             )
-        else:
-            chunk_text = "\n".join(texts)
-            if not chunk_text.strip(): continue
+        return "\n".join(texts)
+
+    # TRAINING: concepts come from one call per slide group (contract v4 section
+    # 4.6), made BEFORE the page loop because a call spans pages. The outline is the
+    # grouping, so it must exist first; the other domains augment page by page below.
+    outline_aug = next((n.domain_augmentation for n in document_nodes
+                        if isinstance(n.domain_augmentation, OutlineAugmentation)), None)
+    course_aug = None
+    if domain_label == "TRAINING" and hasattr(plugin, "augment_course"):
+        course_texts = {}
+        for _p, _t in pages.items():
+            _ct = _page_chunk_text(_p, _t)
+            if _ct.strip():
+                course_texts[_p] = _ct
+        _t0 = time.time()
+        try:
+            course_aug = plugin.augment_course(
+                course_texts, {p: f"{doc_id}_p{p}" for p in course_texts},
+                outline_aug.sections if outline_aug is not None else [], doc_id, config)
+        except Exception as e:
+            context.log.error(f"Course concept extraction failed: {e}")
+            course_aug = CourseAugmentation(
+                failures={p: f"{type(e).__name__}: {e}" for p in course_texts})
+        context.log.info(
+            "Concept calls for doc %s: calls=%d concurrency=%s wall=%.1fs failed_pages=%d" % (
+                doc_id, len(course_aug.calls), os.getenv("TRAINING_CONCEPT_CONCURRENCY", "1"),
+                time.time() - _t0, len(course_aug.failures)))
+        if outline_aug is not None:
+            outline_aug.section_notes = course_aug.section_notes
+
+    # Process each page/chunk
+    for page_num, texts in pages.items():
+        chunk_text = _page_chunk_text(page_num, texts)
+        if not overlay and not chunk_text.strip(): continue
 
         chunk_id = f"{doc_id}_p{page_num}"
         elements = page_elements.get(page_num, [])
@@ -1004,13 +1040,25 @@ def _build_knowledge_graph_impl(
         citation = {}
         if chunk_text.strip():
             _augment_attempted += 1
-            try:
-                node = plugin.augment(section, config)
-                document_nodes.append(node)
-                citation = _chunk_citation(node)
-            except Exception as e:
-                context.log.error(f"Plugin augmentation failed for chunk {chunk_id}: {e}")
-                _augment_failures.append(f"{chunk_id}: {type(e).__name__}: {e}")
+            if course_aug is not None:
+                # Precomputed by the concept calls: a node, or the failure that
+                # augment_course already formatted as "<ExcType>: <msg>".
+                if page_num in course_aug.nodes:
+                    node = course_aug.nodes[page_num]
+                    document_nodes.append(node)
+                    citation = _chunk_citation(node)
+                else:
+                    failure = course_aug.failures.get(page_num, "MissingSlideError: no result")
+                    context.log.error(f"Concept extraction failed for chunk {chunk_id}: {failure}")
+                    _augment_failures.append(f"{chunk_id}: {failure}")
+            else:
+                try:
+                    node = plugin.augment(section, config)
+                    document_nodes.append(node)
+                    citation = _chunk_citation(node)
+                except Exception as e:
+                    context.log.error(f"Plugin augmentation failed for chunk {chunk_id}: {e}")
+                    _augment_failures.append(f"{chunk_id}: {type(e).__name__}: {e}")
 
         # Neo4j baseline chunk creation
         try:
@@ -1047,11 +1095,47 @@ def _build_knowledge_graph_impl(
             verdict = _index_chunk(weaviate_client, collection_name, {
                 "text": chunk_text, "doc_id": doc_id, "chunk_id": chunk_id, "domain": domain_label,
                 "page": _page_property(page_num), **citation,
+                # Contract v4 section 6: a slide query must exclude the section objects
+                # written below, so a TRAINING slide says what it is.
+                **({"chunk_kind": "slide"} if domain_label == "TRAINING" else {}),
             }, require_vector=(domain_label == "TRAINING"))
             chunk_index_tally[verdict] += 1
         except Exception as e:
             context.log.error(f"Vector indexing failed for chunk {chunk_id}: {e}")
             chunk_index_tally["errors"] += 1
+
+    # TRAINING: one Weaviate object per Section that has notes (contract v4 section 6),
+    # only when the outline was built -- a failed outline leaves the old Sections in
+    # Neo4j, and the old section objects stay with them. The delete is by doc_id and
+    # chunk_kind, so a re-ingest that now has fewer noted sections leaves no stale ones.
+    if domain_label == "TRAINING" and outline_aug is not None and outline_build_error is None:
+        try:
+            from weaviate.classes.query import Filter
+            weaviate_client.collections.get(collection_name).data.delete_many(
+                where=Filter.by_property("doc_id").equal(doc_id)
+                & Filter.by_property("chunk_kind").equal("section"))
+        except Exception as e:
+            context.log.error(f"Deleting old section objects for {doc_id} failed: {e}")
+            chunk_index_tally["errors"] += 1
+        for sec_row in concept_groups.flatten_outline(outline_aug.sections, doc_id):
+            note = outline_aug.section_notes.get(sec_row.id)
+            if note is None or not ((note.summary or "").strip() or note.objectives):
+                continue
+            parts = [sec_row.title]
+            if (note.summary or "").strip():
+                parts.append(note.summary.strip())
+            if note.objectives:
+                parts.append("Objectives:\n" + "\n".join(f"- {o}" for o in note.objectives))
+            try:
+                verdict = _index_chunk(weaviate_client, collection_name, {
+                    "text": "\n\n".join(parts), "doc_id": doc_id, "chunk_id": sec_row.id,
+                    "domain": domain_label, "page": _page_property(sec_row.start_page),
+                    "heading": sec_row.title, "section_id": sec_row.id, "chunk_kind": "section",
+                }, require_vector=True)
+                chunk_index_tally[verdict] += 1
+            except Exception as e:
+                context.log.error(f"Vector indexing failed for section {sec_row.id}: {e}")
+                chunk_index_tally["errors"] += 1
 
     # ────────────────────────────────────────────────────────────────
     # Per-figure chunks for embedded images (closes the PDF-side

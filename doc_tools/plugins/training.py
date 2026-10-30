@@ -1,6 +1,11 @@
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Any, Dict
 from pydantic import BaseModel, Field
 from doc_tools.utils.concept_identity import (concept_node_id, normalize_concept_name)
+from doc_tools.utils import concept_groups
 from doc_tools.plugins.base import AugmentationPlugin
 from doc_tools.plugins.models import BaseSection, DocumentNode
 from doc_tools.utils.formatters import convert_element_to_markdown
@@ -9,11 +14,15 @@ from doc_tools.utils.graph_overlay import overlay_for
 class Concept(BaseModel):
     name: str
     salience: float = Field(ge=0.0, le=1.0)
+    related_terms: List[str] = Field(default_factory=list)
 
 class SlideAugmentation(BaseModel):
     concepts: List[Concept]
-    objectives: List[str]
     figure_references: List[str] = Field(default_factory=list, description="Explicit figure/image IDs referenced in the slide")
+
+class SectionNote(BaseModel):
+    summary: Optional[str] = None
+    objectives: List[str] = Field(default_factory=list)
 
 from doc_tools.passes.structural import CourseSection, OutlineBuildError, build_outline  # noqa: F401
 
@@ -22,56 +31,171 @@ class OutlineAugmentation(BaseModel):
     sections: List[CourseSection]
     metadata: Dict[str, Any] = Field(default_factory=dict)
     outline_source: str  # "deck" | "llm" (contract v3 section 4.5)
+    # Section id -> notes from the concept calls (contract v4 section 4.1). Filled by
+    # ``augment_course`` after the outline exists; empty when no call ran.
+    section_notes: Dict[str, SectionNote] = Field(default_factory=dict)
+
+
+@dataclass
+class CourseAugmentation:
+    """What ``augment_course`` returns: a node or a failure per page, plus the notes."""
+    nodes: Dict[int, DocumentNode] = field(default_factory=dict)
+    failures: Dict[int, str] = field(default_factory=dict)  # page -> "<ExcType>: <msg>"
+    section_notes: Dict[str, SectionNote] = field(default_factory=dict)
+    calls: List[dict] = field(default_factory=list)  # per call: pages, seconds, attempts, ok
+
+
+def _fold(text: str) -> str:
+    return " ".join((text or "").casefold().split())
+
 
 # --- Plugin Implementation ---
 class TrainingPlugin(AugmentationPlugin):
     """
     Original extraction logic generalized for Training content.
     """
+    def _extract_section(self, section_text: str, instructions: str):
+        """The one LLM seam of the concept calls (tests stub this)."""
+        from doc_tools.baml_client.sync_client import b
+        return b.ExtractSectionConcepts(section_text=section_text, system_instructions=instructions)
+
+    @staticmethod
+    def _slide_node(section: BaseSection, entry: Any) -> DocumentNode:
+        concepts = []
+        for c in entry.concepts:
+            # A salience outside [0, 1] must not lose the other slides of the call.
+            sal = min(1.0, max(0.0, float(c.salience)))
+            concepts.append(Concept(name=c.name, salience=sal,
+                                    related_terms=list(getattr(c, "related_terms", None) or [])))
+        return DocumentNode(
+            base_extraction=section,
+            domain_augmentation=SlideAugmentation(
+                concepts=concepts,
+                figure_references=list(getattr(entry, "figure_references", None) or [])))
+
     def augment(self, section: BaseSection, config: Any = None) -> DocumentNode:
         try:
-            from doc_tools.baml_client.sync_client import b
-            from doc_tools.baml_client.types import SlideAugmentation as BamlSlideAugmentation
-            
-            # FIXED: Resilient fetch
-            dynamic_instructions = self._get_dynamic_prompt(
-                prompt_name="training_instructions",
-                fallback_file="prompts/training_instructions.md"
+            instructions = self._get_dynamic_prompt(
+                prompt_name="training_section_instructions",
+                fallback_file="prompts/training_section_instructions.md"
             )
-
-            # Execute BAML LLM inference
-            baml_response: BamlSlideAugmentation = b.ExtractConcepts(
-                slide_text=section.content,
-                system_instructions=dynamic_instructions
-            )
-            
-            # Map BAML response back to Native Python/Pydantic models
-            concepts = []
-            for c in baml_response.concepts:
-                concepts.append(Concept(name=c.name, salience=c.salience))
-                
-            augmentation = SlideAugmentation(
-                concepts=concepts,
-                # BAML returns objectives as LearningObjective objects; SlideAugmentation
-                # declares List[str], so extract the description (tolerating plain strings).
-                objectives=[getattr(o, "description", o) for o in baml_response.objectives],
-                figure_references=getattr(baml_response, 'figure_references', []) or []
-            )
-            
+            call = concept_groups.ConceptCall(pages=(section.page_start,), page_sections=(None,))
+            text = concept_groups.render_call(call, {section.page_start: section.content}, {})
+            reply = self._extract_section(text, instructions)
+            entry = next((s for s in reply.slides if s.slide == section.page_start), None)
+            if entry is None:
+                raise ValueError(f"no entry for slide {section.page_start} in the section reply")
+            return self._slide_node(section, entry)
         except ImportError:
             # Fallback mock for testing environments where BAML isn't compiled
             augmentation = SlideAugmentation(
                 concepts=[
                     Concept(name=f"Key Concept from {section.title}", salience=0.8)
                 ],
-                objectives=["Understand the fundamentals."],
                 figure_references=[]
             )
-        
-        return DocumentNode(
-            base_extraction=section,
-            domain_augmentation=augmentation
-        )
+            return DocumentNode(base_extraction=section, domain_augmentation=augmentation)
+
+    def _run_call(self, call: "concept_groups.ConceptCall", text: str, instructions: str) -> dict:
+        """One concept call, retried once when it raises or omits a page of the call."""
+        t0 = time.time()
+        reply, err, attempts = None, None, 0
+        for attempts in (1, 2):
+            try:
+                reply, err = self._extract_section(text, instructions), None
+            except Exception as e:  # noqa: BLE001 -- recorded per page, never raised
+                reply, err = None, e
+                continue
+            have = {s.slide for s in reply.slides}
+            if all(p in have for p in call.pages):
+                break
+        return {"call": call, "reply": reply, "error": err, "attempts": attempts,
+                "seconds": round(time.time() - t0, 2)}
+
+    def augment_course(self, texts: Dict[int, str], chunk_ids: Dict[int, str],
+                       sections: List[CourseSection], course_id: str,
+                       config: Any = None) -> CourseAugmentation:
+        """Concepts for a whole course: one call per slide group (contract v4 section 4.6)."""
+        rows = concept_groups.flatten_outline(sections, course_id)
+        rows_by_id = {r.id: r for r in rows}
+        calls = concept_groups.plan_calls(sorted(texts), rows)
+        rendered = [concept_groups.render_call(c, texts, rows_by_id) for c in calls]
+        result = CourseAugmentation()
+        if not calls:
+            return result
+        # Fetched once per course, not once per call.
+        instructions = self._get_dynamic_prompt(
+            prompt_name="training_section_instructions",
+            fallback_file="prompts/training_section_instructions.md")
+        workers = max(1, int(os.getenv("TRAINING_CONCEPT_CONCURRENCY", "1")))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            # map() yields in submission order whatever the completion order
+            outcomes = list(pool.map(lambda a: self._run_call(a[0], a[1], instructions),
+                                     zip(calls, rendered)))
+
+        merged: Dict[str, SectionNote] = {}
+        for call, out in zip(calls, outcomes):
+            reply, err = out["reply"], out["error"]
+            if reply is None:
+                for p in call.pages:
+                    result.failures[p] = f"{type(err).__name__}: {err}"
+                result.calls.append({"pages": list(call.pages), "seconds": out["seconds"],
+                                     "attempts": out["attempts"], "ok": False})
+                continue
+            ok = True
+            entries: Dict[int, Any] = {}
+            for s in reply.slides:
+                if s.slide not in call.pages:
+                    print(f"[training] ignoring reply entry for slide {s.slide}: not in the call {list(call.pages)}")
+                elif s.slide not in entries:
+                    entries[s.slide] = s
+            for p in call.pages:
+                if p in entries:
+                    section = BaseSection(title=f"Page {p}", level=1, page_start=p,
+                                          content=texts[p], node_id=chunk_ids[p])
+                    result.nodes[p] = self._slide_node(section, entries[p])
+                else:
+                    ok = False
+                    result.failures[p] = f"MissingSlideError: no entry for slide {p} in the section reply"
+            result.calls.append({"pages": list(call.pages), "seconds": out["seconds"],
+                                 "attempts": out["attempts"], "ok": ok})
+            self._merge_notes(call, reply, rows_by_id, merged)
+        result.section_notes = merged
+        return result
+
+    @staticmethod
+    def _merge_notes(call: "concept_groups.ConceptCall", reply: Any,
+                     rows_by_id: Dict[str, "concept_groups.SectionRow"],
+                     merged: Dict[str, SectionNote]) -> None:
+        """Pair the reply section notes with the call markers; best effort, never a failure."""
+        sids = call.section_ids()
+        notes = list(reply.sections or [])
+        pairs: List[Tuple[Optional[str], Any]] = []
+        if len(notes) == len(sids):
+            pairs = list(zip(sids, notes))
+        else:
+            used = set()
+            for sid in sids:
+                if sid is None:
+                    continue
+                want = _fold(rows_by_id[sid].title)
+                for i, n in enumerate(notes):
+                    if i not in used and _fold(n.section) == want:
+                        used.add(i)
+                        pairs.append((sid, n))
+                        break
+        for sid, n in pairs:
+            if sid is None:
+                continue
+            cur = merged.setdefault(sid, SectionNote())
+            summary = (n.summary or "").strip()
+            if summary:
+                cur.summary = f"{cur.summary} {summary}" if cur.summary else summary
+            seen = {_fold(o) for o in cur.objectives}
+            for o in n.objectives or []:
+                if o and _fold(o) not in seen:
+                    seen.add(_fold(o))
+                    cur.objectives.append(o)
 
     def _chunk_text(self, document_text: str, max_chars: int = 15000, overlap_chars: int = 1500) -> List[Tuple[str, int]]:
         """
@@ -208,6 +332,8 @@ class TrainingPlugin(AugmentationPlugin):
 
     def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "", image_prefix: str = "") -> Tuple[List[str], List[str]]:
         cypher_queries = []
+        alias_pairs: List[Tuple[str, str]] = []
+        alias_seen = set()
         sparql_queries = []
         
         for node in nodes:
@@ -245,24 +371,22 @@ class TrainingPlugin(AugmentationPlugin):
                 })
 
                 # Flat pre-order rows. Section.id stays positional (contract 3):
-                # {parent}_s{i}. end_page is never 0 (contract 4.5).
+                # {parent}_s{i}. end_page is never 0 (contract 4.5). One id scheme,
+                # shared with the concept calls and the Weaviate section objects.
                 rows: List[Dict[str, Any]] = []
+                for r in concept_groups.flatten_outline(aug.sections, course_id):
+                    note = aug.section_notes.get(r.id)
+                    rows.append({
+                        "id": r.id,
+                        "title": r.title,
+                        "level": r.level,
+                        "start_page": r.start_page,
+                        "end_page": r.end_page,
+                        "parent_id": r.parent_id,
+                        "summary": (note.summary or None) if note else None,
+                        "objectives": list(note.objectives) if note else [],
+                    })
 
-                def flatten(sections: List[CourseSection], parent_id: str):
-                    for i, outline_sec in enumerate(sections):
-                        sec_id = f"{parent_id}_s{i}"
-                        rows.append({
-                            "id": sec_id,
-                            "title": outline_sec.title,
-                            "level": outline_sec.level,
-                            "start_page": outline_sec.start_page,
-                            "end_page": max(outline_sec.end_page or outline_sec.start_page,
-                                            outline_sec.start_page),
-                            "parent_id": parent_id,
-                        })
-                        flatten(outline_sec.subsections, sec_id)
-
-                flatten(aug.sections, course_id)
 
                 # ONE statement, one transaction: delete this Course's old Sections
                 # (reached by HAS_SECTION, or orphaned under the id prefix), set
@@ -282,7 +406,8 @@ class TrainingPlugin(AugmentationPlugin):
                 UNWIND $sections AS row
                 MERGE (s:Section:{label} {{id: row.id}})
                 SET s.title = row.title, s.level = row.level,
-                    s.start_page = row.start_page, s.end_page = row.end_page
+                    s.start_page = row.start_page, s.end_page = row.end_page,
+                    s.summary = row.summary, s.objectives = row.objectives
                 WITH c, collect(row) AS rows
                 UNWIND rows AS row
                 MATCH (s:Section:{label} {{id: row.id}})
@@ -345,13 +470,20 @@ class TrainingPlugin(AugmentationPlugin):
             # `name_normalized` is stored so the id can be recomputed from the node.
             for raw_concept in aug.concepts:
                 concept_id = concept_node_id(self.domain_label, raw_concept.name)
+                related = [t.strip() for t in raw_concept.related_terms if t and t.strip()]
+                for term in related:
+                    if normalize_concept_name(term) != normalize_concept_name(raw_concept.name):
+                        pair = (concept_id, concept_node_id(self.domain_label, term))
+                        if pair not in alias_seen:
+                            alias_seen.add(pair)
+                            alias_pairs.append(pair)
                 edge_cypher = f"""
                 MERGE (s:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})
                 MERGE (c:Concept:{self.domain_label} {{id: $concept_id}})
                 ON CREATE SET c.name = $c_name
                 SET c.domain = $c_domain, c.name_normalized = $c_name_normalized
                 MERGE (s)-[t:TEACHES]->(c)
-                SET t.salience = $c_salience
+                SET t.salience = $c_salience, t.related_terms = $c_related_terms
                 """
                 cypher_queries.append({
                     "query": edge_cypher,
@@ -361,7 +493,8 @@ class TrainingPlugin(AugmentationPlugin):
                         "c_name": raw_concept.name,
                         "c_name_normalized": normalize_concept_name(raw_concept.name),
                         "c_domain": self.domain_label,
-                        "c_salience": raw_concept.salience
+                        "c_salience": raw_concept.salience,
+                        "c_related_terms": related
                     }
                 })
 
@@ -383,7 +516,23 @@ class TrainingPlugin(AugmentationPlugin):
                         "image_prefix": image_prefix
                     }
                 })
-                
+
+        # Candidate ALIAS_OF edges (contract v4 section 4.2), AFTER every TEACHES so the
+        # Concepts of this run exist. MATCH, not MERGE, on the target: the edge reaches
+        # only a Concept that already exists (this run's, or an earlier course's); a term
+        # naming no Concept creates nothing. Never a merge of the nodes -- unification
+        # is the normalisation pass's job, and these edges are only its candidates.
+        for (from_id, to_id) in alias_pairs:
+            cypher_queries.append({
+                "query": f"""
+                MATCH (a:Concept:{self.domain_label} {{id: $from_id}})
+                MATCH (b:Concept:{self.domain_label} {{id: $to_id}})
+                MERGE (a)-[r:ALIAS_OF]->(b)
+                ON CREATE SET r.status = 'candidate', r.source = 'related_terms', r.course_id = $course_id
+                """,
+                "params": {"from_id": from_id, "to_id": to_id, "course_id": doc_id},
+            })
+
         # Domain A uses Neo4j strictly, no Jena graphs
         return cypher_queries, sparql_queries
 
