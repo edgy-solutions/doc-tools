@@ -1,6 +1,6 @@
 # Contract: doc-tools → training-consolidation-workbench
 
-**Contract version 4. Status: DRAFT, 2026-10-29.** v2 moves the drop to `training/course/` so the path carries the kind (§2); v1's sensor-declared kind had no mechanism. v3 builds Sections from the deck's own section slides, or anchors the LLM's titles to element pages; sets `Course.outline_source`; and replaces the Section subtree on re-ingest. v3 also keys Concept on `id` = hash(domain, normalized name), with `name_normalized` on the node (§3, from #167). v4 extracts concepts in one call per section group (§4.6), writes Section `summary`/`objectives`, TEACHES `related_terms`, candidate `ALIAS_OF` edges between Concepts, and one Weaviate object per Section with notes (§6); slide objects carry `chunk_kind = "slide"`.
+**Contract version 4. Status: DRAFT, 2026-10-29.** v2 moves the drop to `training/course/` so the path carries the kind (§2); v1's sensor-declared kind had no mechanism. v3 builds Sections from the deck's own section slides, or anchors the LLM's titles to element pages; sets `Course.outline_source`; and replaces the Section subtree on re-ingest. v3 also keys Concept on `id` = hash(domain, normalized name), with `name_normalized` on the node (§3, from #167). v4 extracts concepts in one call per section group (§4.6), writes Section `summary`/`objectives`, TEACHES `related_terms`, candidate `ALIAS_OF` edges between Concepts, and one Weaviate object per Section with notes (§6); slide objects carry `chunk_kind = "slide"`. v4 also replaces a re-augmented Slide's TEACHES edges (§4.4 rule 4), and `ALIGNS_TO` runs Concept → CanonicalConcept (architect, 2026-10-30).
 
 | Role | Owner |
 |---|---|
@@ -127,15 +127,15 @@ How the computed edges are derived:
 
 The workbench writes these labels and relations to the same Neo4j:
 - labels `Project`, `TargetNode`, `User`, `CanonicalConcept`;
-- relations `OWNS`, `HAS_CHILD` between Project and TargetNode, `ALIGNS_TO` (CanonicalConcept → Concept), and `SUGGESTED_SOURCE` and `DERIVED_FROM` (TargetNode → Slide).
+- relations `OWNS`, `HAS_CHILD` between Project and TargetNode, `ALIGNS_TO` (Concept → CanonicalConcept), and `SUGGESTED_SOURCE` and `DERIVED_FROM` (TargetNode → Slide).
 
 doc-tools follows four rules here:
 1. **doc-tools never writes, and never MATCHes, those labels**, and never writes `OWNS`, `ALIGNS_TO`, `SUGGESTED_SOURCE` or `DERIVED_FROM`.
 2. **doc-tools writes `HAS_CHILD` only between its own labels**: Document/Course, Chunk/Slide and Section.
 3. **Every doc-tools `HAS_CHILD` match is anchored on a Document** (or a Section reached from one). The workbench's Project-anchored reads never see these edges.
-4. **A re-ingest MERGEs; it never `DETACH DELETE`s a Course, Slide or Concept.** A delete would silently drop the users' `ALIGNS_TO`, `SUGGESTED_SOURCE` and `DERIVED_FROM` edges. Sections are the exception. A re-ingest builds the new outline completely, then in one transaction `DETACH DELETE`s this Course's `Section:TRAINING` nodes (those reached by `HAS_SECTION` from it, or whose `id` starts with `{Course.id}_s`) and writes the new ones. No workbench relation ends at a Section, so no user edge is lost. The same run rewrites `HAS_SECTION`, Section → Slide and `COVERS`. If the build fails, the old Sections stay and the run fails.
+4. **A re-ingest MERGEs; it never `DETACH DELETE`s a Course, Slide or Concept.** A delete would silently drop the users' `ALIGNS_TO`, `SUGGESTED_SOURCE` and `DERIVED_FROM` edges. Sections are the exception. A re-ingest builds the new outline completely, then in one transaction `DETACH DELETE`s this Course's `Section:TRAINING` nodes (those reached by `HAS_SECTION` from it, or whose `id` starts with `{Course.id}_s`) and writes the new ones. No workbench relation ends at a Section, so no user edge is lost. The same run rewrites `HAS_SECTION`, Section → Slide and `COVERS`. If the build fails, the old Sections stay and the run fails. TEACHES edges are the second exception. A re-augmented Slide's TEACHES are replaced in the same write: the new edges are MERGEd, then every TEACHES from that Slide to a Concept the new answer does not name is deleted. Edges only; the Concept node stays, because it may carry workbench edges.
 
-A consequence of rule 4: re-running the same bytes with a different LLM answer can leave a stale TEACHES edge to a concept the new answer dropped. That is accepted.
+A Concept that no Slide teaches any more stays as a node with no TEACHES; nothing deletes it.
 
 ### 4.5 The outline
 
