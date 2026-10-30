@@ -405,13 +405,19 @@ def test_the_platform_owned_fields_are_absent_by_ruling():
     reader finds four empty fields and fills them, which is how a mirrored
     registry becomes a second source of truth.
 
-    THERE IS A LIVE DISAGREEMENT behind this arm, and it is not this test's to
-    settle: iagent-mesh's v0.9.11 changelog says of ``arrives_as`` *"ca adds the
-    field, 7f fills in KIND_MAPPING's rows with it"* -- 2026-10-21, three days
-    before the ownership ruling moved the field to the platform. Nothing has
-    filled it on either side: on platform master the overlay rows carry only
-    kind/domain/passes/outputs. If a ruling later puts these fields here, this
-    arm is the one to delete, deliberately, with that ruling named.
+    THE DISAGREEMENT BEHIND THIS ARM IS SETTLED, AND IT WENT THIS WAY. The arm
+    was opened against a live collision: iagent-mesh's v0.9.11 changelog says of
+    ``arrives_as`` *"ca adds the field, 7f fills in KIND_MAPPING's rows with
+    it"* -- 2026-10-21, three days before the ownership ruling moved the field
+    to the platform. This lane reported the collision rather than settling it by
+    editing a file. The architect's ruling of **2026-10-30** closed it: *"ownership
+    stands as ruled 10-24: the platform registry declares
+    kind/domain/arrives_as/review_shape/label (Lane 1 fills them from your
+    packet); doc-tools declares passes. Your decline + test stay."* So the older
+    changelog line is superseded, the values reach the platform as a PACKET from
+    this lane rather than as rows in this tree, and this arm is **permanent** --
+    not a placeholder awaiting a ruling. Deleting it would re-open the second
+    source of truth the 10-24 and 10-30 rulings both close.
     """
     ingest = pytest.importorskip("iagent_mesh.ingest")
     from doc_tools.utils.kind_registrations import (

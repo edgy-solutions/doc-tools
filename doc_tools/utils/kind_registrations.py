@@ -34,15 +34,19 @@ default for a stated reason:
     published beside the rows in ``registry/content_kind_domains.json``, which
     is what the seal compares against.
 
-    NOTE THE COLLISION, because it is not resolved by either side: iagent-mesh's
-    own v0.9.11 changelog says, of ``arrives_as``, *"ca adds the field, 7f fills
-    in KIND_MAPPING's rows with it"* -- dated 2026-10-21, three days BEFORE the
-    ownership ruling that moved the field to the platform. Both instructions are
-    live and they disagree about who writes it. Nothing anywhere has filled it
-    yet: on platform master the overlay rows carry only
-    ``kind``/``domain``/``passes``/``outputs``, no ``arrives_as``, no
-    ``review_shape``, no ``label``. So this module declares none of them and the
-    disagreement is reported rather than settled by whoever edits a file first.
+    THERE WAS A COLLISION HERE AND IT IS NOW RULED ON. iagent-mesh's own
+    v0.9.11 changelog says, of ``arrives_as``, *"ca adds the field, 7f fills in
+    KIND_MAPPING's rows with it"* -- dated 2026-10-21, three days BEFORE the
+    ownership ruling that moved the field to the platform. This module declared
+    none of the four and reported the disagreement rather than settling it by
+    editing a file first. The architect ruled on **2026-10-30**: *"ownership
+    stands as ruled 10-24: the platform registry declares
+    kind/domain/arrives_as/review_shape/label (Lane 1 fills them from your
+    packet); doc-tools declares passes. Your decline + test stay."* The
+    changelog line is superseded. What this lane owes is therefore not a row
+    here but a PACKET -- the per-kind values for ``domain``, ``arrives_as``,
+    ``review_shape`` and ``label``, carried to Lane 1, who fills them into the
+    platform registry that the server actually serves.
 
   * ``branch`` and ``refresh`` -- ``ContentKindEntry`` has no counterpart for
     either, which is ADR-0063 section 1's finding and is unchanged by this pin:

@@ -384,7 +384,8 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
     # a generated row carrying it RAISED at load. THAT REASON EXPIRED on
     # 2026-10-29 -- the pin is v0.9.11 and the field exists. The field is still
     # not here, on the reason that was always the stronger one: under #161's
-    # split, affirmed by the architect's 2026-10-24 ruling, the platform owns
+    # split, affirmed by the architect's 2026-10-24 ruling and again on
+    # 2026-10-30 ("your decline + test stay"), the platform owns
     # what a kind IS (``kind``, ``domain``, ``arrives_as``, ``review_shape``,
     # ``label``) and this repo owns what it RUNS, which puts
     # ``review_shape: document`` in the overlay. A decline on ownership, pinned
