@@ -52,12 +52,24 @@ default for a stated reason:
     ``seeds_workflow``, so ``branch`` takes its ``"document"`` default honestly
     today. A new event kind is blocked on our own plumbing, not on the SDK.
 
-  * ``parent_link_field`` (0.9.9) -- genuinely owed, and owed a MEASUREMENT
-    rather than a decision. It names the field of a kind's extracted output
-    that holds its parent, and ``s1000d-data-module`` is the hierarchical kind
-    the SDK says opened the ask. Which field of our S1000D output carries the
-    parent reference is a claim about our parser's output shape, so it is left
-    unset until that is read off a real data module rather than asserted here.
+  * ``parent_link_field`` (0.9.9) -- **MEASURED 2026-10-30, and the answer is
+    that there is no such field to name.** It names the field of a kind's
+    extracted output that holds its parent, and ``s1000d-data-module`` is the
+    hierarchical kind the SDK says opened the ask. Read off the code rather
+    than assumed: our S1000D pass emits an **RDF graph, not a row** --
+    ``doc_tools/parsers/s1000d_rdf.py`` -- and the only fact container,
+    ``S1000dFacts`` (``s1000d_ingest.py``), has nine slots (``dmc``,
+    ``model_ident_code``, ``info_code``, ``system_code``, ``tech_name``,
+    ``info_name``, ``tools``, ``spares``, ``kind_iri``), none of them a parent.
+    No ``parent``/``partOf`` term exists in either module. The one
+    module-to-module relation is ``mil:refersToDataModule``, asserted as
+    ``(this_dm, refersToDataModule, target)`` at ``s1000d_rdf.py:271`` from
+    every ``dmRef`` outside ``identAndStatusSection`` -- a flat cross-reference
+    that does not distinguish a parent from a sibling or a successor, so a
+    parent is derivable only by INVERTING it and only if the reference happened
+    to point upward. So this field is not merely unmeasured here: it presumes a
+    row-shaped output this kind does not produce. Unset is the true statement,
+    and filling it would require naming a field that does not exist.
 
   * ``id_namespaces`` (0.9.11) -- the stable ID prefixes a kind's instances
     carry, e.g. ``("HAZ-", "CSI-")``. No kind we register has one: a PCN number

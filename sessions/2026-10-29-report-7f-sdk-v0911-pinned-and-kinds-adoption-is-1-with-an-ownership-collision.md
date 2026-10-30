@@ -119,9 +119,9 @@ The other four declines:
   unchanged by this pin: an event row is blocked on **our** plumbing, not the
   SDK's. All thirteen rows are documents and none sets `seeds_workflow`, so
   `branch` takes its `"document"` default honestly today.
-* `parent_link_field` — **owed a measurement, not a decision.** Which field of
-  our S1000D output holds the parent is a claim about our parser's output shape,
-  and must be read off a real data module. Left unset rather than guessed.
+* `parent_link_field` — was owed a measurement, not a decision; **the
+  measurement was taken (2026-10-30) and there is no field to name.** See §9.
+  Left unset, now on a measured reason rather than a pending one.
 * `id_namespaces` — no kind we register has a validatable ID prefix. A PCN
   number is the manufacturer's own string. `()` is the true statement, and the
   SDK's validator would hold us to anything else we declared.
@@ -191,8 +191,7 @@ so the arms are the only new coverage and nothing regressed across the bump.
   (2026-10-24) says the platform owns it. **This lane cannot settle it by
   editing a file.** If the ruling lands on this side, arm 2 above is the one to
   delete, deliberately, with the ruling named.
-* **`parent_link_field` for `s1000d-data-module`** — a measurement of our
-  parser's output shape, owed by this lane.
+* ~~**`parent_link_field` for `s1000d-data-module`**~~ — **ANSWERED, see §9.**
 * **`branch`/`refresh` plumbing** — `ContentKindEntry` needs both before any
   event kind can be registered. ADR-0063 §1's remaining answer.
 * **#181** fixes the one red arm above; it is pending its container build.
@@ -204,3 +203,39 @@ so the arms are the only new coverage and nothing regressed across the bump.
 `scripts/generate_kind_registrations.py`, 13 × `registry/content_kinds/*.yaml`,
 `tests/test_kind_registry.py`, `docs/contracts/document-kind.md`,
 `doc_tools/utils/content_kind.py` (commit 2).
+
+---
+
+## 9. ADDENDUM 2026-10-30 — `parent_link_field` measured: there is no field to name
+
+The one item §8 listed as owed by this lane is answered, and the answer is
+stronger than "not yet decided": **the field presumes an output shape that
+`s1000d-data-module` does not produce.**
+
+Read off the code, then verified directly rather than taken on a lookup's word:
+
+* Our S1000D pass emits an **RDF graph, not a row** —
+  `doc_tools/parsers/s1000d_rdf.py`.
+* The only fact container, `S1000dFacts` in `doc_tools/parsers/s1000d_ingest.py`,
+  has nine slots: `dmc`, `model_ident_code`, `info_code`, `system_code`,
+  `tech_name`, `info_name`, `tools`, `spares`, `kind_iri`. **None is a parent.**
+* No `parent` / `partOf` / `isPartOf` term exists anywhere in either module
+  (case-insensitive grep over both files returns nothing).
+* The single module-to-module relation is `mil:refersToDataModule`, asserted at
+  `doc_tools/parsers/s1000d_rdf.py:271` as `(this_dm, refersToDataModule,
+  target)` for every `dmRef` outside `identAndStatusSection`. It is a **flat
+  cross-reference**: it does not distinguish a parent from a sibling or a
+  successor. A parent is derivable only by **inverting** it, and only if that
+  particular reference happened to point upward — which nothing records.
+
+So `parent_link_field` stays unset, now for a measured reason: naming a field
+here would mean naming one that does not exist. If the platform wants a parent
+link for this kind, the ask is not "which field" but "assert a directed
+parent edge", which is a change to the graph builder and its own piece of work.
+
+The fixtures agree with that reading: `tests/fixtures/s1000d/mrad/README.md`
+documents the intended walk 421 → 520+720 → 941 **by `dmRef`**, and the
+fixtures contain no `pmRef` or parent element at all. Note also that no `.ttl`
+snapshot of mrad exists in the repo — the only `mil_*.ttl` files are in
+`scratchpad/`, which is consistent with the standing memory that such a snapshot
+captures *our own parser's* output and so cannot be used to check it.
