@@ -7,6 +7,10 @@ cannot drift from what the parser produces. The LLM half (sections, concepts) is
 hand-written EXAMPLE data, marked ``nondeterministic``: doc-tools asserts its
 shape only, and the workbench uses it as fake-store data.
 
+Contract v5: ``never_written`` lists the workbench-owned names doc-tools never
+writes; ``written_only_by`` names what only the ``concepts.normalise`` pass may
+write (CanonicalConcept, ALIGNS_TO, PROPOSED_ALIGNS_TO).
+
 Any change to the output is a contract change: bump ``contract_version`` and
 send wb a packet. Run through the repo venv, from PowerShell (under git-bash,
 the libmagic import hangs):
@@ -231,7 +235,7 @@ def main() -> None:
         # changed, so the version moves and wb gets a packet.
         # 4: per-section concept calls -- Section summary/objectives, TEACHES related_terms,
         # candidate ALIAS_OF, Section objects in Weaviate, slide chunk_kind (section 4.6).
-        "contract_version": 4,
+        "contract_version": 5,
         "fixture": {
             "deck": DECK.name, "deck_sha256": hexd,
             "metadata": META.name, "metadata_sha256": hashlib.sha256(META.read_bytes()).hexdigest(),
@@ -287,9 +291,17 @@ def main() -> None:
                     **edges,
                 },
             },
+            # Contract v5: the workbench-owned names doc-tools never writes ...
             "never_written": {
-                "labels": ["Project", "TargetNode", "User", "CanonicalConcept"],
-                "relations": ["OWNS", "ALIGNS_TO", "SUGGESTED_SOURCE", "DERIVED_FROM"],
+                "labels": ["Project", "TargetNode", "User"],
+                "relations": ["OWNS", "SUGGESTED_SOURCE", "DERIVED_FROM"],
+            },
+            # ... and the names only the `concepts.normalise` pass may write (contract 4.7).
+            "written_only_by": {
+                "concepts.normalise": {
+                    "labels": ["CanonicalConcept"],
+                    "relations": ["ALIGNS_TO", "PROPOSED_ALIGNS_TO"],
+                },
             },
         },
         "minio": {
