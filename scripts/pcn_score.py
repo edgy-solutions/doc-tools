@@ -197,6 +197,96 @@ def score_notice(emitted: List[str], gt_entry: Dict[str, Any]) -> Dict[str, Any]
 
 
 # --------------------------------------------------------------------------
+# CUSTOMER-ALIAS scoring, ruled 2026-10-29. Its own column, its own denominator.
+
+# A customer cell can hold MORE THAN ONE id for ONE affected part. TYC prints two
+# such cells ("TYC1052982-1,\nTYC1056344-1" and one more), tier 1 carries the cell
+# verbatim rather than splitting it -- splitting would duplicate the affected part
+# and move the parts denominator -- so the ids are separated HERE, at the one place
+# that compares them to a list of ids. Without this, TYC reads 6 exact / 2 spurious
+# / 4 missing against a ground truth of 10 that it in fact emitted in full.
+_CUSTOMER_ID_SPLIT = re.compile(r"[,;\n]+")
+
+
+def split_customer_cell(value: Any) -> List[str]:
+    """The ids in one customer cell, in order, stripped. No shape floor here: the
+    floor belongs to the extractor, and a scorer that silently dropped a
+    badly-shaped id would hide the misread it exists to show."""
+    if not value:
+        return []
+    return [s.strip() for s in _CUSTOMER_ID_SPLIT.split(str(value)) if s.strip()]
+
+
+def score_customer(emitted_cells: List[str], gt_entry: Dict[str, Any]) -> Dict[str, Any] | None:
+    """Score the CUSTOMER column of one notice. ADVISORY, and that is a ruling.
+
+    `None` when the notice declares no `customer_mpns` -- which is 8 of the 10, and
+    means "this notice has no customer column", not "it scored zero".
+
+    WHY ADVISORY, and why this must not be quietly promoted later: two of the ten
+    declare a customer column, and the second of them is TI, whose 11 aliases sit on
+    page 2 -- a page `find_tables()` returns ZERO tables for under both the `lines`
+    and the `text` strategy (measured 2026-10-10 and again 2026-10-29). No tier can
+    read it. Making this a blocking recall target would be publishing a red the tree
+    cannot clear by any change to the extractor, which is the definition of a
+    self-inflicted gate. It is reported in full, by name, beside the parts score, and
+    the parts verdict in `main` names its own keys so this one can never leak into it.
+
+    A customer id is NOT a part. It is never written to the graph (component IRIs are
+    shared across notices, so a wrongly written alias could not be withdrawn), so a
+    spurious one here is a reporting defect and not a corpus contamination -- another
+    reason the two columns are scored apart rather than added together.
+    """
+    declared = gt_entry.get("customer_mpns")
+    if declared is None:
+        return None
+    gt_set = set(declared)
+    if len(gt_set) != len(declared):
+        raise ValueError("ground truth defect: duplicate ids in `customer_mpns`")
+    overlap = gt_set & set(gt_entry["mpns"])
+    if overlap:
+        raise ValueError(
+            "ground truth defect: %r appear in both `mpns` and `customer_mpns`. "
+            "A value cannot be an affected part and that part's customer alias at "
+            "once; decide which it is." % sorted(overlap))
+
+    ids: set = set()
+    for cell in emitted_cells or ():
+        ids.update(split_customer_cell(cell))
+
+    spurious = sorted(ids - gt_set)
+    missing = sorted(gt_set - ids)
+    return {
+        "advisory": True,
+        "count": len(gt_set),
+        "cells": len(emitted_cells or ()),
+        "distinct": len(ids),
+        "exact": len(ids & gt_set),
+        "spurious": spurious,
+        "missing": missing,
+        "clean": not spurious and not missing,
+    }
+
+
+def customer_totals(per: Dict[str, Any]) -> Dict[str, Any] | None:
+    """Totalled over the notices that DECLARE a customer column only. A notice with
+    no such column is not a zero; it is not in the denominator at all."""
+    scored = [p["customer"] for p in per.values() if p.get("customer")]
+    if not scored:
+        return None
+    return {
+        "advisory": True,
+        "notices": len(scored),
+        "gt": sum(c["count"] for c in scored),
+        "exact": sum(c["exact"] for c in scored),
+        "spurious": sum(len(c["spurious"]) for c in scored),
+        "missing": sum(len(c["missing"]) for c in scored),
+        "cells": sum(c["cells"] for c in scored),
+        "clean": all(c["clean"] for c in scored),
+    }
+
+
+# --------------------------------------------------------------------------
 # HEADER scoring against notices[*].headers. See the module docstring for why
 # the failure classes are kept apart instead of totalled as "wrong".
 
@@ -553,6 +643,16 @@ def score_run(results: Dict[str, Any], gt: Dict[str, Any]) -> Dict[str, Any]:
             continue
         per[fn] = score_notice([m for m in (res.get("mpns") or []) if m], entry)
 
+    # The customer column, attached to every notice that DECLARES one -- including
+    # an absent or failed one, where the cells are empty and the block therefore
+    # reads as all-missing rather than vanishing. Same reasoning as the headers.
+    for fn, entry in gt.items():
+        res = results.get(fn)
+        cells = (res.get("customer_mpns") or []) if isinstance(res, dict) else []
+        scored_cust = score_customer([c for c in cells if c], entry)
+        if scored_cust is not None:
+            per[fn]["customer"] = scored_cust
+
     # Headers, attached to every notice INCLUDING the absent/failed ones above:
     # a notice that never ran has unobserved headers, which must read as
     # unobserved rather than vanish from the header totals' denominator.
@@ -573,7 +673,8 @@ def score_run(results: Dict[str, Any], gt: Dict[str, Any]) -> Dict[str, Any]:
         "emitted": sum(p["emitted"] for p in per.values()),
     }
     return {"per_notice": per, "totals": totals,
-            "header_totals": header_totals(per)}
+            "header_totals": header_totals(per),
+            "customer_totals": customer_totals(per)}
 
 
 def render(scored: Dict[str, Any]) -> str:
@@ -612,7 +713,46 @@ def render(scored: Dict[str, Any]) -> str:
             out.append(f"\n{fn} malformed (real content, unusable shape):")
             out += [f"    {m!r}" for m in p["malformed"]]
     out.append("")
+    out.append(render_customer(scored))
     out.append(render_headers(scored))
+    return "\n".join(out)
+
+
+def render_customer(scored: Dict[str, Any]) -> str:
+    """The CUSTOMER-ALIAS section. Prints the word ADVISORY every time, because a
+    number in a report is read long after the ruling that made it advisory."""
+    ct = scored.get("customer_totals")
+    if not ct:
+        return ("CUSTOMER ALIASES  NOT SCORED - no notice in this ground truth "
+                "declares a `customer_mpns` column.\n")
+    per = scored["per_notice"]
+    out = [f"CUSTOMER ALIASES ({ct['notices']} of {len(per)} notices declare the column) "
+           f"- ADVISORY, never part of the parts verdict",
+           f"{'notice':38} {'gt':>4} {'cells':>6} {'exact':>6} {'spur':>5} {'miss':>5}",
+           "-" * 72]
+    for fn, p in per.items():
+        c = p.get("customer")
+        if not c:
+            continue
+        out.append(f"{fn:38} {c['count']:>4} {c['cells']:>6} {c['exact']:>6} "
+                   f"{len(c['spurious']):>5} {len(c['missing']):>5}"
+                   + ("" if c["clean"] else "  <<"))
+    out += ["-" * 72,
+            f"{'TOTAL':38} {ct['gt']:>4} {ct['cells']:>6} {ct['exact']:>6} "
+            f"{ct['spurious']:>5} {ct['missing']:>5}",
+            f"SCORE {ct['exact']} / {ct['gt']} customer aliases by exact id "
+            f"(ADVISORY - a red here does not fail the gate)"]
+    for fn, p in per.items():
+        c = p.get("customer")
+        if not c:
+            continue
+        if c["spurious"]:
+            out.append(f"\n{fn} customer spurious (emitted, not a declared alias):")
+            out += [f"    {m!r}" for m in c["spurious"]]
+        if c["missing"]:
+            out.append(f"\n{fn} customer missing (declared alias, not emitted):")
+            out += [f"    {m!r}" for m in c["missing"]]
+    out.append("")
     return "\n".join(out)
 
 

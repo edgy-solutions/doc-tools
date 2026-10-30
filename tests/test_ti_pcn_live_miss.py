@@ -540,20 +540,40 @@ def test_if_page_two_is_ever_detected_every_spurious_part_is_named():
         assert "RULED OUT by ground truth" in text
 
 
-def test_nothing_in_the_extractor_declines_page_twos_grid():
-    """THE CANARY, and it is MEANT to fail the day the ruling is implemented.
+def test_the_customer_alias_ruling_is_implemented_on_page_twos_own_header():
+    """THE CANARY, RETIRED 2026-10-29, replaced by what the ruling actually does.
 
-    Page 2 grid has a real column header, so `grid_outcome` accepts it on its own
-    merits and pairs BOTH columns as affected -- `device` and `part number` are
-    both in `AFFECTED_HEADERS`. There is no decline, no rule, nothing: the eleven
-    are excluded only because the page yields no tables.
+    What stood here asserted the absence of any rule: `device` and `part number`
+    are both in `AFFECTED_HEADERS`, so `grid_outcome` paired BOTH of page 2's
+    columns as affected and the eleven were excluded only because the page yields
+    no tables. It instructed its own deletion the day a rule arrived.
 
-    If this test goes red, read it as the good news it is -- something now
-    declines this grid. Check that the decline names the ruling, update the
-    ground-truth `source` and `_expect_absent_why` to say the ruling is
-    implemented rather than anticipated, and delete this test. Do not make it pass
-    by loosening the guard above.
+    The rule arrived, and NOT as the decline that test expected. A decline would
+    have cost the 8 real devices on this page along with the 11 aliases. Instead
+    `_is_customer` takes the customer column out of the affected role in
+    `pair_columns`, so this grid is still accepted on its own merits -- the 8
+    devices are emitted as affected parts and the 11 customer part numbers are
+    emitted as `customer_mpn`, which is what they are.
+
+    None of this is reachable on the live PDF: `page.find_tables()` returns ZERO
+    tables for page 2 under both the `lines` and the `text` strategy (measured
+    2026-10-10 and again 2026-10-29). This fixture is the page as the text layer
+    prints it, so what is pinned here is the RULE, not today's output.
     """
     out = text_layer.grid_outcome(_PAGE2)
-    assert out.decline is None
-    assert text_layer.pair_columns(_PAGE2[0]) == [(0, None), (1, None)]
+    assert out.decline is None, "a decline would cost the 8 real devices too"
+    # One pair, not two: the customer column no longer holds an affected position.
+    assert text_layer.pair_columns(_PAGE2[0]) == [(0, None)]
+    assert text_layer.customer_columns(
+        _PAGE2[0], text_layer.pair_columns(_PAGE2[0])) == [1]
+
+    affected = {p["affected_mpn"] for p in out.parts}
+    aliases = {p["customer_mpn"] for p in out.parts if p.get("customer_mpn")}
+    on_page_devices = {d for d, _c in _PAGE2_ROWS}
+    on_page_aliases = {c for _d, c in _PAGE2_ROWS if c != "null"}
+    assert affected == on_page_devices, sorted(affected)
+    assert aliases == on_page_aliases, sorted(aliases)
+    # The eleven are no longer ANYWHERE in the affected set -- the thing
+    # `expect_absent_mpns` exists to enumerate.
+    _mod, gt = _ti_ground_truth()
+    assert not (affected & set(gt["expect_absent_mpns"]))

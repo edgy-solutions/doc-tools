@@ -1501,6 +1501,7 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
     fire_reports = []
     corpus_by_fire = {}
     header_totals_by_fire = {}
+    customer_totals_by_fire = {}
     rates_by_fire = {}
     seal_totals_by_fire = {}
     for f in fires:
@@ -1532,6 +1533,11 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
             # Per fire, not once: a header that is correct in one fire and a
             # distractor in the next is two different facts and both must show.
             header_totals_by_fire[f["n"]] = score.get("header_totals")
+            # The customer-alias column, per fire. A score JSON written before the
+            # 2026-10-29 ruling has no `customer_totals` key at all and maps to None:
+            # NOT SCORED, never a zero. Nothing downstream of this is allowed to
+            # block -- see _render_customer_block.
+            customer_totals_by_fire[f["n"]] = score.get("customer_totals")
             # Per fire, not once. The earlier "reported once, from fire 1" rested on
             # the claim that rates are a property of the image, not of the fire.
             # DISPROVED on pin a72a4a26 (same image, same invocation): fire 1
@@ -1730,6 +1736,9 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
         # this is the copy a reader of the report sees.
         "corpus": pcn_score.load_corpus(),
         "header_correctness": header_correctness,
+        # ADVISORY. Reported, never a term: it appends to neither `blocking` nor
+        # `exempted`, so it cannot move `verdict` above.
+        "customer_aliases": {"advisory": True, "fires": customer_totals_by_fire},
         # The PLAIN-MODE (raw model output) run. `exit` is still measured and still
         # recorded; `blocks` says outright that it does not decide the verdict.
         "header_agreement": {
@@ -1917,6 +1926,41 @@ def _render_header_correctness_block(block):
                      "explains; agreement across fires cannot detect one.")
     else:
         out.append("every established header field matched the page in every fire.")
+    return "\n".join(out)
+
+
+def _render_customer_block(block):
+    """The customer-alias column. ADVISORY, and the word is printed every time.
+
+    A customer part number is the customer's own id for the row's affected part. It
+    is never written to the graph (component IRIs are shared across notices, so a
+    wrongly written alias could not be withdrawn), so a miss here costs a report
+    field and not a corpus. Two of the ten notices declare the column; TI's eleven
+    are on a page `find_tables()` returns zero tables for under either strategy, so
+    a blocking term would be unclearable by any change to the extractor. Ruled
+    advisory 2026-10-29 for that reason, and the reason belongs next to the number.
+    """
+    out = ["## Customer aliases (`customer_mpn`) — ADVISORY, not a gate term", ""]
+    if not block:
+        out.append("**NOT PRESENT** — this report was produced by a gate that did "
+                   "not read the customer column.")
+        return "\n".join(out)
+    fires = {n: t for n, t in (block.get("fires") or {}).items() if t}
+    if not fires:
+        out.append("**NOT SCORED** — no fire's score JSON carries `customer_totals`. "
+                   "Either the score ran before the 2026-10-29 ruling, or no notice "
+                   "in its ground truth declares a `customer_mpns` column. Not a zero.")
+        return "\n".join(out)
+    out += ["| fire | exact/declared | spurious | missing | cells | notices | clean |",
+            "|---|---|---|---|---|---|---|"]
+    for n, t in sorted(fires.items()):
+        out.append(f"| {n} | {t.get('exact')}/{t.get('gt')} | {t.get('spurious')} | "
+                   f"{t.get('missing')} | {t.get('cells')} | {t.get('notices')} | "
+                   f"{t.get('clean')} |")
+    out.append("")
+    out.append("A red row here does NOT fail this gate and does not appear under "
+               "Blocking or Exempted. It is a recall figure for a field that is "
+               "reviewable and exportable but never written to the graph.")
     return "\n".join(out)
 
 
@@ -2260,6 +2304,7 @@ def render_markdown(report, gate_dir, command_str, log_paths):
         lines.append(f"NOT MEASURED: {', '.join(report['header_agreement']['not_measured'])}")
         lines.append("")
     lines.append(_render_header_correctness_block(report.get("header_correctness")))
+    lines.append(_render_customer_block(report.get("customer_aliases")))
     lines.append("")
     lines.append("## Identity")
     lines.append("")

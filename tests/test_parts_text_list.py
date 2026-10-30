@@ -9,7 +9,8 @@ LEGACY_LABELS = ("models affected", "affected models", "affected parts",
                  "affected model", "model affected")
 
 TIER1_KEYS = {"affected_mpn", "affected_mpn_source", "replacement_mpn",
-              "replacement_mpn_source", "ltb_date", "ltb_date_source",
+              "replacement_mpn_source", "customer_mpn", "customer_mpn_source",
+              "ltb_date", "ltb_date_source",
               "text_layer_bbox", "text_layer_replacement_bbox",
               "text_layer_page", "text_layer_page_dims"}
 
