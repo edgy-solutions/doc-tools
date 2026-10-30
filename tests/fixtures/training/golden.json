@@ -44,6 +44,7 @@
         "delivery_method": "Instructor-led",
         "duration_hours": 2,
         "version": "1.0",
+        "outline_source": "llm",
         "current_key": "training/generated/895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc/current.json"
       }
     },
@@ -273,8 +274,51 @@
       "HAS_CHILD",
       "HAS_SLIDE"
     ],
+    "outline": {
+      "source": "llm",
+      "fallback": [
+        {
+          "title": "Hydraulic Systems Fundamentals",
+          "level": 1,
+          "start_page": 2,
+          "end_page": 2,
+          "subsections": []
+        },
+        {
+          "title": "Pascal's Law",
+          "level": 1,
+          "start_page": 1,
+          "end_page": 4,
+          "subsections": [
+            {
+              "title": "Hydraulic Pumps",
+              "level": 2,
+              "start_page": 2,
+              "end_page": 2,
+              "subsections": []
+            }
+          ]
+        },
+        {
+          "title": "Reservoir Schematic",
+          "level": 1,
+          "start_page": 3,
+          "end_page": 0,
+          "subsections": []
+        },
+        {
+          "title": "Accumulator Sizing",
+          "level": 1,
+          "start_page": 4,
+          "end_page": 4,
+          "subsections": []
+        }
+      ],
+      "recorded": false,
+      "note": "The pinned ExtractOutline reply (neo4j.outline.fallback) with its pages as the LLM gave them, wrong ones included; the real outline pass ignores them. Provisional, replaced by a recorded sandbox ExtractOutline reply before the PR leaves draft. A re-run compares its LLM titles to these and reports the difference, rather than overwriting."
+    },
     "nondeterministic": {
-      "note": "LLM-derived. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "note": "Sections are what the real structural.outline pass derives from neo4j.outline.fallback and this deck's element pages (page numbers are element page_number, never the LLM's). Concepts and TEACHES are LLM-derived example data: doc-tools asserts their shape only; wb uses them as fake-store data.",
       "sections": {
         "labels": [
           "Section",
@@ -287,7 +331,7 @@
         "nodes": [
           {
             "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s0",
-            "title": "Introduction",
+            "title": "Hydraulic Systems Fundamentals",
             "level": 1,
             "start_page": 1,
             "end_page": 1,
@@ -300,15 +344,14 @@
           },
           {
             "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "title": "Hydraulic Principles",
+            "title": "Pascal's Law",
             "level": 1,
             "start_page": 2,
-            "end_page": 4,
+            "end_page": 3,
             "parent": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
             "slides": [
               "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2",
-              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3",
-              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
+              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3"
             ],
             "covers": [
               {
@@ -322,32 +365,26 @@
                 "frequency": 1
               },
               {
-                "concept": "Hydraulic reservoir",
-                "score": 0.7,
+                "concept": "Hydraulic pressure",
+                "score": 0.8,
                 "frequency": 1
               },
               {
                 "concept": "Gear pump",
                 "score": 0.6,
                 "frequency": 1
-              },
-              {
-                "concept": "Hydraulic pressure",
-                "score": 0.55,
-                "frequency": 2
               }
             ],
             "concept_summary": [
               "Pascal's law",
               "Hydraulic pump",
-              "Hydraulic reservoir",
-              "Gear pump",
-              "Hydraulic pressure"
+              "Hydraulic pressure",
+              "Gear pump"
             ]
           },
           {
             "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
-            "title": "Pumps",
+            "title": "Hydraulic Pumps",
             "level": 2,
             "start_page": 3,
             "end_page": 3,
@@ -370,6 +407,33 @@
             "concept_summary": [
               "Hydraulic pump",
               "Gear pump"
+            ]
+          },
+          {
+            "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "title": "Reservoir Schematic",
+            "level": 1,
+            "start_page": 4,
+            "end_page": 4,
+            "parent": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
+            "slides": [
+              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Hydraulic reservoir",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic pressure",
+                "score": 0.3,
+                "frequency": 1
+              }
+            ],
+            "concept_summary": [
+              "Hydraulic reservoir",
+              "Hydraulic pressure"
             ]
           }
         ]
@@ -458,6 +522,10 @@
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0"
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
+            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2"
           }
         ],
         "section_slide": [
@@ -474,12 +542,12 @@
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3"
           },
           {
-            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
-          },
-          {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3"
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
           }
         ],
         "COVERS": [
@@ -497,8 +565,8 @@
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "to": "Hydraulic reservoir",
-            "score": 0.7,
+            "to": "Hydraulic pressure",
+            "score": 0.8,
             "frequency": 1
           },
           {
@@ -506,12 +574,6 @@
             "to": "Gear pump",
             "score": 0.6,
             "frequency": 1
-          },
-          {
-            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "to": "Hydraulic pressure",
-            "score": 0.55,
-            "frequency": 2
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
@@ -523,6 +585,18 @@
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
             "to": "Gear pump",
             "score": 0.6,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "to": "Hydraulic reservoir",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "to": "Hydraulic pressure",
+            "score": 0.3,
             "frequency": 1
           }
         ],
