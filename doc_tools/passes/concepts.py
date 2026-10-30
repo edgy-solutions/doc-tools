@@ -3,18 +3,23 @@
 Deterministic, no LLM. Inputs are the Concept names, the TEACHES ``related_terms``
 (contract v4) and the Weaviate vectors of the Slides that teach each Concept. Output:
 
-* ``(:CanonicalConcept)-[:ALIGNS_TO {status:'auto'}]->(:Concept)`` for high-confidence
+* ``(:Concept)-[:ALIGNS_TO {status:'auto'}]->(:CanonicalConcept)`` for high-confidence
   links (same align key, or each side lists the other as a related term);
-* ``(:CanonicalConcept)-[:PROPOSED_ALIGNS_TO {status:'open'}]->(:Concept)`` review
-  proposals for everything weaker, for the workbench to accept or reject.
+* ``(:Concept)-[:PROPOSED_ALIGNS_TO {status:'open'}]->(:CanonicalConcept)`` review
+  proposals for everything weaker, at most ``proposals_per_course`` pairs per course, for
+  the workbench to accept or reject.
 
 It never merges Concept nodes and never writes ``ALIAS_OF``. It replaces the workbench's
-LLM-only ``harmonize_concepts``; the shape wb reads is kept (CanonicalConcept -> Concept,
-``cc.name``). The rules are contract ``training-workbench.md`` section 4.7.
+LLM-only ``harmonize_concepts``. The direction (Concept -> CanonicalConcept) is the
+architect's ruling of 2026-10-30; the rules are contract ``training-workbench.md`` 4.7.
 
 Ownership: the pass owns auto ALIGNS_TO edges, OPEN proposals and CanonicalConcepts whose
-``source`` is ``concepts.normalise``. A human decision (``status 'accepted'``), a legacy
-edge with no status (wb's harmonizer) and a rejected proposal are never changed.
+``source`` is ``concepts.normalise``. The workbench writes nothing to Concept: its only
+writes are ``status`` / ``reviewed_by`` / ``reviewed_at`` on a proposal edge. The pass
+materialises an ``accepted`` proposal as ``ALIGNS_TO {status:'accepted', method:'review'}``.
+A human decision (``status 'accepted'``), a legacy edge with no status (wb's harmonizer,
+written either way round: the old ``(cc)->(c)`` shape is read as pinned, never written) and
+a rejected proposal are never changed.
 
 ``plan_alignment`` is pure; ``load_records`` / ``load_existing`` / ``apply_plan`` are the
 only I/O. The declared pass name is ``concepts.normalise`` (see ``doc_tools/passes``).
@@ -61,12 +66,18 @@ _VECTOR_BATCH = 200
 @dataclass(frozen=True)
 class AlignSettings:
     propose_min: float = 0.70
-    max_proposals: int = 5
+    proposals_per_course: int = 50
 
     @classmethod
     def from_env(cls) -> "AlignSettings":
+        kw: Dict[str, Any] = {}
         raw = os.getenv("TRAINING_ALIGN_PROPOSE_MIN")
-        return cls(propose_min=float(raw)) if raw else cls()
+        if raw:
+            kw["propose_min"] = float(raw)
+        raw = os.getenv("TRAINING_ALIGN_PROPOSALS_PER_COURSE")
+        if raw:
+            kw["proposals_per_course"] = int(raw)
+        return cls(**kw)
 
 
 @dataclass
@@ -92,6 +103,9 @@ class Existing:
     pinned: Dict[str, Dict[str, Optional[str]]] = field(default_factory=dict)  # concept -> {cc: status}
     rejected: Set[Tuple[str, str]] = field(default_factory=set)         # (cc, concept)
     open_proposals: Set[Tuple[str, str]] = field(default_factory=set)   # (cc, concept)
+    accepted: Dict[Tuple[str, str], Optional[float]] = field(default_factory=dict)  # (cc, concept) -> proposal confidence
+    aligned: Set[Tuple[str, str]] = field(default_factory=set)          # (cc, concept) with a non-auto ALIGNS_TO
+    legacy_reversed: int = 0                                            # wb's old (cc)->(c) edges, read as pinned
 
 
 @dataclass
@@ -122,10 +136,37 @@ class Proposal:
 
 
 @dataclass
+class Materialise:
+    """An accepted proposal that has no ALIGNS_TO yet: the pass writes it (method 'review')."""
+    concept_id: str
+    cc_id: str
+    confidence: Optional[float]
+
+
+@dataclass
+class PoolPair:
+    """One lexical candidate pair (both directions), with the ranking key's inputs."""
+    a: str
+    b: str
+    shared: int
+    confidence: float
+    method: str
+    cos: Optional[float]
+    courses: Tuple[str, ...]
+    proposals: List[Proposal]
+
+    def rank(self) -> tuple:
+        return (-self.shared, -self.confidence, self.cos is None, -(self.cos or 0.0), self.a, self.b)
+
+
+@dataclass
 class AlignmentPlan:
     canonicals: Dict[str, CanonicalPlan] = field(default_factory=dict)
     auto_edges: List[AutoEdge] = field(default_factory=list)
     proposals: List[Proposal] = field(default_factory=list)
+    materialise: List[Materialise] = field(default_factory=list)
+    stale_proposals: List[Tuple[str, str]] = field(default_factory=list)  # (cc, concept) open edges the cap dropped
+    proposal_pool: List[PoolPair] = field(default_factory=list)  # every ranked candidate; computed, never written
     drop_auto: List[str] = field(default_factory=list)  # pinned concepts that still hold an auto edge
     managed: Set[str] = field(default_factory=set)       # concepts whose stale open proposals may be dropped
     stats: Dict[str, Any] = field(default_factory=dict)
@@ -257,7 +298,10 @@ def plan_alignment(records: Sequence[ConceptRecord], existing: Existing, *,
     def member_method(i: str) -> str:
         return method_of.get(i, "self")
 
-    pinned = {i: v for i, v in existing.pinned.items() if i in recs and v}
+    pinned = {i: dict(v) for i, v in existing.pinned.items() if i in recs and v}
+    for (acc_cc, acc_concept) in existing.accepted:  # a reviewed proposal pins in the same run
+        if acc_concept in recs:
+            pinned.setdefault(acc_concept, {}).setdefault(acc_cc, "accepted")
     scope_ids = {i for i in ids if scope is None or scope in recs[i].courses}
 
     # 3. A cc per component. Pinned ccs are claimed first so no other component reuses one.
@@ -316,6 +360,7 @@ def plan_alignment(records: Sequence[ConceptRecord], existing: Existing, *,
         plan.managed.update(members)
         cc = comp_cc[root]
         if root in conflicts:
+            # Conflict proposals are not lexical pairs: they sit outside the per-course cap.
             conflict_n += 1
             for m in members:
                 if m in pinned:
@@ -383,32 +428,50 @@ def plan_alignment(records: Sequence[ConceptRecord], existing: Existing, *,
 
     slide_sets = {i: set(recs[i].slides) for i in ids}
     comp_of = {i: uf.find(i) for i in ids}
-    lexical: List[Proposal] = []
+    pool: List[PoolPair] = []
+    computed = 0
     for (a, b), sigs in cand.items():
         if comp_of[a] == comp_of[b]:
-            continue
-        if slide_sets[a] & slide_sets[b]:  # co-taught: the model listed them as different
-            continue
-        if scope is not None and a not in scope_ids and b not in scope_ids:
             continue
         cos = _cosine(recs[a].vector, recs[b].vector)
         meth, conf = _proposal_confidence(sigs, cos)
         if conf < settings.propose_min:
             continue
+        computed += 1
+        props: List[Proposal] = []
         for target, other in ((a, b), (b, a)):
             cc = comp_cc.get(comp_of[other])
             if cc is None or (cc, target) in existing.rejected:
                 continue
             if cc in pinned.get(target, {}):
                 continue
-            lexical.append(Proposal(cc, target, other, conf, meth, sorted(sigs), cos))
-    # Cap per target Concept, highest confidence first (ties: deterministic by cc, other).
-    per_target: Dict[str, List[Proposal]] = defaultdict(list)
-    for p in lexical:
-        per_target[p.concept_id].append(p)
-    for target in sorted(per_target):
-        ranked = sorted(per_target[target], key=lambda p: (-p.confidence, p.cc_id, p.other_id))
-        plan.proposals.extend(ranked[: settings.max_proposals])
+            props.append(Proposal(cc, target, other, conf, meth, sorted(sigs), cos))
+        if not props:
+            continue
+        pool.append(PoolPair(a, b, len(slide_sets[a] & slide_sets[b]), conf, meth, cos,
+                             tuple(sorted(set(recs[a].courses) | set(recs[b].courses))), props))
+    pool.sort(key=PoolPair.rank)
+    plan.proposal_pool = pool
+    # Top `proposals_per_course` pairs for EVERY course; the emitted set is their union. A
+    # course run emits the part of that union touching its course, so a pair one course
+    # selected is not deleted by another course's run and rewritten by the next.
+    by_course: Dict[str, List[PoolPair]] = defaultdict(list)
+    for pp in pool:
+        for course in pp.courses:
+            by_course[course].append(pp)
+    cap = max(settings.proposals_per_course, 0)
+    selected = {course: {(pp.a, pp.b) for pp in pairs[:cap]} for course, pairs in by_course.items()}
+    kept_anywhere: Set[Tuple[str, str]] = set().union(*selected.values()) if selected else set()
+    emit_pairs = kept_anywhere if scope is None else {
+        (pp.a, pp.b) for pp in by_course.get(scope, []) if (pp.a, pp.b) in kept_anywhere}
+    for pp in pool:
+        if (pp.a, pp.b) in emit_pairs:
+            plan.proposals.extend(pp.proposals)
+        elif (pp.a, pp.b) not in kept_anywhere:
+            # Cut by the cap in every course: an open proposal written earlier is stale.
+            plan.stale_proposals.extend(
+                (p.cc_id, p.concept_id) for p in pp.proposals
+                if (p.cc_id, p.concept_id) in existing.open_proposals)
 
     # Canonicals referenced by an emitted proposal must be attachable even when their own
     # component is out of scope (the cc exists already or is created by the fleet run).
@@ -418,6 +481,15 @@ def plan_alignment(records: Sequence[ConceptRecord], existing: Existing, *,
                 p.cc_id, "", True, existing.canon.get(p.cc_id) != SOURCE)
     # A proposal whose cc is not yet in the graph and not in this plan cannot be written.
     plan.proposals = [p for p in plan.proposals if p.cc_id in plan.canonicals]
+    written = {(p.cc_id, p.concept_id) for p in plan.proposals}
+    emitted = sum(1 for pp in pool if (pp.a, pp.b) in emit_pairs
+                  and any((p.cc_id, p.concept_id) in written for p in pp.proposals))
+
+    # Accepted proposals with no ALIGNS_TO yet become one (method 'review'): a human decision.
+    for (acc_cc, acc_concept), acc_conf in sorted(existing.accepted.items()):
+        if (acc_concept in scope_ids and acc_cc in existing.canon
+                and (acc_cc, acc_concept) not in existing.aligned):
+            plan.materialise.append(Materialise(acc_concept, acc_cc, acc_conf))
 
     by_method = Counter(p.method for p in plan.proposals)
     acc = sum(1 for v in pinned.values() if "accepted" in v.values())
@@ -431,6 +503,10 @@ def plan_alignment(records: Sequence[ConceptRecord], existing: Existing, *,
         "canonical_reused": reused,
         "pinned_accepted": acc,
         "pinned_legacy": len(pinned) - acc,
+        "legacy_reversed_edges": existing.legacy_reversed,
+        "proposals_computed": computed,
+        "proposals_emitted": emitted,
+        "accepted_materialised": len(plan.materialise),
         "rejected_pairs": len(existing.rejected),
         "conflicting_components": conflict_n,
         "concepts_without_vector": sum(1 for r in recs.values() if r.vector is None),
@@ -531,7 +607,7 @@ def load_existing(neo4j_client, domain: str) -> Existing:
     d = _label(domain, "domain")
     ex = Existing()
     for row in neo4j_client.execute_query(f"""
-        MATCH (cc:CanonicalConcept)-[r:ALIGNS_TO]->(c:Concept:{d})
+        MATCH (c:Concept:{d})-[r:ALIGNS_TO]->(cc:CanonicalConcept)
         RETURN coalesce(cc.id, cc.name) AS cc, cc.source AS source, c.id AS concept, r.status AS status
     """, {}) or []:
         ex.canon[row["cc"]] = row.get("source")
@@ -539,15 +615,28 @@ def load_existing(neo4j_client, domain: str) -> Existing:
             ex.auto.setdefault(row["concept"], set()).add(row["cc"])
         else:
             ex.pinned.setdefault(row["concept"], {})[row["cc"]] = row.get("status")
+            ex.aligned.add((row["cc"], row["concept"]))
+    # wb's harmonizer wrote the edge the other way round, with no status: pinned, never rewritten.
     for row in neo4j_client.execute_query(f"""
-        MATCH (cc:CanonicalConcept)-[p:PROPOSED_ALIGNS_TO]->(c:Concept:{d})
-        RETURN coalesce(cc.id, cc.name) AS cc, cc.source AS source, c.id AS concept, p.status AS status
+        MATCH (cc:CanonicalConcept)-[r:ALIGNS_TO]->(c:Concept:{d})
+        RETURN coalesce(cc.id, cc.name) AS cc, cc.source AS source, c.id AS concept, r.status AS status
+    """, {}) or []:
+        ex.canon.setdefault(row["cc"], row.get("source"))
+        ex.pinned.setdefault(row["concept"], {}).setdefault(row["cc"], row.get("status"))
+        ex.aligned.add((row["cc"], row["concept"]))
+        ex.legacy_reversed += 1
+    for row in neo4j_client.execute_query(f"""
+        MATCH (c:Concept:{d})-[p:PROPOSED_ALIGNS_TO]->(cc:CanonicalConcept)
+        RETURN coalesce(cc.id, cc.name) AS cc, cc.source AS source, c.id AS concept,
+               p.status AS status, p.confidence AS confidence
     """, {}) or []:
         ex.canon.setdefault(row["cc"], row.get("source"))
         if row.get("status") == "rejected":
             ex.rejected.add((row["cc"], row["concept"]))
         elif row.get("status") == "open":
             ex.open_proposals.add((row["cc"], row["concept"]))
+        elif row.get("status") == "accepted":
+            ex.accepted[(row["cc"], row["concept"])] = row.get("confidence")
     return ex
 
 
@@ -572,7 +661,7 @@ def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]
     if plan.drop_auto:
         q(f"""
             UNWIND $ids AS cid
-            MATCH (:CanonicalConcept)-[old:ALIGNS_TO]->(c:Concept:{d} {{id: cid}})
+            MATCH (c:Concept:{d} {{id: cid}})-[old:ALIGNS_TO]->(:CanonicalConcept)
             WHERE old.status = 'auto'
             DELETE old
         """, {"ids": plan.drop_auto})
@@ -582,7 +671,7 @@ def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]
                  "confidence": e.confidence} for e in plan.auto_edges]
         q(f"""
             UNWIND $rows AS row
-            MATCH (other:CanonicalConcept)-[old:ALIGNS_TO]->(c:Concept:{d} {{id: row.concept}})
+            MATCH (c:Concept:{d} {{id: row.concept}})-[old:ALIGNS_TO]->(other:CanonicalConcept)
             WHERE old.status = 'auto' AND coalesce(other.id, other.name) <> row.cc
             DELETE old
         """, {"rows": rows})
@@ -590,21 +679,42 @@ def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]
             UNWIND $rows AS row
             MATCH (c:Concept:{d} {{id: row.concept}})
             MATCH (cc:CanonicalConcept) WHERE coalesce(cc.id, cc.name) = row.cc
-            OPTIONAL MATCH (cc)-[ex:ALIGNS_TO]->(c)
+            OPTIONAL MATCH (c)-[ex:ALIGNS_TO]->(cc)
             WITH cc, c, row, ex WHERE ex IS NULL OR ex.status = 'auto'
-            MERGE (cc)-[r:ALIGNS_TO]->(c)
+            MERGE (c)-[r:ALIGNS_TO]->(cc)
             SET r.status = 'auto', r.method = row.method, r.confidence = row.confidence,
+                r.source = '{SOURCE}', r.updated_at = datetime()
+        """, {"rows": rows})
+
+    if plan.materialise:  # an accepted proposal becomes the ALIGNS_TO it asked for; the proposal stays
+        rows = [{"concept": m.concept_id, "cc": m.cc_id, "confidence": m.confidence}
+                for m in plan.materialise]
+        q(f"""
+            UNWIND $rows AS row
+            MATCH (c:Concept:{d} {{id: row.concept}})
+            MATCH (cc:CanonicalConcept) WHERE coalesce(cc.id, cc.name) = row.cc
+            OPTIONAL MATCH (c)-[ex:ALIGNS_TO]->(cc)
+            WITH cc, c, row, ex WHERE ex IS NULL OR ex.status = 'auto'
+            MERGE (c)-[r:ALIGNS_TO]->(cc)
+            SET r.status = 'accepted', r.method = 'review', r.confidence = row.confidence,
                 r.source = '{SOURCE}', r.updated_at = datetime()
         """, {"rows": rows})
 
     keep = [[p.cc_id, p.concept_id] for p in plan.proposals]
     if plan.managed:
         q(f"""
-            MATCH (cc:CanonicalConcept)-[p:PROPOSED_ALIGNS_TO]->(c:Concept:{d})
+            MATCH (c:Concept:{d})-[p:PROPOSED_ALIGNS_TO]->(cc:CanonicalConcept)
             WHERE c.id IN $managed AND p.status = 'open'
               AND NOT [coalesce(cc.id, cc.name), c.id] IN $keep
             DELETE p
         """, {"managed": sorted(plan.managed), "keep": keep})
+    if plan.stale_proposals:  # pairs the per-course cap cut, outside `managed`
+        q(f"""
+            MATCH (c:Concept:{d})-[p:PROPOSED_ALIGNS_TO]->(cc:CanonicalConcept)
+            WHERE p.status = 'open' AND [coalesce(cc.id, cc.name), c.id] IN $stale
+              AND NOT [coalesce(cc.id, cc.name), c.id] IN $keep
+            DELETE p
+        """, {"stale": [list(x) for x in plan.stale_proposals], "keep": keep})
     if plan.proposals:
         rows = [{"cc": p.cc_id, "concept": p.concept_id, "confidence": p.confidence,
                  "method": p.method, "evidence": p.evidence, "cos": p.cos}
@@ -613,9 +723,9 @@ def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]
             UNWIND $rows AS row
             MATCH (c:Concept:{d} {{id: row.concept}})
             MATCH (cc:CanonicalConcept) WHERE coalesce(cc.id, cc.name) = row.cc
-            OPTIONAL MATCH (cc)-[old:PROPOSED_ALIGNS_TO]->(c)
+            OPTIONAL MATCH (c)-[old:PROPOSED_ALIGNS_TO]->(cc)
             WITH cc, c, row, old WHERE old IS NULL OR old.status = 'open'
-            MERGE (cc)-[p:PROPOSED_ALIGNS_TO]->(c)
+            MERGE (c)-[p:PROPOSED_ALIGNS_TO]->(cc)
             SET p.status = 'open', p.confidence = row.confidence, p.method = row.method,
                 p.evidence = row.evidence, p.cos = row.cos
         """, {"rows": rows})
