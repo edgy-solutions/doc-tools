@@ -13,6 +13,18 @@ mapping table cannot resolve, which halts at ADR-0021 rule 3 on a kind that IS
 registered. So the table is the authority and these files are its projection,
 with the drift pinned by ``tests/test_kind_registry.py``.
 
+RENDERED FROM THE SDK MODEL, NOT FROM THE TABLE DIRECTLY (2026-10-29, the
+v0.9.11 pin). Every row here is now ``doc_tools.utils.kind_registrations``'
+projection of a ``KIND_MAPPING`` entry onto ``ContentKindRegistration``, so
+building the object is the step that produces these bytes. A row the SDK would
+refuse -- empty ``passes``, a duplicate in ``outputs``, an event-branch shape we
+cannot express -- raises here instead of being written and then rejected
+wherever the picker loads it. That module also records which of the model's
+thirteen fields we deliberately leave at their defaults, and why; the short
+version is that the 2026-10-24 ownership ruling gives ``domain``,
+``arrives_as``, ``review_shape`` and ``label`` to the platform's overlay, not to
+this registry.
+
 WHERE THE DOMAIN WENT. (Historical: before iagent-mesh v0.9.8 the model had no
 domain field; it now has one and we still publish domain beside the rows.)
 ``ContentKindRegistration`` was ``extra="forbid"`` with
@@ -41,6 +53,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from doc_tools.utils.content_kind import KIND_MAPPING  # noqa: E402
+from doc_tools.utils.kind_registrations import registrations  # noqa: E402
 
 ROWS_DIR = REPO_ROOT / "registry" / "content_kinds"
 DOMAINS_FILE = REPO_ROOT / "registry" / "content_kind_domains.json"
@@ -50,8 +63,10 @@ _HEADER = (
     "# doc_tools/utils/content_kind.py's KIND_MAPPING. Do not edit by hand:\n"
     "# the mapping table is the authority and tests/test_kind_registry.py\n"
     "# fails on drift. The SDK's ContentKindRegistration now HAS a domain field,\n"
-    "# but we still publish domain beside the rows in content_kind_domains.json\n"
-    "# deliberately, so the row stays the SDK's shape.\n"
+    "# but domain is the platform overlay's field by the 2026-10-24 ownership\n"
+    "# ruling, so it is published beside the rows in content_kind_domains.json\n"
+    "# and the row stays the fields doc-tools owns. Each row below is built\n"
+    "# through ContentKindRegistration before it is rendered.\n"
 )
 
 
@@ -59,28 +74,31 @@ def _yaml_list(values: tuple[str, ...]) -> str:
     return "".join(f"  - {v}\n" for v in values)
 
 
-def _optional(entry) -> str:
+def _optional(reg) -> str:
     out = ""
-    if entry.seeds_workflow is not None:
-        out += f"seeds_workflow: {entry.seeds_workflow}\n"
-    if entry.identity_field is not None:
-        out += f"identity_field: {entry.identity_field}\n"
+    if reg.seeds_workflow is not None:
+        out += f"seeds_workflow: {reg.seeds_workflow}\n"
+    if reg.identity_field is not None:
+        out += f"identity_field: {reg.identity_field}\n"
     return out
 
 
-def render_row(entry) -> str:
-    """One registration as YAML. Hand-rendered, not ``yaml.dump``: the files
-    are read by humans deciding what a kind runs, and the generated header
-    plus field order carry more than a dict dump would."""
+def render_row(reg) -> str:
+    """One ``ContentKindRegistration`` as YAML. Hand-rendered, not
+    ``yaml.dump`` and not ``model_dump``: the files are read by humans deciding
+    what a kind runs, and the generated header plus field order carry more than
+    a dict dump would. The VALUES all come off the validated model -- this
+    function chooses the spelling, never the content.
+
+    Only the fields the projection fills are emitted, which is why a row that
+    declares no ``identity_field``/``seeds_workflow`` is byte-unchanged by the
+    v0.9.11 pin even though the model grew five fields across it."""
     return (
         f"{_HEADER}"
-        f"kind: {entry.kind}\n"
-        f"passes:\n{_yaml_list(entry.passes)}"
-        f"outputs:\n{_yaml_list(entry.outputs)}"
-        # Real SDK fields (iagent_mesh v0.9.8); emitted only when set so rows
-        # that declare neither are byte-unchanged. ingress_prefix and
-        # file_suffixes are doc-tools-local and deliberately NOT emitted.
-        f"{_optional(entry)}"
+        f"kind: {reg.kind}\n"
+        f"passes:\n{_yaml_list(reg.passes)}"
+        f"outputs:\n{_yaml_list(reg.outputs)}"
+        f"{_optional(reg)}"
     )
 
 
@@ -105,7 +123,7 @@ def render_domains() -> str:
 
 
 def expected_files() -> dict[Path, str]:
-    files = {ROWS_DIR / f"{e.kind}.yaml": render_row(e) for e in KIND_MAPPING.values()}
+    files = {ROWS_DIR / f"{r.kind}.yaml": render_row(r) for r in registrations()}
     files[DOMAINS_FILE] = render_domains()
     return files
 

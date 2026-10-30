@@ -379,12 +379,17 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
     # in ``allowed_leaves``, with a label.
     #
     # ``review_shape`` is NOT here, and not because it was forgotten. The order
-    # names it, but ``ContentKindRegistration`` at our SDK pin (v0.9.8) has
-    # ``model_config extra="forbid"`` and no such field -- it arrives in
-    # v0.9.11 -- so emitting it from a generated row would RAISE at load. Under
-    # #161's split the platform owns what a kind IS and this repo owns what it
-    # RUNS, which puts ``review_shape: document`` in the overlay. Asked for in
-    # the same packet.
+    # names it. It used to be unemittable: at the v0.9.8 pin
+    # ``ContentKindRegistration`` was ``extra="forbid"`` with no such field, so
+    # a generated row carrying it RAISED at load. THAT REASON EXPIRED on
+    # 2026-10-29 -- the pin is v0.9.11 and the field exists. The field is still
+    # not here, on the reason that was always the stronger one: under #161's
+    # split, affirmed by the architect's 2026-10-24 ruling and again on
+    # 2026-10-30 ("your decline + test stay"), the platform owns
+    # what a kind IS (``kind``, ``domain``, ``arrives_as``, ``review_shape``,
+    # ``label``) and this repo owns what it RUNS, which puts
+    # ``review_shape: document`` in the overlay. A decline on ownership, pinned
+    # by ``tests/test_kind_registry.py``, not a deferral on shape.
     #
     # ``.pdf`` ONLY in this slice. A manual can be a .docx and ``course``
     # declares one, but the outline pass reads PAGE text and a .docx has no

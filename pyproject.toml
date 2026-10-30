@@ -107,7 +107,52 @@ dependencies = [
     #     is verified by importing the installed package without a web framework present, not
     #     by reading the source — see tests/test_mesh_sdk_pin.py, which asserts both that
     #     `ProvenanceBlock` imports and that `user-drop` is a member of `OBTAINED_VIA`.
-    "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.9.8",
+    #
+    # v0.9.8 -> v0.9.11 (2026-10-29), for ContentKindRegistration's new row fields. Ordered by
+    # the SDK adoption program packet: "doc-tools pins v0.9.11 and registers kinds through
+    # ContentKindRegistration (7f)". The measured reading over this range:
+    #
+    #   DEPENDENCY SET IS UNCHANGED. Compared the installed v0.9.8 dist-info Requires-Dist
+    #   against the v0.9.11 tag's own pyproject: the same eight hard dependencies, same floors,
+    #   same `mcp<2` ceiling, fastapi/uvicorn still only in the `[server]`/`[dev]` extras. Zero
+    #   packages added, zero removed -- unlike the two bumps above, this one moves no install.
+    #
+    #   CONSUMED-SURFACE CENSUS, every `iagent_mesh` import under doc_tools/, each checked by
+    #   diffing the installed v0.9.8 module against the v0.9.11 tag rather than by reading the
+    #   changelog:
+    #
+    #     api/app.py:57              transport_auth                        0 changed lines
+    #     utils/mesh_identity.py     service_identity.mint_token           0 changed lines
+    #     utils/collection_marker.py interfaces.{MESH_COLLECTION_META,     module +154, both
+    #                                            collection_marker}       symbols identical
+    #     utils/dagster_resources.py ingest.INGEST_STAGES                  module +123, the
+    #                                                                      six stages identical
+    #     utils/ingest_failure.py    ingest.ContentKindUnregistered        identical
+    #     utils/ingest_provenance.py provenance.{AS_OF_UNKNOWN,            module +319, see below
+    #                                 OBTAINED_VIA, ProvenanceBlock}
+    #     plugins/sustainment.py     provenance.{PROV_DERIVED_FROM,        both identical
+    #                                 PROV_GENERATED_AT}
+    #
+    #   ONE SURFACE ACTUALLY MOVES, and it moves by WIDENING: `OBTAINED_VIA` grows from five
+    #   rungs to seven -- `steward-corrected` (0.9.10) and `steward-entered` (0.9.11), both
+    #   appended at the far end, farther from truth than `user-drop`. `utils/ingest_provenance.py`
+    #   re-exports that tuple as `Literal[OBTAINED_VIA]`, so our stamp's accepted set widens by
+    #   two values it never writes. The ordering is append-only, so nothing that reasons by
+    #   position changes meaning; ADR-0041's own Consequences section asks for exactly this
+    #   re-check when the tuple grows, and this is it.
+    #
+    #   `ProvenanceBlock` gains two optional fields, `corrected_by` and `extracted_value`, each
+    #   REQUIRED or FORBIDDEN only under a steward rung. Every rung we write forbids both and we
+    #   pass neither, so no existing construction changes shape.
+    #
+    #   WHAT WE ARE ACTUALLY HERE FOR. `ContentKindRegistration` gained `parent_link_field`
+    #   (0.9.9) and `id_namespaces`, `arrives_as`, `review_shape`, `label` (0.9.11). At v0.9.8
+    #   the model was `extra="forbid"` with eight fields and no `arrives_as`/`review_shape` --
+    #   measured while drafting ADR-0063 section 1, which is why both were DECLINED rather than
+    #   deferred. That blocker is cleared by this bump, not argued away: the fields exist now.
+    #   `branch`/`refresh` still have no counterpart on our own `ContentKindEntry`, so an event
+    #   row remains unprojectable -- our plumbing, not the SDK's.
+    "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.9.11",
     "starlette>=0.52.1",
     "uvicorn>=0.41.0",
 ]
