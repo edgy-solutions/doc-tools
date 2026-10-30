@@ -277,7 +277,9 @@ def test_teaches_salience_is_on_the_edge():
 
     concept_merge = re.compile(r"MERGE\s*\(\s*\w*\s*:Concept[^{)]*\{([^}]*)\}")
     teaches_rel = re.compile(r"\[\s*\w*\s*:TEACHES\b([^\]]*)\]")
-    edge_queries = [q for q in cypher if teaches_rel.search(q["query"])]
+    # the MERGEs that write the edge, not the stale-edge prune that follows them
+    edge_queries = [q for q in cypher
+                    if teaches_rel.search(q["query"]) and "DELETE t" not in q["query"]]
     assert edge_queries, "no query writes TEACHES"
     for q in edge_queries:
         for m in concept_merge.finditer(q["query"]):

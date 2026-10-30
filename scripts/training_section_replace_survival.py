@@ -93,8 +93,8 @@ def _counts(client, cid, tag):
                        "WHERE c.name STARTS WITH 'zz-survival-' + $tag RETURN count(r) AS n"),
         "COVERS": one("MATCH (s:Section:TRAINING)-[r:COVERS]->(:Concept:TRAINING) "
                       "WHERE s.id STARTS WITH $cid RETURN count(r) AS n"),
-        "ALIGNS_TO": one("MATCH (:CanonicalConcept {id: 'zz-survival-' + $tag})-[r:ALIGNS_TO]->"
-                         "(:Concept:TRAINING) RETURN count(r) AS n"),
+        "ALIGNS_TO": one("MATCH (:Concept:TRAINING)-[r:ALIGNS_TO]->"
+                         "(:CanonicalConcept {id: 'zz-survival-' + $tag}) RETURN count(r) AS n"),
         "HAS_SECTION": one("MATCH (:TRAINING)-[r:HAS_SECTION]->(s:Section:TRAINING) "
                            "WHERE s.id STARTS WITH $cid RETURN count(r) AS n"),
         "section_slide": one("MATCH (s:Section:TRAINING)-[r:HAS_CHILD]->(:Slide:TRAINING) "
@@ -147,7 +147,7 @@ def run(client) -> dict:
             client.execute_query(q["query"], q["params"])
         client.execute_query(
             "MERGE (k:CanonicalConcept {id: 'zz-survival-' + $tag}) "
-            "WITH k MATCH (c:Concept:TRAINING {name: $a}) MERGE (k)-[:ALIGNS_TO]->(c)",
+            "WITH k MATCH (c:Concept:TRAINING {name: $a}) MERGE (c)-[:ALIGNS_TO]->(k)",
             {"tag": tag, "a": names["a"]})
 
         def replace(outline):

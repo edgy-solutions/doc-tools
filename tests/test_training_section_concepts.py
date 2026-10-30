@@ -320,7 +320,8 @@ def test_alias_of_comes_after_every_teaches_and_follows_the_rule():
         _slide_node(2, [Concept(name="Pump", salience=0.5, related_terms=["Pumps"])]),
     ]
     cypher = _graph(nodes)
-    kinds = ["alias" if "ALIAS_OF" in q["query"] else "teaches" if "TEACHES" in q["query"] else "other"
+    kinds = ["alias" if "ALIAS_OF" in q["query"] else "prune" if "DELETE t" in q["query"]
+             else "teaches" if "TEACHES" in q["query"] else "other"
              for q in cypher]
     first_alias = kinds.index("alias")
     assert "teaches" not in kinds[first_alias:]
@@ -336,6 +337,43 @@ def test_alias_of_comes_after_every_teaches_and_follows_the_rule():
     assert "MERGE (a)-[r:ALIAS_OF]->(b)" in q["query"]
     assert "ON CREATE SET r.status = 'candidate', r.source = 'related_terms', r.course_id = $course_id" in q["query"]
     assert q["params"]["course_id"] == CID
+
+
+def _prunes(cypher):
+    return [q for q in cypher if "DELETE t" in q["query"]]
+
+
+def test_prune_follows_each_slides_merges_and_keeps_exactly_the_new_ids():
+    nodes = [
+        _slide_node(1, [Concept(name="Pump", salience=0.5), Concept(name="Valve", salience=0.5),
+                        Concept(name="pump  ", salience=0.9)]),
+        _slide_node(2, [Concept(name="Valve", salience=0.5)]),
+    ]
+    cypher = _graph(nodes)
+    prunes = _prunes(cypher)
+    assert [p["params"]["section_id"] for p in prunes] == [f"{CID}_p1", f"{CID}_p2"]
+    pump, valve = (concept_node_id("TRAINING", n) for n in ("Pump", "Valve"))
+    assert prunes[0]["params"]["keep"] == [pump, valve]  # same concept under two spellings, once
+    assert prunes[1]["params"]["keep"] == [valve]
+    for p in prunes:
+        sid = p["params"]["section_id"]
+        idx = cypher.index(p)
+        merges = [i for i, q in enumerate(cypher)
+                  if "MERGE (s)-[t:TEACHES]->(c)" in q["query"] and q["params"]["section_id"] == sid]
+        assert merges and max(merges) < idx
+
+
+def test_a_slide_with_no_concepts_still_gets_a_prune_with_empty_keep():
+    prunes = _prunes(_graph([_slide_node(1, [])]))
+    assert len(prunes) == 1
+    assert prunes[0]["params"] == {"section_id": f"{CID}_p1", "keep": []}
+
+
+def test_prune_deletes_the_edge_only():
+    q = _prunes(_graph([_slide_node(1, [Concept(name="Pump", salience=0.5)])]))[0]["query"]
+    assert "DELETE t" in q
+    assert "DETACH" not in q
+    assert "DELETE c" not in q
 
 
 def test_section_rows_carry_summary_and_objectives():

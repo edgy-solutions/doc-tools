@@ -498,6 +498,29 @@ class TrainingPlugin(AugmentationPlugin):
                     }
                 })
 
+            # Replace stale TEACHES (architect ruling 2026-10-30: "yes, replace stale
+            # concept links on re-ingest"). The MERGEs above only ever add, so a
+            # re-augmented Slide kept every edge from the earlier run. This prune runs
+            # AFTER this Slide's MERGEs, as its own transaction (each entry of
+            # cypher_queries is one): if a MERGE failed, the old edge stays rather
+            # than being lost with nothing to replace it. It deletes the RELATIONSHIP
+            # only -- never DETACH DELETE, never the Concept, which is shared across
+            # slides and courses and may carry workbench edges (ALIGNS_TO). An empty
+            # `keep` is the model's answer (a failed section call fails the run), so
+            # all this Slide's TEACHES go.
+            keep_ids = list(dict.fromkeys(
+                concept_node_id(self.domain_label, rc.name) for rc in aug.concepts
+            ))
+            prune_cypher = f"""
+            MATCH (s:{config.graph_child_label}:{self.domain_label} {{id: $section_id}})-[t:TEACHES]->(c:Concept:{self.domain_label})
+            WHERE NOT c.id IN $keep
+            DELETE t
+            """
+            cypher_queries.append({
+                "query": prune_cypher,
+                "params": {"section_id": section_id, "keep": keep_ids},
+            })
+
             # Map Figure References -> (Slide)-[:REFERENCES_FIGURE]->(Figure)
             if aug.figure_references:
                 fig_cypher = f"""
