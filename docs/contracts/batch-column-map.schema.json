@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://edgy-solutions.github.io/doc-tools/schemas/batch-column-map/2.json",
+  "title": "Batch export profile (column map), contract_version 2",
+  "description": "The machine-readable form of docs/contracts/batch-column-map.md, contract_version 2. This schema expresses SHAPE only. The catalogue-dependent rules (field exists, field is served, row_field required/refused by shared wire name, landing names a declared column, duplicate outputs, granularity against field scope) are NOT expressible in JSON Schema and live in doc_tools/batch/profile.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "granularity", "columns"],
+  "properties": {
+    "name": {"type": "string"},
+    "granularity": {
+      "description": "Contract section 2: one row per (notice, part) or per notice. Closed.",
+      "enum": ["notice_part", "notice"]
+    },
+    "columns": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/column"}
+    }
+  },
+  "$defs": {
+    "source": {
+      "description": "Contract section 4. field is the catalogue name (dotted), not the wire property.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field"],
+      "properties": {
+        "field": {"type": "string"},
+        "row_field": {"type": "string"},
+        "absent_row": {"enum": ["empty_cell", "block"], "default": "empty_cell"}
+      }
+    },
+    "column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["output"],
+      "properties": {
+        "output": {"type": "string", "minLength": 1},
+        "source": {"$ref": "#/$defs/source"},
+        "format": {"description": "Contract section 6: the only accepted value.", "enum": ["iso8601"]},
+        "on_unresolvable": {"description": "Contract section 5.", "enum": ["land", "blank", "block"]},
+        "landing": {"type": "string"}
+      },
+      "allOf": [
+        {
+          "description": "Contract section 5: on_unresolvable land requires a landing column.",
+          "if": {"required": ["on_unresolvable"], "properties": {"on_unresolvable": {"const": "land"}}},
+          "then": {"required": ["landing"]}
+        },
+        {
+          "description": "Contract section 5: a landing is only meaningful when on_unresolvable is land.",
+          "if": {"required": ["landing"]},
+          "then": {"required": ["on_unresolvable"], "properties": {"on_unresolvable": {"const": "land"}}}
+        },
+        {
+          "description": "Contract section 6: a date column needs BOTH on_unresolvable land and a landing.",
+          "if": {"required": ["format"], "properties": {"format": {"const": "iso8601"}}},
+          "then": {"required": ["on_unresolvable", "landing"], "properties": {"on_unresolvable": {"const": "land"}}}
+        }
+      ]
+    }
+  }
+}
