@@ -7,8 +7,14 @@
 #  1. "Notice" column: the contract writes `field: doc_id`. No catalogue field is
 #     named doc_id. The nearest, `header.doc_id`, is UNSERVED, and section 9
 #     refuses an unserved field; EVERY `header.*` field is unserved. So this
-#     uses `notice.notice_id`. The document own printed id is not available on
-#     this route, so the profile names the notice identity instead.
+#     uses `notice.notice_id` -- which is the RIGHT name, and not a fallback.
+#     CORRECTED 2026-10-31: the note here used to say the document's printed id
+#     was unavailable on this route. It is available. The catalogue's own note on
+#     `header.doc_id` says "Served as notice.notice_id, so reachable under that
+#     name only", and `notice.notice_id`'s producer is
+#     `baml:SustainmentHeader.doc_id`. The two names are ONE producer field, so
+#     this column carries the printed doc id. What is genuinely unreachable is
+#     the document's type, revision and publication date.
 #  2. The three extracted_value columns: the contract writes `field:
 #     extracted_value` (the wire property). `source.field` is the catalogue
 #     NAME, because the wire name is shared by several fields and is not unique.
