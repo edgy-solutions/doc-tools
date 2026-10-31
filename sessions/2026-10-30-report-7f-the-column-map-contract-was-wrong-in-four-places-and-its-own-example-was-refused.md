@@ -49,19 +49,39 @@ Both sides were corrected rather than either being quietly bent: the contract is
 **`contract_version: 2`** with an amendment table naming all four version-1 errors,
 and the profile ships as a real file whose header records each correction.
 
-## The second finding: a profile cannot name the document's own identity
+## The second finding: what a profile can and cannot name of the document itself
 
 Amending §9 measured something worse than the counts. **All eleven `header.*` fields
-are unserved, every one with a null wire as well.** Not the id, not the type, not the
-revision, not the publication date. The whole notice identity a profile can reach is
-`notice.notice_id` / `notice.ingest_id` — **ingest keys, not document fields**.
+are unserved, every one with a null wire as well.**
 
-So the corrected §10 profile names `notice.notice_id` where the contract meant the
-document's printed id, and that is the only thing available. Lane 01's standing
-answer is that this is by design — *"A field gets served when an export profile asks
-for it, not in advance"* — which makes this report the asking. A batch fixture whose
-rows cannot carry the notice number as printed on the notice is a fixture a human
-cannot reconcile against the PDF, so link 3 will need at least one of them served.
+**CORRECTION, 2026-10-31 — this section overstated its own finding, and the
+overstatement is the interesting part.** What stood here said a profile has *no*
+access to the document's printed identity: *"not the id, not the type, not the
+revision, not the publication date… ingest keys, not document fields."* The id half
+is **wrong**. The catalogue says so in the entry itself: `header.doc_id` carries
+`"notes": "Served as notice.notice_id, so reachable under that name only."`, and
+`notice.notice_id`'s producer is `baml:SustainmentHeader.doc_id` with
+`review_json: header.doc_id`. **The two names are one producer field, so
+`notice.notice_id` IS the printed document id.**
+
+How it happened is worth naming, because it will happen again: the finding was
+derived by filtering the catalogue on `served_by: null` and reading the names, and
+**the `notes` field beside each one is where the catalogue records reachability
+under another name**. A machine-read of one key produced a true count and a false
+conclusion. The validator was never wrong — it resolves against `served_by` and
+correctly accepts `notice.notice_id` — only the prose was.
+
+What survives: the document's **type, revision and publication date** are genuinely
+unreachable, each unserved with a null wire and no "reachable as" note, as are the
+two verbatim source substrings and the two derived prose fields. So the §10 profile's
+`notice.notice_id` is the **right** name rather than a fallback, and a human can
+reconcile a fixture row against the printed notice after all.
+
+**RULED 2026-10-31: Lane 1 serves the two header fields.** The ruling does not name
+which two; the packet of the same date asks, and names `header.pub_date` and
+`header.revision` as this lane's reading, since the id is already reachable. No
+profile or code changes either way: `validate_profile` resolves `source.field`
+against the catalogue and will accept them the moment `served_by` is set.
 
 ## `scope` → `field_scope`, landed with its first consumer
 
