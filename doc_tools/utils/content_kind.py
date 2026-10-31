@@ -68,6 +68,22 @@ class UnclassifiableContentKindError(Exception):
 
 
 @dataclass(frozen=True)
+class RefreshDecl:
+    """A refresh declaration for an event-branch row, projected into the SDK's
+    ``RefreshSpec`` by ``kind_registrations.registration_for``.
+
+    ``url_template`` carries EXACTLY ONE placeholder and it must name the owning
+    row's own ``identity_field`` -- a refresh pulls by this row's identity, not
+    an arbitrary templated field. The SDK checks that on
+    ``ContentKindRegistration``, where the template and the identity field are
+    both visible, so it is not re-checked here.
+    """
+    url_template: str
+    method: str = "GET"
+    auth: str = "seeding-delegate"
+
+
+@dataclass(frozen=True)
 class ContentKindEntry:
     """A single row of the ADR-0021 mapping table.
 
@@ -116,6 +132,36 @@ class ContentKindEntry:
 
     #: ``ContentKindRegistration.seeds_workflow`` -- the workflow this kind seeds.
     seeds_workflow: Optional[str] = None
+
+    #: ``ContentKindRegistration.branch`` -- ``"document"`` or ``"event"``, the
+    #: SDK's ``CONTENT_KIND_BRANCHES`` at the v0.9.11 pin. Every row in this
+    #: table is a document row and takes the default honestly.
+    #:
+    #: An event kind is not a document to extract: it SEEDS A WORKFLOW on
+    #: arrival. The SDK therefore requires ``seeds_workflow`` and
+    #: ``identity_field`` on an event row and refuses ``passes``/``outputs``
+    #: there, and the exact reverse on a document row. **That rule is the SDK
+    #: validator's and is deliberately not restated here**
+    #: (``ContentKindRegistration._branch_shape_is_consistent``): a second copy
+    #: of a shape rule is the second source of truth this repo keeps paying for.
+    #: ``tests/test_kind_registry.py`` pins the backstop instead, by proving the
+    #: SDK refuses a document row that declares an event-only field.
+    #:
+    #: ADR-0063's three event kinds are NOT rows here: lane 01 confirmed on
+    #: 2026-10-28 that they are iagent overlay rows under
+    #: ``policy/overlays/openddil-lab/content_kinds/``. This field is what makes
+    #: doc-tools ABLE to declare and project one, not what registers theirs.
+    branch: str = "document"
+
+    #: ``ContentKindRegistration.refresh`` -- where a fresher arrival can be
+    #: PULLED for an already-seeded event kind. Legal on an event row only, and
+    #: optional there: ``None`` means the kind is PUSH-only, which is what every
+    #: event kind was before the field existed.
+    #:
+    #: Plain data, so this table stays free of the SDK import the way the rest
+    #: of the row does; ``kind_registrations.registration_for`` projects it into
+    #: the SDK's ``RefreshSpec``.
+    refresh: Optional[RefreshDecl] = None
 
 
 #: Passes and output classes that are DECLARED HERE but not yet reachable —

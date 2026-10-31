@@ -75,11 +75,22 @@ def _yaml_list(values: tuple[str, ...]) -> str:
 
 
 def _optional(reg) -> str:
+    """Only the fields a row departs from the model default on, so a document
+    row that declares none of them is byte-unchanged. ``branch`` is included on
+    that footing: every row is a document today and emitting ``branch:
+    document`` on all thirteen would be the default restated as data."""
     out = ""
+    if reg.branch != "document":
+        out += f"branch: {reg.branch}\n"
     if reg.seeds_workflow is not None:
         out += f"seeds_workflow: {reg.seeds_workflow}\n"
     if reg.identity_field is not None:
         out += f"identity_field: {reg.identity_field}\n"
+    if reg.refresh is not None:
+        out += ("refresh:\n"
+                f"  url_template: {reg.refresh.url_template}\n"
+                f"  method: {reg.refresh.method}\n"
+                f"  auth: {reg.refresh.auth}\n")
     return out
 
 
