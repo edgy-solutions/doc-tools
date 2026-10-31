@@ -31,7 +31,7 @@ CATALOGUE_FILE = "registry/export_field_catalogue.json"
 PIN_FILE = "tests/fixtures/cortex_bff_extraction_pin.json"
 
 ENTRY_KEYS = {
-    "name", "scope", "type", "nullable", "producer", "review_json", "wire",
+    "name", "field_scope", "type", "nullable", "producer", "review_json", "wire",
     "served_by", "vocabulary", "evidence", "notes",
 }
 EXTRACTION_ROUTE = "GET /ingest/{ingest_id}/extraction"
@@ -114,12 +114,12 @@ def test_every_entry_has_exactly_the_eleven_keys():
         )
 
 
-def test_every_scope_is_declared():
-    scopes = set(CATALOGUE["scopes"])
+def test_every_field_scope_is_declared():
+    scopes = set(CATALOGUE["field_scopes"])
     for f in FIELDS:
-        assert f["scope"] in scopes, (
-            f"Entry {f['name']!r} uses scope {f['scope']!r}, which is not a key "
-            f"of the top-level scopes {sorted(scopes)}. Update {CATALOGUE_FILE}."
+        assert f["field_scope"] in scopes, (
+            f"Entry {f['name']!r} uses field_scope {f['field_scope']!r}, which is not a key "
+            f"of the top-level field_scopes {sorted(scopes)}. Update {CATALOGUE_FILE}."
         )
 
 

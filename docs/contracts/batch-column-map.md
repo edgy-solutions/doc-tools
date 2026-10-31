@@ -1,12 +1,23 @@
 # Contract: the batch column map — the one vocabulary a batch export profile is written in
 
-**Status:** the **contract only**. There is no column map in code. `column_map`,
-`column-map` and `columnMap` have zero occurrences in `doc_tools/`, `registry/`,
-`docs/`, `charts/` and `scripts/`, on this lane and on `origin/main`. Two of the
-four rulings this file encodes name fields the extractor **does not produce at
-all** (§7, §9) — that is recorded here rather than worked around, because a
-profile that names an unproducible column must fail at validation time, not
-surprise someone at runtime.
+**Status:** the contract **and a validator**, as of 2026-10-30. Version 1 of this
+file said "the contract only. There is no column map in code"; that is no longer
+true, and the change is the point:
+
+- [`batch-column-map.schema.json`](batch-column-map.schema.json) — the shape, as
+  JSON Schema draft 2020-12.
+- `doc_tools/batch/profile.py` — the rules a JSON Schema cannot express, because
+  they depend on `registry/export_field_catalogue.json`: the producibility gate,
+  the shared-wire-name selector, the landing rule, the granularity rule.
+- `registry/batch_profiles/pcn-ltb-by-part.yaml` — §10's worked profile, as a
+  file that the suite validates.
+
+**There is still no exporter**, and nothing under `doc_tools/` imports
+`doc_tools.batch`. A profile can be written and refused; it cannot yet be run.
+Two of the four rulings this file encodes name fields the extractor **does not
+produce at all** (§7, §9) — that is recorded here rather than worked around,
+because a profile that names an unproducible column must fail at validation time,
+not surprise someone at runtime, and now it does: `field-not-extracted`.
 
 **Order it answers** (architect, 2026-10-28), verbatim:
 
@@ -24,7 +35,26 @@ It is the next link in the batch fixture chain that
 [`scrub-ledger.md`](scrub-ledger.md) belongs to, and it is **reviewed** against
 Lane 1's ledger route — reviewed, not owned there.
 
-**contract_version: 1**
+**contract_version: 2**
+
+**AMENDED 2026-10-30, and the amendment is the point of the version bump.**
+Writing the validator (`doc_tools/batch/profile.py`, and
+[`batch-column-map.schema.json`](batch-column-map.schema.json) beside this file)
+measured this contract against `registry/export_field_catalogue.json` and found
+**four** places where version 1 was wrong rather than merely incomplete. All four
+are corrected in place below, and each correction says what it replaces:
+
+| § | version 1 said | measured |
+| --- | --- | --- |
+| 4 | `source.field` is "the wire property" | it is the catalogue **`name`**; a wire name is not unique |
+| 4 | three values share one property | **six** wire names are shared; the set is derived, not listed |
+| 9 | "28 of the 57" are unserved | **58** fields, **33** served, **25** unserved — and the count has moved twice |
+| 10 | a worked profile | it **does not validate**: `doc_id` is not a catalogue name |
+
+The fourth is the one worth pausing on: **the worked profile in version 1 is
+refused by this contract's own §9 gate.** A vocabulary whose only example fails
+validation is not a vocabulary anyone can write against, which is the whole
+argument for building the validator before the CLI rather than after.
 
 ---
 
@@ -61,9 +91,20 @@ three-way collision across the repos, recorded at `severity: high` in
 The first two **collide on the literal tokens `row` and `notice` while meaning
 different things**, so a profile carrying `scope: row` beside a column list whose
 entries each carry a `scope` reads wrong and looks right. This file takes the
-unambiguous name and leaves the catalogue key alone; renaming the catalogue
-`scope` to `field_scope` is still available and is still Lane 1's to call, since
-two other lanes are proposing headers against theirs.
+unambiguous name, and **the catalogue key has now been renamed too**: Lane 1
+answered on 2026-10-30 — *"yes. No iagent code reads the catalogue yet, so the
+rename costs nothing here, and it keeps the key from being read as an OAuth
+scope. Rename it before anything consumes it"* — so
+`registry/export_field_catalogue.json` is at `catalogue_version: 2` with
+`field_scope` per field and `field_scopes` as the vocabulary block, renamed in
+the same change as its first consumer, the validator. Version 1 of this file said
+the rename "is still Lane 1's to call"; it was called.
+
+**Meanings two and three still collide with each other.** cortex's `scope` (row
+granularity) and lane fin's `scope` (a program-level profile) are both still
+`scope`, and settling those is Lane 1's in `policy/exports/`. What is fixed is
+that a doc-tools profile and the doc-tools catalogue no longer share a token with
+either.
 
 ## 3. The row rule, including the notice that has no parts
 
@@ -94,13 +135,42 @@ cannot address two of the three.
 So the source side of a column is an object, never a bare string:
 
     source:
-      field: extracted_value       # required: the wire property
-      row_field: replacement_mpn   # required WHEN `field` is shared; else omitted
+      field: part.replacement_mpn  # required: the CATALOGUE NAME, dotted
+      row_field: replacement_mpn   # required WHEN `field`'s wire name is shared
       absent_row: empty_cell       # closed: empty_cell (default) | block
 
 `row_field` is **required** whenever `field` names a shared property, and
 **refused** when it does not — a selector that over-specifies is as wrong as one
 that under-specifies, because it silently matches nothing.
+
+**AMENDED: `field` is the catalogue `name`, not the wire property.** Version 1 of
+this file said "the wire property", which cannot work: §9's gate resolves a
+column against `registry/export_field_catalogue.json`, and the only unique
+identifier there is `name`. Wire names are *not* unique — that is the very
+problem this section exists to solve — and the version 1 example
+`field: doc_id` names nothing at all: no catalogue field has that wire name, and
+the nearest, `header.doc_id`, is **unserved**.
+
+**AMENDED: the shared set is six, and it is DERIVED.** Version 1 named three
+shared values. Measured from the catalogue on 2026-10-30, **six** wire names are
+borne by more than one field: `extracted_value` (by five —
+`row.extracted_value`, `part.affected_mpn`, `part.replacement_mpn`,
+`part.customer_mpn`, `part.ltb_date`), plus `field`, `evidence_ref`, `added`,
+`corrected` and `deleted` (two each). A list written into this file would already
+have been wrong by five, so the validator **computes** the set from the catalogue
+and nothing here transcribes it. `part.customer_mpn` is the one that moved it —
+it landed in #191, after version 1 was written.
+
+Note the consequence for `row.extracted_value` itself: its wire name is shared,
+so a profile naming it also needs a `row_field`. That is correct and not a
+special case — the undiscriminated row column is exactly the one that cannot say
+which value it means.
+
+**`row_field` may be written bare (`replacement_mpn`) or wire-form
+(`parts[i].replacement_mpn`)**; the validator normalises the bare form. An
+unrecognised value is a **warning**, not an error, because the catalogue's own
+`row.field` vocabulary carries `"closed": false` with a note that the producer
+emits only four today while the contract declares a bare string.
 
 **`absent_row` is load-bearing and is why this key exists at all.** The
 `replacement_mpn` and `ltb_date` rows are emitted **only when the part has one**,
@@ -219,31 +289,55 @@ Every column `source.field` must name a field in
 `registry/export_field_catalogue.json`, and:
 
 - **a field whose `served_by` is null is a hard stop at profile-validation
-  time.** 28 of the 57 catalogued fields are unserved. The catalogue is the
-  superset of what doc-tools *produces*, not of what the extraction route can
-  *serve*, and the difference must be caught when the profile is written, not
-  when it runs.
-- **the one that will hurt is `header.doc_level_ltb_date`**, unserved. It is the
-  value every unsourced part-level LTB row *inherits*, so a per-part export that
-  omits it loses the only source those dates have.
+  time.** The catalogue is the superset of what doc-tools *produces*, not of what
+  the extraction route can *serve*, and the difference must be caught when the
+  profile is written, not when it runs.
+- **AMENDED: count it, never quote it.** Version 1 said "28 of the 57". Measured
+  2026-10-30: **58 fields, 33 served, 25 unserved**. That count has now moved
+  twice (29/28, then 32/57, now 33/58), so the validator reads the file and the
+  only assertion about a number lives in a test that also reads the file. A
+  hardcoded count in this contract was wrong within two days of being written.
+- **AMENDED: it is worse than "the one that will hurt".** Version 1 named
+  `header.doc_level_ltb_date` as the painful unserved field. Measured: **all
+  eleven `header.*` fields are unserved** — `doc_id`, `doc_type`, `revision`,
+  `pub_date`, `pub_date_source`, `mfr_source`, `mfr_parent_source`, `categories`,
+  `summary`, `doc_level_ltb_date`, `doc_level_ltb_date_source` — and every one has
+  a null `wire` as well. So **a profile has no access to the document's own
+  printed identity at all**: not its id, not its type, not its revision, not its
+  publication date. The whole notice identity a profile can name is
+  `notice.notice_id` / `notice.ingest_id`, which are ingest keys rather than
+  document fields. The doc-level LTB date still costs most, for the reason version
+  1 gave: it is the value every unsourced part-level LTB row *inherits*, so a
+  per-part export that omits it loses the only source those dates have.
+
+  Lane 1's position on widening, 2026-10-30: *"A field gets served when an export
+  profile asks for it, not in advance."* So the gate is the mechanism by which a
+  field gets served — a refused profile is the request.
 - **two catalogue mappings are marked `mapping_unverified`** —
   `Notice.mfr_source` and `Notice.notice_date`. A profile naming either is naming
   something whose derivation only the consumer knows.
 
-## 10. A worked profile
+## 10. A worked profile — and it is a FILE, not a listing
+
+**AMENDED, and this is the amendment that mattered most: version 1's worked
+profile did not validate.** It is now a real file,
+[`registry/batch_profiles/pcn-ltb-by-part.yaml`](../../registry/batch_profiles/pcn-ltb-by-part.yaml),
+asserted by `tests/test_batch_profile.py` to produce **zero error findings**. A
+worked example that lives only in prose is an example nobody checks; this one
+reds the suite if the vocabulary moves out from under it.
 
     name: pcn-ltb-by-part
     granularity: notice_part
     columns:
       - output: "Notice"
-        source: {field: doc_id}
+        source: {field: notice.notice_id}
       - output: "Affected MPN"
-        source: {field: extracted_value, row_field: affected_mpn}
+        source: {field: part.affected_mpn, row_field: affected_mpn}
       - output: "Replacement MPN"
-        source: {field: extracted_value, row_field: replacement_mpn,
+        source: {field: part.replacement_mpn, row_field: replacement_mpn,
                  absent_row: empty_cell}
       - output: "LTB Date"
-        source: {field: extracted_value, row_field: ltb_date,
+        source: {field: part.ltb_date, row_field: ltb_date,
                  absent_row: empty_cell}
         format: iso8601
         on_unresolvable: land
@@ -251,19 +345,32 @@ Every column `source.field` must name a field in
       - output: "date_ambiguous"
       - output: "no_parts"
 
-Read against §1: every column resolves to a catalogued field; the two shared
-`extracted_value` columns are discriminated by `row_field`; the two optional rows
-say that absence is an empty cell; the date column names where an ambiguous value
-lands; and the landing column and the `no_parts` flag are declared columns rather
-than implicit ones.
+Two columns changed from version 1, and both for the same reason — version 1
+named identifiers the §9 gate cannot resolve:
+
+- `field: doc_id` → **`notice.notice_id`**. There is no catalogue field whose
+  wire name is `doc_id`, and `header.doc_id` is unserved, so §9 refused version
+  1's very first column. The notice identity is what a profile can actually name;
+  see the amended §9 on why the printed document id is not available at all.
+- `field: extracted_value` → **`part.affected_mpn`** and siblings, the catalogue
+  names, per the amended §4. The `row_field` discriminator stays, because those
+  fields share a wire name.
+
+Read against §1: every column resolves to a catalogued, served field; the shared
+wire names are discriminated by `row_field`; the two optional rows say that
+absence is an empty cell; the date column names where an ambiguous value lands;
+and the landing column and the `no_parts` flag are declared columns rather than
+implicit ones.
 
 ## 11. What is deliberately NOT decided here
 
 1. **`change_type` from `categories`** (§7) — a list-to-one decision that must
    not be made silently.
 2. **The manufacturer bucket list** (§8) — proposed, not ruled.
-3. **Whether the catalogue `scope` is renamed to `field_scope`** (§2) — Lane 1
-   call, not taken unilaterally.
+3. ~~**Whether the catalogue `scope` is renamed to `field_scope`** (§2) — Lane 1
+   call, not taken unilaterally.~~ **DECIDED 2026-10-30**: Lane 1 said yes, and
+   the rename shipped with the validator — see §2. What is still open is the
+   collision *between* cortex's and lane fin's headers, which is theirs.
 4. **Header/footer rows and the `upper`/`trim`/`fixed` transforms.** Nothing in
    this tree does any of the three, so there is no prior art to encode and no
    measured shape to copy. The only header-rows-above-a-table convention in the

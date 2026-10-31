@@ -1,0 +1,38 @@
+# contract_version: 2
+#
+# The section 10 worked profile of docs/contracts/batch-column-map.md, CORRECTED
+# so that it validates against doc_tools/batch/profile.py. Corrections, recorded
+# so none is silent (this file is the proof the vocabulary is buildable):
+#
+#  1. "Notice" column: the contract writes `field: doc_id`. No catalogue field is
+#     named doc_id. The nearest, `header.doc_id`, is UNSERVED, and section 9
+#     refuses an unserved field; EVERY `header.*` field is unserved. So this
+#     uses `notice.notice_id`. The document own printed id is not available on
+#     this route, so the profile names the notice identity instead.
+#  2. The three extracted_value columns: the contract writes `field:
+#     extracted_value` (the wire property). `source.field` is the catalogue
+#     NAME, because the wire name is shared by several fields and is not unique.
+#     So `part.affected_mpn`, `part.replacement_mpn`, `part.ltb_date`. The
+#     `row_field` discriminator is kept: those fields share a wire name, so
+#     row_field is required.
+#  3. `date_ambiguous` and `no_parts` stay declared columns with no source.
+#  4. Added the `contract_version` line above.
+#
+# All four corrections are now folded back into section 10 of the contract
+# itself, at contract_version 2, so this file and the contract agree.
+name: pcn-ltb-by-part
+granularity: notice_part
+columns:
+  - output: "Notice"
+    source: {field: notice.notice_id}
+  - output: "Affected MPN"
+    source: {field: part.affected_mpn, row_field: affected_mpn}
+  - output: "Replacement MPN"
+    source: {field: part.replacement_mpn, row_field: replacement_mpn, absent_row: empty_cell}
+  - output: "LTB Date"
+    source: {field: part.ltb_date, row_field: ltb_date, absent_row: empty_cell}
+    format: iso8601
+    on_unresolvable: land
+    landing: date_ambiguous
+  - output: "date_ambiguous"
+  - output: "no_parts"
