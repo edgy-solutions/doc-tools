@@ -96,11 +96,28 @@ validator on them undeclared is exactly the failure this repo already paid for w
 The first commit on this branch said `uv.lock` was *"deliberately not
 regenerated"*, on the strength of the standing finding that `uv sync` removes the
 spaCy model and reds three golden tests. **That was wrong, and the `tests` job
-would have failed on it.** `.github/workflows/build-container.yml:686` runs
+DID fail on it — twice.** `.github/workflows/build-container.yml:686` runs
 `uv sync --locked`, and `--locked` *asserts* that the lock and `pyproject.toml`
 agree and fails loudly when they do not — the workflow's own comment block argues
 for exactly that, deliberately, since 2026-09-19. Declaring a dependency without
 locking it is not a deferral in this repo; it is a red `tests`.
+
+**The evidence, read from the runs and not from the reasoning.** Three runs on
+this branch:
+
+| head | run | outcome |
+| --- | --- | --- |
+| `a6235a6` | 41165527292 | **failure** — `tests` / Install dependencies |
+| `83ed40f` | 41165640782 | **failure** — same step |
+| `6b52f3e` (the lock) | 41165828658 | **success** |
+
+Both failures are the same line:
+
+    error: The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+    hint: To update the lockfile, run `uv lock`.
+
+So the correction is not a precaution. It is the fix for a red that had already
+fired twice before anyone looked.
 
 So the lock is regenerated, and the measurement says the fear did not apply:
 
