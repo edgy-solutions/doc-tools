@@ -1,6 +1,6 @@
 {
   "contract": "docs/contracts/training-workbench.md",
-  "contract_version": 3,
+  "contract_version": 4,
   "fixture": {
     "deck": "hydraulics_fixture.pptx",
     "deck_sha256": "895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
@@ -44,6 +44,7 @@
         "delivery_method": "Instructor-led",
         "duration_hours": 2,
         "version": "1.0",
+        "outline_source": "llm",
         "current_key": "training/generated/895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc/current.json"
       }
     },
@@ -273,8 +274,51 @@
       "HAS_CHILD",
       "HAS_SLIDE"
     ],
+    "outline": {
+      "source": "llm",
+      "fallback": [
+        {
+          "title": "Hydraulic Systems Fundamentals",
+          "level": 1,
+          "start_page": 2,
+          "end_page": 2,
+          "subsections": []
+        },
+        {
+          "title": "Pascal's Law",
+          "level": 1,
+          "start_page": 1,
+          "end_page": 4,
+          "subsections": [
+            {
+              "title": "Hydraulic Pumps",
+              "level": 2,
+              "start_page": 2,
+              "end_page": 2,
+              "subsections": []
+            }
+          ]
+        },
+        {
+          "title": "Reservoir Schematic",
+          "level": 1,
+          "start_page": 3,
+          "end_page": 0,
+          "subsections": []
+        },
+        {
+          "title": "Accumulator Sizing",
+          "level": 1,
+          "start_page": 4,
+          "end_page": 4,
+          "subsections": []
+        }
+      ],
+      "recorded": false,
+      "note": "The pinned ExtractOutline reply (neo4j.outline.fallback) with its pages as the LLM gave them, wrong ones included; the real outline pass ignores them. Provisional, replaced by a recorded sandbox ExtractOutline reply before the PR leaves draft. A re-run compares its LLM titles to these and reports the difference, rather than overwriting."
+    },
     "nondeterministic": {
-      "note": "LLM-derived. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "note": "Sections are what the real structural.outline pass derives from neo4j.outline.fallback and this deck's element pages (page numbers are element page_number, never the LLM's). Concepts and TEACHES are LLM-derived example data: doc-tools asserts their shape only; wb uses them as fake-store data.",
       "sections": {
         "labels": [
           "Section",
@@ -287,7 +331,7 @@
         "nodes": [
           {
             "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s0",
-            "title": "Introduction",
+            "title": "Hydraulic Systems Fundamentals",
             "level": 1,
             "start_page": 1,
             "end_page": 1,
@@ -296,19 +340,22 @@
               "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p1"
             ],
             "covers": [],
-            "concept_summary": []
+            "concept_summary": [],
+            "summary": "An orientation to what hydraulic systems do and why they are used.",
+            "objectives": [
+              "Explain what a hydraulic system does"
+            ]
           },
           {
             "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "title": "Hydraulic Principles",
+            "title": "Pascal's Law",
             "level": 1,
             "start_page": 2,
-            "end_page": 4,
+            "end_page": 3,
             "parent": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
             "slides": [
               "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2",
-              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3",
-              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
+              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3"
             ],
             "covers": [
               {
@@ -322,32 +369,31 @@
                 "frequency": 1
               },
               {
-                "concept": "Hydraulic reservoir",
-                "score": 0.7,
+                "concept": "Hydraulic pressure",
+                "score": 0.8,
                 "frequency": 1
               },
               {
                 "concept": "Gear pump",
                 "score": 0.6,
                 "frequency": 1
-              },
-              {
-                "concept": "Hydraulic pressure",
-                "score": 0.55,
-                "frequency": 2
               }
             ],
             "concept_summary": [
               "Pascal's law",
               "Hydraulic pump",
-              "Hydraulic reservoir",
-              "Gear pump",
-              "Hydraulic pressure"
+              "Hydraulic pressure",
+              "Gear pump"
+            ],
+            "summary": "Pressure applied to a confined fluid transmits equally; the pump is what makes it.",
+            "objectives": [
+              "State Pascal's law",
+              "Identify the main parts of a pump circuit"
             ]
           },
           {
             "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
-            "title": "Pumps",
+            "title": "Hydraulic Pumps",
             "level": 2,
             "start_page": 3,
             "end_page": 3,
@@ -370,7 +416,45 @@
             "concept_summary": [
               "Hydraulic pump",
               "Gear pump"
+            ],
+            "summary": "How a hydraulic pump converts mechanical power into fluid flow.",
+            "objectives": [
+              "Describe how a gear pump moves fluid"
             ]
+          },
+          {
+            "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "title": "Reservoir Schematic",
+            "level": 1,
+            "start_page": 4,
+            "end_page": 4,
+            "parent": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
+            "slides": [
+              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Hydraulic reservoir",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic tank",
+                "score": 0.4,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic pressure",
+                "score": 0.3,
+                "frequency": 1
+              }
+            ],
+            "concept_summary": [
+              "Hydraulic reservoir",
+              "Hydraulic tank",
+              "Hydraulic pressure"
+            ],
+            "objectives": []
           }
         ]
       },
@@ -405,6 +489,12 @@
             "domain": "TRAINING"
           },
           {
+            "id": "concept_49800e17c3a1114d",
+            "name": "Hydraulic tank",
+            "name_normalized": "hydraulic tank",
+            "domain": "TRAINING"
+          },
+          {
             "id": "concept_7c49b5ad1562ac98",
             "name": "Pascal's law",
             "name_normalized": "pascal's law",
@@ -416,34 +506,96 @@
         {
           "slide": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2",
           "concept": "Pascal's law",
-          "salience": 0.95
+          "salience": 0.95,
+          "related_terms": [
+            "Pascal's principle"
+          ]
         },
         {
           "slide": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2",
           "concept": "Hydraulic pressure",
-          "salience": 0.8
+          "salience": 0.8,
+          "related_terms": []
         },
         {
           "slide": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3",
           "concept": "Hydraulic pump",
-          "salience": 0.9
+          "salience": 0.9,
+          "related_terms": [
+            "Pump"
+          ]
         },
         {
           "slide": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3",
           "concept": "Gear pump",
-          "salience": 0.6
+          "salience": 0.6,
+          "related_terms": []
         },
         {
           "slide": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4",
           "concept": "Hydraulic reservoir",
-          "salience": 0.7
+          "salience": 0.7,
+          "related_terms": []
         },
         {
           "slide": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4",
           "concept": "Hydraulic pressure",
-          "salience": 0.3
+          "salience": 0.3,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4",
+          "concept": "Hydraulic tank",
+          "salience": 0.4,
+          "related_terms": [
+            "Hydraulic reservoir"
+          ]
         }
       ],
+      "section_objects": {
+        "note": "Weaviate objects, one per Section that has a summary or objectives (contract 6): chunk_id is the Section id, uuid is uuid5 of it, page is start_page.",
+        "objects": [
+          {
+            "uuid": "bfb10461-a60e-5f05-8d0f-e9a9925fb84d",
+            "properties": {
+              "text": "Hydraulic Systems Fundamentals\n\nAn orientation to what hydraulic systems do and why they are used.\n\nObjectives:\n- Explain what a hydraulic system does",
+              "doc_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
+              "chunk_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s0",
+              "domain": "TRAINING",
+              "page": 1,
+              "heading": "Hydraulic Systems Fundamentals",
+              "section_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s0",
+              "chunk_kind": "section"
+            }
+          },
+          {
+            "uuid": "61afddbf-ea9f-5cdf-a896-5800684ab5bb",
+            "properties": {
+              "text": "Pascal's Law\n\nPressure applied to a confined fluid transmits equally; the pump is what makes it.\n\nObjectives:\n- State Pascal's law\n- Identify the main parts of a pump circuit",
+              "doc_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
+              "chunk_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
+              "domain": "TRAINING",
+              "page": 2,
+              "heading": "Pascal's Law",
+              "section_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
+              "chunk_kind": "section"
+            }
+          },
+          {
+            "uuid": "f7c8a6b3-3240-5cd5-bc10-c15ec9a526fe",
+            "properties": {
+              "text": "Hydraulic Pumps\n\nHow a hydraulic pump converts mechanical power into fluid flow.\n\nObjectives:\n- Describe how a gear pump moves fluid",
+              "doc_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
+              "chunk_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
+              "domain": "TRAINING",
+              "page": 3,
+              "heading": "Hydraulic Pumps",
+              "section_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
+              "chunk_kind": "section"
+            }
+          }
+        ]
+      },
       "edges": {
         "note": "Concept endpoints are names (the node carries the `id` that is the real key; an edge names the concept so a fake store can resolve it without hashing). section_slide is written as both HAS_CHILD and HAS_SLIDE. Each section's concept_summary is its COVERS targets by score, descending, top 10.",
         "HAS_SECTION": [
@@ -458,6 +610,10 @@
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0"
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
+            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2"
           }
         ],
         "section_slide": [
@@ -474,12 +630,12 @@
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3"
           },
           {
-            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
-          },
-          {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3"
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
           }
         ],
         "COVERS": [
@@ -497,8 +653,8 @@
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "to": "Hydraulic reservoir",
-            "score": 0.7,
+            "to": "Hydraulic pressure",
+            "score": 0.8,
             "frequency": 1
           },
           {
@@ -506,12 +662,6 @@
             "to": "Gear pump",
             "score": 0.6,
             "frequency": 1
-          },
-          {
-            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "to": "Hydraulic pressure",
-            "score": 0.55,
-            "frequency": 2
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
@@ -524,38 +674,83 @@
             "to": "Gear pump",
             "score": 0.6,
             "frequency": 1
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "to": "Hydraulic reservoir",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "to": "Hydraulic tank",
+            "score": 0.4,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "to": "Hydraulic pressure",
+            "score": 0.3,
+            "frequency": 1
           }
         ],
         "TEACHES": [
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2",
             "to": "Pascal's law",
-            "salience": 0.95
+            "salience": 0.95,
+            "related_terms": [
+              "Pascal's principle"
+            ]
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2",
             "to": "Hydraulic pressure",
-            "salience": 0.8
+            "salience": 0.8,
+            "related_terms": []
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3",
             "to": "Hydraulic pump",
-            "salience": 0.9
+            "salience": 0.9,
+            "related_terms": [
+              "Pump"
+            ]
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3",
             "to": "Gear pump",
-            "salience": 0.6
+            "salience": 0.6,
+            "related_terms": []
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4",
             "to": "Hydraulic reservoir",
-            "salience": 0.7
+            "salience": 0.7,
+            "related_terms": []
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4",
             "to": "Hydraulic pressure",
-            "salience": 0.3
+            "salience": 0.3,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4",
+            "to": "Hydraulic tank",
+            "salience": 0.4,
+            "related_terms": [
+              "Hydraulic reservoir"
+            ]
+          }
+        ],
+        "ALIAS_OF": [
+          {
+            "from": "Hydraulic tank",
+            "to": "Hydraulic reservoir",
+            "status": "candidate",
+            "source": "related_terms",
+            "course_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc"
           }
         ]
       }
@@ -606,7 +801,8 @@
           "text": "[Title] Hydraulic Systems Fundamentals\n[Title] Module 1: fixture deck for the training-workbench contract",
           "doc_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
           "chunk_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p1",
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_kind": "slide"
         }
       },
       {
@@ -615,7 +811,8 @@
           "text": "[Title] Pascal's Law\n[NarrativeText] Pressure applied to a confined fluid is transmitted equally in all directions\n[NarrativeText] Force equals pressure multiplied by piston area\n[NarrativeText] A small input piston can lift a large load",
           "doc_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
           "chunk_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2",
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_kind": "slide"
         }
       },
       {
@@ -624,7 +821,8 @@
           "text": "[Title] Hydraulic Pumps\n[NarrativeText] Gear pumps are simple and tolerant of contamination\n[NarrativeText] Vane pumps run quietly at moderate pressure\n[NarrativeText] Piston pumps deliver the highest pressure",
           "doc_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
           "chunk_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3",
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_kind": "slide"
         }
       },
       {
@@ -633,7 +831,8 @@
           "text": "[Title] Reservoir Schematic\n[NarrativeText] Figure 1: reservoir, filter and pump in series",
           "doc_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
           "chunk_id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4",
-          "domain": "TRAINING"
+          "domain": "TRAINING",
+          "chunk_kind": "slide"
         }
       }
     ],

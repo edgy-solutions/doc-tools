@@ -1,6 +1,6 @@
 # Contract: doc-tools → training-consolidation-workbench
 
-**Contract version 2. Status: DRAFT, 2026-10-23.** v2 moves the drop to `training/course/` so the path carries the kind (§2); v1's sensor-declared kind had no mechanism.
+**Contract version 4. Status: DRAFT, 2026-10-29.** v2 moves the drop to `training/course/` so the path carries the kind (§2); v1's sensor-declared kind had no mechanism. v3 builds Sections from the deck's own section slides, or anchors the LLM's titles to element pages; sets `Course.outline_source`; and replaces the Section subtree on re-ingest. v3 also keys Concept on `id` = hash(domain, normalized name), with `name_normalized` on the node (§3, from #167). v4 extracts concepts in one call per section group (§4.6), writes Section `summary`/`objectives`, TEACHES `related_terms`, candidate `ALIAS_OF` edges between Concepts, and one Weaviate object per Section with notes (§6); slide objects carry `chunk_kind = "slide"`. v4 also replaces a re-augmented Slide's TEACHES edges (§4.4 rule 4), and `ALIGNS_TO` runs Concept → CanonicalConcept (architect, 2026-10-30).
 
 | Role | Owner |
 |---|---|
@@ -74,9 +74,9 @@ The workbench has no upload endpoint. A course arrives only as a drop into MinIO
 
 | Labels | Merge key | Properties the workbench may rely on |
 |---|---|---|
-| `Document:Course:TRAINING` | `id` | `id`, `title`, `filename`, `current_key`, `business_unit`, `discipline`, `audience`, `level`, `delivery_method`, `duration_hours`, `version` |
+| `Document:Course:TRAINING` | `id` | `id`, `title`, `filename`, `current_key`, `business_unit`, `discipline`, `audience`, `level`, `delivery_method`, `duration_hours`, `version`, `outline_source` (`"deck"` or `"llm"`) |
 | `Chunk:Slide:TRAINING` | `id` | `id`, `number` (int, 1-based), `text`, `elements` (JSON string), `layout_style`, `asset_type` |
-| `Section:TRAINING` | `id` | `id`, `title`, `level` (int), `start_page`, `end_page` (int; `0` means open), `concept_summary` (list of up to 10 names, by COVERS score descending) |
+| `Section:TRAINING` | `id` | `id`, `title`, `level` (int), `start_page`, `end_page` (int, always `>= start_page`; v2 wrote `0` for open, and v3 never does), `concept_summary` (list of up to 10 names, by COVERS score descending), `summary` (string; absent when the model gave none), `objectives` (list of strings, may be empty). `summary` and `objectives` are nondeterministic (§4.6). |
 | `Concept:TRAINING` | `id` | `id`, `name`, `name_normalized`, `domain` = `"TRAINING"` |
 
 Course properties:
@@ -88,6 +88,9 @@ Slide properties:
 - `text` is the slide's elements, one line each in the form `[<Type>] <text>`. Elements with empty text are left out. It is truncated to 500 characters; Weaviate holds the full text.
 - `elements` is the slide's Unstructured `to_dict()` elements, JSON-encoded.
 - `asset_type` is the upper-cased extension, for example `PPTX`.
+
+Section properties:
+- `title` has its section number removed.
 
 Extra properties may appear on any node: `provenance_*`, Slide `title`/`content`/`page_start`, `Figure` nodes. The workbench must not depend on any of them.
 
@@ -101,12 +104,18 @@ Extra properties may appear on any node: `provenance_*`, Slide `title`/`content`
 (:Section)-[:HAS_CHILD]->(:Slide)           generic
 (:Section)-[:HAS_SLIDE]->(:Slide)           training overlay
 (:Section)-[:COVERS {score, frequency}]->(:Concept)
-(:Slide)-[:TEACHES {salience}]->(:Concept)  salience: float in [0, 1], ON THE EDGE
+(:Slide)-[:TEACHES {salience, related_terms}]->(:Concept)  salience: float in [0, 1], ON THE EDGE; related_terms: list of strings
+(:Concept)-[:ALIAS_OF {status: "candidate", source: "related_terms", course_id}]->(:Concept)
 ```
 
 How the computed edges are derived:
 - **Section → Slide**: a Section reaches every Slide with `start_page <= number <= end_page`, or `number >= start_page` when `end_page` is 0. A nested Slide is reached by its parent Section too.
 - **COVERS**: `score` is the mean TEACHES salience over the Slides the Section reaches, and `frequency` is how many such Slides there are. All saliences count here; the workbench applies its `>= 0.5` filter only to TEACHES.
+- **TEACHES `related_terms`**: the model's other names for the concept as it taught it on that Slide (abbreviations, synonyms), stripped, empty strings dropped. A list, `[]` when none.
+- **ALIAS_OF**: for each TEACHES `(concept, term)` where `normalize(term) != normalize(concept.name)`, one edge from the Concept to the Concept whose `id` is `hash(domain, normalized term)`, with `status = "candidate"`, `source = "related_terms"` and `course_id` = the Course id.
+  - The edge is written **only to a Concept that exists at write time** (this run's, or an earlier course's). A term that names no Concept writes nothing and creates no Concept.
+  - It is **never a merge** of the two nodes; it is a candidate for the normalisation pass.
+  - One edge per pair. A re-ingest never deletes it, like Concepts themselves (§4.4).
 
 ### 4.3 Overlay names come from data
 
@@ -118,15 +127,42 @@ How the computed edges are derived:
 
 The workbench writes these labels and relations to the same Neo4j:
 - labels `Project`, `TargetNode`, `User`, `CanonicalConcept`;
-- relations `OWNS`, `HAS_CHILD` between Project and TargetNode, `ALIGNS_TO` (CanonicalConcept → Concept), and `SUGGESTED_SOURCE` and `DERIVED_FROM` (TargetNode → Slide).
+- relations `OWNS`, `HAS_CHILD` between Project and TargetNode, `ALIGNS_TO` (Concept → CanonicalConcept), and `SUGGESTED_SOURCE` and `DERIVED_FROM` (TargetNode → Slide).
 
 doc-tools follows four rules here:
 1. **doc-tools never writes, and never MATCHes, those labels**, and never writes `OWNS`, `ALIGNS_TO`, `SUGGESTED_SOURCE` or `DERIVED_FROM`.
 2. **doc-tools writes `HAS_CHILD` only between its own labels**: Document/Course, Chunk/Slide and Section.
 3. **Every doc-tools `HAS_CHILD` match is anchored on a Document** (or a Section reached from one). The workbench's Project-anchored reads never see these edges.
-4. **A re-ingest MERGEs; it never `DETACH DELETE`s a Course, Slide or Concept.** A delete would silently drop the users' `ALIGNS_TO`, `SUGGESTED_SOURCE` and `DERIVED_FROM` edges.
+4. **A re-ingest MERGEs; it never `DETACH DELETE`s a Course, Slide or Concept.** A delete would silently drop the users' `ALIGNS_TO`, `SUGGESTED_SOURCE` and `DERIVED_FROM` edges. Sections are the exception. A re-ingest builds the new outline completely, then in one transaction `DETACH DELETE`s this Course's `Section:TRAINING` nodes (those reached by `HAS_SECTION` from it, or whose `id` starts with `{Course.id}_s`) and writes the new ones. No workbench relation ends at a Section, so no user edge is lost. The same run rewrites `HAS_SECTION`, Section → Slide and `COVERS`. If the build fails, the old Sections stay and the run fails. TEACHES edges are the second exception. A re-augmented Slide's TEACHES are replaced in the same write: the new edges are MERGEd, then every TEACHES from that Slide to a Concept the new answer does not name is deleted. Edges only; the Concept node stays, because it may carry workbench edges.
 
-A consequence of rule 4: re-running the same bytes with a different LLM answer can leave a stale TEACHES edge to a concept the new answer dropped. That is accepted.
+A Concept that no Slide teaches any more stays as a node with no TEACHES; nothing deletes it.
+
+### 4.5 The outline
+
+A Course's Sections come from `structural.outline` (`doc_tools/passes/structural.py`). **Page numbers are element `page_number`, never the LLM's.**
+
+- **Deck path.** A slide is a section header when its elements, ignoring `PageBreak` and empty or whitespace text, are exactly one: a `Title` at `category_depth` 0 (or none) whose text is a number then a heading, such as `1.1.1 Pumps`.
+  - The level is the number of dot-separated components, the `title` is the heading without its number, and `start_page` is the slide's page.
+  - If the deck has any such slide, the outline is built from those slides alone and no LLM is called (`Course.outline_source` = `"deck"`).
+  - A title slide (two Titles), an agenda slide (several elements), a content slide (a Title plus a body) and an unnumbered single-Title slide are not headers.
+- **LLM path.** Otherwise the LLM outline supplies titles and nesting only (`outline_source` = `"llm"`). Its `level`, `start_page` and `end_page` are ignored.
+  - The outline is walked in order, with a cursor at page 1. An LLM section is anchored to the smallest page at or after the cursor that holds a `Title` element with the same title (compared after NFKC, with a leading section number, a trailing ` (n)` counter and case removed). The cursor moves to that page.
+  - A section with no such page is dropped and its anchored children move up to its parent, one level shallower. A section equal (title and page) to one already kept, as chunk overlap produces, is dropped.
+  - An LLM path that anchors nothing is a legitimately empty outline, not a failure. A failed LLM call on any chunk fails the build.
+- **Nesting.** A section nests under the nearest earlier section with a smaller level, or under the Course. A numbering gap (`1` then `1.1.1`) nests under the nearest shallower section and keeps its own level.
+- **End pages.** A section's `end_page` is the `start_page` of the next later section whose level is the same or shallower, minus 1; if there is none, it is the deck's last page. It is never below `start_page`, so an empty section ends on its own page, and it is never `0`.
+
+### 4.6 Concept calls
+
+Concepts, TEACHES `related_terms`, figure references and Section notes come from `ExtractSectionConcepts` (`baml_src/training.baml`), one call per group of slides, planned by `doc_tools/utils/concept_groups.py`:
+- A slide belongs to the DEEPEST outline section whose page range holds it (of two at one depth, the later start). Slides outside every section are unsectioned.
+- Consecutive slides of one section form a run. A run longer than 8 slides (`MAX_SLIDES`) is split into near-equal pieces (20 slides give 7, 7, 6).
+- Runs are packed, in page order, into calls of at most 8 slides **without splitting a run**. So a section is split only when it alone is longer than 8, and short sections share a call, each under its own `=== Section: <title> ===` marker. A nested child splits its parent's run, so a parent can appear twice in one call.
+- The text sent is `=== Slide N ===` blocks under those markers. The reply has one entry per slide and one note per section marker.
+- `TRAINING_CONCEPT_CONCURRENCY` (default `1`, minimum `1`) is the number of calls in flight at once. Results are assembled in call order whatever the completion order.
+- **One retry.** A call that raises, or whose reply lacks an entry for any slide of the call, is retried once. After that, a raise fails every slide of the call; a missing slide fails that slide alone. Reply entries for slides not in the call are ignored; for a duplicated slide the first wins. A failed slide makes the run end `failed:concept_parse` (writes for the other slides still happen). A salience outside `[0, 1]` is clamped.
+- **Section notes are best effort and never a failure.** They are paired with the call's section markers by position when the counts match, else by title (case and whitespace folded). Unpaired notes are dropped and an unsectioned run gets none. A section split across calls merges its notes in page order: summaries joined by a space, objectives concatenated and de-duplicated.
+- The Section `summary`/`objectives` and TEACHES `related_terms` are nondeterministic; the golden shows their shape only.
 
 ## 5. MinIO
 
@@ -154,13 +190,21 @@ training/generated/<hex>/<pipeline_version>/pages/page_<n>.png
 ## 6. Weaviate
 
 - **Server and collection.** The server is Weaviate 1.27.0 and the collection is `DocumentChunk`. It has no vectorizer module. doc-tools writes every object WITH its vector, so the workbench queries with `nearVector`; `nearText` will not work. The distance is the server default, cosine.
-- **Properties.** `text`, `doc_id`, `chunk_id`, `domain`, all of type TEXT.
+- **Properties.** `text`, `doc_id`, `chunk_id`, `domain` (TEXT); `page` (INT); `heading`, `section_id`, `chunk_kind` (TEXT). On a TRAINING object `chunk_kind` is `"slide"` or `"section"`; objects written before v4 carry no `chunk_kind`.
 - **One object per Slide that has text.** For each:
   - `chunk_id` == `Slide.id`
   - `doc_id` == `Course.id`
   - `domain` == `"TRAINING"`
   - `text` == the slide text, untruncated
+  - `chunk_kind` == `"slide"`
   - the object uuid is `weaviate.util.generate_uuid5(chunk_id)`
+- **One object per Section that has notes** (a non-empty `summary` or at least one objective; only when the outline was built). For each:
+  - `chunk_id` == `Section.id`, and the object uuid is `generate_uuid5(chunk_id)`
+  - `doc_id` == `Course.id`, `domain` == `"TRAINING"`, `chunk_kind` == `"section"`
+  - `page` == the Section's `start_page`, `heading` == its title, `section_id` == its id
+  - `text` == the title, then the summary, then `Objectives:` and one `- ` line each, parts separated by a blank line, empty parts left out
+  - a re-ingest deletes the Course's old section objects (`doc_id` and `chunk_kind = "section"`) before writing these.
+- **A slide query must now exclude section objects** (`chunk_kind = "section"`): they carry the same `doc_id` and `domain`, and a `nearVector` query on those alone returns them. Objects written before v4 carry no `chunk_kind`, so `== "slide"` would drop them. **Unmeasured:** whether Weaviate's `NotEqual("section")` keeps an object that has no `chunk_kind` at all. Until that is measured on a cluster where the property exists, a reader must not assume it does; re-ingesting a course gives every one of its objects a `chunk_kind`.
 - **No figure objects.** No training object's `chunk_id` contains `_fig_`. Other kinds still write figure objects to this collection, which is why wb's query filters on `domain`.
 - **Query shape:** `nearVector` + `where domain = "TRAINING"` (optionally `AND doc_id IN …`), returning `chunk_id`.
 
@@ -194,7 +238,7 @@ The fixture lives in `tests/fixtures/training/`:
 - **Pinned hashes.** `golden.json` pins the deck and sidecar sha256 values. wb vendors byte-identical copies and asserts those hashes.
 - **Placeholders.** `<pipeline_version>` and `<iso8601>` match any value.
 - **Volatile element keys.** The keys in `volatile_element_keys` are stripped from both sides before `elements` is compared (temp path, mtime, element hashes).
-- **`nondeterministic`** (sections, concepts, teaches) is LLM-derived EXAMPLE data. doc-tools asserts its SHAPE only: labels, id grammar, `start_page` naming a real slide, salience in [0, 1], one Concept per `(domain, normalized name)` (§3). wb loads it as fake-store data. The example includes a salience under 0.5 (slide 4, "Hydraulic pressure") and a concept shared by two slides.
+- **`nondeterministic`** (sections, concepts, teaches). Sections are no longer free example data: they are what the real `structural.outline` pass derives from `neo4j.outline.fallback`, the pinned LLM reply (`recorded: false` until a sandbox reply is recorded), and the deck's element pages. A re-run compares its LLM titles to the pinned ones and reports the difference, rather than overwriting. Concepts and teaches are LLM-derived EXAMPLE data. doc-tools asserts their SHAPE only: labels, id grammar, `start_page` naming a real slide, salience in [0, 1], one Concept per `(domain, normalized name)` (§3). wb loads it all as fake-store data. The example includes a salience under 0.5 (slide 4, "Hydraulic pressure") and a concept shared by two slides.
   - Its `edges` block lists every `HAS_SECTION`, Section → Slide, `COVERS` and `TEACHES` edge explicitly, already computed by the §4.2 rules, so a fake store loads edges and derives nothing.
   - Each Section's `concept_summary` agrees with its `COVERS` scores.
 - **The doc-tools gate.** `tests/test_training_workbench_golden.py` holds one test per surface. A surface that a later lane-tr step delivers is `xfail(strict=True)` until that step's PR, which must flip it. Each step's PR is green only with its surface passing.
@@ -211,17 +255,20 @@ The fixture lives in `tests/fixtures/training/`:
 | Concept keyed on `id` = `hash(domain, normalized name)` with a uniqueness constraint (§3) | d merged it on `name`; re-keyed by `#167` (lane 7f) |
 | `pages/page_{n}.png` (`render.pages`, LibreOffice + Poppler) | e |
 | vectors written for `nearVector`; no `_fig_` objects for training | f |
-| Section page numbers from element metadata, never from the LLM (`structural.outline`) | g |
+| Section page numbers from element metadata, never from the LLM (`structural.outline`); `Course.outline_source`; Section subtree replaced on re-ingest | g |
 | COVERS / `concept_summary` stay a post-graph hook (`execute_pass2_rollup`) | h |
+| per-section concept call, Section notes, related_terms, ALIAS_OF, section objects | i (#PR A) |
 
-## 10. Known gaps (not promised by v2)
+## 10. Known gaps (not promised by v4)
 
 - **A slide with no text gets a Slide node with `text` `""` and no Weaviate object, unless it is the last slide.** Unstructured emits a `PageBreak` element after every slide but the last. So a blank or image-only slide mid-deck still has an element on its page, but a blank or image-only *final* slide has none and gets no Slide node at all. The result is that `Slide.number` has no interior gaps but can stop short of the deck's slide count, and the workbench must tolerate that. This was measured on the fixtures `empty-blank-slide` (p5), `image-multi-per-slide` (p4) and `image-only-deck` (p5). **It still gets `pages/page_{n}.png`**: the page render counts the deck's slides, not its elements. So `pages/` can hold one more PNG than there are Slide nodes. Hidden slides are rendered too, because the export sets `ExportHiddenSlides`, and `page_{n}` always equals slide `n` of the deck. wb may counter this in a packet.
 - **Speaker notes are slide text.** Unstructured emits a slide's notes as `NarrativeText` elements on that slide, ahead of its body in reading order. A slide whose only text is its notes is a text slide (fixture `empty-whitespace-and-notes`, p3 and p4).
 - **Hidden slides are ingested like any other.** No Slide property marks them (fixture `long-with-hidden-slides`, p30, p31 and p90).
-- **A re-ingest of the same bytes adds a second outline.** Section ids are positions in the outline the LLM returned (`{Course.id}_s0_s1`), and the write is a MERGE. So a second run that samples a differently shaped outline leaves both under the Course (fixtures `dup-same-bytes-a`/`-b`: 15 Sections, 8 titles). This is step g's to close.
+- **A section slide is detected only as a single numbered Title.** A header slide that also carries speaker notes, or whose title is unnumbered, is not detected. If no slide in the deck is detected, the deck falls back to the LLM; if others are, that section is simply missing from the outline.
+- **An LLM section whose title is no slide Title is dropped.**
 - **docx page numbers.** Unstructured gives docx a `page_number` only if the file has `w:lastRenderedPageBreak`; otherwise everything lands on page 1. pptx (slide index) and pdf are exact. docx is best-effort in v2.
 - **`Slide.pedagogical_intent` is not written.** The facet is empty.
+- **ALIAS_OF reaches only Concepts that existed when the course was written;** a later course that adds the target does not back-fill the edge (the normalisation pass will).
 - **No lineage between revisions** of the same course (§3).
 
 ## 11. Changing this contract

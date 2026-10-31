@@ -21,6 +21,7 @@ from pathlib import Path
 
 from weaviate.util import generate_uuid5
 
+from doc_tools.passes.structural import outline_from_llm
 from doc_tools.utils.concept_identity import concept_node_id, normalize_concept_name
 from doc_tools.utils.extraction import extract_text_and_metadata
 from doc_tools.utils.layout_detector import detect_layout
@@ -46,15 +47,54 @@ VOLATILE_ELEMENT_KEYS = ["element_id", "metadata.parent_id", "metadata.file_dire
 EXAMPLE_TEACHES = {
     2: [("Pascal's law", 0.95), ("Hydraulic pressure", 0.8)],
     3: [("Hydraulic pump", 0.9), ("Gear pump", 0.6)],
-    4: [("Hydraulic reservoir", 0.7), ("Hydraulic pressure", 0.3)],
+    4: [("Hydraulic reservoir", 0.7), ("Hydraulic pressure", 0.3), ("Hydraulic tank", 0.4)],
 }
-# No two COVERS scores in a section tie, so concept_summary's order is defined.
-# (suffix, title, level, start_page, end_page, parent_suffix)
-EXAMPLE_SECTIONS = [
-    ("_s0", "Introduction", 1, 1, 1, None),
-    ("_s1", "Hydraulic Principles", 1, 2, 4, None),
-    ("_s1_s0", "Pumps", 2, 3, 3, "_s1"),
+# EXAMPLE related_terms (contract 4.2): other names for the SAME concept, as the model
+# returns them. "Pascal's principle" names no Concept in this example, so it writes no
+# ALIAS_OF edge; "Hydraulic reservoir" does, so it writes one.
+EXAMPLE_RELATED = {
+    "Pascal's law": ["Pascal's principle"],
+    "Hydraulic pump": ["Pump"],
+    "Hydraulic tank": ["Hydraulic reservoir"],
+}
+# EXAMPLE Section notes (contract 4.1), keyed by section suffix. "_s2" has none: its
+# `summary` is absent and `objectives` is empty, which a section can legitimately be.
+EXAMPLE_NOTES = {
+    "_s0": ("An orientation to what hydraulic systems do and why they are used.",
+            ["Explain what a hydraulic system does"]),
+    "_s1": ("Pressure applied to a confined fluid transmits equally; the pump is what makes it.",
+            ["State Pascal's law", "Identify the main parts of a pump circuit"]),
+    "_s1_s0": ("How a hydraulic pump converts mechanical power into fluid flow.",
+               ["Describe how a gear pump moves fluid"]),
+    "_s2": (None, []),
+}
+# PROVISIONAL ExtractOutline reply (recorded: false), pinned so a re-run compares
+# rather than regenerates. Titles and nesting are the LLM's; its pages are wrong on
+# purpose (the measured defect), and the real outline pass ignores them: it anchors
+# each title to the page whose Title element carries it. "Accumulator Sizing"
+# anchors nowhere, so it is dropped. To be replaced by a recorded sandbox reply
+# before the PR leaves draft.
+FALLBACK_OUTLINE = [
+    {"title": "Hydraulic Systems Fundamentals", "level": 1, "start_page": 2, "end_page": 2,
+     "subsections": []},
+    {"title": "Pascal's Law", "level": 1, "start_page": 1, "end_page": 4,
+     "subsections": [
+         {"title": "Hydraulic Pumps", "level": 2, "start_page": 2, "end_page": 2,
+          "subsections": []}]},
+    {"title": "Reservoir Schematic", "level": 1, "start_page": 3, "end_page": 0,
+     "subsections": []},
+    {"title": "Accumulator Sizing", "level": 1, "start_page": 4, "end_page": 4,
+     "subsections": []},
 ]
+# What the real pass must derive from FALLBACK_OUTLINE and the deck's elements.
+# (suffix, title, level, start_page, end_page, parent_suffix)
+EXPECTED_SECTIONS = [
+    ("_s0", "Hydraulic Systems Fundamentals", 1, 1, 1, None),
+    ("_s1", "Pascal's Law", 1, 2, 3, None),
+    ("_s1_s0", "Hydraulic Pumps", 2, 3, 3, "_s1"),
+    ("_s2", "Reservoir Schematic", 1, 4, 4, None),
+]
+# No two COVERS scores in a section tie, so concept_summary's order is defined.
 
 
 def _strip(el: dict) -> dict:
@@ -96,7 +136,8 @@ def main() -> None:
             "layout_style": detect_layout(els), "elements": [_strip(e) for e in els],
         })
         wv_objects.append({"uuid": str(generate_uuid5(sid)), "properties": {
-            "text": text, "doc_id": ingest_id, "chunk_id": sid, "domain": DOMAIN}})
+            "text": text, "doc_id": ingest_id, "chunk_id": sid, "domain": DOMAIN,
+            "chunk_kind": "slide"}})
 
     meta = json.loads(META.read_text())
     course = {
@@ -105,11 +146,24 @@ def main() -> None:
         "audience": meta["audience"], "level": meta["level_of_material"],
         "delivery_method": meta["current_delivery_method"],
         "duration_hours": meta["duration_hours"], "version": meta["version"],
+        "outline_source": "llm",
         "current_key": f"{root}/current.json",
     }
 
+    # Sections come from the REAL outline pass over the deck's real elements.
+    derived = []
+
+    def _flat(secs, parent_suf):
+        for i, s in enumerate(secs):
+            suf = f"{parent_suf}_s{i}"
+            derived.append((suf, s.title, s.level, s.start_page, s.end_page, parent_suf or None))
+            _flat(s.subsections, suf)
+
+    _flat(outline_from_llm(elements, [{"sections": FALLBACK_OUTLINE}]), "")
+    assert derived == EXPECTED_SECTIONS, derived
+
     sections = []
-    for suf, title, level, start, end, parent in EXAMPLE_SECTIONS:
+    for suf, title, level, start, end, parent in derived:
         covered = [n for n in numbers if n >= start and (end == 0 or n <= end)]
         acc = defaultdict(list)
         for n in covered:
@@ -118,15 +172,46 @@ def main() -> None:
         covers = sorted(({"concept": c, "score": round(sum(v) / len(v), 6), "frequency": len(v)}
                          for c, v in acc.items()), key=lambda r: -r["score"])
         assert len({r["score"] for r in covers}) == len(covers), (suf, covers)
+        summary, objectives = EXAMPLE_NOTES[suf]
         sections.append({
             "id": ingest_id + suf, "title": title, "level": level, "start_page": start,
             "end_page": end, "parent": ingest_id + (parent or ""),
             "slides": [f"{ingest_id}_p{n}" for n in covered], "covers": covers,
             "concept_summary": [r["concept"] for r in covers][:10],
+            # absent when the model gave none (contract 4.1)
+            **({"summary": summary} if summary else {}),
+            "objectives": objectives,
         })
-    teaches = [{"slide": f"{ingest_id}_p{n}", "concept": name, "salience": sal}
+    teaches = [{"slide": f"{ingest_id}_p{n}", "concept": name, "salience": sal,
+                "related_terms": EXAMPLE_RELATED.get(name, [])}
                for n, pairs in sorted(EXAMPLE_TEACHES.items()) for name, sal in pairs]
     concepts = sorted({t["concept"] for t in teaches})
+    # Candidate ALIAS_OF (contract 4.2): only to a Concept that exists, never a self-edge
+    # after normalisation, one edge per pair.
+    alias_of, _seen = [], set()
+    for t in teaches:
+        for term in t["related_terms"]:
+            pair = (t["concept"], term)
+            if (term in concepts and normalize_concept_name(term) != normalize_concept_name(t["concept"])
+                    and pair not in _seen):
+                _seen.add(pair)
+                alias_of.append({"from": t["concept"], "to": term, "status": "candidate",
+                                 "source": "related_terms", "course_id": ingest_id})
+    # One Weaviate object per Section that has notes (contract 6); nondeterministic
+    # because the notes are.
+    section_objects = []
+    for s in sections:
+        if not (s.get("summary") or s["objectives"]):
+            continue
+        parts = [s["title"]]
+        if s.get("summary"):
+            parts.append(s["summary"])
+        if s["objectives"]:
+            parts.append("Objectives:\n" + "\n".join(f"- {o}" for o in s["objectives"]))
+        section_objects.append({"uuid": str(generate_uuid5(s["id"])), "properties": {
+            "text": "\n\n".join(parts), "doc_id": ingest_id, "chunk_id": s["id"],
+            "domain": DOMAIN, "page": s["start_page"], "heading": s["title"],
+            "section_id": s["id"], "chunk_kind": "section"}})
     # Explicit edges, so a fake store loads them instead of re-deriving them from
     # the id grammar and the COVERS rule (wb's request, contract section 4.2).
     edges = {
@@ -134,14 +219,19 @@ def main() -> None:
         "section_slide": [{"from": s["id"], "to": sid} for s in sections for sid in s["slides"]],
         "COVERS": [{"from": s["id"], "to": r["concept"], "score": r["score"], "frequency": r["frequency"]}
                    for s in sections for r in s["covers"]],
-        "TEACHES": [{"from": t["slide"], "to": t["concept"], "salience": t["salience"]} for t in teaches],
+        "TEACHES": [{"from": t["slide"], "to": t["concept"], "salience": t["salience"],
+                     "related_terms": t["related_terms"]} for t in teaches],
+        "ALIAS_OF": alias_of,
     }
 
     golden = {
         "contract": "docs/contracts/training-workbench.md",
-        # 3: concept nodes carry `id` and `name_normalized` (section 11's rule --
-        # non-placeholder content changed, so the version moves and wb gets a packet).
-        "contract_version": 3,
+        # 3: concept nodes carry `id` and `name_normalized` (#167), and sections come
+        # from structural.outline (step g). Section 11's rule -- non-placeholder content
+        # changed, so the version moves and wb gets a packet.
+        # 4: per-section concept calls -- Section summary/objectives, TEACHES related_terms,
+        # candidate ALIAS_OF, Section objects in Weaviate, slide chunk_kind (section 4.6).
+        "contract_version": 4,
         "fixture": {
             "deck": DECK.name, "deck_sha256": hexd,
             "metadata": META.name, "metadata_sha256": hashlib.sha256(META.read_bytes()).hexdigest(),
@@ -156,8 +246,21 @@ def main() -> None:
             "course": {"labels": ["Document", "Course", DOMAIN], "props": course},
             "slides": {"labels": ["Chunk", "Slide", DOMAIN], "nodes": slides},
             "course_slide_edges": ["HAS_CHILD", "HAS_SLIDE"],
+            "outline": {
+                "source": "llm",
+                "fallback": FALLBACK_OUTLINE,
+                "recorded": False,
+                "note": "The pinned ExtractOutline reply (neo4j.outline.fallback) with its pages "
+                        "as the LLM gave them, wrong ones included; the real outline pass ignores "
+                        "them. Provisional, replaced by a recorded sandbox ExtractOutline reply "
+                        "before the PR leaves draft. A re-run compares its LLM titles to these "
+                        "and reports the difference, rather than overwriting.",
+            },
             "nondeterministic": {
-                "note": "LLM-derived. doc-tools asserts shape only; wb uses it as fake-store data.",
+                "note": "Sections are what the real structural.outline pass derives from "
+                        "neo4j.outline.fallback and this deck's element pages (page numbers are "
+                        "element page_number, never the LLM's). Concepts and TEACHES are LLM-derived "
+                        "example data: doc-tools asserts their shape only; wb uses them as fake-store data.",
                 "sections": {"labels": ["Section", DOMAIN],
                              "section_slide_edges": ["HAS_CHILD", "HAS_SLIDE"],
                              "nodes": sections},
@@ -173,6 +276,8 @@ def main() -> None:
                                         "name_normalized": normalize_concept_name(c),
                                         "domain": DOMAIN} for c in concepts]},
                 "teaches": teaches,
+                "section_objects": {"note": "Weaviate objects, one per Section that has a summary or objectives (contract 6): chunk_id is the Section id, uuid is uuid5 of it, page is start_page.",
+                                    "objects": section_objects},
                 "edges": {
                     "note": "Concept endpoints are names (the node carries the `id` that "
                             "is the real key; an edge names the concept so a fake store "
