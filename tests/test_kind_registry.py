@@ -443,16 +443,21 @@ def test_the_platform_owned_fields_are_absent_by_ruling():
 
 
 def test_the_projection_fills_exactly_what_doc_tools_owns():
-    """Three of thirteen fields are set; eight stay at their defaults by reason.
+    """Three of thirteen fields are set; ten stay at their defaults by reason.
 
     ``exclude_defaults`` is the whole assertion: what a row SAYS is what it
     sets, and today every row sets exactly the three fields doc-tools owns.
-    ``identity_field`` and ``seeds_workflow`` are projected when a row declares
-    one and no row does, so a row that starts declaring one adds its key here
-    and this arm is the place that records it. ``branch``/``refresh`` have no
-    counterpart on ``ContentKindEntry`` at all (ADR-0063 section 1, unchanged by
-    this pin), and ``parent_link_field``/``id_namespaces`` are unset pending a
-    measurement rather than a decision -- see the projection module.
+    ``branch``, ``identity_field``, ``seeds_workflow`` and ``refresh`` are
+    projected when a row departs from the default and no row does, so a row that
+    starts declaring one adds its key here and this arm is the place that records
+    it. ``parent_link_field``/``id_namespaces`` are unset pending a measurement
+    rather than a decision -- see the projection module.
+
+    ``branch`` is the one to read twice: the dataclass now HAS it (ADR-0063
+    section 1's remaining answer) and every row still takes ``"document"``, so
+    ``exclude_defaults`` must not see it. A projection that emitted it
+    unconditionally would pass every other arm in this file and rewrite all
+    thirteen generated rows.
     """
     pytest.importorskip("iagent_mesh.ingest")
     from doc_tools.utils.kind_registrations import registrations
@@ -461,3 +466,135 @@ def test_the_projection_fills_exactly_what_doc_tools_owns():
         assert set(reg.model_dump(exclude_defaults=True)) == {
             "kind", "passes", "outputs"
         }, reg.kind
+
+
+# ----------------------------------------------------- the event branch (F4)
+#
+# ADR-0063 section 1's remaining answer. These arms prove doc-tools CAN declare
+# and project an event row; they add no row to ``KIND_MAPPING``, because lane 01
+# confirmed on 2026-10-28 that ADR-0063's three event kinds are iagent overlay
+# rows under ``policy/overlays/openddil-lab/content_kinds/``.
+#
+# The per-branch required/forbidden rule is NOT restated in this repo. It is the
+# SDK's, in ``ContentKindRegistration._branch_shape_is_consistent``, and these
+# arms pin that BACKSTOP: what we assert is that the SDK still refuses the
+# malformed shapes we rely on it to refuse.
+
+
+def _event_entry(**kw):
+    """An event row that is NOT in ``KIND_MAPPING``.
+
+    It takes ``""`` for ``extractor_config``/``baml_function``/
+    ``target_ontology_class`` because those three are REQUIRED POSITIONALLY on
+    ``ContentKindEntry`` and are meaningless on a kind that runs no pass --
+    ``s1000d-data-module`` already takes ``""`` for ``baml_function`` the same
+    way. Flagged, not fixed here: making them optional reorders a thirteen-row
+    table and belongs in its own change.
+    """
+    from doc_tools.utils.content_kind import ContentKindEntry
+
+    fields = dict(
+        kind_source_value="fracas-report",
+        kind="fracas-report",
+        extractor_config="",
+        baml_function="",
+        target_ontology_class="",
+        domain_type="maintenance",
+        branch="event",
+        identity_field="event_id",
+        seeds_workflow="fracas-intake",
+    )
+    fields.update(kw)
+    return ContentKindEntry(**fields)
+
+
+def test_an_event_row_projects_into_a_registration_the_sdk_accepts():
+    """The measurement F4 asked for: a declared event row survives the SDK.
+
+    Note ``passes``/``outputs``: the SDK forbids them on an event row, and
+    "forbidden" there means EMPTY, not absent (``if self.passes or
+    self.outputs: raise``). So the projection keeps passing both
+    unconditionally and an event row declaring ``()`` is accepted -- which is
+    why ``registration_for`` needed no branching around them.
+    """
+    pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.kind_registrations import registration_for
+
+    reg = registration_for(_event_entry())
+    assert reg.branch == "event"
+    assert reg.identity_field == "event_id"
+    assert reg.seeds_workflow == "fracas-intake"
+    assert reg.passes == () and reg.outputs == ()
+    assert set(reg.model_dump(exclude_defaults=True)) == {
+        "kind", "branch", "identity_field", "seeds_workflow"
+    }
+
+
+def test_an_event_rows_refresh_projects_into_the_sdks_refresh_spec():
+    pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.content_kind import RefreshDecl
+    from doc_tools.utils.kind_registrations import registration_for
+
+    entry = _event_entry(
+        refresh=RefreshDecl(url_template="https://seam.internal/events/{event_id}"))
+    reg = registration_for(entry)
+    assert reg.refresh.url_template == "https://seam.internal/events/{event_id}"
+    assert reg.refresh.method == "GET"
+    assert reg.refresh.auth == "seeding-delegate"
+
+
+def test_the_sdk_refuses_a_refresh_template_that_names_another_field():
+    """The backstop we chose not to copy. ``refresh`` pulls by THIS row's own
+    identity, and the SDK is the one place that can check it because the
+    template and the identity field are both visible there."""
+    pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.content_kind import RefreshDecl
+    from doc_tools.utils.kind_registrations import registration_for
+
+    entry = _event_entry(
+        refresh=RefreshDecl(url_template="https://seam.internal/events/{ticket_id}"))
+    with pytest.raises(Exception) as exc:
+        registration_for(entry)
+    assert "ticket_id" in str(exc.value)
+
+
+def test_the_sdk_refuses_an_event_row_that_declares_passes():
+    pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.kind_registrations import registration_for
+
+    entry = _event_entry(passes=("maintenance.fracas",),
+                         outputs=("mesh:FracasReport",))
+    with pytest.raises(Exception) as exc:
+        registration_for(entry)
+    assert "passes/outputs" in str(exc.value)
+
+
+def test_the_sdk_refuses_a_document_row_that_declares_an_event_only_field():
+    """The latent 422 this change closes, measured rather than argued.
+
+    Before ``branch`` existed on the dataclass, ``registration_for`` already
+    projected ``identity_field``/``seeds_workflow`` whenever a row set one --
+    while ``branch`` took its ``"document"`` default, where the SDK FORBIDS
+    both. The trap was harmless only because no row set either. A row that set
+    one would have raised here rather than registering, and this arm is what
+    says so out loud.
+    """
+    pytest.importorskip("iagent_mesh.ingest")
+    from doc_tools.utils.kind_registrations import registration_for
+
+    entry = _event_entry(branch="document", refresh=None,
+                         passes=("maintenance.fracas",),
+                         outputs=("mesh:FracasReport",))
+    with pytest.raises(Exception) as exc:
+        registration_for(entry)
+    assert "seeds_workflow" in str(exc.value)
+
+
+def test_no_registered_row_declares_the_event_branch_today():
+    """Lane 01 owns ADR-0063's three event kinds as overlay rows. If one of them
+    appears in ``KIND_MAPPING``, that is a split of ownership to settle before
+    it ships, not a row to add quietly -- and it would move
+    ``registry_fingerprint`` (which hashes ``(kind, passes)``) on its way."""
+    for entry in KIND_MAPPING.values():
+        assert entry.branch == "document", entry.kind
+        assert entry.refresh is None, entry.kind

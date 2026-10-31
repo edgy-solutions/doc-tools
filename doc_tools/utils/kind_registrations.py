@@ -15,10 +15,10 @@ v0.9.11 pin ``ContentKindRegistration`` is ``extra="forbid"`` with THIRTEEN
 fields: ``kind``, ``branch``, ``passes``, ``outputs``, ``seeds_workflow``,
 ``identity_field``, ``refresh``, ``domain``, ``parent_link_field``,
 ``id_namespaces``, ``arrives_as``, ``review_shape``, ``label``. We set THREE on
-every row (``kind``, ``passes``, ``outputs``) and project two more --
-``identity_field``, ``seeds_workflow`` -- when a row declares one, which no row
-does today. The remaining EIGHT are not oversights, and each is left at its
-default for a stated reason:
+every row (``kind``, ``passes``, ``outputs``) and project FOUR more --
+``branch``, ``identity_field``, ``seeds_workflow``, ``refresh`` -- when a row
+declares one, which no row does today. The remaining SIX are not oversights, and
+each is left at its default for a stated reason:
 
   * ``domain``, ``arrives_as``, ``review_shape``, ``label`` -- **OWNED BY THE
     PLATFORM, NOT BY US.** The architect's ruling of 2026-10-24, amending
@@ -48,13 +48,27 @@ default for a stated reason:
     ``review_shape`` and ``label``, carried to Lane 1, who fills them into the
     platform registry that the server actually serves.
 
-  * ``branch`` and ``refresh`` -- ``ContentKindEntry`` has no counterpart for
-    either, which is ADR-0063 section 1's finding and is unchanged by this pin:
-    the SDK has had ``branch="event"`` since 0.9.7, an event row requires
-    ``seeds_workflow``/``identity_field`` and FORBIDS ``passes``/``outputs``,
-    and we cannot express one. All thirteen rows are documents and none sets
-    ``seeds_workflow``, so ``branch`` takes its ``"document"`` default honestly
-    today. A new event kind is blocked on our own plumbing, not on the SDK.
+  * ``branch`` and ``refresh`` -- **CLOSED by this change; ADR-0063 section 1's
+    remaining answer.** ``ContentKindEntry`` now carries both, so doc-tools can
+    DECLARE an event row and this projection emits it. Two things that does NOT
+    mean: it does not register ADR-0063's three event kinds, which lane 01
+    confirmed on 2026-10-28 are iagent overlay rows under
+    ``policy/overlays/openddil-lab/content_kinds/``; and it adds no event row
+    here. All thirteen rows are still documents and none sets ``seeds_workflow``,
+    so ``branch`` takes its ``"document"`` default honestly.
+
+    ``branch`` is projected CONDITIONALLY, only when a row departs from
+    ``"document"``. Emitting it on every row would rewrite all thirteen
+    generated files to carry a value the default already states.
+
+    The per-branch required/forbidden rule is NOT restated here. It lives in
+    ``ContentKindRegistration._branch_shape_is_consistent`` and a second copy
+    would be the second source of truth this repo keeps paying for;
+    ``tests/test_kind_registry.py`` pins that backstop instead. Note what the
+    SDK means by forbidden: ``if self.passes or self.outputs: raise`` -- EMPTY,
+    not absent -- which is why this function can keep passing ``passes``/
+    ``outputs`` unconditionally and an event row declaring ``()`` for both is
+    accepted.
 
   * ``parent_link_field`` (0.9.9) -- **MEASURED 2026-10-30, and the answer is
     that there is no such field to name.** It names the field of a kind's
@@ -82,14 +96,15 @@ default for a stated reason:
     is the true statement.
 
 So the projected fields are ``kind``, ``passes``, ``outputs`` -- doc-tools'
-own, by the ruling -- plus ``identity_field`` and ``seeds_workflow`` where a row
-sets them, which no row does today. ``ingress_prefix`` and ``file_suffixes``
-stay doc-tools-local: they describe the user-drop seam, the SDK has no field for
-them, and ``extra="forbid"`` means offering one would raise.
+own, by the ruling -- plus ``branch``, ``identity_field``, ``seeds_workflow``
+and ``refresh`` where a row departs from the default, which no row does today.
+``ingress_prefix`` and ``file_suffixes`` stay doc-tools-local: they describe the
+user-drop seam, the SDK has no field for them, and ``extra="forbid"`` means
+offering one would raise.
 """
 from __future__ import annotations
 
-from iagent_mesh.ingest import ContentKindRegistration
+from iagent_mesh.ingest import ContentKindRegistration, RefreshSpec
 
 from doc_tools.utils.content_kind import KIND_MAPPING, ContentKindEntry
 
@@ -104,16 +119,25 @@ PLATFORM_OWNED_FIELDS = ("domain", "arrives_as", "review_shape", "label")
 def registration_for(entry: ContentKindEntry) -> ContentKindRegistration:
     """One row, built through the SDK model so the SDK's validators run.
 
-    Keyword-only on every field, and only the fields a row actually sets: an
-    explicit ``identity_field=None`` and an omitted one are the same value to
-    pydantic, but writing them conditionally keeps the generated YAML
-    byte-unchanged for the twelve rows that declare neither.
+    Keyword-only on every field, and only the fields a row DEPARTS FROM THE
+    DEFAULT on: an explicit ``identity_field=None`` and an omitted one are the
+    same value to pydantic, and ``branch="document"`` is the model's own
+    default, but writing them conditionally keeps the generated YAML
+    byte-unchanged for the thirteen rows that declare none of them.
     """
     optional = {}
+    if entry.branch != "document":
+        optional["branch"] = entry.branch
     if entry.identity_field is not None:
         optional["identity_field"] = entry.identity_field
     if entry.seeds_workflow is not None:
         optional["seeds_workflow"] = entry.seeds_workflow
+    if entry.refresh is not None:
+        optional["refresh"] = RefreshSpec(
+            url_template=entry.refresh.url_template,
+            method=entry.refresh.method,
+            auth=entry.refresh.auth,
+        )
     return ContentKindRegistration(
         kind=entry.kind,
         passes=entry.passes,
