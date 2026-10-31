@@ -91,9 +91,28 @@ validator on them undeclared is exactly the failure this repo already paid for w
 `iagent-mesh` masked `dag-tools`' undeclared `fastapi`. Both are in
 `pyproject.toml` now, with the measurement recorded beside them.
 
-`uv.lock` is **deliberately not regenerated**: `uv sync` removes the spaCy model and
-reds three golden tests. It needs its own deliberate update, with `--inexact` or the
-model restored after.
+### The lock, and a claim this report had to withdraw
+
+The first commit on this branch said `uv.lock` was *"deliberately not
+regenerated"*, on the strength of the standing finding that `uv sync` removes the
+spaCy model and reds three golden tests. **That was wrong, and the `tests` job
+would have failed on it.** `.github/workflows/build-container.yml:686` runs
+`uv sync --locked`, and `--locked` *asserts* that the lock and `pyproject.toml`
+agree and fails loudly when they do not — the workflow's own comment block argues
+for exactly that, deliberately, since 2026-09-19. Declaring a dependency without
+locking it is not a deferral in this repo; it is a red `tests`.
+
+So the lock is regenerated, and the measurement says the fear did not apply:
+
+- `uv lock` → `Resolved 383 packages`, **383 before and 383 after**.
+- The diff is **four lines**: `jsonschema` and `pyyaml` each added to
+  `dependencies` and to `requires-dist`. **No package block changed; no version
+  moved.** Both were already in the resolution as transitive packages, so
+  promoting them to direct resolves to the same pins.
+- The spaCy finding is about **`uv sync`**, which rewrites the venv. **`uv lock`
+  does not touch the venv** — only the lockfile. Applying a venv finding to a
+  resolver command is the mistake, and it is the kind this lane keeps making:
+  the finding was true and still did not say what it was taken to say.
 
 ## Measured
 
