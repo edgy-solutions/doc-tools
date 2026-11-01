@@ -162,6 +162,70 @@ cannot tell from this side, and it matters for the batch path, because a work
 notice that ingests fine and is then `ingest_not_found` is a fixture that cannot
 be built with no error to explain why.
 
+## Found while cutting the release — `corpus-gate` is red for the next chart PR
+
+Not caused by this work, and it did not block the release. Recording it because
+it blocks the *next* person, and it is the required check.
+
+Cutting v0.2.3 produced two runs on the tag ref (`release` and `push`), and in
+both, **`corpus-gate` failed** — where at v0.2.2 it passed and only the advisory
+`corpus-gate-verdict` failed. Reproduced locally with exactly what CI selects:
+
+    python -m pytest tests/test_corpus_gate_guard.py \
+      -m "corpus_gate and not corpus_gate_verdict" -q -rs
+    -> 1 failed, 5 passed
+
+The cause is **not** staleness, which was my first guess and was wrong:
+
+    docs/corpus-gate/latest.json was measured against gt_parts=522 but ground
+    truth now declares gt_parts=512
+
+The committed report (`generated_at` 2026-10-29T02:37:48Z) predates the
+**522 -> 512 re-label of 2026-10-29**, which the ground truth itself records as
+a re-label and not a loss of recall. So the guard is doing its job: a report
+whose denominator no longer matches declared ground truth is a measurement whose
+corpus is unstated, and it refuses it.
+
+**Why it matters.** `corpus-gate` is the single required status check on `main`,
+and it runs iff `changes.outputs.charts == 'true'`. So:
+
+- a PR touching no chart **skips** it and merges normally — #202 did, and the
+  sessions-only PR carrying this report will too;
+- the **next chart change or pin bump is blocked** until a fresh gate report is
+  committed that measures the 512 denominator.
+
+This is the familiar shape where the required gate blocks the change that would
+satisfy it. The fix is not a code change: the fires cannot run in CI (they need
+the header model at an RFC1918 address, the vision host, and in-cluster MinIO,
+~22 minutes x3), so a fresh report has to come from the in-cluster CronJob and
+be committed. **Not attempted here** — it is a chart-side action, and inventing
+a report to make a gate green is precisely what the guard exists to prevent.
+
+The tag runs' failure is cosmetically alarming and structurally harmless:
+`tag-release-image` needs only `resolve-release-image` and `build-and-push`, so
+v0.2.3 got its version tag regardless. v0.2.1 and v0.2.2 tag runs also concluded
+`failure`, so a red release run is this repo's normal and not a signal.
+
+## v0.2.3, cut and verified
+
+Target `0f19cf2`, digest
+`sha256:03599b10afcd5be49bd46f515db92ad4d694849f576484dad23847c9cf4b5290`.
+
+`build-and-push` **skipped** on both tag runs and `tag-release-image` succeeded,
+which is the path that matters: the version tag was added to bytes that already
+existed. Both `v0.2.3` and the commit tag were verified to resolve to that
+digest, and the control — a well-shaped digest nobody pushed — returned 404. So
+no rebuild happened, which is the 2026-10-23 incident this ordering exists to
+avoid.
+
+The release notes were corrected before publishing. The draft listed only the
+batch chain, but the tag carries **25 commits** since v0.2.2, two of which change
+behaviour: #167 re-keys `Key Concept` on `hash(domain, normalized name)` with a
+migration that runs as a pod Job (so counts settle a pin bump later), and #180
+turns a previously swallowed per-chunk augmentation failure into a failed run —
+dashboards get redder on purpose. Shipping notes that named only our own work
+would have left both unannounced.
+
 ## Not done, and named
 
 - **`pyproject.toml:3` and `uv.lock:1725` both still declare
