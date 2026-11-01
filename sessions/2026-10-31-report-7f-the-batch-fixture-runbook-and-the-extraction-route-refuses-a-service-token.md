@@ -1,6 +1,8 @@
 # report — 7f — the batch fixture runbook, and the extraction route refuses a service token
 
-Lane: `doc-tools/lane/7f`. Date: 2026-10-31. PR: **#202** (`7f/batch-scorecard` → `main`).
+Lane: `doc-tools/lane/7f`. Date: 2026-10-31, with the release cut and verified
+early 2026-11-01 UTC. PR: **#202** (`7f/batch-scorecard` → `main`), merged
+`0f19cf2`; the tag is **v0.2.3**.
 Order: *"the work runbook for the batch fixture (invocation, the private overlay
 file layout, truth-set format, what the scorecard shows, what never leaves the
 box), synthetic example end to end on sandbox with the ten-notice corpus as the
