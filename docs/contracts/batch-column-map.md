@@ -302,14 +302,27 @@ Every column `source.field` must name a field in
   eleven `header.*` fields are unserved** — `doc_id`, `doc_type`, `revision`,
   `pub_date`, `pub_date_source`, `mfr_source`, `mfr_parent_source`, `categories`,
   `summary`, `doc_level_ltb_date`, `doc_level_ltb_date_source` — and every one has
-  a null `wire` as well. So **a profile has no access to the document's own
-  printed identity at all**: not its id, not its type, not its revision, not its
-  publication date. The whole notice identity a profile can name is
-  `notice.notice_id` / `notice.ingest_id`, which are ingest keys rather than
-  document fields. The doc-level LTB date still costs most, for the reason version
-  1 gave: it is the value every unsourced part-level LTB row *inherits*, so a
+  a null `wire` as well. **CORRECTION, 2026-10-31: the sentence that stood here
+  overstated it.** It said a profile has *no* access to the document's own printed
+  identity. One of the eleven is reachable: the catalogue's own note on
+  `header.doc_id` reads *"Served as notice.notice_id, so reachable under that name
+  only"*, and `notice.notice_id`'s producer is `baml:SustainmentHeader.doc_id`
+  with `review_json: header.doc_id`. **So `notice.notice_id` IS the printed
+  document id**, not an ingest key — the two names are one producer field. The
+  overstatement came from reading `served_by: null` on the `header.*` entry
+  without reading the `notes` beside it.
+
+  What survives the correction: **the document's type, revision and publication
+  date are genuinely unreachable**, each unserved with a null wire and no
+  "reachable as" note, and so are the two source substrings and the two derived
+  prose fields. The doc-level LTB date still costs most, for the reason version 1
+  gave: it is the value every unsourced part-level LTB row *inherits*, so a
   per-part export that omits it loses the only source those dates have.
 
+  **RULED 2026-10-31: Lane 1 serves the two header fields.** Which two is not
+  named in the ruling and is asked back in the packet of the same date; a profile
+  needs no change either way, because the validator resolves `source.field`
+  against the catalogue and will accept them the moment `served_by` is set.
   Lane 1's position on widening, 2026-10-30: *"A field gets served when an export
   profile asks for it, not in advance."* So the gate is the mechanism by which a
   field gets served — a refused profile is the request.
