@@ -2,13 +2,13 @@
   "schema": 1,
   "verdict": "fail",
   "strict_verdict": "fail",
-  "generated_at": "2026-10-29T02:37:48Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5",
+  "generated_at": "2026-11-02T22:13:52Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:03599b10afcd5be49bd46f515db92ad4d694849f576484dad23847c9cf4b5290",
   "identity_mode": "pre_roll",
   "measured_pin_note": null,
   "image_identity": {
-    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5",
-    "measured_digest": "sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5",
+    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:03599b10afcd5be49bd46f515db92ad4d694849f576484dad23847c9cf4b5290",
+    "measured_digest": "sha256:03599b10afcd5be49bd46f515db92ad4d694849f576484dad23847c9cf4b5290",
     "checked": false,
     "comparisons": [],
     "void_reasons": [],
@@ -19,18 +19,18 @@
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-10-29T00:10:42Z",
-      "ended_at": "2026-10-29T00:57:34Z",
-      "elapsed_s": 2812.3,
+      "started_at": "2026-11-02T19:46:12Z",
+      "ended_at": "2026-11-02T20:35:46Z",
+      "elapsed_s": 2974.0,
       "log": "fire1.log",
       "totals": {
-        "gt": 522,
-        "exact": 522,
+        "gt": 512,
+        "exact": 512,
         "spurious": 0,
         "missing": 0,
         "malformed": 0,
         "ruled_out": 0,
-        "emitted": 522
+        "emitted": 512
       },
       "defects": {},
       "seal_checked": true,
@@ -67,25 +67,25 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 453031,
+      "log_bytes": 478225,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-10-29T00:57:34Z",
-      "ended_at": "2026-10-29T01:47:46Z",
-      "elapsed_s": 3011.7,
+      "started_at": "2026-11-02T20:35:46Z",
+      "ended_at": "2026-11-02T21:25:51Z",
+      "elapsed_s": 3005.4,
       "log": "fire2.log",
       "totals": {
-        "gt": 522,
-        "exact": 522,
+        "gt": 512,
+        "exact": 512,
         "spurious": 0,
         "missing": 0,
         "malformed": 0,
         "ruled_out": 0,
-        "emitted": 522
+        "emitted": 512
       },
       "defects": {},
       "seal_checked": true,
@@ -122,25 +122,25 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 456574,
+      "log_bytes": 489539,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-10-29T01:47:46Z",
-      "ended_at": "2026-10-29T02:37:48Z",
-      "elapsed_s": 3002.1,
+      "started_at": "2026-11-02T21:25:51Z",
+      "ended_at": "2026-11-02T22:13:52Z",
+      "elapsed_s": 2880.9,
       "log": "fire3.log",
       "totals": {
-        "gt": 522,
-        "exact": 522,
+        "gt": 512,
+        "exact": 512,
         "spurious": 0,
         "missing": 0,
         "malformed": 0,
         "ruled_out": 0,
-        "emitted": 522
+        "emitted": 512
       },
       "defects": {},
       "seal_checked": true,
@@ -177,7 +177,7 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 459186,
+      "log_bytes": 477031,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     }
@@ -410,8 +410,9 @@
     "why_it_is_here": "This block exists so the denominator lives where the GATE READS IT rather than only in prose. pcn_corpus_run.check_ground_truth() asserts TARGETS against it at startup and aborts on a disagreement, and pcn_corpus_gate.py copies it into docs/corpus-gate/latest.json so a committed report states the corpus it was measured against. A denominator that only a human can check is a denominator that drifts.",
     "scored_entries": 10,
     "distinct_documents": 10,
-    "gt_parts": 522,
-    "distinct_parts": 522,
+    "gt_parts": 512,
+    "distinct_parts": 512,
+    "denominator_history_note": "522 -> 512 on 2026-10-29, and it is a RE-LABEL, not a loss of recall. A 'Customer Part Number' column was ruled never an affected part: it carries the customer's own alias for the row's affected part, in the customer's numbering. TYC-PCN-24-210412.pdf was the only notice scoring that column as affected -- 10 of its 26 -- so it becomes 16 affected plus a new `customer_mpns` list of 10, and the corpus denominator falls by exactly those 10. NOTHING WAS DROPPED FROM THE RECORD: all 10 strings are still enumerated in this file, under the field that says what they are. A score of 512 is therefore NOT comparable to a score of 522 by subtraction -- the 10 moved out of the numerator and the denominator together, so an extractor that was scoring 522/522 would score 512/512 and an extractor that missed all 10 would have scored 512/522 before and 512/512 after. Any report citing 522 keeps its denominator; cite a score with the denominator it was measured against. 896, 898, 924 and now 522 are the historical denominators.",
     "source_sha256_rekey_note": "THE CORPUS IS KEYED BY SOURCE CONTENT HASH (sha256), not by filename. Re-keyed 2026-10-12. Diodes_PCN_2683_Rev1_EOL.pdf and Diodes_PCN_2683_FULLGREEN.pdf are ONE document under two filenames: byte-identical, measured 2026-10-12 inside the sandbox doc-tools pod, both 181899 bytes, both sha256 af5bfad3f9344eb1dc942230a33cb61b58fb911b977da2063fffbecb5788074c (md5 abe083fe...). Exactly one filename, Diodes_PCN_2683_Rev1_EOL.pdf, is SCORED; Diodes_PCN_2683_FULLGREEN.pdf is a DECLARED ALIAS -- listed in documents[] so a fire of either name is anchored to the declared bytes, asserted rather than double-scored, and absent from notices{} and from TARGETS. Until this re-key that document was scored twice at 402 parts, which is why the harness reported 924 ground-truth parts over 522 distinct ones: 402 of the 924, 77% of the distinct corpus, was one document counted twice. gt_parts == distinct_parts == 522 now holds BY ASSERTION (pcn_corpus_run.check_ground_truth aborts the run if it ever stops holding), so a divergence means a new duplicate document entered the corpus or a part number is shared across two notices, and both need a ruling before a score is quoted. 896, 898 and 924 are HISTORICAL denominators: reports predating 2026-10-12 keep theirs, and a score must always be cited with its denominator. The superseded note said \"Keep the duplicate pair -- it is how the two-ingest case is exercised\". That was wrong: scoring one document twice does not exercise two ingests, it inflates one document to 77% of the corpus. The two-ingest case is now exercised by the declared alias plus the per-fire declared-bytes check (pcn_corpus_gate.check_declared_bytes). The removed notices{} entry for the alias was identical to the Rev1_EOL entry in count (402), mpns (same 402, set-equal), malformed and headers (both empty); it differed only in manifest and source. Its manifest key, preserved here so the second ingest is not lost from the record, was: sustainment/inbound/generated/Diodes_PCN_2683_FULLGREEN_pdf/manifest.json. Four S3 keys hold these bytes (see inbound_copies on the document entry).",
     "documents": [
       {
@@ -514,7 +515,7 @@
     "observed": true,
     "fires": {
       "1": {
-        "exact": 15,
+        "exact": 14,
         "fields_scored": 16,
         "clean": true,
         "observed": true,
@@ -522,7 +523,7 @@
         "pending": []
       },
       "2": {
-        "exact": 15,
+        "exact": 14,
         "fields_scored": 16,
         "clean": true,
         "observed": true,
@@ -540,6 +541,41 @@
     },
     "failing_notices": []
   },
+  "customer_aliases": {
+    "advisory": true,
+    "fires": {
+      "1": {
+        "advisory": true,
+        "notices": 2,
+        "gt": 21,
+        "exact": 10,
+        "spurious": 0,
+        "missing": 11,
+        "cells": 8,
+        "clean": false
+      },
+      "2": {
+        "advisory": true,
+        "notices": 2,
+        "gt": 21,
+        "exact": 10,
+        "spurious": 0,
+        "missing": 11,
+        "cells": 8,
+        "clean": false
+      },
+      "3": {
+        "advisory": true,
+        "notices": 2,
+        "gt": 21,
+        "exact": 10,
+        "spurious": 0,
+        "missing": 11,
+        "cells": 8,
+        "clean": false
+      }
+    }
+  },
   "header_agreement": {
     "exit": 1,
     "blocks": false,
@@ -547,10 +583,10 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "mfr": "'TE' | 'TE Connecvity' | 'TE Connecvity'",
-          "mfr_source": "'TE' | 'TE Connecvity' | 'TE Connecvity'",
+          "mfr": "'TE Connecvity' | 'TE' | 'TE'",
+          "mfr_source": "'TE Connecvity' | 'TE' | 'TE'",
           "doc_level_ltb_date": "'2024-06-06' | '2024-06-06' | None   <- BLANK vs POPULATED, blank in: ['fire3.log']",
-          "doc_level_ltb_date_source": "'-2024' | '06-JUN-2024' | None   <- BLANK vs POPULATED, blank in: ['fire3.log']"
+          "doc_level_ltb_date_source": "'06-JUN-2024' | '06-JUN-2024' | None   <- BLANK vs POPULATED, blank in: ['fire3.log']"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
@@ -584,8 +620,8 @@
       "TI_PCN_20210316000.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "mfr": "'Texas Instruments Incorporated' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'",
-          "mfr_source": "'Texas Instruments Incorporated' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'"
+          "mfr": "'TEXAS INSTRUMENTS' | 'TEXAS INSTRUMENTS' | 'Texas Instruments'",
+          "mfr_source": "'TEXAS INSTRUMENTS' | 'TEXAS INSTRUMENTS' | 'Texas Instruments'"
         }
       },
       "IDT_PDN_OV-19-05.pdf": {
@@ -601,36 +637,36 @@
       "notice": "TI_PCN_20210316000.pdf",
       "field": "mfr",
       "forms": [
-        "'Texas Instruments Incorporated'",
-        "'Texas Instruments Incorporated'",
-        "'TEXAS INSTRUMENTS'"
+        "'TEXAS INSTRUMENTS'",
+        "'TEXAS INSTRUMENTS'",
+        "'Texas Instruments'"
       ]
     },
     {
       "notice": "TI_PCN_20210316000.pdf",
       "field": "mfr_source",
       "forms": [
-        "'Texas Instruments Incorporated'",
-        "'Texas Instruments Incorporated'",
-        "'TEXAS INSTRUMENTS'"
+        "'TEXAS INSTRUMENTS'",
+        "'TEXAS INSTRUMENTS'",
+        "'Texas Instruments'"
       ]
     },
     {
       "notice": "TYC-PCN-24-210412.pdf",
       "field": "mfr",
       "forms": [
-        "'TE'",
         "'TE Connecvity'",
-        "'TE Connecvity'"
+        "'TE'",
+        "'TE'"
       ]
     },
     {
       "notice": "TYC-PCN-24-210412.pdf",
       "field": "mfr_source",
       "forms": [
-        "'TE'",
         "'TE Connecvity'",
-        "'TE Connecvity'"
+        "'TE'",
+        "'TE'"
       ]
     },
     {
@@ -646,7 +682,7 @@
       "notice": "TYC-PCN-24-210412.pdf",
       "field": "doc_level_ltb_date_source",
       "forms": [
-        "'-2024'",
+        "'06-JUN-2024'",
         "'06-JUN-2024'",
         "None"
       ]
@@ -670,9 +706,9 @@
         "TI_PCN_20210316000.pdf",
         "mfr",
         [
-          "Texas Instruments Incorporated",
-          "Texas Instruments Incorporated",
-          "TEXAS INSTRUMENTS"
+          "TEXAS INSTRUMENTS",
+          "TEXAS INSTRUMENTS",
+          "Texas Instruments"
         ]
       ]
     ],
@@ -712,10 +748,12 @@
     "incomplete_identity": [],
     "identity_half_unstable": [],
     "identity_moving_fields": {},
-    "revision_half_unstable": []
+    "revision_half_unstable": [
+      "Diodes_PCN_2683_Rev1_EOL.pdf"
+    ]
   },
   "blocking": [
-    "TI_PCN_20210316000.pdf: WRITTEN header fields disagree across fires on `mfr` ['Texas Instruments Incorporated', 'Texas Instruments Incorporated', 'TEXAS INSTRUMENTS'] \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one"
+    "TI_PCN_20210316000.pdf: WRITTEN header fields disagree across fires on `mfr` ['TEXAS INSTRUMENTS', 'TEXAS INSTRUMENTS', 'Texas Instruments'] \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one"
   ],
   "exempted": []
 }
