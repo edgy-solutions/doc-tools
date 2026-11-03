@@ -168,6 +168,30 @@ a required job, not the scoping. Removing the scoping would block every PR
 whenever no fire has yet measured the pinned image, or the last one went void
 — the same wedge class, reached from the evidence side rather than the score.
 
+AMENDED 2026-11-03: the scoping stays and gains ONE NAMED LEG, the gate's own
+comparator. `corpus-gate`'s `if:` is now
+`changes.outputs.charts == 'true' || changes.outputs.gate_scripts == 'true'`,
+where `gate_scripts` is true for `scripts/pcn_corpus_gate.py` and
+`scripts/pcn_score.py` and nothing else. This is not the "removing the scoping"
+the paragraph above argues against: that would be dispatching on every diff,
+and the wedge it describes needs an unbounded surface to bite. Two named files
+is bounded, and it closes a hole measured on **#206** — a PR that rewrote the
+written-header equality key in `pcn_corpus_gate.py` while BOTH gate jobs
+concluded SKIPPED. The gate did not run on the PR that changed the gate.
+
+The cost is accepted and is the same shape, smaller: a stale or void nightly
+now blocks a PR to those two files too. That is the surface where blocking is
+most wanted — a comparator change is precisely what should not merge against an
+unverifiable report.
+
+`corpus-gate-verdict` is NOT widened, and the asymmetry is deliberate. The
+verdict is a literal the IMAGE wrote during its fire, so no edit to these
+scripts can move it: measured on #206's branch, the case-fold fix applied and
+`test_verdict_is_pass` still failing. Dispatching the advisory job on a
+comparator diff would report a red the PR cannot clear by any means available
+to it. The only thing that moves that verdict is a fresh fire from an image
+carrying the change — which arrives as a pin bump, which is `charts/**`.
+
 THE SPLIT THIS FILE NOW IMPLEMENTS. Two different questions were being asked
 by one assertion, and only the first belongs in a required check:
 

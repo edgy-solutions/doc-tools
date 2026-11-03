@@ -172,6 +172,35 @@ jobs:
       # typo inside the regex can only fail open. That asymmetry is the whole
       # reason this reads oddly.
       charts: ${{ steps.decide.outputs.charts }}
+      # Read by `corpus-gate` ONLY, as a second leg beside `charts` — never by
+      # `corpus-gate-verdict`, which keeps its chart-only scope by ruling
+      # 2026-11-03. True when the diff touches the gate's OWN comparator,
+      # `scripts/pcn_corpus_gate.py` or `scripts/pcn_score.py`.
+      #
+      # WHY IT EXISTS, MEASURED ON #206. That PR changed the written-header
+      # comparator in `scripts/pcn_corpus_gate.py` — the gate's own equality
+      # key — and BOTH gate jobs concluded SKIPPED, because `charts/**` was the
+      # only thing that dispatched them. A PR that rewrites how the gate grades
+      # was the one PR the gate never ran on. The fires still cannot run here
+      # (see the corpus-gate block), so what this buys is the guard: the
+      # committed report is re-asserted for schema, currency, corpus coverage
+      # and identity UNDER THE CHANGED COMPARATOR, which is exactly the code
+      # whose behaviour the PR is altering.
+      #
+      # IT IS A SECOND LEG, NOT A REPLACEMENT, AND THAT IS THE SAFETY. The
+      # `charts` block above explains why renaming an output fails in the wrong
+      # direction: a typo'd reference reads empty, the `if:` reads false, the
+      # job skips, and a skip satisfies the required context. That hazard is
+      # live for any NEW output a required job reads — so `corpus-gate`'s `if:`
+      # is written as `charts == 'true' || gate_scripts == 'true'`. A typo in
+      # this name can then only degrade the job to its pre-2026-11-03
+      # chart-only scope. It cannot make the gate inert, which is the failure
+      # the other comment is guarding against.
+      #
+      # THE NAME MATCHES THE PREDICATE HERE, unlike `charts` above: it is two
+      # named files, not a tree. Adding a path means widening the regex in
+      # `decide`, and a typo inside the regex can only fail open.
+      gate_scripts: ${{ steps.decide.outputs.gate_scripts }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -193,6 +222,7 @@ jobs:
 
           CODE=true
           CHARTS=true
+          GATE_SCRIPTS=true
 
           if [ "$EVENT_NAME" != "pull_request" ] && [ "$EVENT_NAME" != "push" ]; then
             echo "event is '$EVENT_NAME' (e.g. workflow_dispatch), no diff range applies -> code=true"
@@ -270,8 +300,45 @@ jobs:
             echo "a changed path matches ^charts/ or ^docs/corpus-gate/, or the diff could not be proven -> charts=true"
           fi
 
+          # GATE_SCRIPTS: the gate's own comparator, added 2026-11-03 by ruling
+          # after #206 changed `scripts/pcn_corpus_gate.py` and both gate jobs
+          # concluded SKIPPED. Same fail-open discipline and the same direction
+          # as CHARTS: an unprovable diff arrives here true. That is redundant
+          # rather than load-bearing — every case that leaves CHANGED unset or
+          # empty already sets CHARTS=true, so `corpus-gate` dispatches on the
+          # other leg anyway — but it is kept identical so there is one rule in
+          # this step and not two.
+          #
+          # ANCHORED AND EXACT, `$` included. These are two named files, not a
+          # tree, and `scripts/` holds six other `pcn_*` files that are NOT the
+          # gate's comparator (`pcn_corpus_run.py`, `pcn_crop_seal.py`,
+          # `pcn_gate_prefire.py`, `pcn_gate_publish.py`,
+          # `pcn_header_agreement.py`, `pcn_ground_truth.json`). None of them
+          # collides with an unanchored pattern today — checked, not assumed —
+          # so the `$` is there for the next `pcn_score_*.py` or
+          # `pcn_corpus_gate_*.py`, which would otherwise join this predicate
+          # silently and start pulling the currency assertion onto PRs that
+          # cannot affect the grading.
+          #
+          # THE SET IS NOT THE GATE'S FULL IMPORT CLOSURE, and that is the
+          # order as given (2026-11-03), not an oversight to fix in passing.
+          # `scripts/pcn_corpus_gate.py` imports `pcn_header_agreement` (which
+          # OWNS `WRITTEN_FIELDS`, the written arm's field list, re-exported
+          # here as `WRITTEN_ARM_FIELDS`), `pcn_score`, and two `doc_tools.utils`
+          # modules. A change to `pcn_header_agreement.py` alone therefore
+          # changes what the gate grades while matching nothing in this
+          # pattern — the same hole #206 fell through, one import further out.
+          # Raised for a ruling rather than widened here.
+          if [ -n "${CHANGED:-}" ] && ! echo "$CHANGED" | grep -qE '^scripts/(pcn_corpus_gate|pcn_score)\.py$'; then
+            GATE_SCRIPTS=false
+            echo "no changed path is the gate's own comparator -> gate_scripts=false"
+          else
+            echo "a changed path is scripts/pcn_corpus_gate.py or scripts/pcn_score.py, or the diff could not be proven -> gate_scripts=true"
+          fi
+
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           echo "charts=$CHARTS" >> "$GITHUB_OUTPUT"
+          echo "gate_scripts=$GATE_SCRIPTS" >> "$GITHUB_OUTPUT"
 
   resolve-release-image:
     # WHICH VERSION, FOR WHICH COMMIT, AND DOES AN IMAGE ALREADY EXIST FOR IT.
@@ -826,6 +893,22 @@ jobs:
     # just removed, reached from the staleness side. Currency only matters
     # where a pin can ship, and that is a chart diff.
     #
+    # WIDENED BY EXACTLY ONE LEG, 2026-11-03: the gate's own comparator. "A pin
+    # can ship" is not the only place currency matters, because a diff can
+    # change what the gate GRADES WITH. #206 rewrote the written-header equality
+    # key in `scripts/pcn_corpus_gate.py` and this job SKIPPED — the gate did
+    # not run on the PR that changed the gate. The `gate_scripts` output in
+    # `changes` is that second leg; see its comment there for why the `if:`
+    # below is a disjunction rather than a swap (a typo in the new name can then
+    # only degrade this job to its old chart-only scope, never to inert).
+    #
+    # THE WEDGE RISK ABOVE IS REAL FOR THIS LEG AND ACCEPTED. A stale or void
+    # nightly now blocks a PR to those two scripts as well as a chart PR. That
+    # is a narrower surface than "EVERY PR" — two files — and it is the surface
+    # where it matters most: a comparator change is exactly what you do NOT want
+    # to merge against an unverifiable report. `corpus-gate-verdict` below is
+    # deliberately NOT widened, so a red VERDICT still blocks only a pin.
+    #
     # NOT IN `build-and-push`'s `needs:`, following verify-image-pin above. This
     # job decides whether the CHART may change, not whether an image may be
     # produced — and a pin bump points at a digest that already exists, so
@@ -837,7 +920,9 @@ jobs:
     # d7434d6 incident its docstring cites), and it fails on a stale one, so a
     # report that stopped being produced cannot read as a pass.
     needs: changes
-    if: needs.changes.outputs.charts == 'true'
+    if: >-
+      needs.changes.outputs.charts == 'true' ||
+      needs.changes.outputs.gate_scripts == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -878,6 +963,20 @@ jobs:
     # extraction fix that turns it green. If you make it required, the escape
     # hatch has to be explicit (an override label the job reads), not the
     # `if:`.
+    #
+    # DELIBERATELY NOT WIDENED TO `gate_scripts`, ruled 2026-11-03 in the same
+    # breath as widening `corpus-gate` above. Do not "fix" the asymmetry: the
+    # two jobs assert different things and only one of them is safe to dispatch
+    # on a comparator diff. This one asserts the OUTCOME, and the outcome is a
+    # literal the IMAGE computed during its fire — so on a PR that changes the
+    # comparator the verdict in `docs/corpus-gate/latest.json` is still the OLD
+    # comparator's answer, and no edit to these scripts can move it. MEASURED
+    # on #206's branch: the fix applied, the test still failing, because the
+    # verdict is read and not recomputed. Dispatching this job on a comparator
+    # PR would therefore report a red that the PR cannot clear by any means
+    # available to it — a permanent false block, not a finding. The legitimate
+    # way to move that verdict is a fresh fire from an image carrying the
+    # change, which is what a pin bump brings, which is `charts/**`.
     needs: changes
     if: needs.changes.outputs.charts == 'true'
     runs-on: ubuntu-latest
