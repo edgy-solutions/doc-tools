@@ -86,6 +86,53 @@ def test_a_populated_value_difference_without_needs_review_blocks():
     assert exempted == []
 
 
+# 2a -----------------------------------------------------------------------
+def test_a_case_only_difference_is_agreement_not_a_disagreement():
+    """THE 2026-11-02 RULING. Three fires wrote TI's `mfr` as
+    `['TEXAS INSTRUMENTS', 'TEXAS INSTRUMENTS', 'Texas Instruments']` on
+    identical bytes. The SCORER credits that pair -- comparison is
+    canonical-after-alias and `pcn_score._fold_text` folds case -- while this
+    arm blocked on it, so one report held two standards for one string."""
+    res = gate.compare_written_headers(
+        _fires(_wh(mfr="TEXAS INSTRUMENTS"), _wh(mfr="TEXAS INSTRUMENTS"),
+               _wh(mfr="Texas Instruments")))
+    assert res["verdicts"][FN] == "agree"
+    assert res["disagreements"] == []
+    blocking, exempted = gate.apply_written_arm(
+        res, _reviews(f1=False, f2=False, f3=False))
+    assert blocking == [] and exempted == []
+
+
+# 2b -----------------------------------------------------------------------
+def test_a_difference_beyond_case_still_blocks_and_prints_what_was_written():
+    """The arm keeps its teeth. The shape this same field took on 2026-10-29 --
+    the full legal name against a shouted short one -- is not a case variant and
+    still blocks, and the evidence prints what each fire WROTE, never the key it
+    was compared by."""
+    res = gate.compare_written_headers(
+        _fires(_wh(mfr="Texas Instruments Incorporated"),
+               _wh(mfr="Texas Instruments Incorporated"),
+               _wh(mfr="TEXAS INSTRUMENTS")))
+    assert res["verdicts"][FN] == "DISAGREE"
+    assert res["disagreements"] == [
+        (FN, "mfr", ["Texas Instruments Incorporated",
+                     "Texas Instruments Incorporated", "TEXAS INSTRUMENTS"])]
+    blocking, _ = gate.apply_written_arm(
+        res, _reviews(f1=False, f2=False, f3=False))
+    assert len(blocking) == 1 and "TEXAS INSTRUMENTS" in blocking[0]
+
+
+# 2c -----------------------------------------------------------------------
+def test_case_is_folded_but_whitespace_is_not():
+    """`_fold_text` collapses whitespace as well as case; this equality key
+    deliberately stops at case. Two fires that wrote differently-spaced values
+    read the field differently, and that stays a disagreement."""
+    res = gate.compare_written_headers(
+        _fires(_wh(mfr="TE Connectivity"), _wh(mfr="TE  Connectivity"),
+               _wh(mfr="TE Connectivity")))
+    assert res["verdicts"][FN] == "DISAGREE"
+
+
 # 3 ------------------------------------------------------------------------
 def test_the_same_difference_declared_in_all_three_fires_is_exempted():
     res = gate.compare_written_headers(
