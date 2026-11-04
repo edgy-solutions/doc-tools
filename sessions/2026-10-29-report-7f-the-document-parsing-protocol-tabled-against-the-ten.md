@@ -396,9 +396,10 @@ coordinate space** for sidecar boxes (§8). All three are places where our corpu
 paid for the knowledge and the draft was silent at `a9c49e2` — the commit this
 report tabled against, and still that repo's head when the issue was posted.
 
-The issue was posted with no label and no comment on it. **Maintainer replies
-are watched, and any answer that changes a rule goes to the architect as a
-one-line note, not a code change** — ruled by Chris, 2026-11-04. Nothing in this
+The issue was posted with no label and no comment on it. **Chris watches for
+maintainer replies and forwards them — no scheduled routine and no lane-side
+poll — and any answer that changes a rule goes to the architect as a one-line
+note, not a code change** — ruled by Chris, 2026-11-04. Nothing in this
 repo changes because the draft moves; the draft is corroboration, not a binding,
 and `docs/contracts/batch-column-map.md` §12 says so in its own words.
 
