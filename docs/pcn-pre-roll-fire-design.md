@@ -87,25 +87,36 @@ after the fact; this repo has already put three live credentials into one.
 The same rule governs reading the pod's env: filter on key names, never
 `grep -i <word>`, which matches inside a value.
 
-## Timing, and the lock that nothing enforces
+## Timing, and the lock a fire must take
 
 - A fire measured **2h22m-2h34m** wall clock on this corpus. The work is ~99%
   blocked on network — vision and header calls — and was sized from the 07:00Z
   run at 4 millicores / 633 MiB.
 - `activeDeadlineSeconds: 21600` (6h) and `startingDeadlineSeconds: 3600`. The
   deadline is four times a fire; it is a runaway stop, not a schedule.
-- **The 90-minute roll-lock convention is shorter than one fire.** A fire taken
-  under a 90-minute lock overruns the lock by an hour, every time. Hold
-  `sandbox/roll-lock` for the measured duration plus the publish, or say
-  plainly that the fire runs unlocked.
+- **RULED 2026-11-04 (Chris): a hand fire takes the roll lock.** Not a new lock
+  and not a new guard — **the same `sandbox/roll-lock` ConfigMap**, held the
+  same way a roll holds it. So a fire never runs unlocked, and two fires of
+  different digests cannot overlap, because the second one waits on the lock
+  rather than on a mechanism that does not exist.
+- **The 90-minute convention is shorter than one fire.** A fire taken under a
+  90-minute lock overruns it by an hour, every time. Declare the measured
+  duration plus the publish, and say that it exceeds the default rather than
+  declaring 90 minutes and overrunning it quietly. Two candidates in one window
+  is ~5h serial under the ruling above; that is the price of the ruling, and it
+  is the right price — the alternative was two reports and no way to tell which
+  image either one measured.
 - `sandbox/roll-lock` is a ConfigMap **asserted by the operator and verified by
   nothing** on this path. The only script in the tree that requires naming a
   holder is `scripts/neo4j_concept_id_migration.py --under-lock LANE/ISO8601`.
-  The fire does not check it. Do not read a quiet fire as a held lock.
+  **`pcn_gate_prefire.py` does not check the lock**, so the ruling above is
+  carried by the operator and by nothing else. Do not read a quiet fire as a
+  held lock, and do not read the ruling as a guard.
 - `concurrencyPolicy: Forbid` is on the **CronJob**, so it governs scheduled
-  runs only. Two hand-applied fires of **different** digests have no guard at
-  all and will run concurrently; two of the *same* digest collide on the job
-  name and the apply reports it. This is the live edge of the hazard below.
+  runs only; it is not what serializes hand fires — the lock is. Two
+  hand-applied fires of **different** digests are held apart by the lock alone;
+  two of the *same* digest additionally collide on the default job name
+  (`pcn-gate-preroll-<short12>`) and the `apply` reports it.
 
 ## Four traps, each one already paid for
 
@@ -148,13 +159,11 @@ gate.
 
 ## What this note does not settle
 
-- **Whether the fire may run unlocked.** The lock is unenforced and shorter
-  than the fire. Someone has to rule: extend the convention to the measured
-  duration, or state that a pre-roll fire is exempt because it writes only to a
-  machine-owned branch.
-- **Concurrent fires of different digests.** Nothing prevents them today. If
-  two candidates ever need measuring in one window, that needs a guard before
-  it needs a schedule.
+Two of the three questions this note opened were **ruled on 2026-11-04** and
+are written into the lock section above: a hand fire takes `sandbox/roll-lock`,
+and that same lock — not a new mechanism — is what keeps two fires of different
+digests from overlapping. One is left:
+
 - **Exemptions.** A one-fire BLANK is exemptable; an intermittent cut never
   earns the instability exemption. A fire that produces one is a fire to
   repeat, not a fire to argue about.
