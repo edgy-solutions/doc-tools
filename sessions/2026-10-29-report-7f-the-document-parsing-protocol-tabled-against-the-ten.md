@@ -171,6 +171,12 @@ rule for a header label sitting over the wrong column**, and it will need one,
 because that is not a rare defect — it was one of three "silent zero" causes we
 found across nine notices.
 
+**POSTED UPSTREAM 2026-11-04** as gap 2 of
+[run-llama/document_parsing_protocol#6](https://github.com/run-llama/document_parsing_protocol/issues/6).
+The offset is described there on an invented page with invented part numbers;
+the notice named above, its filename and its page number appear nowhere in the
+issue.
+
 ---
 
 ## 5. Forms
@@ -204,6 +210,16 @@ band and `TEXAS INSTRUMENTS` as the logo wordmark. Both are verbatim-correct. A
 protocol that says "verbatim" and stops cannot say which, and a conformance checker
 built on it will score a correct parse wrong. **This is the single most useful thing
 we could send upstream.**
+
+**POSTED UPSTREAM 2026-11-04** as gap 1 of
+[run-llama/document_parsing_protocol#6](https://github.com/run-llama/document_parsing_protocol/issues/6)
+— gap 1 precisely because of the sentence above. The issue carries the shape of
+this defect with an invented manufacturer and an invented part; the real
+wordmark pair that produced it is not named there. It also carries the second
+instance added on 2026-11-03: the same two-readings problem recurring in another
+field, where it cost a red release gate until the comparator was made to fold
+case. That is the only place in the issue where we can say what the
+incompleteness cost in days.
 
 ---
 
@@ -335,6 +351,12 @@ that makes a fraction comparable across them is carrying the page dimensions
 alongside. A sidecar that lists boxes without declaring their space is one producer
 change away from the same bug.
 
+**POSTED UPSTREAM 2026-11-04** as gap 3 of
+[run-llama/document_parsing_protocol#6](https://github.com/run-llama/document_parsing_protocol/issues/6).
+Described there as one extractor carrying two coordinate spaces, with invented
+coordinates; neither vendor is named and the page dimensions trick is given as
+the remedy.
+
 ---
 
 ## 9. Verdict tally
@@ -364,11 +386,21 @@ principles:
   whole decline apparatus implements**; never-drop we fail by design, being a field
   extractor.
 
-**Three things worth sending upstream**, if anyone is corresponding with the draft:
-a rule for **two verbatim-correct readings of one field** (§5), a rule for a
-**header label offset from its data column** (§4), and a **declared coordinate
-space** for sidecar boxes (§8). All three are places where our corpus paid for the
-knowledge and the draft is currently silent.
+**Three things worth sending upstream** — **all three POSTED 2026-11-04** as
+[run-llama/document_parsing_protocol#6](https://github.com/run-llama/document_parsing_protocol/issues/6),
+by Chris under his own account, as one free-form issue (that repo has
+`blank_issues_enabled: true` and discussions **disabled**, so an issue was the
+only channel): a rule for **two verbatim-correct readings of one field** (§5), a
+rule for a **header label offset from its data column** (§4), and a **declared
+coordinate space** for sidecar boxes (§8). All three are places where our corpus
+paid for the knowledge and the draft was silent at `a9c49e2` — the commit this
+report tabled against, and still that repo's head when the issue was posted.
+
+The issue was posted with no label and no comment on it. **Maintainer replies
+are watched, and any answer that changes a rule goes to the architect as a
+one-line note, not a code change** — ruled by Chris, 2026-11-04. Nothing in this
+repo changes because the draft moves; the draft is corroboration, not a binding,
+and `docs/contracts/batch-column-map.md` §12 says so in its own words.
 
 ---
 

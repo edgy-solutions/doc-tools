@@ -1,5 +1,9 @@
 # DPP issue text — ready to paste
 
+**POSTED 2026-11-04 15:05:58Z as run-llama/document_parsing_protocol#6** —
+https://github.com/run-llama/document_parsing_protocol/issues/6 — by Chris under
+his own account. DO NOT POST AGAIN; this file is now the record of what was sent.
+
 **For Chris, to post under his name on the DPP repo.** This lane does not post it.
 Supersedes the body of
 `sessions/2026-10-29-draft-issue-for-the-dpp-repo-three-gaps-synthetic-only.md`,
