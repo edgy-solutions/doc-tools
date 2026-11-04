@@ -169,20 +169,37 @@ whenever no fire has yet measured the pinned image, or the last one went void
 — the same wedge class, reached from the evidence side rather than the score.
 
 AMENDED 2026-11-03: the scoping stays and gains ONE NAMED LEG, the gate's own
-comparator. `corpus-gate`'s `if:` is now
+script surface. `corpus-gate`'s `if:` is now
 `changes.outputs.charts == 'true' || changes.outputs.gate_scripts == 'true'`,
-where `gate_scripts` is true for `scripts/pcn_corpus_gate.py` and
-`scripts/pcn_score.py` and nothing else. This is not the "removing the scoping"
-the paragraph above argues against: that would be dispatching on every diff,
-and the wedge it describes needs an unbounded surface to bite. Two named files
-is bounded, and it closes a hole measured on **#206** — a PR that rewrote the
-written-header equality key in `pcn_corpus_gate.py` while BOTH gate jobs
-concluded SKIPPED. The gate did not run on the PR that changed the gate.
+where `gate_scripts` is true for four named paths and nothing else:
+`scripts/pcn_corpus_gate.py`, `scripts/pcn_score.py`,
+`scripts/pcn_header_agreement.py` and `scripts/pcn_ground_truth.json`. This is
+not the "removing the scoping" the paragraph above argues against: that would
+be dispatching on every diff, and the wedge it describes needs an unbounded
+surface to bite. Four named files is bounded, and it closes a hole measured on
+**#206** — a PR that rewrote the written-header equality key in
+`pcn_corpus_gate.py` while BOTH gate jobs concluded SKIPPED. The gate did not
+run on the PR that changed the gate; the same skip then repeated on main's own
+push build of `5c113ce`.
 
-The cost is accepted and is the same shape, smaller: a stale or void nightly
-now blocks a PR to those two files too. That is the surface where blocking is
-most wanted — a comparator change is precisely what should not merge against an
-unverifiable report.
+WHAT THIS FILE CAN AND CANNOT SEE, stated here because it is the honest limit of
+that widening. This module imports json, re, warnings, pathlib and pytest. It
+never imports the comparator, so for three of the four paths it cannot observe
+the change that dispatched it — what it asserts is that the committed report is
+still evidence (schema, currency, corpus coverage, identity) at the moment a
+comparator change lands. The fourth path is different in kind:
+`scripts/pcn_ground_truth.json` is read BY THIS FILE (the `_corpus` block and
+its enumeration), so an edit to it moves these assertions directly, and until
+2026-11-03 that edit dispatched neither gate job. The comparator's BEHAVIOUR is
+covered elsewhere and was never ungated: the `tests` job loads
+`pcn_corpus_gate`, `pcn_score` and `pcn_header_agreement` by
+`spec_from_file_location` across a dozen modules and dispatches on `code`, which
+any `scripts/` edit sets. #206 was tested; it was only ungated here.
+
+The cost is accepted and is the same shape, smaller: a stale or void nightly now
+blocks a PR to those four files too. That is the surface where blocking is most
+wanted — a comparator or ground-truth change is precisely what should not merge
+against an unverifiable report.
 
 `corpus-gate-verdict` is NOT widened, and the asymmetry is deliberate. The
 verdict is a literal the IMAGE wrote during its fire, so no edit to these
