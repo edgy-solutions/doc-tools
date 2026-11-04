@@ -1214,7 +1214,55 @@ image:
   # corroborated the pod `imageID` against the candidate before the run was
   # trusted. Its report lands on `corpus-gate/preroll-03599b10afcd` and is
   # cherry-picked into this PR, so the pin and its measurement land together.
-  digest: "sha256:03599b10afcd5be49bd46f515db92ad4d694849f576484dad23847c9cf4b5290"
+  # ------------------------------------------------------------------
+  # 2026-11-03, doc-tools lane 7f (doc-tools roll 59): `main` at `5c113ce`
+  # (#206), index `sha256:ae8b23fe`. THE TWO-STAGE NOTE ABOVE IS BACK IN FORCE.
+  # Unlike the v0.2.3 pin this replaces, this is NOT a tag added to an index CI
+  # had already built and gated -- it is a fresh build of a new `main` sha, so
+  # the expectation is not known before the roll. `digest:` moves in THIS
+  # commit; `corpusGate.expectImage` stays at `03599b10` until the pre-roll
+  # Job's pod reports its own `imageID`, and then moves in the SAME PR as the
+  # commit that cherry-picks the pre-roll report. It is NOT copied from the
+  # digest typed below -- that would make the gate compare this file against
+  # itself, which is the whole point of the two-stage rule.
+  #
+  # BOTH INDEX CHILDREN INSPECTED BEFORE THIS EDIT, per the arm64 rule above,
+  # and each CONFIG BLOB was read so the architecture is the one the child was
+  # actually built for rather than the index platform claim:
+  #     linux/amd64  sha256:b6a3294bc6f1d041b44f7314f9b9458ceca9fc024c261345ab845e8d15d9d85d
+  #     linux/arm64  sha256:904c3b4f1b0e39b83e10732701787e312efaf9b99964807077c79a83be6d8a03
+  #       both: org.opencontainers.image.revision = 5c113ce5c7533b40b22a282886c31120376c4e89
+  #             created 2026-11-03T03:52:25Z (amd64) / 03:57:11Z (arm64)
+  # plus the two unknown/unknown buildx attestation manifests, which satisfy no
+  # platform. The `version` LABEL on both children reads `latest`, as it does on
+  # any ordinary main build; `:latest` and the commit-sha tag
+  # `:5c113ce5c7533b40b22a282886c31120376c4e89` both resolve to this same index,
+  # read from the registry rather than from the label.
+  #
+  # WHY THIS PIN EXISTS. The deployed gate grades the written header arm with
+  # the comparator BAKED INTO THE IMAGE, and the pin this replaces (`03599b10`
+  # = `0f19cf2`, #202) PREDATES #206: its written arm compares the written value
+  # WITHOUT folding case, while the scorer it is compared against folds. The TI
+  # advisory red is that disagreement and nothing else, so no fire of the old
+  # pin can clear it -- the same shape as the 522 -> 512 denominator case
+  # recorded two blocks up. Only an image containing #206 can agree with its own
+  # scorer, which is why this is the fix and not merely its beneficiary.
+  #
+  # THIS PIN IS RED BY CONSTRUCTION UNTIL ITS FIRE LANDS, and that is the
+  # convention working, not a defect to route around. The required `corpus-gate`
+  # guard asserts the committed report measures the digest this chart pins; the
+  # newest report (`2026-11-02T221352Z`) measures `03599b10`. The red clears
+  # when a 2h30m pre-roll fire of THIS index publishes a report that is
+  # cherry-picked here. Until then this PR is for review, not for merge.
+  #
+  # IF tr's #172 / #194 / #195 LAND FIRST, THIS DIGEST MOVES AGAIN. The ruling
+  # of 2026-11-03 is that one fire carries the case-fold fix and tr's work
+  # together rather than spending two 2h30m windows. `main` had not advanced
+  # past `5c113ce` when this was typed, so `ae8b23fe` is the only index that
+  # exists to pin; if that chain merges before the window opens, re-point this
+  # line at the later index and REGENERATE the two child digests above rather
+  # than carrying them forward.
+  digest: "sha256:ae8b23fe579fcc68d339f9b9ea8bf0d5e7e445a021740e1b41e9b458e8dde25a"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
