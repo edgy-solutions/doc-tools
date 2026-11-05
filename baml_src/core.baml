@@ -1,7 +1,7 @@
 class Section {
   title string
   level int
-  start_page int @description("The page number where this section begins based on the Table of Contents or page markers")
+  start_page int? @description("The page number where this section begins based on the Table of Contents or page markers")
   end_page int? @description("The page number where this section ends")
   subsections Section[]
 }

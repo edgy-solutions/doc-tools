@@ -1,0 +1,40 @@
+{
+  "sections": [
+    {
+      "title": "Hydraulic Systems Fundamentals",
+      "level": 1,
+      "start_page": null,
+      "end_page": null,
+      "subsections": []
+    },
+    {
+      "title": "Module 1: fixture deck for the training-workbench contract",
+      "level": 1,
+      "start_page": null,
+      "end_page": null,
+      "subsections": [
+        {
+          "title": "Pascal's Law",
+          "level": 2,
+          "start_page": null,
+          "end_page": null,
+          "subsections": []
+        },
+        {
+          "title": "Hydraulic Pumps",
+          "level": 2,
+          "start_page": null,
+          "end_page": null,
+          "subsections": []
+        },
+        {
+          "title": "Reservoir Schematic",
+          "level": 2,
+          "start_page": null,
+          "end_page": null,
+          "subsections": []
+        }
+      ]
+    }
+  ]
+}
