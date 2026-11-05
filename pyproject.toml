@@ -155,6 +155,17 @@ dependencies = [
     "iagent-mesh @ git+https://github.com/edgy-solutions/iagent-mesh-sdk.git@v0.9.11",
     "starlette>=0.52.1",
     "uvicorn>=0.41.0",
+    # Profile validator (doc_tools/batch). MEASURED: both were importable in the venv only
+    # TRANSITIVELY -- jsonschema solely via dagster `test-components` extra (not even a hard
+    # dagster dependency), PyYAML via torch/timm/accelerate. A validator built on them would be an
+    # undeclared dependency masked by an unrelated package, as iagent-mesh once masked dag-tools
+    # undeclared fastapi. uv.lock IS regenerated, and had to be: the `tests` job runs `uv sync
+    # --locked`, which ASSERTS lock and pyproject agree and fails loudly if not. `uv lock` moved
+    # NO version -- 383 packages before and after, a four-line diff promoting both from
+    # transitive to direct -- because both were already in the resolution. `uv sync` is the
+    # command that removes the spaCy model; `uv lock` does not touch the venv.
+    "jsonschema>=4.26",
+    "pyyaml>=6.0",
 ]
 
 
