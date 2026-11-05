@@ -179,7 +179,7 @@ class PartRow(BaseModel):
 class Section(BaseModel):
     title: str
     level: int
-    start_page: int = Field(description='The page number where this section begins based on the Table of Contents or page markers')
+    start_page: typing.Optional[int] = Field(default=None, description='The page number where this section begins based on the Table of Contents or page markers')
     end_page: typing.Optional[int] = Field(default=None, description='The page number where this section ends')
     subsections: typing.List["Section"]
 

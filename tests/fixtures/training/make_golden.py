@@ -57,42 +57,44 @@ EXAMPLE_RELATED = {
     "Hydraulic pump": ["Pump"],
     "Hydraulic tank": ["Hydraulic reservoir"],
 }
-# EXAMPLE Section notes (contract 4.1), keyed by section suffix. "_s2" has none: its
+# EXAMPLE Section notes (contract 4.1), keyed by section suffix. "_s1_s2" has none: its
 # `summary` is absent and `objectives` is empty, which a section can legitimately be.
 EXAMPLE_NOTES = {
     "_s0": ("An orientation to what hydraulic systems do and why they are used.",
             ["Explain what a hydraulic system does"]),
     "_s1": ("Pressure applied to a confined fluid transmits equally; the pump is what makes it.",
             ["State Pascal's law", "Identify the main parts of a pump circuit"]),
-    "_s1_s0": ("How a hydraulic pump converts mechanical power into fluid flow.",
+    "_s1_s0": ("Pressure on a confined fluid is transmitted equally in every direction.",
+               ["State Pascal's law"]),
+    "_s1_s1": ("How a hydraulic pump converts mechanical power into fluid flow.",
                ["Describe how a gear pump moves fluid"]),
-    "_s2": (None, []),
+    "_s1_s2": (None, []),
 }
-# PROVISIONAL ExtractOutline reply (recorded: false), pinned so a re-run compares
-# rather than regenerates. Titles and nesting are the LLM's; its pages are wrong on
-# purpose (the measured defect), and the real outline pass ignores them: it anchors
-# each title to the page whose Title element carries it. "Accumulator Sizing"
-# anchors nowhere, so it is dropped. To be replaced by a recorded sandbox reply
-# before the PR leaves draft.
+# Recorded sandbox ExtractOutline reply (2026-11-05, gpt-oss-128k:120b, prompt sha
+# 946e5e12, deck sha 895392ac), as the model gave it. 1 of 3 samples had null pages
+# on every section and this is that one, kept because it is the case the optional
+# `start_page` fixes. The other two had integer pages (wrong ones: 1..5 for a 4-slide
+# deck) and differed in nesting. The outline pass ignores LLM pages.
 FALLBACK_OUTLINE = [
-    {"title": "Hydraulic Systems Fundamentals", "level": 1, "start_page": 2, "end_page": 2,
-     "subsections": []},
-    {"title": "Pascal's Law", "level": 1, "start_page": 1, "end_page": 4,
-     "subsections": [
-         {"title": "Hydraulic Pumps", "level": 2, "start_page": 2, "end_page": 2,
+    {"title": "Hydraulic Systems Fundamentals", "level": 1, "start_page": None,
+     "end_page": None, "subsections": []},
+    {"title": "Module 1: fixture deck for the training-workbench contract", "level": 1,
+     "start_page": None, "end_page": None, "subsections": [
+         {"title": "Pascal's Law", "level": 2, "start_page": None, "end_page": None,
+          "subsections": []},
+         {"title": "Hydraulic Pumps", "level": 2, "start_page": None, "end_page": None,
+          "subsections": []},
+         {"title": "Reservoir Schematic", "level": 2, "start_page": None, "end_page": None,
           "subsections": []}]},
-    {"title": "Reservoir Schematic", "level": 1, "start_page": 3, "end_page": 0,
-     "subsections": []},
-    {"title": "Accumulator Sizing", "level": 1, "start_page": 4, "end_page": 4,
-     "subsections": []},
 ]
 # What the real pass must derive from FALLBACK_OUTLINE and the deck's elements.
 # (suffix, title, level, start_page, end_page, parent_suffix)
 EXPECTED_SECTIONS = [
     ("_s0", "Hydraulic Systems Fundamentals", 1, 1, 1, None),
-    ("_s1", "Pascal's Law", 1, 2, 3, None),
-    ("_s1_s0", "Hydraulic Pumps", 2, 3, 3, "_s1"),
-    ("_s2", "Reservoir Schematic", 1, 4, 4, None),
+    ("_s1", "Module 1: fixture deck for the training-workbench contract", 1, 1, 4, None),
+    ("_s1_s0", "Pascal's Law", 2, 2, 2, "_s1"),
+    ("_s1_s1", "Hydraulic Pumps", 2, 3, 3, "_s1"),
+    ("_s1_s2", "Reservoir Schematic", 2, 4, 4, "_s1"),
 ]
 # No two COVERS scores in a section tie, so concept_summary's order is defined.
 
@@ -249,11 +251,10 @@ def main() -> None:
             "outline": {
                 "source": "llm",
                 "fallback": FALLBACK_OUTLINE,
-                "recorded": False,
-                "note": "The pinned ExtractOutline reply (neo4j.outline.fallback) with its pages "
-                        "as the LLM gave them, wrong ones included; the real outline pass ignores "
-                        "them. Provisional, replaced by a recorded sandbox ExtractOutline reply "
-                        "before the PR leaves draft. A re-run compares its LLM titles to these "
+                "recorded": True,
+                "note": "The recorded sandbox ExtractOutline reply (2026-11-05, gpt-oss-128k:120b) "
+                        "(neo4j.outline.fallback) with its pages as the LLM gave them (null); the "
+                        "real outline pass ignores them. A re-run compares its LLM titles to these "
                         "and reports the difference, rather than overwriting.",
             },
             "nondeterministic": {
