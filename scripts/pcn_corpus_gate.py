@@ -362,6 +362,37 @@ def unstable_raw_rows(parsed_notices):
 WRITTEN_ARM_FIELDS = hdr_agreement.WRITTEN_FIELDS
 
 
+def _written_equality_key(v):
+    """The key two fires' written values are compared BY -- not the value either
+    fire wrote, which is what the evidence keeps printing.
+
+    CASE IS FOLDED, AND ONLY CASE, ruled 2026-11-02. The SCORER already folds
+    it: `pcn_score._fold_text` ("case- and whitespace-insensitive form, for
+    deciding whether two header strings carry the same CONTENT") is what decides
+    a header field once an exact match has failed, so canonical-after-alias
+    credits a written `TEXAS INSTRUMENTS` against a canonical
+    `Texas Instruments`. This arm compared raw and blocked on that same pair, so
+    two instruments in one report disagreed about one string -- TI's `mfr`,
+    `['TEXAS INSTRUMENTS', 'TEXAS INSTRUMENTS', 'Texas Instruments']`, on
+    identical bytes. A gate cannot hold a fire to a standard the score does not.
+
+    IT DOES NOT COLLAPSE WHITESPACE, which `_fold_text` additionally does, and
+    that omission is deliberate rather than an oversight: the ruling was about
+    case. Two fires that wrote differently-spaced values read the field
+    differently, and that stays a disagreement.
+
+    NOT A WEAKENING OF THE ARM. A value difference beyond case still blocks --
+    including the shape this same field took on 2026-10-29,
+    `['Texas Instruments Incorporated', 'Texas Instruments Incorporated',
+    'TEXAS INSTRUMENTS']`, which these keys still separate. Non-strings keep
+    their exact comparison; `None` never reaches here, the blank arm takes it
+    first.
+    """
+    if isinstance(v, str):
+        return json.dumps(v.casefold())
+    return json.dumps(v, sort_keys=True, default=str)
+
+
 def compare_written_headers(from_corpus, expected=None):
     """Compare each notice's `written_header` across the fires.
 
@@ -420,8 +451,7 @@ def compare_written_headers(from_corpus, expected=None):
                 out["blank_rows"].append((fn, field, seen, blank))
                 if verdict != "DISAGREE":
                     verdict = "BLANK"
-            elif len({json.dumps(v, sort_keys=True, default=str)
-                      for v in seen.values()}) > 1:
+            elif len({_written_equality_key(v) for v in seen.values()}) > 1:
                 out["disagreements"].append((fn, field, [seen[n] for n in live]))
                 verdict = "DISAGREE"
         out["verdicts"][fn] = verdict

@@ -1171,7 +1171,50 @@ image:
   # both #176 and `8ccda54`: the header arm that blocks on the WRITTEN value,
   # and the onsemi parts-crop retry (`bd235fb`), have never once run in a
   # deployed gate. This pin is the first that carries them.
-  digest: "sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5"
+  # ------------------------------------------------------------------
+  # 2026-11-02, doc-tools lane 7f (doc-tools roll 58): v0.2.3, `0f19cf2` (#202),
+  # index `sha256:03599b10`. THE TWO-STAGE NOTE ABOVE IS SUPERSEDED FOR THIS
+  # PIN, for the same reason as the v0.2.2 pin: v0.2.3 is a tag ADDED to the
+  # index CI had already built for `0f19cf2` -- `build-and-push` SKIPPED on both
+  # tag runs and `tag-release-image` added the tag with `imagetools`, which
+  # preserves the index digest. So `digest:` and `corpusGate.expectImage` move in
+  # ONE commit, and the expectation is not guessed from the digest typed below:
+  # the pre-roll Job pod reported this exact index digest as its own `imageID`,
+  # which is the pod-sourced read the two-stage convention exists to wait for.
+  #
+  # BOTH INDEX CHILDREN INSPECTED BEFORE THIS EDIT, per the arm64 rule above,
+  # and each CONFIG BLOB was read so the architecture is the one the child was
+  # actually built for rather than the index platform claim:
+  #     linux/amd64  sha256:0153934d15530757777db5ac6381279dfbf146d085ce49636377b5410bdcfbae
+  #     linux/arm64  sha256:3720adc661bf288d497e129d2309e9903b1e73d5562413a9438f3cf170eeda73
+  #       both: org.opencontainers.image.revision = 0f19cf21b2439b94b49cff08849b9d4c19d71351
+  #             created 2026-11-01T04:33:07Z (amd64) / 04:48:56Z (arm64)
+  # plus the two unknown/unknown buildx attestation manifests, which satisfy no
+  # platform. NOTE the version LABEL on both children reads `latest`, not
+  # `v0.2.3`: the children were built on the `main` merge and the release tag was
+  # added to the index afterwards, so an image version label is not the release
+  # tag it is pinned under. Read the tag from the registry, never from the label.
+  #
+  # WHY THIS ROLL EXISTS, and it is not a feature roll. The required
+  # `corpus-gate` check has been RED for every chart PR since 2026-10-29, when
+  # #191 re-labelled the corpus denominator 522 -> 512. The gate scores against
+  # the ground truth BAKED INTO THE IMAGE, and the pin this replaces
+  # (`01f016e4` = `96d7b705`, #179) PREDATES #191: read out of the running pod,
+  # its `scripts/pcn_ground_truth.json` declares `gt_parts: 522` and carries no
+  # `customer_mpn` at all. So NO fire of the old pin could produce a report the
+  # guard accepts -- it would re-emit 522 and be refused for the same
+  # denominator mismatch, which is why the fresh-fire remedy on its own does not
+  # lift this red. Only an image containing #191 can measure 512, so this pin
+  # bump is the fix and not merely its beneficiary.
+  #
+  # MEASURED BEFORE THE PIN, not after. The pre-roll gate fire
+  # `pcn-gate-preroll-03599b10afcd` ran THIS EXACT INDEX in `sandbox` from
+  # 2026-11-02T19:44Z, under the `sandbox/roll-lock` ConfigMap held by
+  # `doc-tools/lane/7f` with a declared end; `scripts/pcn_gate_prefire.py`
+  # corroborated the pod `imageID` against the candidate before the run was
+  # trusted. Its report lands on `corpus-gate/preroll-03599b10afcd` and is
+  # cherry-picked into this PR, so the pin and its measurement land together.
+  digest: "sha256:03599b10afcd5be49bd46f515db92ad4d694849f576484dad23847c9cf4b5290"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
@@ -1487,7 +1530,7 @@ corpusGate:
   # scratchpad/preroll_diff_roll56.log. The nightly CronJob is `suspend: true`
   # as of this same pin (#179), so no scheduled run could fall inside the
   # window at all -- the first roll of the two that has had that protection.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:01f016e430eb19d237da2742af3429df7393c4262e8735c34b8e1e6c517c8ea5"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:03599b10afcd5be49bd46f515db92ad4d694849f576484dad23847c9cf4b5290"
   publish:
     repo: edgy-solutions/doc-tools
 

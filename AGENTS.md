@@ -31,6 +31,25 @@ a fresh session repeating a retracted measurement.
    `parts_from_grid` / `parts_from_pages` directly over the PDFs, baseline and
    candidate, as the validation report's "How it was run" describes.
 
+## Batch fixtures - the operator path, and it is not the pipeline
+
+`doc_tools/batch/` turns SAVED extraction responses into fixture rows and scores
+them against a hand-typed truth set. Nothing under `doc_tools/` imports it: it
+is a CLI an operator runs on their own box, with no network and no credentials,
+and it is in no deployed image.
+
+- [`docs/batch-fixture-runbook.md`](docs/batch-fixture-runbook.md) - the
+  operator runbook. Invocation, the private file layout, the truth-set format,
+  what the scorecard shows, and which single output file may be shown to anyone.
+- [`docs/contracts/batch-column-map.md`](docs/contracts/batch-column-map.md) -
+  the column-map contract, at `contract_version: 2`.
+
+**Two rules here that are not negotiable.** Do not add a fetch mode to either
+command: a tool that can fetch is a tool that can be pointed at prod and piped
+into a transcript. And do not make the scorer normalise before comparing - not
+case, not whitespace, not date form - because a scorer that normalises again
+hides the defect it exists to find.
+
 ## Workflow Guide
 0. **Pre-flight Environment**: Substrate priming (graph constraints, vector schemas, foundational ontologies) lives in the `invincible-agent` chart's `primeSubstrate` Helm Job, which runs `invincible-agent/setup/prime_databases.py`. The historical `setup/setup_env.py` was retired 2026-06-17. The custom TBox extension TTLs (`mro_extension`, `maintenance_extension`, `mil_extension`, `idp_extension`, `mesh_system`) ALSO moved out of doc-tools — they now live at `invincible-agent/setup/ontologies/*.ttl` to eliminate the cross-repo URL coupling that priming used to depend on. Run `helm install/upgrade` on the invincible-agent chart with `--set primeSubstrate.enabled=true` before deploying doc-tools, or Dagster sink adapters will fail against unindexed databases. When you need to edit a class definition (e.g., add a new `mil:*` content kind), edit the TTL in invincible-agent and re-deploy the invincible-agent chart — do NOT add a TTL or priming script back into doc-tools.
 1. **Understanding the Pipeline**: Configured sensors polling MinIO bucket/directory targets dynamically inject a `domain_type` workflow tag string. The pipeline processes documents (PDFs via `unstructured`, PPTXs via `python-pptx`), dynamically dispatches the extracted structure to the correct Plugin mapping, and orchestrates them into Neo4j, Weaviate, and Apache Jena using SPARQL.

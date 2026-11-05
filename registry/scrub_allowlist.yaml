@@ -1,0 +1,150 @@
+# The scrub allowlist: what must survive a batch-fixture scrub VERBATIM.
+#
+# Config names the case, code implements the mechanism: every allowlisted string
+# or pattern is named HERE and doc_tools/scrub/allowlist.py carries no
+# vocabulary. Design: invincible-agent/sessions/2026-10-22-design-from-7f-batch-
+# fixture-scrubber-for-chris-review.md section 3. The allowlist is matched FIRST
+# and substitution happens only on what survives it (section 3.3): scrubbing
+# everything part-shaped silently destroys the headers, and the headers are what
+# the fixture tests.
+#
+# Phrases are literal and matched case-insensitively, on word boundaries (so
+# "device" does not exempt a fragment inside a part number). Patterns are python
+# `re`, matched case-insensitively.
+allowlist_version: 1
+rules:
+  header_vocabulary:
+    # SEALED against AFFECTED_HEADERS, REPLACEMENT_HEADERS, ALIAS_HEADERS,
+    # CUSTOMER_HEADERS and _CUSTOMER_PART_CUES in doc_tools/utils/table_text_layer
+    # by test_the_allowlist_covers_the_extractor_header_vocabulary, so an addition
+    # to the extractor vocabulary cannot leave the allowlist behind. This is the
+    # COLUMN-HEADER VOCABULARY UNDER TEST, plus the printed spellings below.
+    phrases:
+      # AFFECTED_HEADERS
+      - "eol device"
+      - "affected part"
+      - "affected mpn"
+      - "affected device"
+      - "discontinued"
+      - "part number"
+      - "part no"
+      - "orderable part"
+      - "opn"
+      - "device"
+      - "affected"
+      # REPLACEMENT_HEADERS
+      - "replacement"
+      - "replaces"
+      - "substitute"
+      - "recommended replacement"
+      - "suggested replacement"
+      - "alternate"
+      - "alternative"
+      - "successor"
+      # ALIAS_HEADERS
+      - "product family"
+      - "family"
+      - "alias"
+      - "cross reference"
+      - "cross-reference"
+      - "xref"
+      - "equivalent"
+      - "pin to pin"
+      - "pin-to-pin"
+      - "compatible"
+      - "base part"
+      - "generic"
+      - "series"
+      - "similar"
+      - "second source"
+      # CUSTOMER_HEADERS
+      - "customer"
+      - "cust."
+      - "cust "
+      - "client"
+      - "end user"
+      - "end-user"
+      # _CUSTOMER_PART_CUES
+      - "part num"
+      - "part #"
+      - "partnumber"
+      - "mpn"
+      - "part id"
+      # printed spellings named by the design
+      - "Part Number"
+      - "Alternative Part Number"
+      - "Affected Part"
+      - "Replacement"
+      - "Customer Part Number"
+      - "Last Time Buy"
+  caption:
+    # A table caption line. The pattern ends at the caption's last word and does
+    # NOT run to the end of the element (a bare `^table\s+\d+\b.*$` would also
+    # swallow every part number the extractor concatenates after the caption in
+    # one [Table] element, which would leak all of them). Worked case, design
+    # section 6.2: "Table 4 - EOL Devices and No Replacement Parts" is the exact
+    # string that proves a global affected-veto would decline 144 genuine EOL
+    # devices -- it must survive verbatim.
+    patterns:
+      - '\btable\s+\d+\s*[-:]\s*(?:[A-Za-z][A-Za-z-]*\s+){1,14}(?:parts|devices|products)\b'
+  date:
+    # The ONLY legal value. A second date parser is the defect
+    # is_entirely_a_date exists to prevent.
+    detector: is_entirely_a_date
+  notice_type_or_status:
+    phrases:
+      - "PCN"
+      - "PDN"
+      - "EOL"
+      - "Last Time Buy"
+      - "obsolete"
+      - "not recommended for new designs"
+      - "End of Life"
+      - "PRODUCT CHANGE NOTICE"
+    # OPEN QUESTION: the notice number as the issuer prints it. Design section 5
+    # names four rulings and the notice number is not among them. It is
+    # allowlisted here by the same reasoning as ruling 1 (the sensitive party in
+    # a published notice is the recipient, not the issuer, and the notice number
+    # is also the corpus doc_id). That reasoning is a RECOMMENDATION, not a ruling.
+    patterns:
+      - '\bPCN\s*-?\s*#?\s*\d{2,}\b'
+  unit_package_or_standard:
+    # Shape-identical to part fragments; must not be drawn into the substitution.
+    phrases:
+      - "0402"
+      - "0603"
+      - "0805"
+      - "1206"
+      - "SOT-23"
+      - "SOT-223"
+      - "SOD-123"
+      - "X7R"
+      - "X5R"
+      - "C0G"
+      - "RoHS"
+      - "AEC-Q200"
+      - "AEC-Q100"
+      - "MSL1"
+      - "MSL3"
+  manufacturer_name:
+    # Policy ruling 1 is a RECOMMENDATION (allowlist the manufacturer, scrub the
+    # customer). Policy.manufacturer_name records which way a given scrub
+    # actually ran, so this section being present does not decide it: the
+    # scrubber honours policy.manufacturer_name at run time and drops this rule
+    # when the answer is SCRUBBED. Sealed against _GAZETTEER_NAMES by the same
+    # test as the headers.
+    phrases:
+      - "Analog Devices"
+      - "Diodes Incorporated"
+      - "Integrated Device Technology"
+      - "ON Semiconductor"
+      - "onsemi"
+      - "Semelab"
+      - "TE Connectivity"
+      - "Texas Instruments"
+      - "TT Electronics"
+      # short printed forms a notice uses beside the registered names
+      - "Diodes"
+      - "TI"
+      - "ADI"
+      - "IDT"
