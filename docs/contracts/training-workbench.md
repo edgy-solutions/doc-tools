@@ -1,6 +1,6 @@
 # Contract: doc-tools → training-consolidation-workbench
 
-**Contract version 2. Status: DRAFT, 2026-10-23.** v2 moves the drop to `training/course/` so the path carries the kind (§2); v1's sensor-declared kind had no mechanism.
+**Contract version 3. Status: DRAFT, 2026-10-23.** v2 moves the drop to `training/course/` so the path carries the kind (§2); v1's sensor-declared kind had no mechanism. v3 builds Sections from the deck's own section slides, or anchors the LLM's titles to element pages; sets `Course.outline_source`; and replaces the Section subtree on re-ingest. v3 also keys Concept on `id` = hash(domain, normalized name), with `name_normalized` on the node (§3, from #167).
 
 | Role | Owner |
 |---|---|
@@ -74,9 +74,9 @@ The workbench has no upload endpoint. A course arrives only as a drop into MinIO
 
 | Labels | Merge key | Properties the workbench may rely on |
 |---|---|---|
-| `Document:Course:TRAINING` | `id` | `id`, `title`, `filename`, `current_key`, `business_unit`, `discipline`, `audience`, `level`, `delivery_method`, `duration_hours`, `version` |
+| `Document:Course:TRAINING` | `id` | `id`, `title`, `filename`, `current_key`, `business_unit`, `discipline`, `audience`, `level`, `delivery_method`, `duration_hours`, `version`, `outline_source` (`"deck"` or `"llm"`) |
 | `Chunk:Slide:TRAINING` | `id` | `id`, `number` (int, 1-based), `text`, `elements` (JSON string), `layout_style`, `asset_type` |
-| `Section:TRAINING` | `id` | `id`, `title`, `level` (int), `start_page`, `end_page` (int; `0` means open), `concept_summary` (list of up to 10 names, by COVERS score descending) |
+| `Section:TRAINING` | `id` | `id`, `title`, `level` (int), `start_page`, `end_page` (int, always `>= start_page`; v2 wrote `0` for open, and v3 never does), `concept_summary` (list of up to 10 names, by COVERS score descending) |
 | `Concept:TRAINING` | `id` | `id`, `name`, `name_normalized`, `domain` = `"TRAINING"` |
 
 Course properties:
@@ -88,6 +88,9 @@ Slide properties:
 - `text` is the slide's elements, one line each in the form `[<Type>] <text>`. Elements with empty text are left out. It is truncated to 500 characters; Weaviate holds the full text.
 - `elements` is the slide's Unstructured `to_dict()` elements, JSON-encoded.
 - `asset_type` is the upper-cased extension, for example `PPTX`.
+
+Section properties:
+- `title` has its section number removed.
 
 Extra properties may appear on any node: `provenance_*`, Slide `title`/`content`/`page_start`, `Figure` nodes. The workbench must not depend on any of them.
 
@@ -124,9 +127,24 @@ doc-tools follows four rules here:
 1. **doc-tools never writes, and never MATCHes, those labels**, and never writes `OWNS`, `ALIGNS_TO`, `SUGGESTED_SOURCE` or `DERIVED_FROM`.
 2. **doc-tools writes `HAS_CHILD` only between its own labels**: Document/Course, Chunk/Slide and Section.
 3. **Every doc-tools `HAS_CHILD` match is anchored on a Document** (or a Section reached from one). The workbench's Project-anchored reads never see these edges.
-4. **A re-ingest MERGEs; it never `DETACH DELETE`s a Course, Slide or Concept.** A delete would silently drop the users' `ALIGNS_TO`, `SUGGESTED_SOURCE` and `DERIVED_FROM` edges.
+4. **A re-ingest MERGEs; it never `DETACH DELETE`s a Course, Slide or Concept.** A delete would silently drop the users' `ALIGNS_TO`, `SUGGESTED_SOURCE` and `DERIVED_FROM` edges. Sections are the exception. A re-ingest builds the new outline completely, then in one transaction `DETACH DELETE`s this Course's `Section:TRAINING` nodes (those reached by `HAS_SECTION` from it, or whose `id` starts with `{Course.id}_s`) and writes the new ones. No workbench relation ends at a Section, so no user edge is lost. The same run rewrites `HAS_SECTION`, Section → Slide and `COVERS`. If the build fails, the old Sections stay and the run fails.
 
 A consequence of rule 4: re-running the same bytes with a different LLM answer can leave a stale TEACHES edge to a concept the new answer dropped. That is accepted.
+
+### 4.5 The outline
+
+A Course's Sections come from `structural.outline` (`doc_tools/passes/structural.py`). **Page numbers are element `page_number`, never the LLM's.**
+
+- **Deck path.** A slide is a section header when its elements, ignoring `PageBreak` and empty or whitespace text, are exactly one: a `Title` at `category_depth` 0 (or none) whose text is a number then a heading, such as `1.1.1 Pumps`.
+  - The level is the number of dot-separated components, the `title` is the heading without its number, and `start_page` is the slide's page.
+  - If the deck has any such slide, the outline is built from those slides alone and no LLM is called (`Course.outline_source` = `"deck"`).
+  - A title slide (two Titles), an agenda slide (several elements), a content slide (a Title plus a body) and an unnumbered single-Title slide are not headers.
+- **LLM path.** Otherwise the LLM outline supplies titles and nesting only (`outline_source` = `"llm"`). Its `level`, `start_page` and `end_page` are ignored.
+  - The outline is walked in order, with a cursor at page 1. An LLM section is anchored to the smallest page at or after the cursor that holds a `Title` element with the same title (compared after NFKC, with a leading section number, a trailing ` (n)` counter and case removed). The cursor moves to that page.
+  - A section with no such page is dropped and its anchored children move up to its parent, one level shallower. A section equal (title and page) to one already kept, as chunk overlap produces, is dropped.
+  - An LLM path that anchors nothing is a legitimately empty outline, not a failure. A failed LLM call on any chunk fails the build.
+- **Nesting.** A section nests under the nearest earlier section with a smaller level, or under the Course. A numbering gap (`1` then `1.1.1`) nests under the nearest shallower section and keeps its own level.
+- **End pages.** A section's `end_page` is the `start_page` of the next later section whose level is the same or shallower, minus 1; if there is none, it is the deck's last page. It is never below `start_page`, so an empty section ends on its own page, and it is never `0`.
 
 ## 5. MinIO
 
@@ -194,7 +212,7 @@ The fixture lives in `tests/fixtures/training/`:
 - **Pinned hashes.** `golden.json` pins the deck and sidecar sha256 values. wb vendors byte-identical copies and asserts those hashes.
 - **Placeholders.** `<pipeline_version>` and `<iso8601>` match any value.
 - **Volatile element keys.** The keys in `volatile_element_keys` are stripped from both sides before `elements` is compared (temp path, mtime, element hashes).
-- **`nondeterministic`** (sections, concepts, teaches) is LLM-derived EXAMPLE data. doc-tools asserts its SHAPE only: labels, id grammar, `start_page` naming a real slide, salience in [0, 1], one Concept per `(domain, normalized name)` (§3). wb loads it as fake-store data. The example includes a salience under 0.5 (slide 4, "Hydraulic pressure") and a concept shared by two slides.
+- **`nondeterministic`** (sections, concepts, teaches). Sections are no longer free example data: they are what the real `structural.outline` pass derives from `neo4j.outline.fallback`, the pinned LLM reply (`recorded: false` until a sandbox reply is recorded), and the deck's element pages. A re-run compares its LLM titles to the pinned ones and reports the difference, rather than overwriting. Concepts and teaches are LLM-derived EXAMPLE data. doc-tools asserts their SHAPE only: labels, id grammar, `start_page` naming a real slide, salience in [0, 1], one Concept per `(domain, normalized name)` (§3). wb loads it all as fake-store data. The example includes a salience under 0.5 (slide 4, "Hydraulic pressure") and a concept shared by two slides.
   - Its `edges` block lists every `HAS_SECTION`, Section → Slide, `COVERS` and `TEACHES` edge explicitly, already computed by the §4.2 rules, so a fake store loads edges and derives nothing.
   - Each Section's `concept_summary` agrees with its `COVERS` scores.
 - **The doc-tools gate.** `tests/test_training_workbench_golden.py` holds one test per surface. A surface that a later lane-tr step delivers is `xfail(strict=True)` until that step's PR, which must flip it. Each step's PR is green only with its surface passing.
@@ -211,15 +229,16 @@ The fixture lives in `tests/fixtures/training/`:
 | Concept keyed on `id` = `hash(domain, normalized name)` with a uniqueness constraint (§3) | d merged it on `name`; re-keyed by `#167` (lane 7f) |
 | `pages/page_{n}.png` (`render.pages`, LibreOffice + Poppler) | e |
 | vectors written for `nearVector`; no `_fig_` objects for training | f |
-| Section page numbers from element metadata, never from the LLM (`structural.outline`) | g |
+| Section page numbers from element metadata, never from the LLM (`structural.outline`); `Course.outline_source`; Section subtree replaced on re-ingest | g |
 | COVERS / `concept_summary` stay a post-graph hook (`execute_pass2_rollup`) | h |
 
-## 10. Known gaps (not promised by v2)
+## 10. Known gaps (not promised by v3)
 
 - **A slide with no text gets a Slide node with `text` `""` and no Weaviate object, unless it is the last slide.** Unstructured emits a `PageBreak` element after every slide but the last. So a blank or image-only slide mid-deck still has an element on its page, but a blank or image-only *final* slide has none and gets no Slide node at all. The result is that `Slide.number` has no interior gaps but can stop short of the deck's slide count, and the workbench must tolerate that. This was measured on the fixtures `empty-blank-slide` (p5), `image-multi-per-slide` (p4) and `image-only-deck` (p5). **It still gets `pages/page_{n}.png`**: the page render counts the deck's slides, not its elements. So `pages/` can hold one more PNG than there are Slide nodes. Hidden slides are rendered too, because the export sets `ExportHiddenSlides`, and `page_{n}` always equals slide `n` of the deck. wb may counter this in a packet.
 - **Speaker notes are slide text.** Unstructured emits a slide's notes as `NarrativeText` elements on that slide, ahead of its body in reading order. A slide whose only text is its notes is a text slide (fixture `empty-whitespace-and-notes`, p3 and p4).
 - **Hidden slides are ingested like any other.** No Slide property marks them (fixture `long-with-hidden-slides`, p30, p31 and p90).
-- **A re-ingest of the same bytes adds a second outline.** Section ids are positions in the outline the LLM returned (`{Course.id}_s0_s1`), and the write is a MERGE. So a second run that samples a differently shaped outline leaves both under the Course (fixtures `dup-same-bytes-a`/`-b`: 15 Sections, 8 titles). This is step g's to close.
+- **A section slide is detected only as a single numbered Title.** A header slide that also carries speaker notes, or whose title is unnumbered, is not detected. If no slide in the deck is detected, the deck falls back to the LLM; if others are, that section is simply missing from the outline.
+- **An LLM section whose title is no slide Title is dropped.**
 - **docx page numbers.** Unstructured gives docx a `page_number` only if the file has `w:lastRenderedPageBreak`; otherwise everything lands on page 1. pptx (slide index) and pdf are exact. docx is best-effort in v2.
 - **`Slide.pedagogical_intent` is not written.** The facet is empty.
 - **No lineage between revisions** of the same course (§3).

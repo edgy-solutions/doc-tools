@@ -320,12 +320,14 @@ class FakeWeaviate:
 
 
 def _graph_run(manifest, client, monkeypatch, augment_calls=None, weaviate=None,
-               reraise=False):
+               reraise=False, fulltext=None, neo4j_out=None, augment=None):
     """Run the graph asset with fake neo4j/weaviate and a stubbed plugin/LLM.
 
     Returns (neo4j execute_query calls as (query, params), chunk_ids indexed).
     With `weaviate=` (a FakeWeaviate) the REAL _index_chunk runs against it;
-    otherwise _index_chunk is stubbed and `indexed` collects its properties."""
+    otherwise _index_chunk is stubbed and `indexed` collects its properties.
+    The default augment RAISES, so with `reraise=True` the run fails on
+    failed:concept_parse; pass `augment=` to reach a later failure."""
     from unittest.mock import MagicMock
 
     from dagster import build_asset_context
@@ -346,9 +348,11 @@ def _graph_run(manifest, client, monkeypatch, augment_calls=None, weaviate=None,
             augment_calls.append(section.node_id)
         raise RuntimeError("plugin/LLM stubbed out")
 
-    monkeypatch.setattr(TrainingPlugin, "augment", _augment)
-    monkeypatch.setattr(TrainingPlugin, "process_fulltext", lambda *a, **k: [])
+    monkeypatch.setattr(TrainingPlugin, "augment", augment or _augment)
+    monkeypatch.setattr(TrainingPlugin, "process_fulltext", fulltext or (lambda *a, **k: []))
     neo4j = MagicMock()
+    if neo4j_out is not None:
+        neo4j_out.append(neo4j)
     config = IngestionConfig(graph_node_label="Document", graph_child_label="Chunk",
                              vector_collection_name="DocumentChunk", bucket=BUCKET)
     try:
@@ -548,7 +552,53 @@ def test_vectors_written_and_no_figure_objects(monkeypatch):
         assert len(o["vector"]) == 768
 
 
-@pytest.mark.xfail(strict=True, reason="lane tr step g")
-def test_outline_pages_come_from_element_metadata():
-    """Real test checks golden section start_page/end_page equal the element page_number metadata, not LLM output."""
-    pytest.fail("not built: lane tr step g — the step's PR replaces this body with a real assertion against golden")
+def test_outline_pages_come_from_element_metadata(monkeypatch):
+    """Section pages are element page_number, never the LLM's: with the pinned
+    (wrong-paged) ExtractOutline reply stubbed in, the real pass reproduces the
+    golden's sections."""
+    from types import SimpleNamespace
+
+    from doc_tools.plugins.training import TrainingPlugin
+
+    elements = [{**el, "metadata": {**el.get("metadata", {}), "page_number": s["number"]}}
+                for s in SLIDES for el in s["elements"]]
+    fallback = GOLDEN["neo4j"]["outline"]["fallback"]
+
+    def _obj(n):
+        return SimpleNamespace(title=n["title"], level=n["level"], start_page=n["start_page"],
+                               end_page=n["end_page"],
+                               subsections=[_obj(c) for c in n["subsections"]])
+
+    plugin = TrainingPlugin(domain_type="training")
+    monkeypatch.setattr(TrainingPlugin, "execute_global_pass",
+                        lambda self, els, max_chars: ([SimpleNamespace(
+                            sections=[_obj(n) for n in fallback])], []))
+    nodes = plugin.process_fulltext("", INGEST_ID, {}, elements=elements)
+    aug = nodes[0].domain_augmentation
+    assert aug.outline_source == GOLDEN["neo4j"]["outline"]["source"] == "llm"
+    assert GOLDEN["neo4j"]["course"]["props"]["outline_source"] == "llm"
+
+    got = []
+
+    def flat(secs, parent):
+        for i, s in enumerate(secs):
+            sid = f"{parent}_s{i}"
+            got.append({"id": sid, "title": s.title, "level": s.level,
+                        "start_page": s.start_page, "end_page": s.end_page, "parent": parent})
+            flat(s.subsections, sid)
+
+    flat(aug.sections, INGEST_ID)
+    want = [{k: s[k] for k in ("id", "title", "level", "start_page", "end_page", "parent")}
+            for s in NONDET["sections"]["nodes"]]
+    assert got == want
+
+    llm_pages = {}
+
+    def collect(ns):
+        for n in ns:
+            llm_pages[n["title"]] = (n["start_page"], n["end_page"])
+            collect(n["subsections"])
+
+    collect(fallback)
+    differing = [s for s in got if llm_pages.get(s["title"]) not in (None, (s["start_page"], s["end_page"]))]
+    assert differing, "the stub's pages must differ from the derived ones for this test to bite"

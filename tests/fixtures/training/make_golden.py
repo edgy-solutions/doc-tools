@@ -21,6 +21,7 @@ from pathlib import Path
 
 from weaviate.util import generate_uuid5
 
+from doc_tools.passes.structural import outline_from_llm
 from doc_tools.utils.concept_identity import concept_node_id, normalize_concept_name
 from doc_tools.utils.extraction import extract_text_and_metadata
 from doc_tools.utils.layout_detector import detect_layout
@@ -48,13 +49,33 @@ EXAMPLE_TEACHES = {
     3: [("Hydraulic pump", 0.9), ("Gear pump", 0.6)],
     4: [("Hydraulic reservoir", 0.7), ("Hydraulic pressure", 0.3)],
 }
-# No two COVERS scores in a section tie, so concept_summary's order is defined.
-# (suffix, title, level, start_page, end_page, parent_suffix)
-EXAMPLE_SECTIONS = [
-    ("_s0", "Introduction", 1, 1, 1, None),
-    ("_s1", "Hydraulic Principles", 1, 2, 4, None),
-    ("_s1_s0", "Pumps", 2, 3, 3, "_s1"),
+# Recorded sandbox ExtractOutline reply (2026-11-05, gpt-oss-128k:120b, prompt sha
+# 946e5e12, deck sha 895392ac), as the model gave it. 1 of 3 samples had null pages
+# on every section and this is that one, kept because it is the case the optional
+# `start_page` fixes. The other two had integer pages (wrong ones: 1..5 for a 4-slide
+# deck) and differed in nesting. The outline pass ignores LLM pages.
+FALLBACK_OUTLINE = [
+    {"title": "Hydraulic Systems Fundamentals", "level": 1, "start_page": None,
+     "end_page": None, "subsections": []},
+    {"title": "Module 1: fixture deck for the training-workbench contract", "level": 1,
+     "start_page": None, "end_page": None, "subsections": [
+         {"title": "Pascal's Law", "level": 2, "start_page": None, "end_page": None,
+          "subsections": []},
+         {"title": "Hydraulic Pumps", "level": 2, "start_page": None, "end_page": None,
+          "subsections": []},
+         {"title": "Reservoir Schematic", "level": 2, "start_page": None, "end_page": None,
+          "subsections": []}]},
 ]
+# What the real pass must derive from FALLBACK_OUTLINE and the deck's elements.
+# (suffix, title, level, start_page, end_page, parent_suffix)
+EXPECTED_SECTIONS = [
+    ("_s0", "Hydraulic Systems Fundamentals", 1, 1, 1, None),
+    ("_s1", "Module 1: fixture deck for the training-workbench contract", 1, 1, 4, None),
+    ("_s1_s0", "Pascal's Law", 2, 2, 2, "_s1"),
+    ("_s1_s1", "Hydraulic Pumps", 2, 3, 3, "_s1"),
+    ("_s1_s2", "Reservoir Schematic", 2, 4, 4, "_s1"),
+]
+# No two COVERS scores in a section tie, so concept_summary's order is defined.
 
 
 def _strip(el: dict) -> dict:
@@ -105,11 +126,24 @@ def main() -> None:
         "audience": meta["audience"], "level": meta["level_of_material"],
         "delivery_method": meta["current_delivery_method"],
         "duration_hours": meta["duration_hours"], "version": meta["version"],
+        "outline_source": "llm",
         "current_key": f"{root}/current.json",
     }
 
+    # Sections come from the REAL outline pass over the deck's real elements.
+    derived = []
+
+    def _flat(secs, parent_suf):
+        for i, s in enumerate(secs):
+            suf = f"{parent_suf}_s{i}"
+            derived.append((suf, s.title, s.level, s.start_page, s.end_page, parent_suf or None))
+            _flat(s.subsections, suf)
+
+    _flat(outline_from_llm(elements, [{"sections": FALLBACK_OUTLINE}]), "")
+    assert derived == EXPECTED_SECTIONS, derived
+
     sections = []
-    for suf, title, level, start, end, parent in EXAMPLE_SECTIONS:
+    for suf, title, level, start, end, parent in derived:
         covered = [n for n in numbers if n >= start and (end == 0 or n <= end)]
         acc = defaultdict(list)
         for n in covered:
@@ -139,8 +173,9 @@ def main() -> None:
 
     golden = {
         "contract": "docs/contracts/training-workbench.md",
-        # 3: concept nodes carry `id` and `name_normalized` (section 11's rule --
-        # non-placeholder content changed, so the version moves and wb gets a packet).
+        # 3: concept nodes carry `id` and `name_normalized` (#167), and sections come
+        # from structural.outline (step g). Section 11's rule -- non-placeholder content
+        # changed, so the version moves and wb gets a packet.
         "contract_version": 3,
         "fixture": {
             "deck": DECK.name, "deck_sha256": hexd,
@@ -156,8 +191,20 @@ def main() -> None:
             "course": {"labels": ["Document", "Course", DOMAIN], "props": course},
             "slides": {"labels": ["Chunk", "Slide", DOMAIN], "nodes": slides},
             "course_slide_edges": ["HAS_CHILD", "HAS_SLIDE"],
+            "outline": {
+                "source": "llm",
+                "fallback": FALLBACK_OUTLINE,
+                "recorded": True,
+                "note": "The recorded sandbox ExtractOutline reply (2026-11-05, gpt-oss-128k:120b) "
+                        "(neo4j.outline.fallback) with its pages as the LLM gave them (null); the "
+                        "real outline pass ignores them. A re-run compares its LLM titles to these "
+                        "and reports the difference, rather than overwriting.",
+            },
             "nondeterministic": {
-                "note": "LLM-derived. doc-tools asserts shape only; wb uses it as fake-store data.",
+                "note": "Sections are what the real structural.outline pass derives from "
+                        "neo4j.outline.fallback and this deck's element pages (page numbers are "
+                        "element page_number, never the LLM's). Concepts and TEACHES are LLM-derived "
+                        "example data: doc-tools asserts their shape only; wb uses them as fake-store data.",
                 "sections": {"labels": ["Section", DOMAIN],
                              "section_slide_edges": ["HAS_CHILD", "HAS_SLIDE"],
                              "nodes": sections},

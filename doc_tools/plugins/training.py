@@ -15,16 +15,13 @@ class SlideAugmentation(BaseModel):
     objectives: List[str]
     figure_references: List[str] = Field(default_factory=list, description="Explicit figure/image IDs referenced in the slide")
 
-class CourseSection(BaseModel):
-    title: str
-    level: int
-    start_page: int
-    end_page: Optional[int] = None
-    subsections: List['CourseSection'] = []
+from doc_tools.passes.structural import CourseSection, OutlineBuildError, build_outline  # noqa: F401
+
 
 class OutlineAugmentation(BaseModel):
     sections: List[CourseSection]
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    outline_source: str  # "deck" | "llm" (contract v3 section 4.5)
 
 # --- Plugin Implementation ---
 class TrainingPlugin(AugmentationPlugin):
@@ -101,51 +98,12 @@ class TrainingPlugin(AugmentationPlugin):
                 
         return chunks
 
-    def _merge_outlines(self, partial_outlines: List[Any]) -> List[CourseSection]:
-        """
-        Merge multiple partial BAML outlines into one list of CourseSections, deduplicating by page number.
-        """
-        if not partial_outlines:
-            return []
-            
-        all_sections = []
-        seen_pages = set()
-        
-        for outline in partial_outlines:
-            if not outline or not hasattr(outline, 'sections'):
-                continue
-                
-            for section in outline.sections:
-                start_page = getattr(section, 'start_page', None)
-                
-                # Skip if we've already seen this explicit page start
-                if start_page is not None and start_page in seen_pages:
-                    continue
-                
-                if start_page is not None:
-                    seen_pages.add(start_page)
-                    
-                # Recursive map helper
-                def map_sec(s) -> CourseSection:
-                    subs = [map_sec(sub) for sub in getattr(s, 'subsections', [])]
-                    return CourseSection(
-                        title=getattr(s, 'title', 'Untitled'),
-                        level=getattr(s, 'level', 1),
-                        start_page=getattr(s, 'start_page', 0),
-                        end_page=getattr(s, 'end_page', None),
-                        subsections=subs
-                    )
-                
-                all_sections.append(map_sec(section))
-        
-        # Sort sequentially by start_page
-        all_sections.sort(key=lambda s: s.start_page or 0)
-        return all_sections
-
-    def execute_global_pass(self, all_chunks: List[Dict[str, Any]], max_chars: int) -> List[Any]:
+    def execute_global_pass(self, all_chunks: List[Dict[str, Any]], max_chars: int) -> Tuple[List[Any], List[str]]:
         """
         Converts elements to Markdown and chunks them based on token limits.
-        Extracts Course Outline (Sections) from each chunk.
+        Extracts the LLM outline (titles and nesting only) from each chunk.
+        Returns (outlines in chunk order, failure messages): a failed chunk is
+        reported, not swallowed, so the outline build can refuse a partial result.
         """
         # FIXED: Resilient fetch
         dynamic_instructions = self._get_dynamic_prompt(
@@ -174,6 +132,7 @@ class TrainingPlugin(AugmentationPlugin):
         # 3. Process each safe chunk through BAML
         from doc_tools.baml_client.sync_client import b
         baml_responses = []
+        failures: List[str] = []
         
         for i, chunk_text in enumerate(safe_chunks):
             print(f"[TrainingPlugin] Processing Markdown chunk {i+1}/{len(safe_chunks)}")
@@ -186,88 +145,63 @@ class TrainingPlugin(AugmentationPlugin):
                 baml_responses.append(partial)
             except Exception as e:
                 print(f"[TrainingPlugin] Outline extraction failed on chunk {i+1}: {e}")
+                failures.append(f"chunk {i+1}/{len(safe_chunks)}: {type(e).__name__}: {e}")
                 
-        return baml_responses
+        return baml_responses, failures
+
+    def _extract_raw_text_outlines(self, full_text: str, max_chars: int, overlap_chars: int) -> Tuple[List[Any], List[str]]:
+        """The raw-text ExtractOutline chunk loop (no elements): (outlines, failures)."""
+        from doc_tools.baml_client.sync_client import b
+        dynamic_instructions = self._get_dynamic_prompt(
+            prompt_name="core_instructions",
+            fallback_file="prompts/core_instructions.md"
+        )
+        if len(full_text) <= max_chars:
+            print(f"[TrainingPlugin] Document fits in context ({len(full_text)} chars)")
+            return [b.ExtractOutline(document_text=full_text,
+                                     system_instructions=dynamic_instructions)], []
+        print(f"[TrainingPlugin] Document too large ({len(full_text)} chars), chunking...")
+        chunks = self._chunk_text(full_text, max_chars, overlap_chars)
+        outlines: List[Any] = []
+        failures: List[str] = []
+        for i, (chunk_text, _start) in enumerate(chunks):
+            print(f"[TrainingPlugin] Processing chunk {i+1}/{len(chunks)}")
+            try:
+                outlines.append(b.ExtractOutline(document_text=chunk_text,
+                                                 system_instructions=dynamic_instructions))
+            except Exception as e:
+                print(f"[TrainingPlugin] Chunk {i+1} failed: {e}")
+                failures.append(f"chunk {i+1}/{len(chunks)}: {type(e).__name__}: {e}")
+        return outlines, failures
 
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None, elements: List[Dict[str, Any]] = None) -> List[DocumentNode]:
         """
-        Legacy override: Parse the entire document text using Map-Reduce to hallucinate a 
-        Table of Contents (Course -> Section -> Section) before chunking.
+        Build the Course -> Section outline (structural.outline). A deck that marks
+        its own sections yields it from the elements alone; otherwise the LLM's
+        titles and nesting are anchored to element pages. Raises OutlineBuildError
+        if the outline cannot be built completely (no mock, no partial result).
         """
         if metadata is None:
             metadata = {}
-        try:
-            from doc_tools.baml_client.sync_client import b
-            # Token estimation constants
-            import os
-            context_size = int(os.getenv("LLM_NUM_CTX", "8192"))
-            reserved_tokens = 4000
-            chars_per_token = 3
-            max_chars = (context_size - reserved_tokens) * chars_per_token
-            overlap_chars = max(1000, max_chars // 10)
-            
-            
+
+        import os
+        context_size = int(os.getenv("LLM_NUM_CTX", "8192"))
+        reserved_tokens = 4000
+        chars_per_token = 3
+        max_chars = (context_size - reserved_tokens) * chars_per_token
+        overlap_chars = max(1000, max_chars // 10)
+
+        def extract() -> Tuple[List[Any], List[str]]:
+            # The BAML import happens in here, so the deck path never imports it.
             if elements:
                 print(f"[TrainingPlugin] Using Markdown pre-processor on {len(elements)} elements")
-                try:
-                    partial_outlines = self.execute_global_pass(elements, max_chars)
-                    final_sections = self._merge_outlines(partial_outlines)
-                except Exception as e:
-                    print(f"[TrainingPlugin] Global pass failed, falling back to raw text chunking: {e}")
-                    elements = None
+                return self.execute_global_pass(elements, max_chars)
+            return self._extract_raw_text_outlines(full_text, max_chars, overlap_chars)
 
-            if not elements:
-                # FIXED: Fetch the instructions before entering the legacy text loops
-                dynamic_instructions = self._get_dynamic_prompt(
-                    prompt_name="core_instructions",
-                    fallback_file="prompts/core_instructions.md"
-                )
+        final_sections, outline_source = build_outline(elements, extract)
+        augmentation = OutlineAugmentation(
+            sections=final_sections, metadata=metadata, outline_source=outline_source)
 
-                if len(full_text) <= max_chars:
-                    print(f"[TrainingPlugin] Document fits in context ({len(full_text)} chars)")
-                    # FIXED: Added system_instructions to BAML call
-                    baml_response = b.ExtractOutline(
-                        document_text=full_text,
-                        system_instructions=dynamic_instructions
-                    )
-                    final_sections = self._merge_outlines([baml_response])
-                else:
-                    print(f"[TrainingPlugin] Document too large ({len(full_text)} chars), chunking...")
-                    chunks = self._chunk_text(full_text, max_chars, overlap_chars)
-                    
-                    partial_outlines = []
-                    for i, (chunk_text, start_pos) in enumerate(chunks):
-                        print(f"[TrainingPlugin] Processing chunk {i+1}/{len(chunks)}")
-                        try:
-                            # FIXED: Added system_instructions to BAML call
-                            partial = b.ExtractOutline(
-                                document_text=chunk_text,
-                                system_instructions=dynamic_instructions
-                            )
-                            partial_outlines.append(partial)
-                        except Exception as e:
-                            print(f"[TrainingPlugin] Chunk {i+1} failed: {e}")
-                            
-                    final_sections = self._merge_outlines(partial_outlines)
-                
-            augmentation = OutlineAugmentation(sections=final_sections, metadata=metadata)
-            
-        except ImportError:
-            # Fallback mock for testing environments
-            augmentation = OutlineAugmentation(
-                sections=[
-                    CourseSection(
-                        title="Chapter 1: Introduction", 
-                        level=1, 
-                        start_page=1, 
-                        end_page=5,
-                        subsections=[
-                            CourseSection(title="1.1 Overview", level=2, start_page=1, end_page=2)
-                        ]
-                    )
-                ]
-            )
-            
         # Return as a special "Global" DocumentNode
         global_section = BaseSection(title="Course Outline", level=0, page_start=0, content="", node_id=doc_id)
         return [DocumentNode(base_extraction=global_section, domain_augmentation=augmentation)]
@@ -309,36 +243,61 @@ class TrainingPlugin(AugmentationPlugin):
                         "discipline": aug.metadata.get("engineering_discipline")
                     }
                 })
-                
-                # Recursive function to build the Cypher strings for Sections
-                def build_section_cypher(sections: List[CourseSection], parent_id: str):
+
+                # Flat pre-order rows. Section.id stays positional (contract 3):
+                # {parent}_s{i}. end_page is never 0 (contract 4.5).
+                rows: List[Dict[str, Any]] = []
+
+                def flatten(sections: List[CourseSection], parent_id: str):
                     for i, outline_sec in enumerate(sections):
                         sec_id = f"{parent_id}_s{i}"
-                        
-                        cypher = f"""
-                        MERGE (s:Section:{self.domain_label} {{id: $id}})
-                        SET s.title = $title,
-                            s.level = $level,
-                            s.start_page = $start_page,
-                            s.end_page = $end_page
-                        WITH s
-                        MATCH (p:{self.domain_label} {{id: $parent_id}})
-                        MERGE (p)-[:HAS_SECTION]->(s)
-                        """
-                        cypher_queries.append({
-                            "query": cypher,
-                            "params": {
-                                "id": sec_id,
-                                "title": outline_sec.title,
-                                "level": outline_sec.level,
-                                "parent_id": parent_id,
-                                "start_page": outline_sec.start_page,
-                                "end_page": outline_sec.end_page if outline_sec.end_page else 0
-                            }
+                        rows.append({
+                            "id": sec_id,
+                            "title": outline_sec.title,
+                            "level": outline_sec.level,
+                            "start_page": outline_sec.start_page,
+                            "end_page": max(outline_sec.end_page or outline_sec.start_page,
+                                            outline_sec.start_page),
+                            "parent_id": parent_id,
                         })
-                        build_section_cypher(outline_sec.subsections, sec_id)
-                
-                build_section_cypher(aug.sections, course_id)
+                        flatten(outline_sec.subsections, sec_id)
+
+                flatten(aug.sections, course_id)
+
+                # ONE statement, one transaction: delete this Course's old Sections
+                # (reached by HAS_SECTION, or orphaned under the id prefix), set
+                # outline_source, write the new ones. It names only Section:{label}
+                # as a delete target (contract 4.4 rule 4).
+                label = self.domain_label
+                replace_cypher = f"""
+                MATCH (c:{config.graph_node_label}:{label} {{id: $course_id}})
+                OPTIONAL MATCH (c)-[:HAS_SECTION*]->(o1:Section:{label})
+                WITH c, collect(DISTINCT o1) AS reached
+                OPTIONAL MATCH (o2:Section:{label}) WHERE o2.id STARTS WITH $id_prefix
+                WITH c, reached, collect(DISTINCT o2) AS orphans
+                WITH c, reached + [o IN orphans WHERE NOT o IN reached] AS olds
+                FOREACH (o IN olds | DETACH DELETE o)
+                SET c.outline_source = $outline_source
+                WITH c
+                UNWIND $sections AS row
+                MERGE (s:Section:{label} {{id: row.id}})
+                SET s.title = row.title, s.level = row.level,
+                    s.start_page = row.start_page, s.end_page = row.end_page
+                WITH c, collect(row) AS rows
+                UNWIND rows AS row
+                MATCH (s:Section:{label} {{id: row.id}})
+                MATCH (p:{label} {{id: row.parent_id}})
+                MERGE (p)-[:HAS_SECTION]->(s)
+                """
+                cypher_queries.append({
+                    "query": replace_cypher,
+                    "params": {
+                        "course_id": course_id,
+                        "id_prefix": course_id + "_s",
+                        "outline_source": aug.outline_source,
+                        "sections": rows,
+                    }
+                })
                 continue
                 
             # 2. Handle Individual Slide Processing
