@@ -280,42 +280,42 @@
         {
           "title": "Hydraulic Systems Fundamentals",
           "level": 1,
-          "start_page": 2,
-          "end_page": 2,
+          "start_page": null,
+          "end_page": null,
           "subsections": []
         },
         {
-          "title": "Pascal's Law",
+          "title": "Module 1: fixture deck for the training-workbench contract",
           "level": 1,
-          "start_page": 1,
-          "end_page": 4,
+          "start_page": null,
+          "end_page": null,
           "subsections": [
+            {
+              "title": "Pascal's Law",
+              "level": 2,
+              "start_page": null,
+              "end_page": null,
+              "subsections": []
+            },
             {
               "title": "Hydraulic Pumps",
               "level": 2,
-              "start_page": 2,
-              "end_page": 2,
+              "start_page": null,
+              "end_page": null,
+              "subsections": []
+            },
+            {
+              "title": "Reservoir Schematic",
+              "level": 2,
+              "start_page": null,
+              "end_page": null,
               "subsections": []
             }
           ]
-        },
-        {
-          "title": "Reservoir Schematic",
-          "level": 1,
-          "start_page": 3,
-          "end_page": 0,
-          "subsections": []
-        },
-        {
-          "title": "Accumulator Sizing",
-          "level": 1,
-          "start_page": 4,
-          "end_page": 4,
-          "subsections": []
         }
       ],
-      "recorded": false,
-      "note": "The pinned ExtractOutline reply (neo4j.outline.fallback) with its pages as the LLM gave them, wrong ones included; the real outline pass ignores them. Provisional, replaced by a recorded sandbox ExtractOutline reply before the PR leaves draft. A re-run compares its LLM titles to these and reports the difference, rather than overwriting."
+      "recorded": true,
+      "note": "The recorded sandbox ExtractOutline reply (2026-11-05, gpt-oss-128k:120b) (neo4j.outline.fallback) with its pages as the LLM gave them (null); the real outline pass ignores them. A re-run compares its LLM titles to these and reports the difference, rather than overwriting."
     },
     "nondeterministic": {
       "note": "Sections are what the real structural.outline pass derives from neo4j.outline.fallback and this deck's element pages (page numbers are element page_number, never the LLM's). Concepts and TEACHES are LLM-derived example data: doc-tools asserts their shape only; wb uses them as fake-store data.",
@@ -344,14 +344,16 @@
           },
           {
             "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "title": "Pascal's Law",
+            "title": "Module 1: fixture deck for the training-workbench contract",
             "level": 1,
-            "start_page": 2,
-            "end_page": 3,
+            "start_page": 1,
+            "end_page": 4,
             "parent": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
             "slides": [
+              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p1",
               "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2",
-              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3"
+              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3",
+              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
             ],
             "covers": [
               {
@@ -365,25 +367,58 @@
                 "frequency": 1
               },
               {
-                "concept": "Hydraulic pressure",
-                "score": 0.8,
+                "concept": "Hydraulic reservoir",
+                "score": 0.7,
                 "frequency": 1
               },
               {
                 "concept": "Gear pump",
                 "score": 0.6,
                 "frequency": 1
+              },
+              {
+                "concept": "Hydraulic pressure",
+                "score": 0.55,
+                "frequency": 2
               }
             ],
             "concept_summary": [
               "Pascal's law",
               "Hydraulic pump",
-              "Hydraulic pressure",
-              "Gear pump"
+              "Hydraulic reservoir",
+              "Gear pump",
+              "Hydraulic pressure"
             ]
           },
           {
             "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
+            "title": "Pascal's Law",
+            "level": 2,
+            "start_page": 2,
+            "end_page": 2,
+            "parent": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
+            "slides": [
+              "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2"
+            ],
+            "covers": [
+              {
+                "concept": "Pascal's law",
+                "score": 0.95,
+                "frequency": 1
+              },
+              {
+                "concept": "Hydraulic pressure",
+                "score": 0.8,
+                "frequency": 1
+              }
+            ],
+            "concept_summary": [
+              "Pascal's law",
+              "Hydraulic pressure"
+            ]
+          },
+          {
+            "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s1",
             "title": "Hydraulic Pumps",
             "level": 2,
             "start_page": 3,
@@ -410,12 +445,12 @@
             ]
           },
           {
-            "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "id": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s2",
             "title": "Reservoir Schematic",
-            "level": 1,
+            "level": 2,
             "start_page": 4,
             "end_page": 4,
-            "parent": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
+            "parent": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
             "slides": [
               "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
             ],
@@ -524,13 +559,21 @@
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0"
           },
           {
-            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc",
-            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2"
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
+            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s1"
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
+            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s2"
           }
         ],
         "section_slide": [
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s0",
+            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p1"
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p1"
           },
           {
@@ -542,11 +585,19 @@
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3"
           },
           {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
+            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
+          },
+          {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
+            "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p2"
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s1",
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p3"
           },
           {
-            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s2",
             "to": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_p4"
           }
         ],
@@ -565,8 +616,8 @@
           },
           {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
-            "to": "Hydraulic pressure",
-            "score": 0.8,
+            "to": "Hydraulic reservoir",
+            "score": 0.7,
             "frequency": 1
           },
           {
@@ -576,25 +627,43 @@
             "frequency": 1
           },
           {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1",
+            "to": "Hydraulic pressure",
+            "score": 0.55,
+            "frequency": 2
+          },
+          {
             "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
+            "to": "Pascal's law",
+            "score": 0.95,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
+            "to": "Hydraulic pressure",
+            "score": 0.8,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s1",
             "to": "Hydraulic pump",
             "score": 0.9,
             "frequency": 1
           },
           {
-            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s0",
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s1",
             "to": "Gear pump",
             "score": 0.6,
             "frequency": 1
           },
           {
-            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s2",
             "to": "Hydraulic reservoir",
             "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s2",
+            "from": "sha256:895392accf240f84d20c095c97384eee337541266ac21b31f9e09d1781597ebc_s1_s2",
             "to": "Hydraulic pressure",
             "score": 0.3,
             "frequency": 1
