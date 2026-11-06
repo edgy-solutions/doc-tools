@@ -794,6 +794,31 @@ jobs:
         uses: azure/setup-helm@v4
         with:
           version: v3.14.3
+        # THE INTERPRETER IS A DECLARED DEPENDENCY NOW -- `.python-version` at
+        # the repo root pins 3.12, and uv reads it here. This step is exactly
+        # the ambient-dependency failure the helm comment above argues about,
+        # arriving for real: nothing requested a Python version, so uv took the
+        # newest interpreter satisfying `requires-python = ">=3.12"`, which was
+        # whatever `/usr/bin/python3` happened to be. On 2026-11-05 the runner
+        # image moved that to CPython 3.14.4 and this step began failing on
+        # EVERY branch including main, with no commit in this repo:
+        #
+        #   Using CPython 3.14.4 interpreter at: /usr/bin/python3
+        #   error: Failed to build `cyclonedds==11.0.1`
+        #   Could not locate cyclonedds. Try to set CYCLONEDDS_HOME
+        #
+        # `cyclonedds` 11.0.1 publishes wheels for cp312 and cp313 ONLY, so
+        # 3.14 falls through to a source build, and that needs the CycloneDDS C
+        # library which is not on the runner. The container build solves the
+        # same problem by hand -- a `cyclonedds-builder` stage on
+        # `python:3.12-slim` that compiles it and carries the wheels forward --
+        # so 3.12 is not an arbitrary pick: it is the version the shipped image
+        # runs and the version the workstation venv runs (3.12.11).
+        #
+        # NOT COVERED by the pin, stated so it is not mistaken for fixed: the
+        # bare `python3 scripts/verify_release_tag.py` call sites still take the
+        # runner's ambient interpreter. They pass on 3.14 today. They are the
+        # same defect shape and their own item.
       - name: Install dependencies
         run: uv sync --locked
       - name: Run the test suite

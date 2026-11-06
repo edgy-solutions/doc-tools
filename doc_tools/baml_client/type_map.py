@@ -28,9 +28,6 @@ type_map = {
     "types.GridColumnRoles": types.GridColumnRoles,
     "stream_types.GridColumnRoles": stream_types.GridColumnRoles,
 
-    "types.LearningObjective": types.LearningObjective,
-    "stream_types.LearningObjective": stream_types.LearningObjective,
-
     "types.MaintenanceStep": types.MaintenanceStep,
     "stream_types.MaintenanceStep": stream_types.MaintenanceStep,
 
@@ -58,8 +55,14 @@ type_map = {
     "types.Section": types.Section,
     "stream_types.Section": stream_types.Section,
 
-    "types.SlideAugmentation": types.SlideAugmentation,
-    "stream_types.SlideAugmentation": stream_types.SlideAugmentation,
+    "types.SectionAugmentation": types.SectionAugmentation,
+    "stream_types.SectionAugmentation": stream_types.SectionAugmentation,
+
+    "types.SectionNotes": types.SectionNotes,
+    "stream_types.SectionNotes": stream_types.SectionNotes,
+
+    "types.SlideConcepts": types.SlideConcepts,
+    "stream_types.SlideConcepts": stream_types.SlideConcepts,
 
     "types.StrategicAssessment": types.StrategicAssessment,
     "stream_types.StrategicAssessment": stream_types.StrategicAssessment,

@@ -130,8 +130,7 @@ def test_the_constraint_is_on_the_id_and_not_on_the_name():
 def _concept_query():
     sec = BaseSection(title="Torque Basics", level=2, page_start=4, content="Body",
                       node_id="slide-1")
-    aug = SlideAugmentation(concepts=[Concept(name="Torque  control", salience=0.9)],
-                            objectives=[])
+    aug = SlideAugmentation(concepts=[Concept(name="Torque  control", salience=0.9)])
     node = DocumentNode(base_extraction=sec, domain_augmentation=aug)
     config = SimpleNamespace(graph_node_label="Course", graph_child_label="Slide")
     cypher, _ = TrainingPlugin(domain_type="training").to_graph_queries([node], config)
@@ -189,7 +188,7 @@ def test_the_migration_shares_the_writers_id_function():
 
 
 def test_the_migration_relinks_by_types_read_from_the_graph_not_a_literal_list():
-    """The writer points only TEACHES and COVERS at a Concept -- true and useful, kept.
+    """The writer points only TEACHES, COVERS and (v4) ALIAS_OF at a Concept -- true and useful, kept.
     But the ruling says EVERY edge on a merged node, wb's ALIGNS_TO included, so the
     relink must be driven by what `type(r)` finds in the graph. A documentary allowlist
     is the trap here, not the fix: leaving `RELINKABLE` in place as documentation would
@@ -203,7 +202,7 @@ def test_the_migration_relinks_by_types_read_from_the_graph_not_a_literal_list()
     # the target variable is what identifies a Concept edge, not the label.
     pointed = {m.group(1) for m in re.finditer(r"\[\s*\w*\s*:(\w+)\s*\]->\((\w+)\)", src)
                if m.group(2) in concept_vars}
-    assert pointed == {"TEACHES", "COVERS"}, pointed
+    assert pointed == {"TEACHES", "COVERS", "ALIAS_OF"}, pointed
 
     mig = io.open(ROOT / "scripts" / "neo4j_concept_id_migration.py",
                   encoding="utf-8").read()

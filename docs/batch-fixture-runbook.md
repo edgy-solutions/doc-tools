@@ -22,6 +22,44 @@ responses and nothing else; the scorer does not even read the field catalogue.
 That is deliberate: a tool that can fetch is a tool that can be pointed at prod
 and piped into a transcript.
 
+### Getting item 1 onto your box — and why a bare `python` will hang
+
+Both commands are `python -m doc_tools.…`, so they import the `doc_tools`
+package, and `doc_tools/__init__.py` ends with `from .definitions import defs`.
+That pulls in the whole extraction stack — Dagster, `unstructured`,
+`python-magic`, tesseract detection — for two tools that need none of it. There
+is no lighter entry point today. So:
+
+    git clone https://github.com/edgy-solutions/doc-tools
+    cd doc-tools
+    uv sync
+    .venv/bin/python -m doc_tools.batch.cli --help      # .venv\Scripts\python.exe on Windows
+
+`v0.2.3` is the floor for the *tools*, not an instruction to check it out. Read
+this runbook from `main` and run from `main` unless you have a reason not to: a
+`git checkout v0.2.3` also rolls this page back to the version that did not yet
+warn you about the paragraph below.
+
+**Run them through that `.venv` interpreter, never a bare `python` or `py` from
+your `PATH`.** This is not style. A system interpreter loads a different
+`python-magic`/libmagic pairing and **blocks for ever at import**, in
+`magic/compat.py`: no output, one core pegged, and the process outlives your
+shell. You will read it as a hung export of your own data. It is the import, and
+it happens before either tool sees a single file of yours.
+
+Two more things to expect, both measured 2026-11-03 and neither a fault:
+
+- **`--help` takes about 36 seconds**, and so does every real invocation before
+  it starts work. 13 s of that is `import doc_tools` alone. Budget for it; do
+  not conclude the tool is stuck until well past a minute.
+- **It prints `Found and configured tesseract at: …` to your terminal.** That
+  line comes from the extraction stack being imported, not from anything
+  reading your notices. Nothing in it is yours.
+
+If the 36 seconds or the hang is unacceptable for your workflow, say so — the
+fix is to stop importing the Dagster definitions eagerly, which is a change to
+this repo's deployed entry point and needs a ruling, not a local workaround.
+
 ### Fetching the extractions — do this as yourself, not as a service
 
 One route serves everything the profile can name:
@@ -76,9 +114,10 @@ is [`docs/contracts/batch-column-map.md`](contracts/batch-column-map.md).
 ## Invocation
 
 **Export.** The profile is validated before a single row is emitted, and the
-output file is written only if every row came out clean:
+output file is written only if every row came out clean. `PY` below is the
+`.venv` interpreter from "Before you start", never a bare `python`:
 
-    python -m doc_tools.batch.cli \
+    $PY -m doc_tools.batch.cli \
       --profile    <private-root>/profiles/<your-profile>.yaml \
       --extraction <private-root>/extractions \
       --out        <private-root>/out/rows.csv
@@ -99,7 +138,7 @@ quietly read as though every date were found per part.
 
 **Score.** `--key` names the columns that identify a row, and repeats:
 
-    python -m doc_tools.batch.score \
+    $PY -m doc_tools.batch.score \
       --rows      <private-root>/out/rows.csv \
       --truth     <private-root>/truth/<your-profile>.csv \
       --profile   <private-root>/profiles/<your-profile>.yaml \
@@ -241,3 +280,35 @@ extraction route for all ten (`not_entitled`), five of the ten are not known to
 cortex-bff at all (`ingest_not_found`), and `doc_tools/batch` is in **no**
 deployed image — the batch tools run on an operator box by design, which is what
 `v0.2.3` is for.
+
+### 2026-11-03 — what is measured, and what the sandbox end-to-end still needs
+
+Added with the import measurements in "Before you start" (36.2 s for
+`--help`, 12.9 s for `import doc_tools` alone, both through this repo's venv).
+
+**The toolchain half is measured end to end and needs nothing from the
+cluster.** Export, score, scorecard and the no-value assertion all ran above on
+saved responses, and neither command opens a socket.
+
+**The sandbox half cannot be completed by this lane, and that is the design,
+not a gap to close.** The one unmet prerequisite is item 2, a saved extraction,
+and `GET /ingest/{id}/extraction` is dropper-scoped: it serves the identity that
+seeded the drop and refuses every service token with `not_entitled`. So the
+remaining step is *definitionally* the operator's — fetched under their own
+identity, on their own box, for notices they dropped. No lane, cron, sensor or
+Dagster asset can stand in, and no amount of work here changes that.
+
+Two consequences worth stating plainly:
+
+- **`doc_tools/batch` reaching a deployed image changes nothing about this.**
+  The build is `COPY . /app` with no `.dockerignore`, so the module is in every
+  image built since `0f19cf2`; the pinned image carries it. It is still the
+  wrong place to run from, because the pod holds a *service* identity and that
+  is the identity the route refuses.
+- **The only end-to-end a service CAN run is a self-seeded one.** The 403 body
+  says a service reads the drops it seeded as a declared delegate, so a
+  synthetic notice dropped by this repo's own client could be read back and
+  carried through export and score. That would exercise the chain without any
+  human credential — but it writes a real drop into the cluster and mints real
+  ingest state, so it is a decision to take deliberately and not a test to slip
+  into a runbook verification.
