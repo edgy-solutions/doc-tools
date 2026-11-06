@@ -78,8 +78,8 @@ def test_training_augment_extracts_concepts(monkeypatch):
     aug = TrainingPlugin(domain_type="training").augment(sec).domain_augmentation
 
     assert isinstance(aug, SlideAugmentation)
-    assert aug.concepts or aug.objectives, "no concepts or objectives extracted"
-    print("\ntraining concepts:", [c.name for c in aug.concepts], "objectives:", aug.objectives)
+    assert aug.concepts, "no concepts extracted"
+    print("\ntraining concepts:", [c.name for c in aug.concepts])
 
 
 def test_sustainment_process_fulltext_extracts_notice(monkeypatch):

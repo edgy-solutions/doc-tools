@@ -134,7 +134,6 @@ def test_training_slide_to_graph_queries():
     sec = BaseSection(title="Torque Basics", level=2, page_start=4, content="Body", node_id="slide-1")
     aug = SlideAugmentation(
         concepts=[Concept(name="Torque Control", salience=0.9)],
-        objectives=["Understand torque"],
         figure_references=["2"],
     )
     node = DocumentNode(base_extraction=sec, domain_augmentation=aug)

@@ -290,28 +290,25 @@ def test_a_failed_outline_build_fails_the_run_and_replaces_nothing(monkeypatch):
     from doc_tools.assets import semantic_assets as sa
     from tests.test_document_parser_versioning import _FakeS3Client
     from tests.test_index_chunk_require_vector import _manifest
-    from tests.test_training_workbench_golden import FakeWeaviate, _graph_run
+    from tests.test_training_workbench_golden import FakeWeaviate, _graph_run, empty_section_reply
 
     monkeypatch.setattr("doc_tools.utils.embed.embed_document", lambda t: [0.5] * 768)
 
-    from doc_tools.plugins.models import DocumentNode
-    from doc_tools.plugins.training import SlideAugmentation
 
     def failing(*a, **k):
         raise OutlineBuildError("1 outline chunk(s) failed: chunk 2/2: boom")
 
     # The concept calls succeed (with no concepts), so the run reaches the outline
     # check: a failed concept call raises failed:concept_parse first (#180).
-    def no_concepts(self, section, config=None):
-        return DocumentNode(base_extraction=section, domain_augmentation=SlideAugmentation(
-            concepts=[], objectives=[], figure_references=[]))
+    def no_concepts(self, section_text, instructions):
+        return empty_section_reply(section_text)
 
     cid = "sha256:" + "e" * 64
     client, weaviate, holder = _FakeS3Client(), FakeWeaviate(), []
     with pytest.raises(OutlineBuildError, match="left in place"):
         _graph_run(_manifest(client, "training", cid), client, monkeypatch,
                    weaviate=weaviate, reraise=True, fulltext=failing, neo4j_out=holder,
-                   augment=no_concepts)
+                   extract=no_concepts)
     assert [o["properties"]["chunk_id"] for o in weaviate.objects] == \
         [f"{cid}_p1", f"{cid}_p2", f"{cid}_p3"]
     executed = [c.args[0] for c in holder[0].get_client.return_value.execute_query.call_args_list]

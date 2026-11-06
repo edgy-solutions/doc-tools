@@ -93,8 +93,8 @@ def _counts(client, cid, tag):
                        "WHERE c.name STARTS WITH 'zz-survival-' + $tag RETURN count(r) AS n"),
         "COVERS": one("MATCH (s:Section:TRAINING)-[r:COVERS]->(:Concept:TRAINING) "
                       "WHERE s.id STARTS WITH $cid RETURN count(r) AS n"),
-        "ALIGNS_TO": one("MATCH (:CanonicalConcept {id: 'zz-survival-' + $tag})-[r:ALIGNS_TO]->"
-                         "(:Concept:TRAINING) RETURN count(r) AS n"),
+        "ALIGNS_TO": one("MATCH (:Concept:TRAINING)-[r:ALIGNS_TO]->"
+                         "(:CanonicalConcept {id: 'zz-survival-' + $tag}) RETURN count(r) AS n"),
         "HAS_SECTION": one("MATCH (:TRAINING)-[r:HAS_SECTION]->(s:Section:TRAINING) "
                            "WHERE s.id STARTS WITH $cid RETURN count(r) AS n"),
         "section_slide": one("MATCH (s:Section:TRAINING)-[r:HAS_CHILD]->(:Slide:TRAINING) "
@@ -141,14 +141,13 @@ def run(client) -> dict:
             slide_nodes.append(DocumentNode(
                 base_extraction=BaseSection(title=f"s{n}", level=1, page_start=n, content="", node_id=sid),
                 domain_augmentation=SlideAugmentation(
-                    concepts=[Concept(name=names[c], salience=s) for c, s in TEACHES.get(n, [])],
-                    objectives=[])))
+                    concepts=[Concept(name=names[c], salience=s) for c, s in TEACHES.get(n, [])])))
         slide_queries, _ = plugin.to_graph_queries(slide_nodes, CONFIG)
         for q in slide_queries:
             client.execute_query(q["query"], q["params"])
         client.execute_query(
             "MERGE (k:CanonicalConcept {id: 'zz-survival-' + $tag}) "
-            "WITH k MATCH (c:Concept:TRAINING {name: $a}) MERGE (k)-[:ALIGNS_TO]->(c)",
+            "WITH k MATCH (c:Concept:TRAINING {name: $a}) MERGE (c)-[:ALIGNS_TO]->(k)",
             {"tag": tag, "a": names["a"]})
 
         def replace(outline):
