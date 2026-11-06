@@ -1262,7 +1262,81 @@ image:
   # exists to pin; if that chain merges before the window opens, re-point this
   # line at the later index and REGENERATE the two child digests above rather
   # than carrying them forward.
-  digest: "sha256:ae8b23fe579fcc68d339f9b9ea8bf0d5e7e445a021740e1b41e9b458e8dde25a"
+  # ------------------------------------------------------------------
+  # 2026-11-06, doc-tools lane 7f (doc-tools roll 60): `main` at `728afaf`
+  # (#195), index `sha256:ca3e7d83`. THE TWO-STAGE NOTE ABOVE REMAINS IN FORCE,
+  # for the same reason as the `ae8b23fe` pin this replaces: a fresh build of a
+  # new `main` sha, NOT a tag added to an index CI had already built and gated,
+  # so the expectation is not known before the roll. `digest:` moves in THIS
+  # commit; `corpusGate.expectImage` stays at `03599b10` until the pre-roll
+  # Job pod reports its own `imageID`, and then moves in the SAME PR as the
+  # commit that cherry-picks the pre-roll report. It is NOT copied from the
+  # digest typed below -- that would make the gate compare this file against
+  # itself, which is the whole point of the two-stage rule.
+  #
+  # THE PREDICTION IN THE BLOCK ABOVE CAME TRUE: tr's #172 / #194 / #195 all
+  # landed (3f79729, 9c615ce, 728afaf) before the window opened, so this line is
+  # re-pointed off `ae8b23fe` and the two child digests are REGENERATED below
+  # rather than carried forward, exactly as that block instructed and as Chris
+  # re-ruled on 2026-11-06. `ae8b23fe` was never fired and is now superseded
+  # unfired; no report measures it and none should be sought.
+  #
+  # BOTH INDEX CHILDREN INSPECTED BEFORE THIS EDIT, per the arm64 rule above,
+  # and each CONFIG BLOB was read so the architecture is the one the child was
+  # actually built for rather than the index platform claim:
+  #     linux/amd64  sha256:29a161a17133149c58ffd118f2febe5bb0d074f8bedc2f8fe6587bba3ba0c986
+  #     linux/arm64  sha256:daa451daf83a75ca758945269cdf39f593433eae7bd9de0b0dea5d5d7bea9869
+  #       both: org.opencontainers.image.revision = 728afaf56c98b6bf99c5c0f9432c44041e04dd6d
+  #             created 2026-11-06T04:22:43Z (amd64) / 04:38:25Z (arm64)
+  # plus the two unknown/unknown buildx attestation manifests, which satisfy no
+  # platform. The `version` LABEL on both children reads `latest`, as on any
+  # ordinary main build -- the sha lives in the tag and in the revision label.
+  # Read the tag from the registry, never from the label.
+  #
+  # THE INDEX WAS PROVEN BY READING IT, NOT BY A CHECK MARK. `build-and-push`
+  # was still `in_progress` when these digests were read: buildx had already
+  # pushed the index and both platform children, and the remaining job time was
+  # not the image. What makes this safe to pin is that BOTH children exist and
+  # BOTH carry `revision = 728afaf`, which is the condition the arm64 rule
+  # actually cares about -- a half-pushed index would be missing a child or
+  # carrying a stale revision on one. The run was confirmed green before this
+  # commit was pushed, but the identity came from the registry.
+  #
+  # WHAT THIS PIN CARRIES THAT `03599b10` (the pinned-and-fired predecessor,
+  # `0f19cf2`, #202) DOES NOT. Four things, and the first is still the reason
+  # the roll exists at all:
+  #   - #206, the written header arm folding case as the scorer already does.
+  #     The deployed gate grades that arm with the comparator BAKED INTO THE
+  #     IMAGE, and `03599b10` predates #206: its written arm compares WITHOUT
+  #     folding while the scorer folds. The TI advisory red is that
+  #     disagreement and nothing else, so no fire of `03599b10` can clear it.
+  #     Only an image containing #206 can agree with its own scorer.
+  #   - tr's #172 / #194 / #195: deck sections, one concept call per section
+  #     with stale TEACHES replaced, and `concepts.normalise`. The sandbox
+  #     Deployment has `96d7b705` and carries no `passes/concepts.py` at all,
+  #     so no re-ingest against the old image can exercise any of it.
+  #   - #210, the interpreter pin. Not a runtime change, but it is why anything
+  #     in this repo can go green at all: the runner image began resolving
+  #     `python3` to 3.14.4 and `cyclonedds` 11.0.1 ships cp312/cp313 wheels
+  #     only. Builds before `a0eb498` cannot be re-run green.
+  #
+  # THIS PIN IS RED BY CONSTRUCTION UNTIL ITS FIRE LANDS, and that is the
+  # convention working, not a defect to route around. The required `corpus-gate`
+  # guard asserts the committed report measures the digest this chart pins; the
+  # newest report (`2026-11-02T221352Z`) measures `03599b10`. The red clears
+  # when the pre-roll fire of THIS index publishes a report that is
+  # cherry-picked here. Until then this PR is for review, not for merge.
+  #
+  # THE WINDOW IS GRANTED AND DATED, which is new for this pin: the fire starts
+  # 18:00Z Fri 2026-11-06 with `sandbox/roll-lock` held by `doc-tools/lane/7f`,
+  # release expected ~20:30Z. A FIRE IS NOT A ROLL -- `pcn_gate_prefire.py`
+  # overrides `image` on a JOB and never touches the Deployment, so sandbox
+  # stays on `96d7b705` until a `helm upgrade` happens. The architect ruled on
+  # 2026-11-06: NO Friday-evening roll. The roll to this digest is Saturday
+  # morning, 7f renders the values diff with `preroll_diff.py`, Chris approves,
+  # roll under the lock, and tr's re-ingest hour follows THE ROLL -- not the
+  # fire, and not this commit.
+  digest: "sha256:ca3e7d830c75294f18406444d79e5b52e7751ef7352e3ab7ba6bde3457d0fc4c"
   # `Always` retained DELIBERATELY. Against a digest it is not merely
   # unnecessary but inert -- a digest names exactly one immutable object, so
   # there is nothing a re-pull could fetch differently. It stays because
