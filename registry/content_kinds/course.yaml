@@ -11,6 +11,7 @@ passes:
   - structural.outline
   - core.baml::ExtractOutline
   - training.baml::ExtractSectionConcepts
+  - concepts.normalise
   - render.pages
 outputs:
   - training:Course

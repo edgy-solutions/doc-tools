@@ -1,6 +1,6 @@
 # Contract: doc-tools → training-consolidation-workbench
 
-**Contract version 4. Status: DRAFT, 2026-10-29.** v2 moves the drop to `training/course/` so the path carries the kind (§2); v1's sensor-declared kind had no mechanism. v3 builds Sections from the deck's own section slides, or anchors the LLM's titles to element pages; sets `Course.outline_source`; and replaces the Section subtree on re-ingest. v3 also keys Concept on `id` = hash(domain, normalized name), with `name_normalized` on the node (§3, from #167). v4 extracts concepts in one call per section group (§4.6), writes Section `summary`/`objectives`, TEACHES `related_terms`, candidate `ALIAS_OF` edges between Concepts, and one Weaviate object per Section with notes (§6); slide objects carry `chunk_kind = "slide"`. v4 also replaces a re-augmented Slide's TEACHES edges (§4.4 rule 4), and `ALIGNS_TO` runs Concept → CanonicalConcept (architect, 2026-10-30).
+**Contract version 5. Status: DRAFT, 2026-10-30.** v5 (architect, 2026-10-30) fixes the direction as `Concept -[:ALIGNS_TO]-> CanonicalConcept` (and `PROPOSED_ALIGNS_TO`), proposes only the top `proposals_per_course` (default 50) ranked pairs per course instead of five per target and no co-taught exclusion, and limits the workbench's review writes to `status`, `reviewed_by`, `reviewed_at` on a proposal edge (the pass materialises an accepted one; §4.4, §4.7). v5 moves `CanonicalConcept`/`ALIGNS_TO` creation from the workbench's LLM harmonizer to doc-tools' `concepts.normalise` pass (§4.7) and adds `PROPOSED_ALIGNS_TO`. v2 moves the drop to `training/course/` so the path carries the kind (§2); v1's sensor-declared kind had no mechanism. v3 builds Sections from the deck's own section slides, or anchors the LLM's titles to element pages; sets `Course.outline_source`; and replaces the Section subtree on re-ingest. v3 also keys Concept on `id` = hash(domain, normalized name), with `name_normalized` on the node (§3, from #167). v4 extracts concepts in one call per section group (§4.6), writes Section `summary`/`objectives`, TEACHES `related_terms`, candidate `ALIAS_OF` edges between Concepts, and one Weaviate object per Section with notes (§6); slide objects carry `chunk_kind = "slide"`. v4 also replaces a re-augmented Slide's TEACHES edges (§4.4 rule 4).
 
 | Role | Owner |
 |---|---|
@@ -78,6 +78,7 @@ The workbench has no upload endpoint. A course arrives only as a drop into MinIO
 | `Chunk:Slide:TRAINING` | `id` | `id`, `number` (int, 1-based), `text`, `elements` (JSON string), `layout_style`, `asset_type` |
 | `Section:TRAINING` | `id` | `id`, `title`, `level` (int), `start_page`, `end_page` (int, always `>= start_page`; v2 wrote `0` for open, and v3 never does), `concept_summary` (list of up to 10 names, by COVERS score descending), `summary` (string; absent when the model gave none), `objectives` (list of strings, may be empty). `summary` and `objectives` are nondeterministic (§4.6). |
 | `Concept:TRAINING` | `id` | `id`, `name`, `name_normalized`, `domain` = `"TRAINING"` |
+| `CanonicalConcept:TRAINING` | `id` | `id`, `name`, `domain`, `source` = `"concepts.normalise"`, `created_at`. Written by the pass only (§4.4, §4.7); edges reach it from Concept (`Concept -[:ALIGNS_TO]-> CanonicalConcept`). A cc the workbench's old harmonizer wrote has no `id` and no `source`; the pass reads it by `coalesce(id, name)` and never sets a property on it. |
 
 Course properties:
 - `title` is metadata.json `title`, or the filename stem if there is none.
@@ -106,7 +107,11 @@ Extra properties may appear on any node: `provenance_*`, Slide `title`/`content`
 (:Section)-[:COVERS {score, frequency}]->(:Concept)
 (:Slide)-[:TEACHES {salience, related_terms}]->(:Concept)  salience: float in [0, 1], ON THE EDGE; related_terms: list of strings
 (:Concept)-[:ALIAS_OF {status: "candidate", source: "related_terms", course_id}]->(:Concept)
+(:Concept)-[:ALIGNS_TO {status, method, confidence, source, updated_at}]->(:CanonicalConcept)
+(:Concept)-[:PROPOSED_ALIGNS_TO {status: "open"|"accepted"|"rejected", confidence, method, evidence, cos, reviewed_by, reviewed_at}]->(:CanonicalConcept)
 ```
+
+The alignment edges run Concept → CanonicalConcept (architect, 2026-10-30). Their rules are §4.7.
 
 How the computed edges are derived:
 - **Section → Slide**: a Section reaches every Slide with `start_page <= number <= end_page`, or `number >= start_page` when `end_page` is 0. A nested Slide is reached by its parent Section too.
@@ -126,11 +131,18 @@ How the computed edges are derived:
 ### 4.4 Ownership: what doc-tools never touches
 
 The workbench writes these labels and relations to the same Neo4j:
-- labels `Project`, `TargetNode`, `User`, `CanonicalConcept`;
-- relations `OWNS`, `HAS_CHILD` between Project and TargetNode, `ALIGNS_TO` (Concept → CanonicalConcept), and `SUGGESTED_SOURCE` and `DERIVED_FROM` (TargetNode → Slide).
+- labels `Project`, `TargetNode`, `User`;
+- relations `OWNS`, `HAS_CHILD` between Project and TargetNode, and `SUGGESTED_SOURCE` and `DERIVED_FROM` (TargetNode → Slide).
+
+`CanonicalConcept`, `ALIGNS_TO` and `PROPOSED_ALIGNS_TO` are written by doc-tools' pass **only**, as §4.7 says: doc-tools owns the alignment pass, and the workbench reviews proposals and writes nothing to Concept (architect, 2026-10-30). What the pass owns, and may create, change and delete: auto `ALIGNS_TO` edges (`status = "auto"`), open proposals (`status = "open"`), and `CanonicalConcept` nodes whose `source = "concepts.normalise"`. The workbench's ONLY writes in this domain are three properties on an existing `PROPOSED_ALIGNS_TO` edge:
+- **Accepting** = `SET p.status = "accepted", p.reviewed_by = …, p.reviewed_at = …`. The pass materialises the `ALIGNS_TO` on its next run (§4.7).
+- **Rejecting** = `SET p.status = "rejected", p.reviewed_by = …, p.reviewed_at = …`.
+- The workbench never creates or deletes a `CanonicalConcept`, an `ALIGNS_TO` or a proposal edge, and never sets a property on a Concept.
+- The pass never changes or deletes an `ALIGNS_TO` whose status is not `"auto"` (an accepted one, or a legacy one with no status), or a rejected or accepted proposal.
+- The workbench stops writing `CanonicalConcept` from its harmonizer: its `harmonize_concepts` asset and `unharmonized_concepts_sensor` must be turned off when this lands, or two writers MERGE CanonicalConcepts on different keys (the workbench's by `name`, the pass's by `id`).
 
 doc-tools follows four rules here:
-1. **doc-tools never writes, and never MATCHes, those labels**, and never writes `OWNS`, `ALIGNS_TO`, `SUGGESTED_SOURCE` or `DERIVED_FROM`.
+1. **doc-tools never writes, and never MATCHes, `Project`, `TargetNode` or `User`**, and never writes `OWNS`, `SUGGESTED_SOURCE` or `DERIVED_FROM`. It MATCHes `CanonicalConcept` only in the pass (§4.7).
 2. **doc-tools writes `HAS_CHILD` only between its own labels**: Document/Course, Chunk/Slide and Section.
 3. **Every doc-tools `HAS_CHILD` match is anchored on a Document** (or a Section reached from one). The workbench's Project-anchored reads never see these edges.
 4. **A re-ingest MERGEs; it never `DETACH DELETE`s a Course, Slide or Concept.** A delete would silently drop the users' `ALIGNS_TO`, `SUGGESTED_SOURCE` and `DERIVED_FROM` edges. Sections are the exception. A re-ingest builds the new outline completely, then in one transaction `DETACH DELETE`s this Course's `Section:TRAINING` nodes (those reached by `HAS_SECTION` from it, or whose `id` starts with `{Course.id}_s`) and writes the new ones. No workbench relation ends at a Section, so no user edge is lost. The same run rewrites `HAS_SECTION`, Section → Slide and `COVERS`. If the build fails, the old Sections stay and the run fails. TEACHES edges are the second exception. A re-augmented Slide's TEACHES are replaced in the same write: the new edges are MERGEd, then every TEACHES from that Slide to a Concept the new answer does not name is deleted. Edges only; the Concept node stays, because it may carry workbench edges.
@@ -163,6 +175,31 @@ Concepts, TEACHES `related_terms`, figure references and Section notes come from
 - **One retry.** A call that raises, or whose reply lacks an entry for any slide of the call, is retried once. After that, a raise fails every slide of the call; a missing slide fails that slide alone. Reply entries for slides not in the call are ignored; for a duplicated slide the first wins. A failed slide makes the run end `failed:concept_parse` (writes for the other slides still happen). A salience outside `[0, 1]` is clamped.
 - **Section notes are best effort and never a failure.** They are paired with the call's section markers by position when the counts match, else by title (case and whitespace folded). Unpaired notes are dropped and an unsectioned run gets none. A section split across calls merges its notes in page order: summaries joined by a space, objectives concatenated and de-duplicated.
 - The Section `summary`/`objectives` and TEACHES `related_terms` are nondeterministic; the golden shows their shape only.
+
+### 4.7 Concept alignment
+
+`concepts.normalise` (`doc_tools/passes/concepts.py`) unifies the Concepts of a domain into CanonicalConcepts. It is deterministic, calls no LLM, and never merges Concept nodes or writes `ALIAS_OF`. Inputs: Concept names, TEACHES `related_terms`, and the Weaviate vectors of the Slides that teach each Concept.
+
+- **Key.** `align_key(name)` is the §3 normalisation, then every non-alphanumeric character becomes a space, then whitespace collapses: `Hydraulic-Pump`, `HYDRAULIC PUMP` and `Hydraulic/Pump` share a key; `Lockout/Tagout` is `lockout tagout`.
+- **Auto links** (undirected): `exact` (same key, confidence 1.0) and `mutual_related_terms` (a term of A has B's key AND a term of B has A's key, 0.95). A **component** is a connected set of auto-linked Concepts; a Concept with no link is a component of one (`self`, 1.0). Each member's edge carries the strongest method incident to it.
+- **One CanonicalConcept per component, with sticky ids.** The cc id is, in order: the single cc the component's pinned members already share; else the cc held by most members' auto edges (tie: smallest id; a cc never serves two components); else `canonical_` + the first 16 hex of sha256(`domain`, `\x1f`, align key of the chosen name). The chosen name is the member with the most TEACHES edges, then the shortest, then the smallest. `name` is set only when the pass creates the cc or the cc's `source` is `concepts.normalise`. Every unpinned Concept ends with exactly one auto `ALIGNS_TO`.
+- **Direction.** Every edge the pass writes or reads runs `(Concept)-[:ALIGNS_TO]->(CanonicalConcept)` and `(Concept)-[:PROPOSED_ALIGNS_TO]->(CanonicalConcept)`.
+- **Pinned.** A Concept with any outgoing `ALIGNS_TO` whose status is not `"auto"` is pinned: never given an auto edge, and a stale auto edge of its own is removed. A pinned edge is also (a) the workbench harmonizer's old REVERSED shape `(CanonicalConcept)-[:ALIGNS_TO]->(Concept)` with no status, which the pass reads as a legacy pin, never changes, deletes or writes, and counts in the run's `legacy_reversed_edges`; and (b) an `accepted` proposal, which pins in the same run. If a component's pinned members name two or more ccs, the unpinned members get no auto edge and one proposal to each of those ccs (counted as a conflicting component). Conflict proposals are not lexical pairs: they sit outside the per-course cap below.
+- **Accepted proposals.** On its next run (per-course on ingest, or the fleet job) the pass writes `MERGE (c)-[a:ALIGNS_TO]->(cc)` with `status = "accepted"`, `method = "review"`, `confidence` copied from the proposal, `source = "concepts.normalise"`, `updated_at`, for each `accepted` proposal that has no non-auto `ALIGNS_TO` yet; the Concept's auto edge goes by the pinned rule. The proposal edge stays, `status = "accepted"`, as the record. The pass never changes or deletes that `ALIGNS_TO` afterwards. Stat: `accepted_materialised`.
+- **Proposals** are never applied by the pass except as above. A pair in different components that has a lexical signal and clears the floor below is a candidate, proposed in both directions (`A -> cc of B` and `B -> cc of A`), each `{status: "open", confidence, method, evidence (sorted signals), cos}`. Co-teaching no longer excludes a pair; it ranks it. Candidate pairs are ranked by shared teaching Slides (descending), then confidence, then cosine (none last), then `(min id, max id)`. A pair belongs to every course that teaches either side. Every course selects its top `proposals_per_course` pairs (default 50, `TRAINING_ALIGN_PROPOSALS_PER_COURSE`; a pair is one pair against the cap however many directions it has), and the emitted set is the union of those selections. The rest stay computable, not shown: `proposals_computed` (pairs clearing the floor) and `proposals_emitted` (pairs written) are in the run's stats, and an open proposal the cap now cuts is deleted as stale. The floor is the pass's own gate, the signal table below plus `confidence >= propose_min`; "not already auto-linked" is "in a different component":
+
+  | signal (strongest present) | with cosine | without vectors |
+  |---|---|---|
+  | `related_term_one_way` (a term of one has the other's key) | 0.5 + 0.5·max(cos,0) | 0.70 |
+  | `plural` (keys meet after stripping a trailing `s` or `es` from tokens of 4+ characters) | 0.5 + 0.5·max(cos,0) | 0.80 |
+  | `acronym` (a 2-6 character one-word key equals the initials of the other, 2+ tokens) | 0.4 + 0.5·max(cos,0) | 0.60 |
+  | `token_overlap` (Jaccard of token sets ≥ 0.5, sharing a token of 4+ characters) | 0.2 + 0.6·max(cos,0) | 0.40 |
+
+  Floor: `confidence >= propose_min` (`TRAINING_ALIGN_PROPOSE_MIN`, default 0.70). Not proposed: a rejected `(Concept, cc)` pair, a target already pinned to that cc.
+- **Cosine** is between concept vectors: the mean of the L2-normalised vectors of the Slides that teach the Concept (objects with `chunk_kind = "section"` are skipped). It ranks; it never creates a link.
+- **Scope.** Records and components always span the whole domain. A run for one Course (`course_id`, the per-course run at the end of an ingest) writes only for components containing a Concept that Course teaches, and proposals only for the pairs of the union that touch that Course: its own top `proposals_per_course`, plus any pair it shares with another Course that selected it. The ranking is computed over the whole domain, so a course run and the fleet run agree, and no course run deletes a proposal another course selected. The fleet run (`scripts/normalise_concepts.py`, `normalise_concepts_job`) writes everything.
+- **Orphans.** A cc is `DETACH DELETE`d only if its `source` is `concepts.normalise`, it has no `ALIGNS_TO` of any status (either direction), and no relationship except open `PROPOSED_ALIGNS_TO`.
+- **Switches.** `TRAINING_CONCEPT_ALIGNMENT` = `dry` (default: plan and log, write nothing), `on`, `off`. The default stays `dry` until the workbench has turned off its `harmonize_concepts` asset and `unharmonized_concepts_sensor`; the switch to `on` is a values change, made by packet; `TRAINING_ALIGN_PROPOSE_MIN`; `TRAINING_ALIGN_PROPOSALS_PER_COURSE`. A failure of the per-course run does not fail the ingest: it is logged as an error and recorded as `concept_alignment = "failed:<ExcType>: <msg>"` in the run's output metadata (`ok`, `off` or `dry` otherwise). The job's `dry_run` defaults to `true`.
 
 ## 5. MinIO
 
@@ -236,6 +273,7 @@ The fixture lives in `tests/fixtures/training/`:
 | `golden.json` | What doc-tools writes for the deck. The deterministic half is derived from the real extraction by `make_golden.py`. |
 
 - **Pinned hashes.** `golden.json` pins the deck and sidecar sha256 values. wb vendors byte-identical copies and asserts those hashes.
+- **Ownership block (v5).** `neo4j.never_written` lists only `Project`, `TargetNode`, `User` and `OWNS`, `SUGGESTED_SOURCE`, `DERIVED_FROM`; `neo4j.written_only_by` names `CanonicalConcept`, `ALIGNS_TO` and `PROPOSED_ALIGNS_TO` as written only by `concepts.normalise` (§4.4, §4.7).
 - **Placeholders.** `<pipeline_version>` and `<iso8601>` match any value.
 - **Volatile element keys.** The keys in `volatile_element_keys` are stripped from both sides before `elements` is compared (temp path, mtime, element hashes).
 - **`nondeterministic`** (sections, concepts, teaches). Sections are no longer free example data: they are what the real `structural.outline` pass derives from `neo4j.outline.fallback`, the pinned LLM reply (`recorded: false` until a sandbox reply is recorded), and the deck's element pages. A re-run compares its LLM titles to the pinned ones and reports the difference, rather than overwriting. Concepts and teaches are LLM-derived EXAMPLE data. doc-tools asserts their SHAPE only: labels, id grammar, `start_page` naming a real slide, salience in [0, 1], one Concept per `(domain, normalized name)` (§3). wb loads it all as fake-store data. The example includes a salience under 0.5 (slide 4, "Hydraulic pressure") and a concept shared by two slides.
@@ -258,8 +296,9 @@ The fixture lives in `tests/fixtures/training/`:
 | Section page numbers from element metadata, never from the LLM (`structural.outline`); `Course.outline_source`; Section subtree replaced on re-ingest | g |
 | COVERS / `concept_summary` stay a post-graph hook (`execute_pass2_rollup`) | h |
 | per-section concept call, Section notes, related_terms, ALIAS_OF, section objects | i (#PR A) |
+| `concepts.normalise`: CanonicalConcept, auto `ALIGNS_TO`, `PROPOSED_ALIGNS_TO` (§4.7); per-course call on ingest, fleet script and job | j (#PR B) |
 
-## 10. Known gaps (not promised by v4)
+## 10. Known gaps (not promised by v5)
 
 - **A slide with no text gets a Slide node with `text` `""` and no Weaviate object, unless it is the last slide.** Unstructured emits a `PageBreak` element after every slide but the last. So a blank or image-only slide mid-deck still has an element on its page, but a blank or image-only *final* slide has none and gets no Slide node at all. The result is that `Slide.number` has no interior gaps but can stop short of the deck's slide count, and the workbench must tolerate that. This was measured on the fixtures `empty-blank-slide` (p5), `image-multi-per-slide` (p4) and `image-only-deck` (p5). **It still gets `pages/page_{n}.png`**: the page render counts the deck's slides, not its elements. So `pages/` can hold one more PNG than there are Slide nodes. Hidden slides are rendered too, because the export sets `ExportHiddenSlides`, and `page_{n}` always equals slide `n` of the deck. wb may counter this in a packet.
 - **Speaker notes are slide text.** Unstructured emits a slide's notes as `NarrativeText` elements on that slide, ahead of its body in reading order. A slide whose only text is its notes is a text slide (fixture `empty-whitespace-and-notes`, p3 and p4).
@@ -269,6 +308,9 @@ The fixture lives in `tests/fixtures/training/`:
 - **docx page numbers.** Unstructured gives docx a `page_number` only if the file has `w:lastRenderedPageBreak`; otherwise everything lands on page 1. pptx (slide index) and pdf are exact. docx is best-effort in v2.
 - **`Slide.pedagogical_intent` is not written.** The facet is empty.
 - **ALIAS_OF reaches only Concepts that existed when the course was written;** a later course that adds the target does not back-fill the edge (the normalisation pass will).
+- **Synonyms with no shared token and no related term are never proposed.** A proposal needs a lexical signal (§4.7); the cosine alone proposes nothing.
+- **Concept vectors are Slide centroids,** so the cosine only ranks candidates; it is not a similarity of the concepts.
+- **The per-course alignment run reads the whole domain,** so its cost grows with the fleet. The summary logs seconds per phase (`load`, `plan`, `apply`).
 - **No lineage between revisions** of the same course (§3).
 
 ## 11. Changing this contract
