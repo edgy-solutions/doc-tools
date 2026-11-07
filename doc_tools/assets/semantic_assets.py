@@ -82,6 +82,12 @@ def _ensure_weaviate_collection(client, name: str) -> None:
                 wvc.config.Property(name="page", data_type=wvc.config.DataType.INT),
                 wvc.config.Property(name="heading", data_type=wvc.config.DataType.TEXT),
                 wvc.config.Property(name="section_id", data_type=wvc.config.DataType.TEXT),
+                # Playbook citation (contract playbook-kind.md section 4): repo
+                # URL and repo-relative path, TEXT, never folded into doc_id.
+                # ALSO listed in `wanted` below, or this is inert on every
+                # deployed cluster.
+                wvc.config.Property(name="source", data_type=wvc.config.DataType.TEXT),
+                wvc.config.Property(name="path", data_type=wvc.config.DataType.TEXT),
                 # `slide` or `section` on a TRAINING object (contract v4 section 6); absent on
                 # every other domain and on objects written before v4.
                 wvc.config.Property(name="chunk_kind", data_type=wvc.config.DataType.TEXT),
@@ -118,6 +124,8 @@ def _ensure_weaviate_collection(client, name: str) -> None:
         "heading": wvc.config.DataType.TEXT,
         "section_id": wvc.config.DataType.TEXT,
         "chunk_kind": wvc.config.DataType.TEXT,
+        "source": wvc.config.DataType.TEXT,
+        "path": wvc.config.DataType.TEXT,
     }
     try:
         collection = client.collections.get(name)
@@ -801,6 +809,12 @@ def _build_knowledge_graph_impl(
             f"Section tier is written by DocumentPlugin.to_graph_queries."
         )
 
+    # The playbook domain names its own tiers too (contract playbook-kind.md
+    # section 5): Playbook -> Section -> Chunk, written by PlaybookPlugin.
+    if domain_type == "playbook":
+        node_label = "Playbook"
+        child_label = "Chunk"
+
     # ----------------------------------------------------------------------
     # ADR-0041 — a manifest carrying "provenance" means this content is NOT
     # vetted (e.g. it arrived via the ingress-user sensor). It is stamped on
@@ -945,6 +959,10 @@ def _build_knowledge_graph_impl(
         # domain that lands.
         from doc_tools.plugins.document import DocumentPlugin
         plugin = DocumentPlugin(domain_type)
+    elif domain_type == "playbook":
+        # EXPLICIT for the same reason as `document`: the `else` is TrainingPlugin.
+        from doc_tools.plugins.playbook import PlaybookPlugin
+        plugin = PlaybookPlugin(domain_type)
     else:
         plugin = TrainingPlugin(domain_type)
         
