@@ -1,0 +1,4 @@
+# The goldens pin fixture.metadata_sha256 over the bytes the sandbox ingested,
+# which are CRLF (make_decks.py ran on Windows). Keep them byte-exact.
+*/metadata.json -text
+*.pptx binary
