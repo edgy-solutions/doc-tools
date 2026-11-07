@@ -54,6 +54,14 @@ def row(slug, g, m, nw):
     nwr = nw.get(cid, {})
     nw_ok = nwr.get("forbidden_label_nodes") == 0 and nwr.get("forbidden_rels") == 0 \
         and nwr.get("course_nodes") == 1
+    # Contract v5 6: one Section object per Section with a summary or an objective.
+    noted = {s["id"] for s in nd["sections"]["nodes"] if s.get("summary") or s.get("objectives")}
+    sec_objs = nd.get("section_objects", {}).get("objects", [])
+    sec_ok = {o["properties"].get("chunk_id") for o in sec_objs} == noted
+    with_terms = sum(1 for t in nd["teaches"] if t.get("related_terms"))
+    # Contract v5 4.7: dry mode writes no alignment edge; any here predate the run.
+    ar = nwr.get("alignment_rels") or {}
+    align_cell = ", ".join(f"{k} {v}" for k, v in sorted(ar.items())) or "0"
     return [
         slug,
         f"{n_pptx}" + (f" (hidden {','.join(map(str, m['hidden']))})" if m["hidden"] else ""),
@@ -67,16 +75,23 @@ def row(slug, g, m, nw):
         yn(vec_ok),
         f"{len(nd['teaches'])} on {nd['salience_location']}" + ("" if nd['salience_location'] == "edge" else " (d)") if nd["teaches"] else "0 (no concepts)",
         f"{pages}/{n_pptx} (e)" if pages != n_pptx else f"{pages}/{n_pptx}",
-        f"{len(nd['sections']['nodes'])} (g)",
-        f"{len(nd['edges']['section_slide'])} (g)",
+        f"{len(nd['sections']['nodes'])}",
+        f"{len(nd['edges']['section_slide'])}",
+        repr(props.get("outline_source")),
+        f"{len(sec_objs)}/{len(noted)} {yn(sec_ok)}",
+        f"{with_terms}/{len(nd['teaches'])}",
+        str(len(nd["edges"].get("ALIAS_OF", []))),
         yn(nw_ok) if nwr else "not measured",
+        (align_cell if nwr else "not measured"),
     ]
 
 
 HEAD = ["deck", "pptx slides", "Slide nodes", "text-less", "ids §3", "layout §5", "current.json §5",
         "labels §4", "title", "business_unit", "HAS_CHILD+HAS_SLIDE", "no empty lines",
         "Weaviate text obj / text slides", "_fig_ obj", "vec 768", "TEACHES salience",
-        "pages/ pngs", "sections", "section→slide edges", "never_written"]
+        "pages/ pngs", "sections", "section→slide edges", "outline_source",
+        "section obj / noted sections", "TEACHES with related_terms", "ALIAS_OF",
+        "never_written", "alignment edges (dry: 0)"]
 
 
 def main(fx, measure_path, nw_paths, out):

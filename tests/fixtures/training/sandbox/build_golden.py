@@ -16,7 +16,8 @@ BUCKET = "processing-artifacts"
 VOLATILE_ELEMENT_KEYS = ["element_id", "metadata.parent_id", "metadata.file_directory",
                          "metadata.last_modified", "metadata.filename"]
 COURSE_PROPS = ["id", "title", "filename", "current_key", "business_unit", "discipline",
-                "audience", "level", "delivery_method", "duration_hours", "version"]
+                "audience", "level", "delivery_method", "duration_hours", "version",
+                "outline_source"]
 SECTION_PROPS = ["id", "title", "level", "start_page", "end_page", "concept_summary"]
 EMBEDDER = {
     "env": {"base_url": ["LLM_BASE_URL", "OPENAI_BASE_URL"],
@@ -140,13 +141,19 @@ def main(rb_path, runs_path, deck_path, meta_path, drop_folder, out_path):
         n["parent"] = parent.get(sid)
         n["slides"] = sorted(sec_slides.get(sid, []))
         n["covers"] = sorted(covers.get(sid, []), key=lambda r: (-(r["score"] or 0), r["concept"] or ""))
+        # Contract v5 4.1: `summary` is absent when the model gave none; `objectives` is
+        # copied as stored (a list, possibly empty), so a missing one shows as null.
+        if p.get("summary") is not None:
+            n["summary"] = p["summary"]
+        n["objectives"] = p.get("objectives")
         sections.append(n)
     sec_labels = sorted({l for i in section_ids for l in desc[i]["labels"]},
                         key=lambda x: (x != "Section", x))
 
     teaches_rels = [r for r in rels if r["type"] == "TEACHES" and r["start_id"] in slide_ids]
     teaches = [{"slide": r["start_id"], "concept": r["end_name"],
-                "salience": (r.get("props") or {}).get("salience")} for r in teaches_rels]
+                "salience": (r.get("props") or {}).get("salience"),
+                "related_terms": (r.get("props") or {}).get("related_terms")} for r in teaches_rels]
     teaches.sort(key=lambda t: (t["slide"], t["concept"] or ""))
     if any("salience" in (r.get("props") or {}) for r in teaches_rels):
         loc = "edge"
@@ -164,21 +171,36 @@ def main(rb_path, runs_path, deck_path, meta_path, drop_folder, out_path):
         "section_slide": [{"from": s["id"], "to": t} for s in sections for t in s["slides"]],
         "COVERS": [{"from": s["id"], "to": r["concept"], "score": r["score"], "frequency": r["frequency"]}
                    for s in sections for r in s["covers"]],
-        "TEACHES": [{"from": t["slide"], "to": t["concept"], "salience": t["salience"]} for t in teaches],
+        "TEACHES": [{"from": t["slide"], "to": t["concept"], "salience": t["salience"],
+                     "related_terms": t["related_terms"]} for t in teaches],
+        "ALIAS_OF": sorted(({"from": a["from_name"], "to": a["to_name"],
+                             **{k: v for k, v in (a.get("props") or {}).items()}}
+                            for a in nj.get("alias_of", [])),
+                           key=lambda e: (e["from"] or "", e["to"] or "")),
     }
+    # Contract v5 4.7: in dry mode the pass writes nothing, so every edge here predates
+    # the run (a legacy one) or the run broke dry mode. Recorded, never filtered.
+    alignment = sorted(({"type": a["type"], "outgoing": a["outgoing"], "concept": a["concept"],
+                         "other_labels": sorted(a["other_labels"]), "props": a.get("props") or {}}
+                        for a in nj.get("alignment", [])),
+                       key=lambda e: (e["type"], e["concept"] or "", json.dumps(e["props"], sort_keys=True, default=str)))
 
     mn = rb["minio"]
     cj = mn.get("current_json")
     prefix = cj.get("prefix") if isinstance(cj, dict) else None
     if not prefix and mn.get("manifest_key"):
         prefix = mn["manifest_key"].rsplit("/", 1)[0] + "/"
-    wv = sorted(({"uuid": o["uuid"], "properties": o["properties"], "vector_length": o["vector_length"]}
-                 for o in rb["weaviate"]["objects"]),
-                key=lambda o: (o["properties"].get("chunk_id") or ""))
+    wv_all = sorted(({"uuid": o["uuid"], "properties": o["properties"], "vector_length": o["vector_length"]}
+                     for o in rb["weaviate"]["objects"]),
+                    key=lambda o: (o["properties"].get("chunk_id") or ""))
+    # Contract v5 6: Section objects share the Course's doc_id; they go beside the
+    # Sections (nondeterministic, as their notes are), not among the slide objects.
+    wv = [o for o in wv_all if o["properties"].get("chunk_kind") != "section"]
+    wv_sections = [o for o in wv_all if o["properties"].get("chunk_kind") == "section"]
 
     golden = {
         "contract": "docs/contracts/training-workbench.md",
-        "contract_version": 2,
+        "contract_version": 5,
         "fixture": {"deck": deck_name, "deck_sha256": hashlib.sha256(deck_bytes).hexdigest(),
                     "metadata": meta_name, "metadata_sha256": meta_sha},
         "volatile_element_keys": VOLATILE_ELEMENT_KEYS,
@@ -199,11 +221,19 @@ def main(rb_path, runs_path, deck_path, meta_path, drop_folder, out_path):
                                        for x in concepts]},
                 "teaches": teaches,
                 "salience_location": loc,
+                "section_objects": {"objects": wv_sections},
                 "edges": edges,
             },
+            # Contract v5, as make_golden.py writes them.
             "never_written": {
-                "labels": ["Project", "TargetNode", "User", "CanonicalConcept"],
-                "relations": ["OWNS", "ALIGNS_TO", "SUGGESTED_SOURCE", "DERIVED_FROM"],
+                "labels": ["Project", "TargetNode", "User"],
+                "relations": ["OWNS", "SUGGESTED_SOURCE", "DERIVED_FROM"],
+            },
+            "written_only_by": {
+                "concepts.normalise": {
+                    "labels": ["CanonicalConcept"],
+                    "relations": ["ALIGNS_TO", "PROPOSED_ALIGNS_TO"],
+                },
             },
         },
         "minio": {
@@ -220,12 +250,12 @@ def main(rb_path, runs_path, deck_path, meta_path, drop_folder, out_path):
             "run": run,
             "old_layout_keys": len(mn.get("old_layout_keys", [])),
             "stem_id_node_count": nj.get("stem_id_node_count"),
-            # Contract steps the producing code did not yet implement; their
-            # surfaces (vectors without
-            # _fig_ objects, outline sections) are NOT contract-shaped here.
-            # d (salience on the edge) and e (pages/) landed in #163 and #164.
-            "pending_steps": ["f", "g"],
-            "copied_not_observed": ["weaviate.server", "embedder", "neo4j.never_written"],
+            "alignment_edges": alignment,
+            # Contract steps the producing code did not yet implement (section 9).
+            # Steps a-j are on main (j, concepts.normalise, runs dry by default).
+            "pending_steps": [],
+            "copied_not_observed": ["weaviate.server", "embedder", "neo4j.never_written",
+                                    "neo4j.written_only_by"],
         },
     }
     # Bytes, not write_text: Windows text mode would write CRLF.
@@ -233,7 +263,8 @@ def main(rb_path, runs_path, deck_path, meta_path, drop_folder, out_path):
         f.write((json.dumps(golden, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
     print(f"wrote {out_path}: slides={len(slides)} sections={len(sections)} "
           f"concepts={len(concepts)} teaches={len(teaches)} salience_location={loc} "
-          f"weaviate={len(wv)} minio_keys={len(mn['keys'])}")
+          f"weaviate={len(wv)}+{len(wv_sections)} section alias_of={len(edges['ALIAS_OF'])} "
+          f"alignment_edges={len(alignment)} minio_keys={len(mn['keys'])}")
 
 
 if __name__ == "__main__":

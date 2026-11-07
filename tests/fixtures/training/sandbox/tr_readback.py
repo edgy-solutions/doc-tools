@@ -1,6 +1,6 @@
 """Read back what a training ingest wrote (MinIO, Neo4j, Weaviate). READ-ONLY.
 
-    /opt/venv/bin/python /tmp/cand_tr/tr_readback.py <s3_key_of_deck> <out.json>
+    cd /app && PYTHONPATH=/app /opt/venv/bin/python /tmp/tr_run/tr_readback.py <s3_key_of_deck> <out.json>
 
 Prints counts only. Never prints env values.
 """
@@ -72,7 +72,7 @@ def neo4j_part(ingest_id, stem):
     drv = GraphDatabase.driver(os.environ["NEO4J_URI"],
                                auth=(os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"]))
     out = {"course": None, "descendants": [], "relationships": [], "concepts": [],
-           "stem_id_node_count": None}
+           "alias_of": [], "alignment": [], "stem_id_node_count": None}
 
     def work(tx):
         r = tx.run("MATCH (c {id: $id}) RETURN labels(c) AS l, properties(c) AS p", id=ingest_id).data()
@@ -89,6 +89,18 @@ def neo4j_part(ingest_id, stem):
         out["concepts"] = tx.run(
             "MATCH (a)-[r]->(b:Concept) WHERE a.id IN $ids "
             "RETURN DISTINCT b.name AS name, labels(b) AS labels, properties(b) AS props", ids=ids).data()
+        # Contract v5 4.2: candidate ALIAS_OF runs Concept -> Concept, so the descendant
+        # walk above never reaches it; it is scoped to this course by `course_id`.
+        out["alias_of"] = tx.run(
+            "MATCH (a:Concept)-[r:ALIAS_OF]->(b:Concept) WHERE r.course_id = $id "
+            "RETURN a.name AS from_name, b.name AS to_name, properties(r) AS props", id=ingest_id).data()
+        # Contract v5 4.7: every alignment edge touching this course's Concepts, in either
+        # direction, so a dry run can show it wrote none (and a legacy edge is visible).
+        cids = [x["props"].get("id") for x in out["concepts"] if x["props"].get("id")]
+        out["alignment"] = tx.run(
+            "MATCH (a:Concept)-[r:ALIGNS_TO|PROPOSED_ALIGNS_TO]-(b) WHERE a.id IN $cids "
+            "RETURN type(r) AS type, startNode(r) = a AS outgoing, a.name AS concept, "
+            "labels(b) AS other_labels, properties(r) AS props", cids=cids).data()
         out["stem_id_node_count"] = tx.run(
             "MATCH (n) WHERE n.id STARTS WITH $stem RETURN count(n) AS c", stem=stem).single()["c"]
 
@@ -146,8 +158,10 @@ def main(deck_key, out_path):
     n = res["neo4j"]
     say("neo4j course:", n["course"] is not None, "descendants:", len(n["descendants"]),
         "rels:", len(n["relationships"]), "concepts:", len(n["concepts"]),
+        "alias_of:", len(n["alias_of"]), "alignment edges:", len(n["alignment"]),
         "stem-id nodes:", n["stem_id_node_count"])
-    say("weaviate objects:", len(res["weaviate"]["objects"]))
+    kinds = [o["properties"].get("chunk_kind") for o in res["weaviate"]["objects"]]
+    say("weaviate objects:", len(kinds), "slide:", kinds.count("slide"), "section:", kinds.count("section"))
     say("wrote", out_path)
 
 
