@@ -439,6 +439,8 @@ OURS_ONLY = frozenset({
     "document",      # #168; inert pending lane 1's allowed_leaves
     "dxf",           # ours and unregistered on the platform
     "step-ap242",    # ours and unregistered on the platform
+    "playbook",      # docs/contracts/playbook-kind.md s8.2: the overlay row (and
+                     # review_shape) is owed by the platform, which mirrors us
 })
 
 #: Kinds the overlay declares that we do not.
