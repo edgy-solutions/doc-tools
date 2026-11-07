@@ -100,15 +100,14 @@ def test_the_pass_signature_stays_inside_the_dispatcher_vocabulary():
     assert set(inspect.signature(playbook_outline).parameters) <= vocabulary
 
 
-def test_the_door_does_not_advertise_it_and_there_is_no_drop_seam():
-    """Arm 1 claims the kind; the door must still not offer it.
+def test_the_door_advertises_it_and_there_is_no_drop_seam():
+    """RULED 2026-11-07: advertised, and still no drop seam. Both at once.
 
-    The pass IS built, so `processable_kinds()` contains `playbook` -- which is
-    precisely why the hold in `doc_tools.api.kinds.HELD_OUT` has to be written
-    down. There is no drop seam here at all: `ingress_prefix=None`, no sensor,
-    no prefix, and the kind arrives by git clone. Advertising it to Lane 1
-    offers a leaf no user can drop, and that is the state this test caught --
-    with the whole suite green -- before the hold was added.
+    The kind is offered to Lane 1's door while `ingress_prefix` is None, so
+    there is no prefix, no sensor and no key pattern -- a playbook arrives by
+    git clone. That pairing is the ruling, not an oversight: it was held out
+    for one day (see the comment in `doc_tools.api.kinds.HELD_OUT`) and the
+    hold was lifted with the splitter fix.
     """
     from doc_tools.api.kinds import HELD_OUT, ingestable_kinds
     from doc_tools.utils.content_kind import (KIND_MAPPING, ingress_user_key_pattern,
@@ -116,9 +115,8 @@ def test_the_door_does_not_advertise_it_and_there_is_no_drop_seam():
                                                processable_kinds)
 
     assert "playbook" in processable_kinds()
-    assert "playbook" not in ingestable_kinds()
-    # The hold is the reason for the asymmetry, so it is asserted, not assumed.
-    assert "playbook" in HELD_OUT
+    assert "playbook" in ingestable_kinds()
+    assert "playbook" not in HELD_OUT
     assert "playbook" not in ingress_user_prefixes()
     with pytest.raises(ValueError):
         ingress_user_key_pattern(KIND_MAPPING["playbook"])
@@ -187,26 +185,85 @@ def test_every_chunk_id_matches_the_golden():
     assert actual == _golden()["chunks"]
 
 
-def test_one_chunk_per_leaf_and_the_outline_names_it():
+def test_every_section_with_prose_has_a_chunk_and_the_outline_names_it():
+    """RULED 2026-11-07: a chunk per heading WITH PROSE, not a chunk per leaf.
+
+    The two headings that carry no chunk carry none because they have no prose
+    of their own, not because they have children: `## Restart` is immediately
+    followed by `### Drain`, and `# Rotate the service token` by `#### Rotate`.
+    `## Before you start` HAS children and still gets a chunk, which is the
+    whole change -- under the old rule its sentence was unretrievable.
+    """
     outline = _outline()
-    leaves = [s for s in outline.sections if s.chunk_id]
-    assert [s.chunk_id for s in leaves] == [c["chunk_id"] for c in _golden()["chunks"]]
-    # Parents carry no chunk.
+    chunked = [s for s in outline.sections if s.chunk_id]
+    assert [s.chunk_id for s in chunked] == [c["chunk_id"] for c in _golden()["chunks"]]
     assert [s.heading for s in outline.sections if not s.chunk_id] == [
-        "Restart the ingest service", "Before you start", "Restart",
-        "Rotate the service token"]
+        "Restart", "Rotate the service token"]
+    # And the pre-heading text is reachable: a section of its own, parented on
+    # the document, or its chunk would sit in Weaviate attached to nothing.
+    (preamble,) = [s for s in outline.sections if s.method == "preamble"]
+    assert preamble.parent == _doc_id() and preamble.level == 0
+    assert preamble.heading == "restart_runbook"
+    assert preamble.chunk_id == _golden()["chunks"][0]["chunk_id"]
+
+
+def test_the_text_the_old_rule_dropped_is_now_retrievable():
+    """The two cases the ruling of 2026-11-07 names, asserted on the fixture.
+
+    Both sentences were in the outline and in NO chunk before it.
+    """
+    from doc_tools.utils.md_chunks import split_markdown
+
+    by_path = {" / ".join(c["heading_path"]): c["text"]
+               for c in split_markdown(_text(), _doc_id())}
+    # Text before the first heading, under the document title.
+    assert "Synthetic playbook fixture" in by_path["restart_runbook"]
+    # Text under a non-leaf heading, under that heading's own path.
+    assert ("Use this when the ingest service stops draining its queue"
+            in by_path["Restart the ingest service"])
+    assert ("Confirm you hold the on-call role"
+            in by_path["Restart the ingest service / Before you start"])
+    # One citation path per chunk: the reason the title is the file and not the
+    # first H1, which would have collided with that H1's own chunk.
+    paths = [" / ".join(c["heading_path"])
+             for c in split_markdown(_text(), _doc_id())]
+    assert len(paths) == len(set(paths))
+
+
+def test_a_heading_with_no_prose_of_its_own_yields_no_chunk():
+    """An empty chunk counted as coverage is worse than a missing one."""
+    from doc_tools.utils.md_chunks import MarkdownChunkError, split_markdown
+
+    chunks = split_markdown("# Top\n## Child\nbody\n", "D")
+    assert [c["heading_path"] for c in chunks] == [["Top", "Child"]]
+    # Headings and no prose anywhere RAISES rather than returning [].
+    with pytest.raises(MarkdownChunkError):
+        split_markdown("# Top\n\n## Child\n\n### Grand\n", "D")
 
 
 def test_a_chunk_carries_the_citation_triple_and_no_page():
     from doc_tools.utils.md_chunks import chunk_markdown
 
     g = _golden()["fixture"]
+    stem = os.path.splitext(os.path.basename(g["path"]))[0]
     for chunk in chunk_markdown(_text(), g["doc_id"], g["source"], g["path"]):
         assert chunk["source"] == g["source"]
         assert chunk["path"] == g["path"]
-        assert chunk["heading"] and chunk["heading"] in _text()
         assert chunk["doc_id"] == g["doc_id"] and chunk["text"]
         assert "page" not in chunk
+        # EVERY heading is verifiable against something the citation names, and
+        # there are exactly two cases. A heading read off the document must be
+        # a verbatim substring of it (`md_chunks._verify` raises otherwise).
+        # The ONE exception is the pre-heading chunk, whose heading is the
+        # document title: that is the FILE's name, so it is checked against the
+        # path instead -- it is not in the text, and must not be looked for
+        # there. No third case: a heading verifiable against neither cannot be
+        # cited at all.
+        assert chunk["heading"]
+        if chunk["level"] == 0:
+            assert chunk["heading"] == stem == "restart_runbook"
+        else:
+            assert chunk["heading"] in _text()
 
 
 def test_chunk_markdown_refuses_half_a_citation():
@@ -326,7 +383,8 @@ def test_the_chunk_is_matched_never_merged():
     queries, _ = _plugin().to_graph_queries([], _Config(), doc_id=_doc_id())
     for q in queries:
         assert "MERGE (c:" not in q["query"]
-    assert sum("MATCH (c:Chunk:PLAYBOOK" in q["query"] for q in queries) == 6
+    # Nine, not six: every heading with prose, plus the pre-heading chunk.
+    assert sum("MATCH (c:Chunk:PLAYBOOK" in q["query"] for q in queries) == 9
 
 
 def test_another_documents_outline_writes_nothing():

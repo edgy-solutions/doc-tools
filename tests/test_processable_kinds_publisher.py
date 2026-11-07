@@ -101,39 +101,23 @@ def test_held_out_says_no_arm_claims_xml_today():
     assert rows["xml"]["claimed_by"] == []
 
 
-def test_playbook_is_held_out_although_its_pass_is_built():
-    """The hold that a BUILT pass made necessary.
+def test_playbook_is_advertised_and_is_held_by_nothing():
+    """RULED 2026-11-07: the hold on `playbook` is LIFTED, so the door offers it.
 
-    `xml` is held out pending a measurement. `playbook` is held out because the
-    kind has no drop path at all: `ingress_prefix=None`, it arrives by git
-    clone, and the contract says no door grant is needed. Its pass IS built, so
-    arm 1 claims it and `processable_kinds()` contains it -- which is precisely
-    why the hold has to be explicit. Without it this door advertises a leaf no
-    user can drop, and the whole suite stays green while it does.
+    It was held for one day, because building the chunker made the pass resolve
+    and arm 1 then claimed the kind -- this door began advertising it with the
+    whole suite green. Chris ratified that hold and lifted it in the same
+    ruling, conditional on the splitter fix that makes every chunk retrievable;
+    that fix landed, so the kind is advertised.
+
+    Pinned POSITIVELY, not by the absence of an assertion: a kind silently
+    falling out of the advertised list is the failure this file exists for, and
+    the hold that used to keep it out was only a dict entry away.
     """
     assert "playbook" in kinds_mod.processable_kinds()
-    assert "playbook" not in kinds_mod.ingestable_kinds()
-    rows = {e["kind"]: e for e in kinds_mod.held_out_entries()}
-    # The arm that claims it is named, so the omission does not read as a bug.
-    assert rows["playbook"]["claimed_by"] == [kinds_mod.ARM_PYTHON_PASS]
-    assert "git clone" in rows["playbook"]["reason"]
-    # And the hold admits it may never retire, rather than implying a schedule.
-    assert "PERMANENT by design" in rows["playbook"]["unblocks_when"]
-
-
-def test_building_a_pass_cannot_retire_the_playbook_hold():
-    """Same guarantee the `xml` hold gets: an arm cannot vote itself advertised.
-
-    Stated separately because `playbook` is the case that proves it matters —
-    the hold for `xml` is belt and braces today (no arm runs it), while this one
-    is load-bearing from the first commit.
-    """
-    claimed = {
-        kinds_mod.ARM_PYTHON_PASS: ["playbook", "pcn"],
-        kinds_mod.ARM_INGRESS_USER_XML: ["playbook"],
-    }
-    with patch.object(kinds_mod, "processable_arms", return_value=claimed):
-        assert "playbook" not in kinds_mod.ingestable_kinds()
+    assert "playbook" in kinds_mod.ingestable_kinds()
+    assert "playbook" not in kinds_mod.HELD_OUT
+    assert "playbook" not in {e["kind"] for e in kinds_mod.held_out_entries()}
 
 
 # --------------------------------------------------------------------------- #
@@ -213,10 +197,13 @@ def test_the_skip_reason_distinguishes_published_from_refused():
     assert "404" in bad_text
     # The kinds and the hold are in the tick text, so one tick is diagnosable.
     assert "s1000d-data-module" in ok_text
-    # Both holds are named. Pinned as a SET, not as one substring: the previous
-    # `"held_out=xml" in ok_text` passed only while `xml` was the sole entry and
-    # broke the moment a second hold sorted ahead of it.
-    assert "held_out=playbook,xml" in ok_text
+    # Pinned as the WHOLE hold set, not as one substring. `"held_out=xml" in
+    # ok_text` passed while `xml` was the only entry and also while `playbook`
+    # was held alongside it for a day, which is the bug: a substring cannot see
+    # a hold being added.
+    held = ",".join(sorted(kinds_mod.HELD_OUT))
+    assert f"held_out={held}" in ok_text
+    assert held == "xml"
 
 
 def test_the_sensor_launches_no_runs():

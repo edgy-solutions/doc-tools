@@ -102,45 +102,20 @@ HELD_OUT = {
         ),
         "ruled": "2026-10-16",
     },
-    #: `playbook` (docs/contracts/playbook-kind.md). A HOLD OF THE SECOND KIND:
-    #: `xml` is held out because no drop has YET travelled the path, and the
-    #: measurement above would retire it. `playbook` is held out because THERE
-    #: IS NO DROP PATH AT ALL -- the row declares `ingress_prefix=None` and the
-    #: kind arrives by git clone, so this door has no leaf to offer and §8.3 of
-    #: the contract says outright that no door grant is needed.
+    #: `playbook` WAS HELD HERE AND IS NOT ANY MORE. The hold was 7f's, taken
+    #: on 2026-11-07 because building the chunker made the pass resolve, so arm
+    #: 1 claimed the kind and this door began advertising it with the whole
+    #: suite green -- the exact failure the `xml` comment above predicts,
+    #: arriving by a pass being BUILT rather than a parser row being added.
     #:
-    #: WHY THIS ENTRY EXISTS AT ALL. The contract's §1.2 expected the pass to be
-    #: listed in UNBUILT_PASSES, which would have kept `playbook` out of
-    #: `processable_kinds()` for free. Building the chunker makes the pass real,
-    #: and arm 1 then claims the kind -- so the door began advertising it with
-    #: the whole suite green. That is the exact failure the `xml` comment above
-    #: predicts ("this door would start advertising a path no drop has ever
-    #: travelled ... nothing fails"), arriving by a different route: a pass
-    #: being BUILT rather than a parser row being added. Arm membership is
-    #: evidence about a PASS; it is not evidence about a DROP.
-    #:
-    #: 7f's hold, 2026-11-07, pending ratification -- recorded here rather than
-    #: left implicit, because the protection it replaces was accidental.
-    "playbook": {
-        "reason": (
-            "a playbook does not arrive through the user seam at all -- it "
-            "arrives by git clone, so there is no drop for this door to offer"
-        ),
-        "evidence": (
-            "the row declares `ingress_prefix=None`, so no sensor and no "
-            "prefix drains it, and nothing calls the chunker yet: the clone "
-            "ingest asset (contract sections 2.2 and 2.3) is deliberately not "
-            "built. Arm 1 claims the kind only because the pass resolves"
-        ),
-        "unblocks_when": (
-            "a playbook reaches a parse artifact end to end, which needs the "
-            "clone ingest asset -- then delete this entry, in the same commit "
-            "as the measurement that justifies it. If playbooks are only ever "
-            "cloned and never dropped, this entry is PERMANENT by design and "
-            "the kind stays unadvertised without that being a defect"
-        ),
-        "ruled": "2026-11-07",
-    },
+    #: RATIFIED AND THEN LIFTED THE SAME DAY, both by Chris: the hold was to
+    #: stand only until the splitter rule was fixed (text under a non-leaf
+    #: heading, and text before the first heading, were in no chunk and so
+    #: unretrievable). That fix landed with this entry's removal, and the
+    #: ruling is that the door then advertises the kind. Kept as a comment and
+    #: not deleted outright because the FAILURE MODE is the reusable part: a
+    #: pass becoming real is enough to change what this door advertises, and
+    #: nothing fails when it does.
 }
 
 

@@ -32,13 +32,22 @@
     "synthetic": false,
     "sections": [
       {
+        "id": "playbooks.runbooks/restart_runbook_restart-runbook",
+        "parent": "playbooks.runbooks/restart_runbook",
+        "heading": "restart_runbook",
+        "level": 0,
+        "heading_source": "",
+        "method": "preamble",
+        "chunk_id": "playbooks.runbooks/restart_runbook_restart-runbook_abc002665acf"
+      },
+      {
         "id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service",
         "parent": "playbooks.runbooks/restart_runbook",
         "heading": "Restart the ingest service",
         "level": 1,
         "heading_source": "# Restart the ingest service",
         "method": "atx",
-        "chunk_id": ""
+        "chunk_id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service_d26341cf6333"
       },
       {
         "id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service__before-you-start",
@@ -47,7 +56,7 @@
         "level": 2,
         "heading_source": "## Before you start",
         "method": "atx",
-        "chunk_id": ""
+        "chunk_id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service__before-you-start_bec777eb4f63"
       },
       {
         "id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service__before-you-start__check-the-queue-depth",
@@ -124,6 +133,40 @@
     ]
   },
   "chunks": [
+    {
+      "chunk_id": "playbooks.runbooks/restart_runbook_restart-runbook_abc002665acf",
+      "section_id": "playbooks.runbooks/restart_runbook_restart-runbook",
+      "heading": "restart_runbook",
+      "heading_path": [
+        "restart_runbook"
+      ],
+      "synthetic": false,
+      "source": "https://git.example.invalid/ops/playbooks.git",
+      "path": "runbooks/restart_runbook.md"
+    },
+    {
+      "chunk_id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service_d26341cf6333",
+      "section_id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service",
+      "heading": "Restart the ingest service",
+      "heading_path": [
+        "Restart the ingest service"
+      ],
+      "synthetic": false,
+      "source": "https://git.example.invalid/ops/playbooks.git",
+      "path": "runbooks/restart_runbook.md"
+    },
+    {
+      "chunk_id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service__before-you-start_bec777eb4f63",
+      "section_id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service__before-you-start",
+      "heading": "Before you start",
+      "heading_path": [
+        "Restart the ingest service",
+        "Before you start"
+      ],
+      "synthetic": false,
+      "source": "https://git.example.invalid/ops/playbooks.git",
+      "path": "runbooks/restart_runbook.md"
+    },
     {
       "chunk_id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service__before-you-start__check-the-queue-depth_bd5f356c6c22",
       "section_id": "playbooks.runbooks/restart_runbook_restart-the-ingest-service__before-you-start__check-the-queue-depth",

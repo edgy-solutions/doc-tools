@@ -118,6 +118,27 @@ def slug(heading: str) -> str:
     return _UNSAFE.sub("-", heading.lower()).strip("-") or "untitled"
 
 
+def document_title(doc_id: str) -> str:
+    """The document's own name, for the text that is under no heading at all.
+
+    RULED 2026-11-07: text before the first heading becomes a chunk under the
+    DOCUMENT TITLE, and the title is the FILE -- ``playbook_doc_id`` mints
+    ``f"{repo_name}.{stem}"``, so this is that stem's last path segment.
+
+    Deriving it from the file and not from the first H1 is the deliberate half
+    of that ruling. Under the non-leaf rule below the first H1 now gets a chunk
+    of its OWN text, so titling the preamble with the H1 would put two
+    different chunks at one citation path and leave ``section_id`` as the only
+    thing separating them. The preamble belongs to the document, not to a
+    section it is not inside, so it cites as the file.
+    """
+    tail = doc_id.rsplit("/", 1)[-1]
+    if "/" not in doc_id and "." in tail:
+        # No directory in the repo path, so the doc_id is "<repo>.<stem>".
+        tail = tail.split(".", 1)[1]
+    return tail or doc_id
+
+
 def read_headings(text: str) -> list[MdHeading]:
     """Every ATX heading in ``text``, in order, outside fenced code blocks."""
     found: list[MdHeading] = []
@@ -181,11 +202,30 @@ def layout(text: str, doc_id: str) -> list[MdNode]:
     return nodes
 
 
-def split_markdown(text: str, doc_id: str) -> list[dict]:
-    """Leaf-heading units of ``text``, without provenance.
+def split_markdown(text: str, doc_id: str, title: str = "") -> list[dict]:
+    """Chunk units of ``text``, without provenance.
 
     Each dict: ``text, doc_id, chunk_id, section_id, heading, heading_path,
     level, synthetic``.
+
+    RULED 2026-11-07, AND IT MOVES CITATIONS (contract section 11), which is
+    why it is taken before any production corpus exists. Two changes:
+
+      * EVERY heading with prose of its own becomes a chunk, not only a leaf,
+        carrying that heading's path.
+      * Text before the first heading becomes a chunk under the document
+        title (see ``document_title``).
+
+    The leaf-only rule it replaces left text under a non-leaf heading, and text
+    before the first heading, in NO chunk and therefore unretrievable -- in the
+    fixture, the one sentence that says when to use the runbook at all.
+
+    A HEADING WITH NO PROSE OF ITS OWN YIELDS NO CHUNK, leaf or not. A chunk
+    holding only its own heading line retrieves nothing, and an empty node
+    counted as coverage is worse than a missing one; two of the fixture's ten
+    headings are in that state deliberately. If NO heading has prose this
+    RAISES rather than returning an empty list -- zero chunks off a file with
+    headings is the silent-success shape this repo has paid for before.
     """
     if not doc_id:
         raise MarkdownChunkError("doc_id is required: every chunk_id is prefixed with it")
@@ -205,11 +245,34 @@ def split_markdown(text: str, doc_id: str) -> list[dict]:
     lines = text.splitlines()
     out: list[dict] = []
     seen_ids: set[str] = set()
+    taken_sections = {n.section_id for n in nodes}
+
+    # Text before the first heading. Its section id is minted here and not in
+    # `layout`, because `layout` reads headings that are IN the source and this
+    # one is not -- keeping the verbatim invariant exactly as strict as it was.
+    lead = "\n".join(lines[:nodes[0].heading.line]).strip()
+    if lead:
+        name = title or document_title(doc_id)
+        path_slug = slug(name)
+        base = f"{doc_id}_{path_slug}"
+        section_id, n = base, 2
+        while section_id in taken_sections:   # a heading already holds that id
+            section_id, n = f"{base}_{n}", n + 1
+        taken_sections.add(section_id)
+        chunk_id = _chunk_id(doc_id, path_slug, lead)
+        seen_ids.add(chunk_id)
+        out.append({
+            "text": lead, "doc_id": doc_id, "chunk_id": chunk_id,
+            "section_id": section_id, "heading": name, "heading_path": [name],
+            "level": 0, "synthetic": False,
+        })
+
     for i, node in enumerate(nodes):
-        if not node.is_leaf:
-            continue
         h = node.heading
         end = nodes[i + 1].heading.line if i + 1 < len(nodes) else len(lines)
+        own = "\n".join(lines[h.line + 1:end]).strip()
+        if not own:
+            continue            # no prose of its own, so nothing to retrieve
         body = "\n".join(lines[h.line:end]).strip()
         path_slug = PATH_SEP.join(slug(p) for p in node.path)
         chunk_id = _chunk_id(doc_id, path_slug, body)
@@ -222,6 +285,12 @@ def split_markdown(text: str, doc_id: str) -> list[dict]:
             "heading_path": list(node.path), "level": h.level,
             "synthetic": False,
         })
+
+    if not out:
+        raise MarkdownChunkError(
+            f"{doc_id}: {len(nodes)} heading(s) and no prose under any of "
+            f"them, so there is nothing to retrieve; refusing rather than "
+            f"returning zero chunks")
     return out
 
 
@@ -235,7 +304,11 @@ def chunk_markdown(text: str, doc_id: str, source: str, path: str) -> list[dict]
     if not source or not path:
         raise MarkdownChunkError(
             "source and path are required: a citation is repo + path + heading")
-    chunks = split_markdown(text, doc_id)
+    # The title comes from the REAL path here, rather than being read back out
+    # of the doc_id: this is the one caller that has the path in hand.
+    stem, _ext = posixpath.splitext(path.replace("\\", "/").rstrip("/"))
+    chunks = split_markdown(text, doc_id,
+                            title=posixpath.basename(stem) or document_title(doc_id))
     for chunk in chunks:
         chunk["source"] = source
         chunk["path"] = path
