@@ -50,7 +50,9 @@ def guards(expect):
         if not os.path.isfile(p):
             bad.append(f"missing {p} under the cwd")
     ver = os.getenv("DOC_TOOLS_VERSION") or ""
-    if len(expect) < 7 or not ver or not (ver.startswith(expect) or expect.startswith(ver)):
+    # The image sets it as `doc-tools@<full sha>`; any other prefix fails the match.
+    sha = ver.removeprefix("doc-tools@")
+    if len(expect) < 7 or len(sha) < 7 or not (sha.startswith(expect) or expect.startswith(sha)):
         bad.append(f"DOC_TOOLS_VERSION={ver!r} is not --expect {expect!r}")
     mode = os.getenv("TRAINING_CONCEPT_ALIGNMENT", "dry").strip().lower()
     if mode != "dry":

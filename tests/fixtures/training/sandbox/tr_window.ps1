@@ -52,7 +52,8 @@ function Guard {
     $ver = (kubectl @K exec $pod -- printenv DOC_TOOLS_VERSION | Out-String).Trim()
     $short = $digest.Substring(0, [Math]::Min(15, $digest.Length))
     if ($Digests -notcontains $digest) { Write-Host "GUARD FAIL: pod=$pod imageID=$short is not the pin; RUN NOTHING"; exit 1 }
-    if (-not $ver.StartsWith($ExpectVersion)) { Write-Host "GUARD FAIL: pod=$pod DOC_TOOLS_VERSION=$ver is not $ExpectVersion; RUN NOTHING"; exit 1 }
+    # The image sets it as `doc-tools@<full sha>`; any other prefix fails the match.
+    if (-not ($ver -replace '^doc-tools@', '').StartsWith($ExpectVersion)) { Write-Host "GUARD FAIL: pod=$pod DOC_TOOLS_VERSION=$ver is not $ExpectVersion; RUN NOTHING"; exit 1 }
     Write-Host "GUARD OK pod=$pod imageID=$short DOC_TOOLS_VERSION=$ver"
     return $pod
 }
