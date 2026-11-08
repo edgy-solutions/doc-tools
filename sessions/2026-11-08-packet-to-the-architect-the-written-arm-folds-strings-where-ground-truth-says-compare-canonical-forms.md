@@ -1,5 +1,20 @@
 # Packet to the architect, from 7f — the Monday ruling on `_written_equality_key`
 
+> ## RULED 2026-11-08 by the architect, via Chris — option (a)
+>
+> *"The written arm compares canonical forms, not strings. `_written_equality_key`
+> maps each read through `score_header_field` and compares the returned canonical;
+> `exact`/`alias`/`misformatted` unify, `distractor`/`wrong`/`unreadable` never do.
+> TI's three declared spellings become one; `ONSEM.` stays apart because it is a
+> failed read, not a spelling. That asymmetry is the rule. The signature change
+> (`compare_written_headers` takes specs, with a no-ground-truth fallback that
+> compares strings as today) is yours; the gate stays red on onsemi until a run
+> reads it right, which is correct."*
+>
+> **The gate staying red on onsemi is the ruled outcome, not a shortfall.** The fix
+> is 7f's to build and lands in its own PR — **not** in this one, which is the
+> record of the question and its answer.
+
 **The question, as asked:** *"bring the three TI/onsemi variants and what
 `_written_equality_key` would need to treat them as one — that's the question I'll
 answer."*
@@ -205,6 +220,12 @@ its canonical form FIRST, and only canonical forms are compared."* The written a
 the one place in the gate that does not do that.
 
 I have not implemented any of this. The question is yours to answer.
+
+**Answered: (a), ruled 2026-11-08** — see the banner at the top. The written arm
+maps each read through `score_header_field` and compares the returned canonical;
+`exact`/`alias`/`misformatted` unify and `distractor`/`wrong`/`unreadable` never
+do. `compare_written_headers` takes the specs, with a fallback that compares
+strings as today where ground truth declares nothing. Not implemented in this PR.
 
 ---
 
