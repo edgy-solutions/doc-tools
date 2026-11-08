@@ -102,6 +102,20 @@ HELD_OUT = {
         ),
         "ruled": "2026-10-16",
     },
+    #: `playbook` WAS HELD HERE AND IS NOT ANY MORE. The hold was 7f's, taken
+    #: on 2026-11-07 because building the chunker made the pass resolve, so arm
+    #: 1 claimed the kind and this door began advertising it with the whole
+    #: suite green -- the exact failure the `xml` comment above predicts,
+    #: arriving by a pass being BUILT rather than a parser row being added.
+    #:
+    #: RATIFIED AND THEN LIFTED THE SAME DAY, both by Chris: the hold was to
+    #: stand only until the splitter rule was fixed (text under a non-leaf
+    #: heading, and text before the first heading, were in no chunk and so
+    #: unretrievable). That fix landed with this entry's removal, and the
+    #: ruling is that the door then advertises the kind. Kept as a comment and
+    #: not deleted outright because the FAILURE MODE is the reusable part: a
+    #: pass becoming real is enough to change what this door advertises, and
+    #: nothing fails when it does.
 }
 
 

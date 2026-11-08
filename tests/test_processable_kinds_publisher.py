@@ -101,6 +101,25 @@ def test_held_out_says_no_arm_claims_xml_today():
     assert rows["xml"]["claimed_by"] == []
 
 
+def test_playbook_is_advertised_and_is_held_by_nothing():
+    """RULED 2026-11-07: the hold on `playbook` is LIFTED, so the door offers it.
+
+    It was held for one day, because building the chunker made the pass resolve
+    and arm 1 then claimed the kind -- this door began advertising it with the
+    whole suite green. Chris ratified that hold and lifted it in the same
+    ruling, conditional on the splitter fix that makes every chunk retrievable;
+    that fix landed, so the kind is advertised.
+
+    Pinned POSITIVELY, not by the absence of an assertion: a kind silently
+    falling out of the advertised list is the failure this file exists for, and
+    the hold that used to keep it out was only a dict entry away.
+    """
+    assert "playbook" in kinds_mod.processable_kinds()
+    assert "playbook" in kinds_mod.ingestable_kinds()
+    assert "playbook" not in kinds_mod.HELD_OUT
+    assert "playbook" not in {e["kind"] for e in kinds_mod.held_out_entries()}
+
+
 # --------------------------------------------------------------------------- #
 # publish_once: the credential seam
 # --------------------------------------------------------------------------- #
@@ -178,7 +197,13 @@ def test_the_skip_reason_distinguishes_published_from_refused():
     assert "404" in bad_text
     # The kinds and the hold are in the tick text, so one tick is diagnosable.
     assert "s1000d-data-module" in ok_text
-    assert "held_out=xml" in ok_text
+    # Pinned as the WHOLE hold set, not as one substring. `"held_out=xml" in
+    # ok_text` passed while `xml` was the only entry and also while `playbook`
+    # was held alongside it for a day, which is the bug: a substring cannot see
+    # a hold being added.
+    held = ",".join(sorted(kinds_mod.HELD_OUT))
+    assert f"held_out={held}" in ok_text
+    assert held == "xml"
 
 
 def test_the_sensor_launches_no_runs():

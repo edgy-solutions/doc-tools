@@ -283,6 +283,12 @@ PHANTOM_OUTPUTS = (
     # describes reaches the graph on the day the row lands and the missing
     # ``owl:Class`` is the only thing outstanding.
     "mesh:GeneralDocumentArtifact",
+    # The EIGHTH, for the ``playbook`` kind (docs/contracts/playbook-kind.md).
+    # Owed by the ontology owner, who also picks the parent: a markdown file
+    # cloned from git is not PDF-shaped, so ``mesh:PDFArtifact`` is NOT assumed
+    # the way it is for the ``document`` leaf. No triples are written until the
+    # ``owl:Class`` exists.
+    "mesh:PlaybookArtifact",
 )
 
 
@@ -468,6 +474,41 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         outputs=("mesh:GeneralDocumentArtifact",),
         ingress_prefix=None,
         file_suffixes=(".pdf",),
+    ),
+    # ── Markdown playbooks, arriving by git clone ─────────────────────────
+    # Contract: docs/contracts/playbook-kind.md. A new content kind on the path
+    # that already ingests from git, not a new source mechanism.
+    #
+    # ``domain_type="playbook"`` MUST NOT be None (a domain-less row writes no
+    # graph and no chunks), and it needs its OWN branch in the plugin selector in
+    # ``semantic_assets.py``: that chain's ``else`` is TrainingPlugin, so an
+    # unbranched domain gets course-concept extraction run over a runbook and
+    # looks like it worked. The row and the branch land together.
+    #
+    # ``ingress_prefix=None``: there is no user-drop seam, a playbook arrives by
+    # clone, so there is no sensor and nothing to advertise a drop path for.
+    # ``file_suffixes`` is the repo-scan filter here, not a seam gate. ``.md``
+    # only; widening is a measured change, not a tuple edit.
+    #
+    # The pass is BUILT in the same change, so it is not in UNBUILT_PASSES (the
+    # contract's section 1.2 anticipated listing it; tests/test_passes_registry
+    # forbids listing a pass that resolves). Nothing here samples.
+    #
+    # ``review_shape`` is platform-owned and not emitted. The output is a
+    # PHANTOM (see PHANTOM_OUTPUTS).
+    "playbook": ContentKindEntry(
+        kind_source_value="playbook",
+        kind="playbook",
+        extractor_config="",
+        baml_function="",
+        target_ontology_class=(
+            "http://edgy-solutions.com/ontology/mesh#PlaybookArtifact"
+        ),
+        domain_type="playbook",
+        passes=("playbook.playbook_outline",),
+        outputs=("mesh:PlaybookArtifact",),
+        ingress_prefix=None,
+        file_suffixes=(".md",),
     ),
     # ── Format-level kinds: NO DOMAIN (origin resolved by evidence) ────────
     "pdf": ContentKindEntry(

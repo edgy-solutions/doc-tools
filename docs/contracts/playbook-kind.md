@@ -135,8 +135,29 @@ pattern from the row's `file_suffixes` (§1.3).
 The only chunker in the tree is `doc_tools/utils/xml_chunks.py` (graph → chunks).
 **There is no markdown chunker and no heading splitter.** The build adds one:
 
-* Split on **ATX headings** (`#`…`######`); one chunk per **leaf** heading, with
-  the ancestor headings carried as the heading path.
+* Split on **ATX headings** (`#`…`######`); one chunk per heading **that has
+  prose of its own**, with the ancestor headings carried as the heading path.
+  **REVISED 2026-11-07** — this said "one chunk per *leaf* heading", which left
+  text under a non-leaf heading in no chunk at all. See the two rules below.
+* **Text under a non-leaf heading is a chunk with that heading's path.** A
+  parent heading's own prose is retrievable; the chunk spans from the heading
+  to the next heading of any level, so a parent's chunk never swallows its
+  children's text.
+* **Text before the first heading is a chunk under the document title**, and
+  the title is the **file stem**, not the first `#`. Deriving it from the first
+  H1 would give that preamble the same heading path as the H1's own chunk,
+  leaving `section_id` as the only thing separating two different citations.
+  The preamble belongs to the document, so it cites as the file.
+  * Consequence, and the one exception to the verbatim invariant below: this
+    chunk's heading is **not** in the document, and is verified against the
+    path instead. There is no third case.
+  * It also needs a **section of its own, parented on the document** — a chunk
+    whose section is in no tier is written to Weaviate and reachable from
+    nothing in Neo4j, which no test of either store alone would show.
+* **A heading with no prose of its own gets NO chunk**, leaf or not: a chunk
+  holding only its heading line retrieves nothing, and an empty node counted as
+  coverage is worse than a missing one. A file of headings with no prose
+  anywhere **raises** rather than returning zero chunks.
 * **Derive `chunk_id` from the heading path, not from position.** Mirror
   `xml_chunks.py`, which keys on `doc_id` + section + a 12-hex sha1 of the text
   precisely so a reordering re-parse cannot re-mint uuids:
@@ -241,6 +262,14 @@ Nothing about cloning, auth or globbing changes.
 
 ## 9. Known gaps, and the one thing to rule
 
+* **RULED AND CLOSED 2026-11-07 — the splitter dropped text.** The build found
+  that §3's leaf-only rule left text under a non-leaf heading, and text before
+  the first heading, in **no chunk and therefore unretrievable**: in the
+  fixture, the one sentence saying when to use the runbook at all. Ruled: both
+  become chunks (§3), the title is the file stem, and citations move **once**,
+  before any production corpus exists. `playbook` was held out of
+  `ingestable_kinds()` until that landed; the hold is lifted and the door
+  advertises the kind.
 * **A chunk cannot be resolved to a commit.** The packet named two properties and
   this spec adds two; the resolved sha lands in the run metadata and on the
   document node, not on the chunk. So a retrieved chunk cites repo + path +
