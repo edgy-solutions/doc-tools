@@ -172,6 +172,42 @@ jobs:
       # typo inside the regex can only fail open. That asymmetry is the whole
       # reason this reads oddly.
       charts: ${{ steps.decide.outputs.charts }}
+      # Read by `corpus-gate` ONLY, as a second leg beside `charts` — never by
+      # `corpus-gate-verdict`, which keeps its chart-only scope by ruling
+      # 2026-11-03. True when the diff touches the gate's own script surface:
+      # `scripts/pcn_corpus_gate.py`, `scripts/pcn_score.py`,
+      # `scripts/pcn_header_agreement.py` or `scripts/pcn_ground_truth.json`.
+      #
+      # WHY IT EXISTS, MEASURED ON #206. That PR changed the written-header
+      # comparator in `scripts/pcn_corpus_gate.py` — the gate's own equality
+      # key — and BOTH gate jobs concluded SKIPPED, because `charts/**` (plus
+      # `docs/corpus-gate/**`) was the only thing that dispatched them. A PR
+      # that rewrites how the gate grades was the one PR the gate never ran on.
+      # The same skip then repeated on main's own push build of `5c113ce`.
+      #
+      # WHAT IT DOES AND DOES NOT BUY. The `decide` step carries the measurement;
+      # in short, one of the four paths is an input the guard actually reads
+      # (`pcn_ground_truth.json`, the corpus denominator) and the other three are
+      # dispatch-only — the guard never imports the comparator, so it cannot
+      # observe a change in it. What those three buy is that the committed report
+      # is re-asserted for schema, currency, corpus coverage and identity before
+      # a comparator change lands. The comparator's BEHAVIOUR is covered by the
+      # `tests` job instead, which dispatches on `code`.
+      #
+      # IT IS A SECOND LEG, NOT A REPLACEMENT, AND THAT IS THE SAFETY. The
+      # `charts` block above explains why renaming an output fails in the wrong
+      # direction: a typo'd reference reads empty, the `if:` reads false, the
+      # job skips, and a skip satisfies the required context. That hazard is
+      # live for any NEW output a required job reads — so `corpus-gate`'s `if:`
+      # is written as `charts == 'true' || gate_scripts == 'true'`. A typo in
+      # this name can then only degrade the job to its pre-2026-11-03
+      # chart-only scope. It cannot make the gate inert, which is the failure
+      # the other comment is guarding against.
+      #
+      # THE NAME MATCHES THE PREDICATE HERE, unlike `charts` above: it is four
+      # named files, not a tree. Adding a path means widening the regex in
+      # `decide`, and a typo inside the regex can only fail open.
+      gate_scripts: ${{ steps.decide.outputs.gate_scripts }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -193,6 +229,7 @@ jobs:
 
           CODE=true
           CHARTS=true
+          GATE_SCRIPTS=true
 
           if [ "$EVENT_NAME" != "pull_request" ] && [ "$EVENT_NAME" != "push" ]; then
             echo "event is '$EVENT_NAME' (e.g. workflow_dispatch), no diff range applies -> code=true"
@@ -270,8 +307,83 @@ jobs:
             echo "a changed path matches ^charts/ or ^docs/corpus-gate/, or the diff could not be proven -> charts=true"
           fi
 
+          # GATE_SCRIPTS: the gate's own script surface, added 2026-11-03 by
+          # ruling after #206 changed `scripts/pcn_corpus_gate.py` and both gate
+          # jobs concluded SKIPPED. Same fail-open discipline and the same
+          # direction as CHARTS: an unprovable diff arrives here true. That is
+          # redundant rather than load-bearing — every case that leaves CHANGED
+          # unset or empty already sets CHARTS=true, so `corpus-gate` dispatches
+          # on the other leg anyway — but it is kept identical so there is one
+          # rule in this step and not two.
+          #
+          # WHAT THE JOB ACTUALLY READS, measured 2026-11-03 rather than
+          # inferred from the job's name, because it decides which paths belong
+          # here. `corpus-gate` runs ONE thing: `pytest
+          # tests/test_corpus_gate_guard.py`. That file imports only json, re,
+          # warnings, pathlib and pytest — it never imports or executes the
+          # comparator — and it opens exactly three paths:
+          #
+          #     docs/corpus-gate/latest.json        -> covered by CHARTS above
+          #     charts/doc-tools/values-sandbox.yaml -> covered by CHARTS above
+          #     scripts/pcn_ground_truth.json       -> covered by NOTHING, until now
+          #
+          # So the four paths below divide into two kinds, and the comment says
+          # which is which rather than implying they earn their place equally:
+          #
+          #   * `scripts/pcn_ground_truth.json` is an INPUT THE GUARD READS. It
+          #     is where the corpus denominator comes from (the guard asserts
+          #     the report carries a `_corpus` block and that its enumeration
+          #     agrees). Editing it changes the guard's verdict directly, and
+          #     before today the guard SKIPPED on that edit. This is the leg
+          #     that can newly catch something.
+          #
+          #   * `pcn_corpus_gate.py`, `pcn_score.py` and `pcn_header_agreement.py`
+          #     are DISPATCH-ONLY. The guard cannot observe a change in them, so
+          #     widening to them does not make the guard smarter; what it buys is
+          #     that the committed report is re-asserted for schema, currency,
+          #     corpus coverage and identity BEFORE a comparator change lands.
+          #     A rewrite of how the gate grades can no longer merge while the
+          #     gate's own evidence is stale or void. Note what covers the
+          #     comparator's BEHAVIOUR instead: the `tests` job, which loads all
+          #     three by `spec_from_file_location` across a dozen test modules
+          #     (`test_corpus_gate_written_headers.py`,
+          #     `test_header_agreement_instrument.py`, `test_pcn_score.py`, …)
+          #     and dispatches on `code`, which a `scripts/` edit always sets.
+          #     #206 was tested; it was only ungated.
+          #
+          # `pcn_header_agreement.py` is here by the 2026-11-03 order ("incl.
+          # script paths"), closing the gap raised when the first two landed: it
+          # OWNS `WRITTEN_FIELDS`, the written arm's field list, re-exported by
+          # the gate as `WRITTEN_ARM_FIELDS`, so a change to it alone changes
+          # what the gate grades — the same hole #206 fell through, one import
+          # further out.
+          #
+          # DELIBERATELY STILL OUT, so the next reader does not have to re-derive
+          # the line. `scripts/pcn_corpus_run.py` is imported by
+          # `pcn_header_agreement` but only inside a function on the fire path,
+          # and a fire cannot run in CI at all (see the corpus-gate block), so it
+          # changes what a FIRE produces and never what the committed report
+          # asserts. `pcn_gate_prefire.py` and `pcn_gate_publish.py` are the
+          # pre-roll corroboration and the report publisher — neither is read by
+          # the guard. `pcn_crop_seal.py` grades crops, not headers.
+          #
+          # ANCHORED AND EXACT, `$` included, and the extension is part of each
+          # alternative because one of the four is a `.json`. These are four
+          # named files, not a tree; the four other `pcn_*` files in `scripts/`
+          # named above do not collide with an unanchored pattern today —
+          # checked, not assumed — so the `$` is there for the next
+          # `pcn_score_*.py` or `pcn_ground_truth_*.json`, which would otherwise
+          # join this predicate silently.
+          if [ -n "${CHANGED:-}" ] && ! echo "$CHANGED" | grep -qE '^scripts/(pcn_corpus_gate\.py|pcn_score\.py|pcn_header_agreement\.py|pcn_ground_truth\.json)$'; then
+            GATE_SCRIPTS=false
+            echo "no changed path is the gate's own script surface -> gate_scripts=false"
+          else
+            echo "a changed path is one of scripts/{pcn_corpus_gate.py,pcn_score.py,pcn_header_agreement.py,pcn_ground_truth.json}, or the diff could not be proven -> gate_scripts=true"
+          fi
+
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           echo "charts=$CHARTS" >> "$GITHUB_OUTPUT"
+          echo "gate_scripts=$GATE_SCRIPTS" >> "$GITHUB_OUTPUT"
 
   resolve-release-image:
     # WHICH VERSION, FOR WHICH COMMIT, AND DOES AN IMAGE ALREADY EXIST FOR IT.
@@ -851,6 +963,25 @@ jobs:
     # just removed, reached from the staleness side. Currency only matters
     # where a pin can ship, and that is a chart diff.
     #
+    # WIDENED BY EXACTLY ONE LEG, 2026-11-03: the gate's own script surface. "A
+    # pin can ship" is not the only place currency matters, because a diff can
+    # change what the gate GRADES WITH. #206 rewrote the written-header equality
+    # key in `scripts/pcn_corpus_gate.py` and this job SKIPPED — the gate did
+    # not run on the PR that changed the gate, and the same skip then repeated
+    # on main's own push build of `5c113ce`. The `gate_scripts` output in
+    # `changes` is that second leg; see its comment there for why the `if:`
+    # below is a disjunction rather than a swap (a typo in the new name can then
+    # only degrade this job to its old chart-only scope, never to inert), and
+    # for which of the four paths this job can actually observe.
+    #
+    # THE WEDGE RISK ABOVE IS REAL FOR THIS LEG AND ACCEPTED. A stale or void
+    # nightly now blocks a PR to those four scripts as well as a chart PR. That
+    # is a narrower surface than "EVERY PR" — four named files — and it is the
+    # surface where it matters most: a comparator or ground-truth change is
+    # exactly what you do NOT want to merge against an unverifiable report.
+    # `corpus-gate-verdict` below is deliberately NOT widened, so a red VERDICT
+    # still blocks only a pin.
+    #
     # NOT IN `build-and-push`'s `needs:`, following verify-image-pin above. This
     # job decides whether the CHART may change, not whether an image may be
     # produced — and a pin bump points at a digest that already exists, so
@@ -862,7 +993,9 @@ jobs:
     # d7434d6 incident its docstring cites), and it fails on a stale one, so a
     # report that stopped being produced cannot read as a pass.
     needs: changes
-    if: needs.changes.outputs.charts == 'true'
+    if: >-
+      needs.changes.outputs.charts == 'true' ||
+      needs.changes.outputs.gate_scripts == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -903,6 +1036,20 @@ jobs:
     # extraction fix that turns it green. If you make it required, the escape
     # hatch has to be explicit (an override label the job reads), not the
     # `if:`.
+    #
+    # DELIBERATELY NOT WIDENED TO `gate_scripts`, ruled 2026-11-03 in the same
+    # breath as widening `corpus-gate` above. Do not "fix" the asymmetry: the
+    # two jobs assert different things and only one of them is safe to dispatch
+    # on a comparator diff. This one asserts the OUTCOME, and the outcome is a
+    # literal the IMAGE computed during its fire — so on a PR that changes the
+    # comparator the verdict in `docs/corpus-gate/latest.json` is still the OLD
+    # comparator's answer, and no edit to these scripts can move it. MEASURED
+    # on #206's branch: the fix applied, the test still failing, because the
+    # verdict is read and not recomputed. Dispatching this job on a comparator
+    # PR would therefore report a red that the PR cannot clear by any means
+    # available to it — a permanent false block, not a finding. The legitimate
+    # way to move that verdict is a fresh fire from an image carrying the
+    # change, which is what a pin bump brings, which is `charts/**`.
     needs: changes
     if: needs.changes.outputs.charts == 'true'
     runs-on: ubuntu-latest
