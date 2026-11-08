@@ -1701,7 +1701,28 @@ corpusGate:
   # scratchpad/preroll_diff_roll56.log. The nightly CronJob is `suspend: true`
   # as of this same pin (#179), so no scheduled run could fall inside the
   # window at all -- the first roll of the two that has had that protection.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:03599b10afcd5be49bd46f515db92ad4d694849f576484dad23847c9cf4b5290"
+  #
+  # 2026-11-08 14:48Z, READ-THEN-WRITE, roll 2 of the ca3e7d83 pin. This value was read
+  # off the running pods' `.status.containerStatuses[*].imageID` after roll 1
+  # settled and the pod count had come back to 1 -- ONE distinct value -- and
+  # written from that reading. It is NOT copied from `image.digest` above,
+  # which it equals; that equality is the result being asserted.
+  #
+  # THE LINE THIS REPLACES NAMED A THIRD IMAGE. `03599b10afcd` was pinned and
+  # never rolled, while the live release (rev 57) ran `01f016e430eb`. So before
+  # this write the gate's expectation matched neither the chart nor the cluster,
+  # and a nightly would have been VOIDED on image identity rather than
+  # reporting on the corpus. There were three digests in play, not two.
+  #
+  # The window between the two rolls was red on image identity by construction.
+  # It was harmless only because the nightly CronJob is `suspend: true`
+  # (further up this file), which the pre-roll diff proved rather than assumed:
+  # `suspend` appeared ZERO times in it, so live and rendered agree.
+  #
+  # IF YOU BUMP image.digest AND STOP, YOU HAVE ARMED THAT SAME FAILURE. The
+  # two lines are not kept in step by anything automatic; no test and no CI job
+  # compares them, because the Job that would is the one being checked.
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:ca3e7d830c75294f18406444d79e5b52e7751ef7352e3ab7ba6bde3457d0fc4c"
   publish:
     repo: edgy-solutions/doc-tools
 
