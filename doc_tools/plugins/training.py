@@ -556,6 +556,20 @@ class TrainingPlugin(AugmentationPlugin):
                 "params": {"from_id": from_id, "to_id": to_id, "course_id": doc_id},
             })
 
+        # Replace this course's stale ALIAS_OF, like the TEACHES prune: it runs AFTER the
+        # MERGEs above, as its own transaction, and deletes the RELATIONSHIP only. The
+        # edge's course_id is set ON CREATE, so it belongs to the first course that
+        # asserted it, and that course's re-ingest is what can remove it. An empty
+        # `keep` is the model's answer: all this course's ALIAS_OF go.
+        cypher_queries.append({
+            "query": f"""
+            MATCH (a:Concept:{self.domain_label})-[r:ALIAS_OF {{course_id: $course_id}}]->(b:Concept:{self.domain_label})
+            WHERE NOT [a.id, b.id] IN $keep
+            DELETE r
+            """,
+            "params": {"course_id": doc_id, "keep": [list(p) for p in alias_pairs]},
+        })
+
         # Domain A uses Neo4j strictly, no Jena graphs
         return cypher_queries, sparql_queries
 

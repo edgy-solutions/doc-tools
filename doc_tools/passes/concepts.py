@@ -578,13 +578,17 @@ def load_records(neo4j_client, weaviate_client, collection: str, domain: str, *,
     recs: Dict[str, ConceptRecord] = {}
     terms: Dict[str, Set[str]] = defaultdict(set)
     for row in rows:
+        if not row.get("slide"):
+            # A Concept no Slide teaches has no vector and no course: it gets neither a
+            # proposal nor a canonical (ruled 2026-11-09).
+            continue
         r = recs.get(row["id"])
         if r is None:
             name = row.get("name") or ""
             r = recs[row["id"]] = ConceptRecord(
                 id=row["id"], name=name,
                 name_normalized=row.get("name_normalized") or normalize_concept_name(name))
-        if row.get("slide") and row["slide"] not in r.slides:
+        if row["slide"] not in r.slides:
             r.slides.append(row["slide"])
             r.teach_count += 1
             for t in row.get("related_terms") or ():
@@ -640,14 +644,20 @@ def load_existing(neo4j_client, domain: str) -> Existing:
     return ex
 
 
-def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]:
+def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str,
+               propose_only: bool = False) -> Dict[str, int]:
     """Idempotent. Every statement is parameterised and batched with UNWIND. Guards live in
     the Cypher: an auto edge is only ever replaced when its status is 'auto', a proposal is
-    only ever touched when it is absent or 'open'."""
+    only ever touched when it is absent or 'open'. `propose_only` writes the open proposals
+    and only the canonicals they name: no ALIGNS_TO statement of any kind, and the final GC
+    narrows to canonicals with no relationship at all."""
     d = _label(domain, "domain")
     q = neo4j_client.execute_query
 
     ours = [{"id": c.id, "name": c.name} for c in plan.canonicals.values() if not c.foreign and c.name]
+    if propose_only:  # PROPOSED_ALIGNS_TO MATCHes the canonical, so only those must exist
+        named = {p.cc_id for p in plan.proposals}
+        ours = [c for c in ours if c["id"] in named]
     if ours:
         q(f"""
             UNWIND $rows AS row
@@ -658,7 +668,7 @@ def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]
             SET cc.name = row.name
         """, {"rows": ours, "domain": domain})
 
-    if plan.drop_auto:
+    if plan.drop_auto and not propose_only:
         q(f"""
             UNWIND $ids AS cid
             MATCH (c:Concept:{d} {{id: cid}})-[old:ALIGNS_TO]->(:CanonicalConcept)
@@ -666,7 +676,7 @@ def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]
             DELETE old
         """, {"ids": plan.drop_auto})
 
-    if plan.auto_edges:
+    if plan.auto_edges and not propose_only:
         rows = [{"concept": e.concept_id, "cc": e.cc_id, "method": e.method,
                  "confidence": e.confidence} for e in plan.auto_edges]
         q(f"""
@@ -686,7 +696,7 @@ def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]
                 r.source = '{SOURCE}', r.updated_at = datetime()
         """, {"rows": rows})
 
-    if plan.materialise:  # an accepted proposal becomes the ALIGNS_TO it asked for; the proposal stays
+    if plan.materialise and not propose_only:  # an accepted proposal becomes the ALIGNS_TO it asked for; the proposal stays
         rows = [{"concept": m.concept_id, "cc": m.cc_id, "confidence": m.confidence}
                 for m in plan.materialise]
         q(f"""
@@ -730,9 +740,13 @@ def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]
                 p.evidence = row.evidence, p.cos = row.cos
         """, {"rows": rows})
 
+    # propose_only: the canonicals just written hold only open proposals, so the normal
+    # sweep would delete them; sweep only those with no relationship at all.
+    no_rels = "AND NOT (cc)--()" if propose_only else ""
     gone = q(f"""
         MATCH (cc:CanonicalConcept:{d}) WHERE cc.source = '{SOURCE}'
           AND NOT (cc)-[:ALIGNS_TO]-()
+          {no_rels}
           AND size([(cc)-[x]-() WHERE NOT (type(x) = 'PROPOSED_ALIGNS_TO' AND x.status = 'open') | x]) = 0
         WITH cc DETACH DELETE cc
         RETURN count(*) AS n
@@ -742,8 +756,10 @@ def apply_plan(neo4j_client, plan: AlignmentPlan, domain: str) -> Dict[str, int]
 
 def normalise(neo4j_client, weaviate_client, collection: str, domain: str = "TRAINING",
               course_id: Optional[str] = None, dry_run: bool = False, *,
-              settings: Optional[AlignSettings] = None) -> Dict[str, Any]:
-    """load -> plan -> (apply unless dry_run) -> a summary dict, also logged as one line."""
+              settings: Optional[AlignSettings] = None,
+              propose_only: bool = False) -> Dict[str, Any]:
+    """load -> plan -> (apply unless dry_run) -> a summary dict, also logged as one line.
+    `dry_run` wins and writes nothing; `propose_only` applies the proposals alone."""
     t0 = time.monotonic()
     records = load_records(neo4j_client, weaviate_client, collection, domain)
     existing = load_existing(neo4j_client, domain)
@@ -754,10 +770,11 @@ def normalise(neo4j_client, weaviate_client, collection: str, domain: str = "TRA
     summary = dict(plan.stats)
     summary["canonical_deleted"] = 0
     if not dry_run:
-        summary.update(apply_plan(neo4j_client, plan, domain))
+        summary.update(apply_plan(neo4j_client, plan, domain, propose_only=propose_only))
     t3 = time.monotonic()
     summary["seconds"] = {"load": round(t1 - t0, 2), "plan": round(t2 - t1, 2),
                           "apply": round(t3 - t2, 2)}
     summary["dry_run"] = dry_run
+    summary["propose_only"] = propose_only
     log.info("concepts.normalise domain=%s course=%s %s", domain, course_id, summary)
     return summary

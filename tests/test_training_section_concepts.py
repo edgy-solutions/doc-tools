@@ -320,13 +320,13 @@ def test_alias_of_comes_after_every_teaches_and_follows_the_rule():
         _slide_node(2, [Concept(name="Pump", salience=0.5, related_terms=["Pumps"])]),
     ]
     cypher = _graph(nodes)
-    kinds = ["alias" if "ALIAS_OF" in q["query"] else "prune" if "DELETE t" in q["query"]
+    kinds = ["alias" if "MERGE (a)-[r:ALIAS_OF]" in q["query"] else "prune" if "DELETE t" in q["query"]
              else "teaches" if "TEACHES" in q["query"] else "other"
              for q in cypher]
     first_alias = kinds.index("alias")
     assert "teaches" not in kinds[first_alias:]
     assert kinds.count("teaches") == 3
-    aliases = [q for q in cypher if "ALIAS_OF" in q["query"]]
+    aliases = [q for q in cypher if "MERGE (a)-[r:ALIAS_OF]" in q["query"]]
     pairs = [(q["params"]["from_id"], q["params"]["to_id"]) for q in aliases]
     pump, valve = (concept_node_id("TRAINING", n) for n in ("Pump", "Valve"))
     assert pairs == [(pump, concept_node_id("TRAINING", "Pumps")),
@@ -337,6 +337,25 @@ def test_alias_of_comes_after_every_teaches_and_follows_the_rule():
     assert "MERGE (a)-[r:ALIAS_OF]->(b)" in q["query"]
     assert "ON CREATE SET r.status = 'candidate', r.source = 'related_terms', r.course_id = $course_id" in q["query"]
     assert q["params"]["course_id"] == CID
+
+
+def test_alias_prune_follows_every_alias_merge_and_keeps_exactly_the_pairs():
+    nodes = [
+        _slide_node(1, [Concept(name="Pump", salience=0.5, related_terms=["Pumps"]),
+                        Concept(name="Valve", salience=0.5, related_terms=["Pump"])]),
+    ]
+    cypher = _graph(nodes)
+    merges = [i for i, q in enumerate(cypher) if "MERGE (a)-[r:ALIAS_OF]" in q["query"]]
+    prunes = [(i, q) for i, q in enumerate(cypher)
+              if "ALIAS_OF" in q["query"] and "DELETE r" in q["query"]]
+    assert len(prunes) == 1 and merges
+    i, q = prunes[0]
+    assert i > max(merges)
+    assert q["params"]["course_id"] == CID
+    pairs = [[cypher[m]["params"]["from_id"], cypher[m]["params"]["to_id"]] for m in merges]
+    assert q["params"]["keep"] == pairs
+    assert "{course_id: $course_id}" in q["query"]
+    assert "DETACH" not in q["query"]
 
 
 def _prunes(cypher):

@@ -3,7 +3,8 @@
 The fleet-wide counterpart of the per-course call at the end of a TRAINING ingest: the
 repair and the backfill. Run by hand in the doc-tools pod (NEO4J_* / WEAVIATE_* from the
 environment, never printed). `--dry-run` computes the plan and the summary and writes
-nothing; `--course <id>` narrows the writes to that Course's components.
+nothing; `--course <id>` narrows the writes to that Course's components; `--propose`
+writes the open proposals and the canonicals they name, and no ALIGNS_TO.
 
     python scripts/normalise_concepts.py --domain TRAINING --dry-run
 """
@@ -18,6 +19,8 @@ def main(argv=None, neo4j_client=None, weaviate_client=None) -> int:
     ap.add_argument("--collection", default="DocumentChunk", help="Weaviate collection")
     ap.add_argument("--course", default=None, help="only write this Course's components")
     ap.add_argument("--dry-run", action="store_true", help="plan and report, write nothing")
+    ap.add_argument("--propose", action="store_true",
+                    help="write the proposals and the canonicals they name, no ALIGNS_TO")
     args = ap.parse_args(argv)
 
     if neo4j_client is None:
@@ -30,7 +33,8 @@ def main(argv=None, neo4j_client=None, weaviate_client=None) -> int:
     from doc_tools.passes import concepts
     try:
         summary = concepts.normalise(neo4j_client, weaviate_client, args.collection,
-                                     args.domain, course_id=args.course, dry_run=args.dry_run)
+                                     args.domain, course_id=args.course, dry_run=args.dry_run,
+                                     propose_only=args.propose)
     finally:
         for c in (neo4j_client, weaviate_client):
             try:
