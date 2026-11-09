@@ -71,9 +71,9 @@ def _readback(g):
     }
 
 
-def _build(tmp_path):
+def _build(tmp_path, readback=None):
     rb, runs, out = tmp_path / "rb.json", tmp_path / "runs.jsonl", tmp_path / "golden.json"
-    rb.write_text(json.dumps(_readback(GOLDEN)), encoding="utf-8")
+    rb.write_text(json.dumps(readback or _readback(GOLDEN)), encoding="utf-8")
     runs.write_text(json.dumps({"key": GOLDEN["drop"]["keys_in_order"][-1], "success": True}) + "\n",
                     encoding="utf-8")
     folder = GOLDEN["drop"]["keys_in_order"][-1].rsplit("/", 1)[0]
@@ -113,6 +113,16 @@ def test_the_chain_reproduces_the_v5_golden(tmp_path):
     for k in ("current_json_key", "current_json", "prefix", "keys_required"):
         assert b["minio"][k] == g["minio"][k], k
     assert b["produced_by"]["alignment_edges"] == []
+
+
+def test_a_figure_object_left_by_an_older_image_is_excluded_and_counted(tmp_path):
+    rb = _readback(GOLDEN)
+    rb["weaviate"]["objects"].append(
+        {"uuid": "00000000-0000-5000-8000-000000000000", "vector_length": 768,
+         "properties": {"chunk_id": f"{GOLDEN['ingest_id']}_fig_slide_1_img_0", "text": "Figure"}})
+    b = _build(tmp_path, rb)
+    assert not any("_fig_" in o["properties"]["chunk_id"] for o in b["weaviate"]["objects"])
+    assert b["produced_by"]["stale_fig_objects_excluded"] == 1
 
 
 def test_the_v5_fields_are_not_vacuous():

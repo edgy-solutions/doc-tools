@@ -193,6 +193,12 @@ def main(rb_path, runs_path, deck_path, meta_path, drop_folder, out_path):
     wv_all = sorted(({"uuid": o["uuid"], "properties": o["properties"], "vector_length": o["vector_length"]}
                      for o in rb["weaviate"]["objects"]),
                     key=lambda o: (o["properties"].get("chunk_id") or ""))
+    # Contract v5 6: no training object has `_fig_` in its chunk_id and the image writes
+    # none, so one read back is an older image's, left in the store. It stays out of the
+    # golden, which describes this image's writes, and the count goes on record.
+    is_fig = lambda o: "_fig_" in (o["properties"].get("chunk_id") or "")  # noqa: E731
+    stale_fig = sum(1 for o in wv_all if is_fig(o))
+    wv_all = [o for o in wv_all if not is_fig(o)]
     # Contract v5 6: Section objects share the Course's doc_id; they go beside the
     # Sections (nondeterministic, as their notes are), not among the slide objects.
     wv = [o for o in wv_all if o["properties"].get("chunk_kind") != "section"]
@@ -251,6 +257,7 @@ def main(rb_path, runs_path, deck_path, meta_path, drop_folder, out_path):
             "old_layout_keys": len(mn.get("old_layout_keys", [])),
             "stem_id_node_count": nj.get("stem_id_node_count"),
             "alignment_edges": alignment,
+            "stale_fig_objects_excluded": stale_fig,
             # Contract steps the producing code did not yet implement (section 9).
             # Steps a-j are on main (j, concepts.normalise, runs dry by default).
             "pending_steps": [],
