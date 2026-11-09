@@ -14,12 +14,13 @@
 #   launch    check must be all MATCH, then the two streams start detached
 #   status    the tail of each stream's log
 #   readback  read-only: tr_readback_all.sh (tr_readback.py per deck, tr_never_written.py)
+#   outline   read-only: tr_outline_check.py, each deck's outline through the workbench's reader
 #   pull      copy /tmp/tr_run/out back to <Work>\pull
 #   build     local: measure_decks, build_golden per deck, deck_table
 #
 # Stores are written ONLY by `launch`. Prints no env value but DOC_TOOLS_VERSION.
 param(
-    [Parameter(Mandatory)][ValidateSet("guard", "stage", "check", "dry", "launch", "status", "readback", "pull", "build")]
+    [Parameter(Mandatory)][ValidateSet("guard", "stage", "check", "dry", "launch", "status", "readback", "outline", "pull", "build")]
     [string]$Mode,
     [Parameter(Mandatory)][string]$Work,
     [string]$ExpectVersion = "728afaf",
@@ -35,7 +36,7 @@ $Fixtures = Split-Path $Sandbox -Parent
 $Py = Join-Path $Fixtures "..\..\..\.venv\Scripts\python.exe"
 $R = "/tmp/tr_run"
 $Scripts = @("tr_run_by_hand.py", "tr_two_streams.sh", "tr_upload.py", "tr_readback.py",
-    "tr_readback_all.sh", "tr_never_written.py")
+    "tr_readback_all.sh", "tr_never_written.py", "tr_outline_check.py")
 
 function Slugs { Get-ChildItem $Fixtures -Directory | Where-Object { $_.Name -ne "sandbox" -and (Get-ChildItem $_.FullName -Filter *.pptx) } | ForEach-Object { $_.Name } }
 function DeckKey($slug) { "training/course/$slug/" + (Get-ChildItem (Join-Path $Fixtures $slug) -Filter *.pptx | Select-Object -First 1).Name }
@@ -107,6 +108,7 @@ switch ($Mode) {
     }
     "status" { Exec $pod "for S in A B; do echo == `$S; tail -n 3 $R/`$S.log; done; wc -l $R/runs_*.jsonl 2>/dev/null" }
     "readback" { Exec $pod "sh $R/tr_readback_all.sh"; exit $LASTEXITCODE }
+    "outline" { Exec $pod "cd /app && PYTHONPATH=/app /opt/venv/bin/python $R/tr_outline_check.py $R/out/rb $R/out/outline_check.json"; exit $LASTEXITCODE }
     "pull" {
         $pull = Join-Path $Work "pull"
         if (Test-Path $pull) { Write-Output "REFUSE: $pull exists"; exit 1 }
