@@ -108,7 +108,14 @@ def test_a_difference_beyond_case_still_blocks_and_prints_what_was_written():
     """The arm keeps its teeth. The shape this same field took on 2026-10-29 --
     the full legal name against a shouted short one -- is not a case variant and
     still blocks, and the evidence prints what each fire WROTE, never the key it
-    was compared by."""
+    was compared by.
+
+    THIS NOW PINS THE FALLBACK, NOT THE GATE'S VERDICT ON TI. It passes no
+    specs, which is the no-ground-truth comparison; under TI's real
+    declarations these same three reads unify, because the `accepted` set names
+    the shouted form verbatim-correct for that notice (2e, ruled 2026-11-08).
+    The two live together on purpose: a notice ground truth says nothing about
+    is still held to the stricter reading."""
     res = gate.compare_written_headers(
         _fires(_wh(mfr="Texas Instruments Incorporated"),
                _wh(mfr="Texas Instruments Incorporated"),
@@ -131,6 +138,170 @@ def test_case_is_folded_but_whitespace_is_not():
         _fires(_wh(mfr="TE Connectivity"), _wh(mfr="TE  Connectivity"),
                _wh(mfr="TE Connectivity")))
     assert res["verdicts"][FN] == "DISAGREE"
+
+
+# --------------------------------------------------------------------------
+# THE 2026-11-08 RULING: the arm compares CANONICAL FORMS, not strings.
+#
+# These pass the REAL declarations out of scripts/pcn_ground_truth.json rather
+# than a hand-made stand-in, which is deliberate: the gate must agree with the
+# scorer, the scorer reads that file, and a form added or withdrawn there has to
+# move both. 2a-2c above pass no specs and keep measuring the FALLBACK, which is
+# still what runs for a notice ground truth does not declare.
+
+SPECS = gate.written_header_specs()
+TI = "TI_PCN_20210316000.pdf"
+ONSEMI = "onsemi_Generic_IPCN25300X.pdf"
+
+
+def _as(fn, under=FN):
+    """One notice's real declarations, keyed to the filename these fires use."""
+    return {under: SPECS[fn]}
+
+
+# 2d -----------------------------------------------------------------------
+def test_the_spec_loader_drops_prose_keys_and_covers_the_corpus():
+    assert len(SPECS) == 10                       # all ten notices declare headers
+    assert "_note" not in SPECS[TI]               # prose for a reader, not a field
+    assert SPECS[TI]["mfr"]["value"] == "Texas Instruments Incorporated"
+    assert all("mfr" in s for s in SPECS.values())
+
+
+# 2e -----------------------------------------------------------------------
+def test_an_accepted_spelling_unifies_and_reverses_the_2026_10_29_block():
+    """THE REVERSAL, as a test. 2b holds these same three reads apart and is
+    still right about the fallback; here TI's own `accepted` set declares
+    `TEXAS INSTRUMENTS` a verbatim-correct reading OF THIS NOTICE, so all three
+    resolve to one canonical form and the arm has nothing to block."""
+    res = gate.compare_written_headers(
+        _fires(_wh(mfr="Texas Instruments Incorporated"),
+               _wh(mfr="Texas Instruments Incorporated"),
+               _wh(mfr="TEXAS INSTRUMENTS")),
+        specs=_as(TI))
+    assert res["disagreements"] == []
+    assert res["verdicts"][FN] == "agree"
+    # `pub_date` is declared too and was compared -- as strings, since these
+    # reads resolve to no canonical form. Listed here means ground truth was
+    # AVAILABLE for the field, not that every read resolved.
+    assert res["canonical"][FN] == ["mfr", "pub_date"]
+    blocking, exempted = gate.apply_written_arm(
+        res, _reviews(f1=False, f2=False, f3=False))
+    assert blocking == [] and exempted == []
+
+
+# 2f -----------------------------------------------------------------------
+def test_a_declared_distractor_never_unifies():
+    """onsemi's `ONSEM.` sits in the spec's `not` block: a named trap, not a
+    spelling. It resolves to no canonical form, falls back to the string key and
+    keeps the arm's teeth -- which is why the gate stays red on onsemi, and
+    correctly so."""
+    res = gate.compare_written_headers(
+        _fires(_wh(mfr="onsemi"), _wh(mfr="ONSEM."), _wh(mfr="onsemi")),
+        specs=_as(ONSEMI))
+    assert res["verdicts"][FN] == "DISAGREE"
+    assert res["disagreements"] == [(FN, "mfr", ["onsemi", "ONSEM.", "onsemi"])]
+    blocking, _ = gate.apply_written_arm(res, _reviews(f1=False, f2=False, f3=False))
+    assert len(blocking) == 1 and "ONSEM." in blocking[0]
+
+
+# 2g -----------------------------------------------------------------------
+def test_the_same_failing_read_in_every_fire_is_still_agreement():
+    """Three fires that wrote one declared distractor read the field the SAME
+    way. Whether that reading is right is the correctness arm's question; this
+    arm asks whether the fires differ, and they do not."""
+    res = gate.compare_written_headers(
+        _fires(_wh(mfr="ONSEM."), _wh(mfr="ONSEM."), _wh(mfr="ONSEM.")),
+        specs=_as(ONSEMI))
+    assert res["verdicts"][FN] == "agree" and res["disagreements"] == []
+
+
+# 2h -----------------------------------------------------------------------
+def test_a_misformatted_read_unifies_although_it_fails_correctness():
+    """Why `_WRITTEN_UNIFYING` is written out longhand rather than derived as
+    HEADER_FAILURES' complement: `misformatted` is IN that tuple -- it fails the
+    correctness arm -- and it unifies HERE, because a mangled spelling of an
+    accepted form still carries the content the page printed."""
+    assert "misformatted" in gate.pcn_score.HEADER_FAILURES
+    scored = gate.pcn_score.score_header_field("mfr", "te  connectivity",
+                                               SPECS[FN]["mfr"])
+    assert scored["status"] == "misformatted"
+    res = gate.compare_written_headers(
+        _fires(_wh(mfr="TE Connectivity"), _wh(mfr="te  connectivity"),
+               _wh(mfr="TE")),
+        specs=_as(FN))
+    assert res["verdicts"][FN] == "agree"
+
+
+# 2i -----------------------------------------------------------------------
+def test_one_day_written_two_ways_unifies_and_a_different_day_does_not():
+    """Dates resolve through `normalize_date`, so one day spelled two ways is one
+    reading -- and the day itself still has to match."""
+    same = gate.compare_written_headers(
+        _fires(_wh(doc_level_ltb_date="2024-06-06"),
+               _wh(doc_level_ltb_date="06-Jun-2024"),
+               _wh(doc_level_ltb_date="2024-06-06")),
+        specs=_as(FN))
+    assert same["verdicts"][FN] == "agree"
+    other = gate.compare_written_headers(
+        _fires(_wh(doc_level_ltb_date="2024-06-06"),
+               _wh(doc_level_ltb_date="2024-06-07"),
+               _wh(doc_level_ltb_date="2024-06-06")),
+        specs=_as(FN))
+    assert other["verdicts"][FN] == "DISAGREE"
+
+
+# 2j -----------------------------------------------------------------------
+def test_a_value_where_ground_truth_expects_none_unifies_nothing():
+    """TI declares `doc_level_ltb_date` EXPECT-ABSENT -- the page establishes no
+    day -- so a fire that wrote one scores `hallucinated`, which resolves to no
+    canonical form. Two spellings of ONE day disagree here where 2i agrees, and
+    the difference is the declaration rather than the strings."""
+    spec = SPECS[TI]["doc_level_ltb_date"]
+    assert spec.get("value") is None and spec.get("expect_absent") is True
+    assert gate.pcn_score.score_header_field(
+        "doc_level_ltb_date", "2021-03-16", spec)["status"] == "hallucinated"
+    res = gate.compare_written_headers(
+        _fires(_wh(doc_level_ltb_date="2021-03-16"),
+               _wh(doc_level_ltb_date="16-Mar-2021"),
+               _wh(doc_level_ltb_date="2021-03-16")),
+        specs=_as(TI))
+    assert res["verdicts"][FN] == "DISAGREE"
+
+
+# 2j' ----------------------------------------------------------------------
+def test_a_pending_field_unifies_nothing():
+    """`pending` -- ground truth declares the field and records no established
+    value for it -- resolves to no canonical form either, so the comparison
+    stays the case-folded one.
+
+    HAND-MADE, and the only spec here that is: no notice carries this shape
+    today. TI's one value-less field is expect-absent (above), which the scorer
+    diagnoses differently and which would hide this status if it were the only
+    thing covering it."""
+    spec = {"status": "not yet established from the page"}
+    assert gate.pcn_score.score_header_field("mfr", "TE", spec)["status"] == "pending"
+    res = gate.compare_written_headers(
+        _fires(_wh(mfr="TE Connectivity"), _wh(mfr="TE"), _wh(mfr="TE")),
+        specs={FN: {"mfr": spec}})
+    assert res["verdicts"][FN] == "DISAGREE"
+    # the same three reads, against the REAL spec, are one name read three ways
+    assert gate.compare_written_headers(
+        _fires(_wh(mfr="TE Connectivity"), _wh(mfr="TE"), _wh(mfr="TE")),
+        specs=_as(FN))["verdicts"][FN] == "agree"
+
+
+# 2k -----------------------------------------------------------------------
+def test_the_fallback_is_stricter_than_the_canonical_comparison():
+    """The no-ground-truth path separates more, never less. Stated as a test so
+    that a caller passing no specs can never be read as a weakening."""
+    reads = _fires(_wh(mfr="Texas Instruments Incorporated"),
+                   _wh(mfr="TEXAS INSTRUMENTS"),
+                   _wh(mfr="Texas Instruments"))
+    assert gate.compare_written_headers(reads)["verdicts"][FN] == "DISAGREE"
+    assert gate.compare_written_headers(reads, specs={})["verdicts"][FN] == "DISAGREE"
+    assert gate.compare_written_headers(
+        reads, specs=_as(TI))["verdicts"][FN] == "agree"
+    assert gate.compare_written_headers(reads)["canonical"] == {}
 
 
 # 3 ------------------------------------------------------------------------
@@ -501,3 +672,35 @@ def test_compute_stability_reports_which_half_moved():
     rev_only = recs(*[sep.join(["TE", "PCN-1", r]) for r in ("A", "B", "A")])
     unstable, revision, moving = gate.compute_stability(rev_only, [FN])
     assert unstable == [] and revision == [FN] and moving == {}
+
+
+# --------------------------------------------------------------------------
+# End to end: the gate loads the specs itself, and the report says which
+# comparison produced its verdicts.
+
+def test_the_report_names_which_fields_were_compared_canonically(
+        tmp_path, monkeypatch):
+    """`score_fires` calls `written_header_specs()` -- the arm is not given its
+    ground truth by a caller, so an operator cannot run the gate without it.
+    `doc_level_ltb_date` is absent from the list because `_wh()` leaves it blank
+    in every fire: all-blank is agreement on an absence and nothing is compared.
+    `doc_type` is absent because ground truth does not declare it."""
+    report = _score(tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()])
+    assert report["written_agreement"]["canonical"] == {FN: ["mfr", "pub_date"]}
+    assert report["written_agreement"]["verdicts"] == {FN: "agree"}
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    assert "Compared by CANONICAL FORM" in md
+    assert "2 field(s) across 1 notice(s)" in md
+
+
+def test_a_real_declared_spelling_no_longer_blocks_the_whole_report(
+        tmp_path, monkeypatch):
+    """The TI pair that produced two standards in one report: the scorer credited
+    it and this gate blocked on it. One report, one standard -- and the parts of
+    the verdict that are not this arm's are untouched."""
+    report = _score(tmp_path, monkeypatch, 0, "",
+                    [_wh(mfr="TE Connectivity"), _wh(mfr="TE CONNECTIVITY"),
+                     _wh(mfr="TE")])
+    assert report["written_agreement"]["verdicts"] == {FN: "agree"}
+    assert not any("WRITTEN header fields disagree" in b
+                   for b in report["blocking"])
