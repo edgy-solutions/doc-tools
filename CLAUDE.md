@@ -18,7 +18,7 @@ requires, by the owning lane.
   presence or equality is shown as `len=N sha256:XXXXXXXX` (first 8 hex). This
   is not hypothetical here: a drift script in this repo once printed three live
   credentials into a transcript, and the transcript is not editable.
-  `scratchpad/drift.py` now redacts on a name match.
+  `tools/drift_check.py` now redacts on a name match.
 
 - **A stacked PR runs no CI gate.** Measured from the tree, not assumed:
   `.github/workflows/build-container.yml` is this repo's only workflow and its
