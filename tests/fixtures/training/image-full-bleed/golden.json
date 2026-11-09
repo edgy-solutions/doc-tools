@@ -1,6 +1,6 @@
 {
   "contract": "docs/contracts/training-workbench.md",
-  "contract_version": 2,
+  "contract_version": 5,
   "fixture": {
     "deck": "image-full-bleed.pptx",
     "deck_sha256": "581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
@@ -40,7 +40,8 @@
         "level": "Introductory",
         "delivery_method": "Instructor-led",
         "duration_hours": 0.75,
-        "version": "1.0"
+        "version": "1.0",
+        "outline_source": "llm"
       }
     },
     "slides": {
@@ -205,7 +206,8 @@
           "TRAINING"
         ],
         "section_slide_edges": [
-          "HAS_CHILD"
+          "HAS_CHILD",
+          "HAS_SLIDE"
         ],
         "nodes": [
           {
@@ -213,98 +215,67 @@
             "title": "Hangar Safety Tour",
             "level": 1,
             "start_page": 1,
-            "end_page": 0,
+            "end_page": 2,
             "concept_summary": [
-              "Assembly Points",
-              "Hangar Safety",
-              "Full-bleed pictures",
-              "North Apron",
-              "South Apron"
+              "Hangar Safety Tour"
             ],
             "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
             "slides": [
               "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
-              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2",
-              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
-              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2"
             ],
             "covers": [
               {
-                "concept": "Assembly Points",
+                "concept": "Hangar Safety Tour",
                 "score": 1.0,
-                "frequency": 1
-              },
-              {
-                "concept": "Hangar Safety",
-                "score": 1.0,
-                "frequency": 1
-              },
-              {
-                "concept": "Full-bleed pictures",
-                "score": 0.7,
-                "frequency": 1
-              },
-              {
-                "concept": "North Apron",
-                "score": 0.7,
-                "frequency": 1
-              },
-              {
-                "concept": "South Apron",
-                "score": 0.7,
                 "frequency": 1
               }
+            ],
+            "summary": "This section introduces the Hangar Safety Tour, giving learners an overview of the hangar environment and highlighting key safety features through full‑bleed images.",
+            "objectives": [
+              "Identify the purpose of a hangar safety tour",
+              "Recognize key areas shown in the tour images"
             ]
           },
           {
-            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
-            "title": "Full-bleed pictures",
-            "level": 2,
-            "start_page": 2,
-            "end_page": 0,
-            "concept_summary": [
-              "Assembly Points",
-              "North Apron",
-              "South Apron"
-            ],
-            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
-            "slides": [
-              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2",
-              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
-              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
-            ],
-            "covers": [
-              {
-                "concept": "Assembly Points",
-                "score": 1.0,
-                "frequency": 1
-              },
-              {
-                "concept": "North Apron",
-                "score": 0.7,
-                "frequency": 1
-              },
-              {
-                "concept": "South Apron",
-                "score": 0.7,
-                "frequency": 1
-              }
-            ]
-          },
-          {
-            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s1",
             "title": "Emergency Exits",
-            "level": 2,
+            "level": 1,
             "start_page": 3,
-            "end_page": 0,
+            "end_page": 3,
+            "concept_summary": [
+              "Emergency Exits"
+            ],
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+            "slides": [
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Emergency Exits",
+                "score": 1.0,
+                "frequency": 1
+              }
+            ],
+            "summary": "This section presents the locations and importance of emergency exits within the facility, emphasizing their role in a safe evacuation.",
+            "objectives": [
+              "Locate emergency exits",
+              "Explain the role of emergency exits in evacuation"
+            ]
+          },
+          {
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2",
+            "title": "Assembly Points",
+            "level": 1,
+            "start_page": 4,
+            "end_page": 4,
             "concept_summary": [
               "Assembly Points",
-              "North Apron",
-              "South Apron"
+              "South apron",
+              "North apron"
             ],
-            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
             "slides": [
-              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
               "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
             ],
             "covers": [
@@ -314,29 +285,30 @@
                 "frequency": 1
               },
               {
-                "concept": "North Apron",
+                "concept": "North apron",
                 "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "South Apron",
+                "concept": "South apron",
                 "score": 0.7,
                 "frequency": 1
               }
-            ]
+            ],
+            "objectives": []
           },
           {
-            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
-            "title": "Assembly Points",
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s0",
+            "title": "North apron",
             "level": 2,
             "start_page": 4,
-            "end_page": 0,
+            "end_page": 4,
             "concept_summary": [
               "Assembly Points",
-              "North Apron",
-              "South Apron"
+              "North apron",
+              "South apron"
             ],
-            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2",
             "slides": [
               "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
             ],
@@ -347,38 +319,56 @@
                 "frequency": 1
               },
               {
-                "concept": "North Apron",
+                "concept": "North apron",
                 "score": 0.7,
                 "frequency": 1
               },
               {
-                "concept": "South Apron",
+                "concept": "South apron",
                 "score": 0.7,
                 "frequency": 1
               }
+            ],
+            "summary": "This section explains the designated assembly points for personnel on the north and south aprons, describing where workers should gather during an emergency.",
+            "objectives": [
+              "Identify assembly points on the north apron",
+              "Identify assembly points on the south apron",
+              "Understand when to use each assembly point"
             ]
           },
           {
-            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2_s0",
-            "title": "North apron",
-            "level": 3,
-            "start_page": 5,
-            "end_page": 0,
-            "concept_summary": [],
-            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
-            "slides": [],
-            "covers": []
-          },
-          {
-            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2_s1",
+            "id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s1",
             "title": "South apron",
-            "level": 3,
-            "start_page": 6,
-            "end_page": 0,
-            "concept_summary": [],
-            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
-            "slides": [],
-            "covers": []
+            "level": 2,
+            "start_page": 4,
+            "end_page": 4,
+            "concept_summary": [
+              "Assembly Points",
+              "South apron",
+              "North apron"
+            ],
+            "parent": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2",
+            "slides": [
+              "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Assembly Points",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "North apron",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "South apron",
+                "score": 0.7,
+                "frequency": 1
+              }
+            ],
+            "objectives": []
           }
         ]
       },
@@ -390,27 +380,32 @@
         "nodes": [
           {
             "name": "Assembly Points",
-            "id": "concept_Assembly_Points",
+            "name_normalized": "assembly points",
+            "id": "concept_489b9d37809d3ec5",
             "domain": "TRAINING"
           },
           {
-            "name": "Full-bleed pictures",
-            "id": "concept_Full-bleed_pictures",
+            "name": "Emergency Exits",
+            "name_normalized": "emergency exits",
+            "id": "concept_22b8dea15e5fe964",
             "domain": "TRAINING"
           },
           {
-            "name": "Hangar Safety",
-            "id": "concept_Hangar_Safety",
+            "name": "Hangar Safety Tour",
+            "name_normalized": "hangar safety tour",
+            "id": "concept_5a8500c0e644b196",
             "domain": "TRAINING"
           },
           {
-            "name": "North Apron",
-            "id": "concept_North_Apron",
+            "name": "North apron",
+            "name_normalized": "north apron",
+            "id": "concept_473d8fe325b1f6a8",
             "domain": "TRAINING"
           },
           {
-            "name": "South Apron",
-            "id": "concept_South_Apron",
+            "name": "South apron",
+            "name_normalized": "south apron",
+            "id": "concept_cc766511236609d8",
             "domain": "TRAINING"
           }
         ]
@@ -418,31 +413,85 @@
       "teaches": [
         {
           "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
-          "concept": "Full-bleed pictures",
-          "salience": 0.7
+          "concept": "Hangar Safety Tour",
+          "salience": 1.0,
+          "related_terms": []
         },
         {
-          "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
-          "concept": "Hangar Safety",
-          "salience": 1.0
+          "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
+          "concept": "Emergency Exits",
+          "salience": 1.0,
+          "related_terms": []
         },
         {
           "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
           "concept": "Assembly Points",
-          "salience": 1.0
+          "salience": 1.0,
+          "related_terms": []
         },
         {
           "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
-          "concept": "North Apron",
-          "salience": 0.7
+          "concept": "North apron",
+          "salience": 0.7,
+          "related_terms": []
         },
         {
           "slide": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
-          "concept": "South Apron",
-          "salience": 0.7
+          "concept": "South apron",
+          "salience": 0.7,
+          "related_terms": []
         }
       ],
       "salience_location": "edge",
+      "section_objects": {
+        "objects": [
+          {
+            "uuid": "0d283eb7-f8c6-5cd8-a83b-d88c83f43b63",
+            "properties": {
+              "page": 1,
+              "section_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+              "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+              "heading": "Hangar Safety Tour",
+              "text": "Hangar Safety Tour\n\nThis section introduces the Hangar Safety Tour, giving learners an overview of the hangar environment and highlighting key safety features through full‑bleed images.\n\nObjectives:\n- Identify the purpose of a hangar safety tour\n- Recognize key areas shown in the tour images",
+              "chunk_kind": "section",
+              "domain": "TRAINING",
+              "section": null,
+              "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea"
+            },
+            "vector_length": 768
+          },
+          {
+            "uuid": "7054f720-2a1b-53c9-9549-4a2c95c26d9b",
+            "properties": {
+              "page": 3,
+              "section_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s1",
+              "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s1",
+              "heading": "Emergency Exits",
+              "text": "Emergency Exits\n\nThis section presents the locations and importance of emergency exits within the facility, emphasizing their role in a safe evacuation.\n\nObjectives:\n- Locate emergency exits\n- Explain the role of emergency exits in evacuation",
+              "chunk_kind": "section",
+              "domain": "TRAINING",
+              "section": null,
+              "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea"
+            },
+            "vector_length": 768
+          },
+          {
+            "uuid": "4dcd03c5-caa2-5e36-9069-6eb505aa331e",
+            "properties": {
+              "page": 4,
+              "section_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s0",
+              "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s0",
+              "heading": "North apron",
+              "text": "North apron\n\nThis section explains the designated assembly points for personnel on the north and south aprons, describing where workers should gather during an emergency.\n\nObjectives:\n- Identify assembly points on the north apron\n- Identify assembly points on the south apron\n- Understand when to use each assembly point",
+              "chunk_kind": "section",
+              "domain": "TRAINING",
+              "section": null,
+              "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea"
+            },
+            "vector_length": 768
+          }
+        ]
+      },
       "edges": {
         "HAS_SECTION": [
           {
@@ -450,24 +499,20 @@
             "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0"
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
-            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0"
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s1"
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
-            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1"
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2"
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
-            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2"
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s0"
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
-            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2_s0"
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
-            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2_s1"
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2",
+            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s1"
           }
         ],
         "section_slide": [
@@ -480,120 +525,86 @@
             "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2"
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s1",
             "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3"
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2",
             "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
-            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p2"
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
-            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3"
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s0",
             "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
-            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3"
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
-            "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s1",
             "to": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4"
           }
         ],
         "COVERS": [
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
+            "to": "Hangar Safety Tour",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s1",
+            "to": "Emergency Exits",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2",
             "to": "Assembly Points",
             "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
-            "to": "Hangar Safety",
-            "score": 1.0,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
-            "to": "Full-bleed pictures",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2",
+            "to": "North apron",
             "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
-            "to": "North Apron",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2",
+            "to": "South apron",
             "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0",
-            "to": "South Apron",
-            "score": 0.7,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s0",
             "to": "Assembly Points",
             "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
-            "to": "North Apron",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s0",
+            "to": "North apron",
             "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s0",
-            "to": "South Apron",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s0",
+            "to": "South apron",
             "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s1",
             "to": "Assembly Points",
             "score": 1.0,
             "frequency": 1
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
-            "to": "North Apron",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s1",
+            "to": "North apron",
             "score": 0.7,
             "frequency": 1
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s1",
-            "to": "South Apron",
-            "score": 0.7,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
-            "to": "Assembly Points",
-            "score": 1.0,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
-            "to": "North Apron",
-            "score": 0.7,
-            "frequency": 1
-          },
-          {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s0_s2",
-            "to": "South Apron",
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_s2_s1",
+            "to": "South apron",
             "score": 0.7,
             "frequency": 1
           }
@@ -601,59 +612,83 @@
         "TEACHES": [
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
-            "to": "Full-bleed pictures",
-            "salience": 0.7
+            "to": "Hangar Safety Tour",
+            "salience": 1.0,
+            "related_terms": []
           },
           {
-            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
-            "to": "Hangar Safety",
-            "salience": 1.0
+            "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
+            "to": "Emergency Exits",
+            "salience": 1.0,
+            "related_terms": []
           },
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
             "to": "Assembly Points",
-            "salience": 1.0
+            "salience": 1.0,
+            "related_terms": []
           },
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
-            "to": "North Apron",
-            "salience": 0.7
+            "to": "North apron",
+            "salience": 0.7,
+            "related_terms": []
           },
           {
             "from": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
-            "to": "South Apron",
-            "salience": 0.7
+            "to": "South apron",
+            "salience": 0.7,
+            "related_terms": []
           }
-        ]
+        ],
+        "ALIAS_OF": []
       }
     },
     "never_written": {
       "labels": [
         "Project",
         "TargetNode",
-        "User",
-        "CanonicalConcept"
+        "User"
       ],
       "relations": [
         "OWNS",
-        "ALIGNS_TO",
         "SUGGESTED_SOURCE",
         "DERIVED_FROM"
       ]
+    },
+    "written_only_by": {
+      "concepts.normalise": {
+        "labels": [
+          "CanonicalConcept"
+        ],
+        "relations": [
+          "ALIGNS_TO",
+          "PROPOSED_ALIGNS_TO"
+        ]
+      }
     }
   },
   "minio": {
     "bucket": "processing-artifacts",
     "current_json_key": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/current.json",
     "current_json": {
-      "pipeline_version": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
-      "manifest_key": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
-      "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
-      "updated_at": "2026-10-25T03:02:36.947689+00:00"
+      "pipeline_version": "doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d",
+      "manifest_key": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/manifest.json",
+      "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/",
+      "updated_at": "2026-11-09T04:15:22.673761+00:00"
     },
-    "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/",
+    "prefix": "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/",
     "keys_required": [
       "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/current.json",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/extraction.json",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/images/slide_2_img_0.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/images/slide_3_img_1.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/manifest.json",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_1.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_2.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_3.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_4.png",
+      "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/text.json",
       "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
       "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_2_img_0.png",
       "training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/images/slide_3_img_1.png",
@@ -676,57 +711,47 @@
     "distance": "cosine",
     "objects": [
       {
-        "uuid": "03f9d0ac-44a3-5fe1-99bf-065270587bd1",
-        "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
-          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_fig_slide_2_img_0",
-          "section": null,
-          "text": "Figure slide 2 img 0:\n\n![slide 2 img 0](s3://processing-artifacts/training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_2_img_0.png)"
-        },
-        "vector_length": 768
-      },
-      {
-        "uuid": "82a743b6-71b2-59b8-a348-a0e042ebef54",
-        "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
-          "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_fig_slide_3_img_1",
-          "section": null,
-          "text": "Figure slide 3 img 1:\n\n![slide 3 img 1](s3://processing-artifacts/training/generated/581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/images/slide_3_img_1.png)"
-        },
-        "vector_length": 768
-      },
-      {
         "uuid": "3b4e7bf6-1339-5d30-8d88-a467282797d6",
         "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "page": 1,
+          "section_id": null,
           "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p1",
+          "heading": null,
+          "text": "[Title] Hangar Safety Tour\n[Title] Full-bleed pictures",
+          "chunk_kind": "slide",
+          "domain": "TRAINING",
           "section": null,
-          "text": "[Title] Hangar Safety Tour\n[Title] Full-bleed pictures"
+          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea"
         },
         "vector_length": 768
       },
       {
         "uuid": "fa49752f-2069-54b3-8ace-e9f503804c0c",
         "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "page": 3,
+          "section_id": null,
           "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p3",
+          "heading": null,
+          "text": "[Title] Emergency Exits",
+          "chunk_kind": "slide",
+          "domain": "TRAINING",
           "section": null,
-          "text": "[Title] Emergency Exits"
+          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea"
         },
         "vector_length": 768
       },
       {
         "uuid": "0b14388d-463e-5e71-8eff-44c0bc10a8c8",
         "properties": {
-          "domain": "TRAINING",
-          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea",
+          "page": 4,
+          "section_id": null,
           "chunk_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea_p4",
+          "heading": null,
+          "text": "[Title] Assembly Points\n[Title] North apron\n[Title] South apron",
+          "chunk_kind": "slide",
+          "domain": "TRAINING",
           "section": null,
-          "text": "[Title] Assembly Points\n[Title] North apron\n[Title] South apron"
+          "doc_id": "sha256:581cbb8eb8a8e8e149320f660a523408d7f5f8c7015b985cf98dd5b2719eb1ea"
         },
         "vector_length": 768
       }
@@ -761,25 +786,29 @@
       "partition_key": "training__course__image-full-bleed__image-full-bleed.pptx",
       "success": true,
       "failed_steps": [],
-      "DOC_TOOLS_VERSION": "doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0",
-      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:086766d7304e53574e39ebf4b95bf7e5bb59e8b691c049d8dbfd3b221e8887b2",
+      "DOC_TOOLS_VERSION": "doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ca3e7d830c75294f18406444d79e5b52e7751ef7352e3ab7ba6bde3457d0fc4c",
       "LLM_MODEL": "gpt-oss-128k:120b",
       "LLM_EMBED_MODEL": "nomic-embed-text",
-      "candidate_sha": null,
-      "start_utc": "2026-10-25T03:02:23.002853+00:00",
-      "end_utc": "2026-10-25T03:03:55.607795+00:00",
-      "wall_seconds": 92.6
+      "PROMPT_SOURCE": "file",
+      "TRAINING_CONCEPT_ALIGNMENT": null,
+      "expect": "728afaf",
+      "start_utc": "2026-11-09T04:15:18.154892+00:00",
+      "concept_alignment": "dry",
+      "concept_alignment_summary": "{\"accepted_materialised\": 0, \"auto_edges\": {\"exact\": 6, \"mutual_related_terms\": 0, \"self\": 2}, \"canonical_created\": 5, \"canonical_deleted\": 0, \"canonical_reused\": 0, \"components\": 591, \"concepts\": 759, \"concepts_without_vector\": 83, \"conflicting_components\": 0, \"dry_run\": true, \"legacy_reversed_edges\": 0, \"multi_member_components\": 3, \"pinned_accepted\": 0, \"pinned_legacy\": 0, \"proposals\": {}, \"proposals_computed\": 1043, \"proposals_emitted\": 0, \"rejected_pairs\": 0, \"seconds\": {\"apply\": 0.0, \"load\": 3.31, \"plan\": 0.27}}",
+      "end_utc": "2026-11-09T04:19:11.660899+00:00",
+      "wall_seconds": 233.51
     },
     "old_layout_keys": 0,
     "stem_id_node_count": 0,
-    "pending_steps": [
-      "f",
-      "g"
-    ],
+    "alignment_edges": [],
+    "stale_fig_objects_excluded": 2,
+    "pending_steps": [],
     "copied_not_observed": [
       "weaviate.server",
       "embedder",
-      "neo4j.never_written"
+      "neo4j.never_written",
+      "neo4j.written_only_by"
     ]
   }
 }
