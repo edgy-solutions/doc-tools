@@ -117,10 +117,10 @@ How the computed edges are derived:
 - **Section → Slide**: a Section reaches every Slide with `start_page <= number <= end_page`, or `number >= start_page` when `end_page` is 0. A nested Slide is reached by its parent Section too.
 - **COVERS**: `score` is the mean TEACHES salience over the Slides the Section reaches, and `frequency` is how many such Slides there are. All saliences count here; the workbench applies its `>= 0.5` filter only to TEACHES.
 - **TEACHES `related_terms`**: the model's other names for the concept as it taught it on that Slide (abbreviations, synonyms), stripped, empty strings dropped. A list, `[]` when none.
-- **ALIAS_OF**: for each TEACHES `(concept, term)` where `normalize(term) != normalize(concept.name)`, one edge from the Concept to the Concept whose `id` is `hash(domain, normalized term)`, with `status = "candidate"`, `source = "related_terms"` and `course_id` = the Course id.
+- **ALIAS_OF**: for each TEACHES `(concept, term)` where `normalize(term) != normalize(concept.name)`, one edge from the Concept to the Concept whose `id` is `hash(domain, normalized term)`, with `status = "candidate"`, `source = "related_terms"` and `course_id` = the Course id. A re-ingest replaces the course's ALIAS_OF edges: those whose `course_id` is the course's and that the new run does not assert are deleted (the relationship only, after the MERGEs).
   - The edge is written **only to a Concept that exists at write time** (this run's, or an earlier course's). A term that names no Concept writes nothing and creates no Concept.
   - It is **never a merge** of the two nodes; it is a candidate for the normalisation pass.
-  - One edge per pair. A re-ingest never deletes it, like Concepts themselves (§4.4).
+  - One edge per pair. A re-ingest replaces only the edges whose `course_id` is that Course (the first Course to assert the pair owns it), and never deletes a Concept (§4.4).
 
 ### 4.3 Overlay names come from data
 
@@ -178,7 +178,7 @@ Concepts, TEACHES `related_terms`, figure references and Section notes come from
 
 ### 4.7 Concept alignment
 
-`concepts.normalise` (`doc_tools/passes/concepts.py`) unifies the Concepts of a domain into CanonicalConcepts. It is deterministic, calls no LLM, and never merges Concept nodes or writes `ALIAS_OF`. Inputs: Concept names, TEACHES `related_terms`, and the Weaviate vectors of the Slides that teach each Concept.
+`concepts.normalise` (`doc_tools/passes/concepts.py`) unifies the Concepts of a domain into CanonicalConcepts. It is deterministic, calls no LLM, and never merges Concept nodes or writes `ALIAS_OF`. Inputs: the Concepts with at least one TEACHES (a Concept no Slide teaches gets neither a canonical nor a proposal): their names, TEACHES `related_terms`, and the Weaviate vectors of the Slides that teach each Concept.
 
 - **Key.** `align_key(name)` is the §3 normalisation, then every non-alphanumeric character becomes a space, then whitespace collapses: `Hydraulic-Pump`, `HYDRAULIC PUMP` and `Hydraulic/Pump` share a key; `Lockout/Tagout` is `lockout tagout`.
 - **Auto links** (undirected): `exact` (same key, confidence 1.0) and `mutual_related_terms` (a term of A has B's key AND a term of B has A's key, 0.95). A **component** is a connected set of auto-linked Concepts; a Concept with no link is a component of one (`self`, 1.0). Each member's edge carries the strongest method incident to it.
@@ -199,7 +199,7 @@ Concepts, TEACHES `related_terms`, figure references and Section notes come from
 - **Cosine** is between concept vectors: the mean of the L2-normalised vectors of the Slides that teach the Concept (objects with `chunk_kind = "section"` are skipped). It ranks; it never creates a link.
 - **Scope.** Records and components always span the whole domain. A run for one Course (`course_id`, the per-course run at the end of an ingest) writes only for components containing a Concept that Course teaches, and proposals only for the pairs of the union that touch that Course: its own top `proposals_per_course`, plus any pair it shares with another Course that selected it. The ranking is computed over the whole domain, so a course run and the fleet run agree, and no course run deletes a proposal another course selected. The fleet run (`scripts/normalise_concepts.py`, `normalise_concepts_job`) writes everything.
 - **Orphans.** A cc is `DETACH DELETE`d only if its `source` is `concepts.normalise`, it has no `ALIGNS_TO` of any status (either direction), and no relationship except open `PROPOSED_ALIGNS_TO`.
-- **Switches.** `TRAINING_CONCEPT_ALIGNMENT` = `dry` (default: plan and log, write nothing), `on`, `off`. The default stays `dry` until the workbench has turned off its `harmonize_concepts` asset and `unharmonized_concepts_sensor`; the switch to `on` is a values change, made by packet; `TRAINING_ALIGN_PROPOSE_MIN`; `TRAINING_ALIGN_PROPOSALS_PER_COURSE`. A failure of the per-course run does not fail the ingest: it is logged as an error and recorded as `concept_alignment = "failed:<ExcType>: <msg>"` in the run's output metadata (`ok`, `off` or `dry` otherwise). The job's `dry_run` defaults to `true`.
+- **Switches.** `TRAINING_CONCEPT_ALIGNMENT` = `dry` (default: plan and log, write nothing), `propose` (writes open `PROPOSED_ALIGNS_TO` and the CanonicalConcepts they name, no `ALIGNS_TO`; the orphan sweep then takes only canonicals with no relationship at all), `on`, `off`. The default stays `dry` until the workbench has turned off its `harmonize_concepts` asset and `unharmonized_concepts_sensor`; the switch to `on` is a values change, made by packet; `TRAINING_ALIGN_PROPOSE_MIN`; `TRAINING_ALIGN_PROPOSALS_PER_COURSE`. A failure of the per-course run does not fail the ingest: it is logged as an error and recorded as `concept_alignment = "failed:<ExcType>: <msg>"` in the run's output metadata (`ok`, `off` or `dry` otherwise). The job's `dry_run` defaults to `true`.
 
 ## 5. MinIO
 

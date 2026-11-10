@@ -447,6 +447,54 @@ def test_dry_run_issues_no_write_and_still_reports(monkeypatch):
     assert set(out["seconds"]) == {"load", "plan", "apply"}
 
 
+def propose_plan():
+    """full_plan() (auto edges, a drop_auto, several canonicals) plus a materialise and a
+    proposal that names exactly one of the canonicals."""
+    p = full_plan()
+    ccs = sorted(p.canonicals)
+    assert len(ccs) >= 2 and p.auto_edges and p.drop_auto
+    p.materialise = [C.Materialise(concept_id=concept_node_id(D, "Box"), cc_id=ccs[0], confidence=0.6)]
+    p.proposals = [C.Proposal(cc_id=ccs[0], concept_id=concept_node_id(D, "Boxes"),
+                              other_id=concept_node_id(D, "Box"), confidence=0.6,
+                              method="lexical", evidence=["plural"], cos=None)]
+    return p
+
+
+def test_propose_only_writes_no_aligns_to_and_only_the_named_canonicals():
+    p = propose_plan()
+    r = Recorder()
+    apply_plan(r, p, D, propose_only=True)
+    qs = [norm(q) for q, _ in r.calls]
+    for q in qs:
+        assert "-[old:ALIGNS_TO]" not in q and "MERGE (c)-[r:ALIGNS_TO]" not in q
+        stripped = q.replace("PROPOSED_ALIGNS_TO", "")
+        if "DETACH DELETE" not in q:  # the GC names ALIGNS_TO only to exclude it
+            assert "ALIGNS_TO" not in stripped, q
+    merged = [pr for q, pr in r.calls if "MERGE (cc:CanonicalConcept" in q]
+    assert [row["id"] for row in merged[0]["rows"]] == [p.proposals[0].cc_id]
+    assert any("MERGE (c)-[p:PROPOSED_ALIGNS_TO]" in q for q in qs)
+
+
+def test_propose_only_gc_spares_a_canonical_holding_only_an_open_proposal():
+    gcs = {}
+    for flag in (False, True):
+        r = Recorder()
+        apply_plan(r, propose_plan(), D, propose_only=flag)
+        gcs[flag] = next(norm(q) for q, _ in r.calls if "DETACH DELETE" in q)
+    assert "NOT (cc)--()" in gcs[True]
+    assert "NOT (cc)--()" not in gcs[False]
+    assert "'PROPOSED_ALIGNS_TO' AND x.status = 'open'" in gcs[True]
+
+
+def test_dry_run_wins_over_propose_only_and_the_summary_carries_both(monkeypatch):
+    r = Recorder()
+    r.execute_query = lambda q, p=None, db=None: (r.calls.append((q, p)) or [])
+    monkeypatch.setattr(C, "_slide_vectors", lambda *a, **k: {})
+    out = C.normalise(r, object(), "DocumentChunk", D, dry_run=True, propose_only=True)
+    assert out["dry_run"] is True and out["propose_only"] is True
+    assert all(q.lstrip().startswith("MATCH") and "MERGE" not in q and "DELETE" not in q for q, _ in r.calls)
+
+
 def test_unsafe_domain_label_is_refused():
     with pytest.raises(ValueError):
         apply_plan(Recorder(), full_plan(), "TRAINING) DETACH DELETE (n")
@@ -469,11 +517,12 @@ def test_load_records_unions_terms_counts_edges_and_averages_unit_vectors(monkey
             return rows
 
     monkeypatch.setattr(C, "_slide_vectors", lambda w, c, ids: {"s1": [2.0, 0.0], "s2": [0.0, 5.0]})
-    k1, k2 = C.load_records(Neo(), object(), "DocumentChunk", D)
+    recs = C.load_records(Neo(), object(), "DocumentChunk", D)
+    assert [k.id for k in recs] == ["k1"]  # "Bare" has no TEACHES: no record at all
+    k1, = recs
     assert k1.related_terms == ["Controller", "Programmable Logic Controller"]
     assert k1.slides == ["s1", "s2"] and k1.courses == ["c1", "c2"] and k1.teach_count == 2
     assert k1.vector == [0.5, 0.5]
-    assert k2.vector is None and k2.teach_count == 0
 
 
 def test_slide_vectors_skip_section_objects_and_read_the_default_vector():
@@ -562,7 +611,7 @@ def test_ingest_defaults_to_a_dry_run(monkeypatch):
     # Contract v5 section 4.7: nothing is written until the workbench's harmonizer is off.
     calls = []
     cid, ctx = _wired_run(monkeypatch, None, lambda *a, **k: calls.append(k) or {})
-    assert calls == [{"course_id": cid, "dry_run": True}]
+    assert calls == [{"course_id": cid, "dry_run": True, "propose_only": False}]
     assert _meta(ctx)["concept_alignment"] == "dry"
 
 
@@ -571,10 +620,17 @@ def test_ingest_calls_the_pass_for_its_course_and_records_ok(monkeypatch):
     cid, ctx = _wired_run(monkeypatch, "on", lambda *a, **k: calls.append((a, k)) or {"concepts": 3})
     assert len(calls) == 1
     args, kw = calls[0]
-    assert args[2:4] == ("DocumentChunk", "TRAINING") and kw == {"course_id": cid, "dry_run": False}
+    assert args[2:4] == ("DocumentChunk", "TRAINING") and kw == {"course_id": cid, "dry_run": False, "propose_only": False}
     meta = _meta(ctx)
     assert meta["concept_alignment"] == "ok"
     assert '"concepts": 3' in meta["concept_alignment_summary"]
+
+
+def test_ingest_propose_mode_passes_propose_only_and_records_propose(monkeypatch):
+    calls = []
+    cid, ctx = _wired_run(monkeypatch, "propose", lambda *a, **k: calls.append(k) or {})
+    assert calls == [{"course_id": cid, "dry_run": False, "propose_only": True}]
+    assert _meta(ctx)["concept_alignment"] == "propose"
 
 
 def test_ingest_honours_off_and_dry(monkeypatch):

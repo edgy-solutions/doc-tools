@@ -13,6 +13,7 @@ class NormaliseConceptsConfig(Config):
     collection: str = "DocumentChunk"
     course_id: Optional[str] = None
     dry_run: bool = True
+    propose_only: bool = False
 
 
 @op(required_resource_keys={"neo4j", "weaviate"})
@@ -24,7 +25,8 @@ def normalise_concepts_op(context, config: NormaliseConceptsConfig) -> dict:
     try:
         summary = concepts.normalise(
             neo4j_client, weaviate_client, config.collection, config.domain,
-            course_id=config.course_id, dry_run=config.dry_run)
+            course_id=config.course_id, dry_run=config.dry_run,
+            propose_only=config.propose_only)
     finally:
         for c in (neo4j_client, weaviate_client):
             try:

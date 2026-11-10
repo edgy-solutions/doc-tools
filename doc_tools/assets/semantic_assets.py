@@ -457,7 +457,8 @@ def _dagster_run_id(context) -> "str | None":
 
 def _run_concept_alignment(context, neo4j_client, weaviate_client, collection_name, doc_id) -> None:
     """`concepts.normalise` for one Course, gated by TRAINING_CONCEPT_ALIGNMENT
-    (`dry` default, `on`, `off`). Never raises."""
+    (`dry` default, `propose`, `on`, `off`). `propose` writes the open proposals and the
+    canonicals they name, no ALIGNS_TO. Never raises."""
     from doc_tools.passes import concepts
 
     mode = os.getenv("TRAINING_CONCEPT_ALIGNMENT", "dry").strip().lower()
@@ -467,8 +468,9 @@ def _run_concept_alignment(context, neo4j_client, weaviate_client, collection_na
     else:
         try:
             summary = concepts.normalise(neo4j_client, weaviate_client, collection_name,
-                                         "TRAINING", course_id=doc_id, dry_run=(mode == "dry"))
-            status = "dry" if mode == "dry" else "ok"
+                                         "TRAINING", course_id=doc_id, dry_run=(mode == "dry"),
+                                         propose_only=(mode == "propose"))
+            status = mode if mode in ("dry", "propose") else "ok"
         except Exception as e:
             context.log.error(f"Concept alignment failed for {doc_id}: {type(e).__name__}: {e}")
             status = f"failed:{type(e).__name__}: {str(e)[:200]}"
