@@ -362,42 +362,129 @@ def unstable_raw_rows(parsed_notices):
 WRITTEN_ARM_FIELDS = hdr_agreement.WRITTEN_FIELDS
 
 
-def _written_equality_key(v):
+# The scorer statuses under which two fires READ THE SAME NAME, so this arm takes
+# them as one value. RULED 2026-11-08: the written arm compares CANONICAL FORMS,
+# not strings.
+#
+# NOT DERIVED FROM `pcn_score.HEADER_FAILURES`, and writing it out longhand is the
+# point rather than an oversight: this is not that tuple's complement.
+# `misformatted` IS in HEADER_FAILURES -- it fails correctness -- and it unifies
+# HERE anyway, because a mangled spelling of a form ground truth accepts is still
+# a reading of the same name the page prints. The two arms ask different questions
+# of one status. `pending` unifies under neither: ground truth records no
+# established value for the field, so there is no canonical form to resolve to.
+_WRITTEN_UNIFYING = ("exact", "alias", "misformatted")
+
+
+def _canonical_form(field, written, spec):
+    """The canonical form the SCORER resolves `written` to, or None when it
+    resolves to none.
+
+    This calls `pcn_score.score_header_field` rather than keeping a second copy
+    of the alias tables: the accepted spellings are declared in ground truth
+    beside the notice, and a gate holding its own list would drift from the
+    score the day a form is added. `exact` carries no `canonical` key -- the
+    written value IS the canonical one -- so the spec's `value` is the answer in
+    that branch.
+
+    NO try/except. A spec the scorer raises on is a malformed declaration, and
+    swallowing that into a quiet string comparison would turn a broken ground
+    truth into a passing gate.
+    """
+    scored = pcn_score.score_header_field(field, written, spec)
+    if scored.get("status") not in _WRITTEN_UNIFYING:
+        return None
+    return scored.get("canonical", spec.get("value"))
+
+
+def _written_equality_key(v, field=None, spec=None):
     """The key two fires' written values are compared BY -- not the value either
     fire wrote, which is what the evidence keeps printing.
 
-    CASE IS FOLDED, AND ONLY CASE, ruled 2026-11-02. The SCORER already folds
-    it: `pcn_score._fold_text` ("case- and whitespace-insensitive form, for
-    deciding whether two header strings carry the same CONTENT") is what decides
-    a header field once an exact match has failed, so canonical-after-alias
-    credits a written `TEXAS INSTRUMENTS` against a canonical
-    `Texas Instruments`. This arm compared raw and blocked on that same pair, so
-    two instruments in one report disagreed about one string -- TI's `mfr`,
-    `['TEXAS INSTRUMENTS', 'TEXAS INSTRUMENTS', 'Texas Instruments']`, on
-    identical bytes. A gate cannot hold a fire to a standard the score does not.
+    CANONICAL FORMS, NOT STRINGS, ruled 2026-11-08. Each read is mapped through
+    the scorer and compared by what it resolves to, so `exact`, `alias` and
+    `misformatted` unify: ground truth declares all three as readings of the
+    name on the page. TI's `mfr`,
+    `['TEXAS INSTRUMENTS', 'TEXAS INSTRUMENTS', 'Texas Instruments']` on
+    identical bytes, is agreement -- and so is the shape that same field took on
+    2026-10-29, `['Texas Instruments Incorporated',
+    'Texas Instruments Incorporated', 'TEXAS INSTRUMENTS']`, because TI's
+    `accepted` set names the shouted form verbatim-correct FOR THIS NOTICE.
+    THAT SECOND CASE IS A REVERSAL of what this arm did under the 2026-11-02
+    case-folding ruling, which these keys separated, and the reversal is the
+    ruling: a gate cannot hold a fire to a standard the score does not, and
+    `pcn_score.score_header_field` credits every one of those reads.
 
-    IT DOES NOT COLLAPSE WHITESPACE, which `_fold_text` additionally does, and
-    that omission is deliberate rather than an oversight: the ruling was about
-    case. Two fires that wrote differently-spaced values read the field
-    differently, and that stays a disagreement.
+    WHAT IT STILL SEPARATES. `distractor`, `wrong` and `unreadable` resolve to
+    no canonical form, so they fall through to the string key below and the arm
+    keeps its teeth: onsemi's `['onsemi', 'ONSEM.', 'onsemi']` blocks, because
+    ground truth names `ONSEM.` a declared trap rather than a spelling of the
+    name. Two fires that wrote the SAME failing string still agree -- they read
+    the field the same way, and whether that reading is right is the correctness
+    arm's question, not this one's.
 
-    NOT A WEAKENING OF THE ARM. A value difference beyond case still blocks --
-    including the shape this same field took on 2026-10-29,
-    `['Texas Instruments Incorporated', 'Texas Instruments Incorporated',
-    'TEXAS INSTRUMENTS']`, which these keys still separate. Non-strings keep
-    their exact comparison; `None` never reaches here, the blank arm takes it
-    first.
+    WITH NO SPEC -- ground truth declares nothing for the notice, nothing for
+    the field, or the caller passes none -- the comparison is exactly what it
+    was before this ruling: CASE IS FOLDED, AND ONLY CASE. `_fold_text`
+    additionally collapses whitespace and this deliberately does not, so two
+    fires that wrote differently-spaced values read the field differently and
+    that stays a disagreement. Non-strings keep their exact comparison; `None`
+    never reaches here, the blank arm takes it first.
+
+    THE TWO KEY SPACES CANNOT COLLIDE: a canonical key is a JSON list and a
+    string key is a JSON string, so a value that resolved to a canonical form is
+    never equal to one that did not.
     """
+    if spec is not None and isinstance(v, str):
+        canonical = _canonical_form(field, v, spec)
+        if canonical is not None:
+            return json.dumps(["canonical", canonical])
     if isinstance(v, str):
         return json.dumps(v.casefold())
     return json.dumps(v, sort_keys=True, default=str)
 
 
-def compare_written_headers(from_corpus, expected=None):
+def written_header_specs(notices=None):
+    """`{filename: {field: spec}}` -- the ground-truth header declarations this
+    arm resolves canonical forms against.
+
+    THE FIRST TIME THIS GATE READS GROUND TRUTH'S NOTICES. It has always loaded
+    the `_corpus` block (`pcn_score.load_corpus`) and nothing else: the
+    correctness arm reads `header_totals` out of each fire's score JSON, which
+    the scorer computed from these same declarations, so the gate itself held no
+    specs. The written arm needs them in memory because it compares reads to
+    EACH OTHER rather than to an expectation, and nothing in a score JSON says
+    what a third spelling would have resolved to.
+
+    Underscore keys are dropped, mirroring `pcn_score.score_headers`: `_note` and
+    `_rule` are prose for a reader, not fields. A notice whose block is all
+    prose is left out entirely, so the arm falls back to strings for it rather
+    than carrying an empty spec that looks like a declaration.
+    """
+    notices = pcn_score.load_ground_truth() if notices is None else notices
+    out = {}
+    for fn, entry in (notices or {}).items():
+        spec = {k: v for k, v in ((entry or {}).get("headers") or {}).items()
+                if not k.startswith("_")}
+        if spec:
+            out[fn] = spec
+    return out
+
+
+def compare_written_headers(from_corpus, expected=None, specs=None):
     """Compare each notice's `written_header` across the fires.
 
     `from_corpus` is `{fire_n: {filename: written_header_dict}}`, i.e. what
-    `headers_from_corpus` returns per fire. Returns a dict:
+    `headers_from_corpus` returns per fire.
+
+    `specs` is `written_header_specs()`'s `{filename: {field: spec}}`, and it is
+    what makes the comparison canonical rather than textual (see
+    `_written_equality_key`). IT IS OPTIONAL AND THE FALLBACK IS NOT A
+    DEGRADATION TO HIDE: a caller that passes nothing gets the case-folded
+    string comparison this arm used before 2026-11-08, which is STRICTER, never
+    looser -- it separates values the scorer unifies. Every test written before
+    that ruling calls this with one argument and still measures what it meant
+    to. Returns a dict:
 
       verdicts      {filename: "agree" | "DISAGREE" | "BLANK" | "ABSENT"}
       disagreements [(filename, field, [v_fire1, v_fire2, ...])] -- every fire populated
@@ -408,6 +495,14 @@ def compare_written_headers(from_corpus, expected=None):
                     NOT a disagreement and reported under its own message.
       unrecorded    filenames in `expected` that NO fire recorded. Reported, never
                     blocked on here: the parts arm and `bytes_coverage` own that case.
+      canonical     {filename: [fields]} -- where the comparison HAD ground truth to
+                    resolve against. A notice or field missing from this map was
+                    compared as strings. Being listed does not mean every read
+                    resolved: a value scored `distractor`, `wrong`, `unreadable` or
+                    `pending` resolves to no canonical form and is compared as a
+                    string even where the field is declared. This is reported so a
+                    reader of the report can tell which comparison produced a
+                    verdict, rather than inferring it from the values.
 
     WHY THIS EXISTS INSTEAD OF `--written`: see `run_header_agreement`. In short, the gate
     already holds the written values and the replay cannot measure the degraded notice.
@@ -423,7 +518,7 @@ def compare_written_headers(from_corpus, expected=None):
     """
     fires = sorted(from_corpus)
     out = {"verdicts": {}, "disagreements": [], "blank_rows": [], "absent": [],
-           "no_written": [], "unrecorded": []}
+           "no_written": [], "unrecorded": [], "canonical": {}}
     # A fire with nothing at all is an older image (or a dead fire), not N absent
     # notices. Say it once, and compare the fires that do have values.
     empty = [n for n in fires if not from_corpus[n]]
@@ -442,21 +537,30 @@ def compare_written_headers(from_corpus, expected=None):
             out["verdicts"][fn] = "ABSENT"
             continue
         verdict = "agree"
+        # Ground truth for THIS notice, keyed by field. Absent for a notice ground
+        # truth does not declare, which is a fallback to strings and not an error:
+        # the corpus enumeration is what says a notice should be there at all.
+        specs_for = (specs or {}).get(fn) or {}
         for field in WRITTEN_ARM_FIELDS:
             seen = {n: from_corpus[n][fn].get(field) for n in live}
             blank = [n for n in live if hdr_agreement.is_blank(seen[n])]
             if len(blank) == len(live):
                 continue                      # agreement on an absence
+            spec = specs_for.get(field)
+            if spec is not None:
+                out["canonical"].setdefault(fn, []).append(field)
             if blank:
                 out["blank_rows"].append((fn, field, seen, blank))
                 if verdict != "DISAGREE":
                     verdict = "BLANK"
-            elif len({_written_equality_key(v) for v in seen.values()}) > 1:
+            elif len({_written_equality_key(v, field, spec)
+                      for v in seen.values()}) > 1:
                 out["disagreements"].append((fn, field, [seen[n] for n in live]))
                 verdict = "DISAGREE"
         out["verdicts"][fn] = verdict
     if expected is not None:
         out["unrecorded"] = sorted(set(expected) - set(names))
+    out["canonical"] = {fn: sorted(fields) for fn, fields in out["canonical"].items()}
     return out
 
 
@@ -1682,7 +1786,12 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
     # is reported as such rather than compared on a different derivation.
     expected_files = (set().union(*[set(c) for c in corpus_by_fire.values()])
                       if corpus_by_fire else set())
-    written = compare_written_headers(from_corpus, expected=expected_files)
+    # `specs` is what makes this comparison canonical rather than textual (ruled
+    # 2026-11-08). Loaded here and nowhere else in the gate: the correctness arm
+    # reads totals the scorer already computed, this arm compares reads to each
+    # other and needs the declarations themselves.
+    written = compare_written_headers(from_corpus, expected=expected_files,
+                                      specs=written_header_specs())
 
     # (d) The declaration rule.
     d_blocking, d_exempted = apply_declaration_rule(
@@ -1791,6 +1900,12 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
             "absent": [list(a) for a in written["absent"]],
             "no_written": [list(a) for a in written["no_written"]],
             "unrecorded": written["unrecorded"],
+            # WHICH COMPARISON produced the verdicts above: {notice: [fields]} that
+            # had a ground-truth declaration to resolve canonical forms against
+            # (ruled 2026-11-08). Additive to schema 1; a notice or field absent
+            # here was compared as case-folded strings, which is the stricter
+            # reading, so an older consumer is not misled by its absence.
+            "canonical": written["canonical"],
         },
         "identity": {
             # Which derivation the identity numbers below came from, and whether the
@@ -2272,6 +2387,18 @@ def render_markdown(report, gate_dir, command_str, log_paths):
                      "compared over doc_type, mfr, pub_date, doc_level_ltb_date. "
                      "`revision` (never blocks) and `doc_id` (identity arm) are not "
                      "compared here.")
+        lines.append("")
+        # `.get`: a report written before 2026-11-08 carries no such key, and the
+        # absence means strings were compared, not that nothing was.
+        canon = wa.get("canonical") or {}
+        lines.append("Compared by CANONICAL FORM wherever ground truth declares the "
+                     "field (ruled 2026-11-08): a spelling the scorer accepts as a "
+                     "reading of the same name is agreement, while a declared "
+                     "distractor stays a disagreement. "
+                     f"{sum(len(v) for v in canon.values())} field(s) across "
+                     f"{len(canon)} notice(s) had a declaration to resolve against; "
+                     "every other field was compared as case-folded strings, which "
+                     "separates more, never less.")
         lines.append("")
         lines.append("| notice | verdict |")
         lines.append("|---|---|")
