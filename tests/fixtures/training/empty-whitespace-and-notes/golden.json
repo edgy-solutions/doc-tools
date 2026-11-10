@@ -1,0 +1,878 @@
+{
+  "contract": "docs/contracts/training-workbench.md",
+  "contract_version": 5,
+  "fixture": {
+    "deck": "empty-whitespace-and-notes.pptx",
+    "deck_sha256": "88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+    "metadata": "metadata.json",
+    "metadata_sha256": "e6a5adc03f73982cbedfb7c454ea1b669cd2a154990c7fec2d4a486e9a625dca"
+  },
+  "volatile_element_keys": [
+    "element_id",
+    "metadata.parent_id",
+    "metadata.file_directory",
+    "metadata.last_modified",
+    "metadata.filename"
+  ],
+  "drop": {
+    "bucket": "processing-artifacts",
+    "keys_in_order": [
+      "training/course/empty-whitespace-and-notes/metadata.json",
+      "training/course/empty-whitespace-and-notes/empty-whitespace-and-notes.pptx"
+    ]
+  },
+  "ingest_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+  "neo4j": {
+    "course": {
+      "labels": [
+        "Document",
+        "Course",
+        "TRAINING"
+      ],
+      "props": {
+        "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+        "title": "Instrument Calibration",
+        "filename": "empty-whitespace-and-notes.pptx",
+        "current_key": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/current.json",
+        "business_unit": "Metrology",
+        "discipline": "Instrumentation",
+        "audience": "Calibration technicians",
+        "level": "Advanced",
+        "delivery_method": "Instructor-led",
+        "duration_hours": 3,
+        "version": "1.3",
+        "outline_source": "llm"
+      }
+    },
+    "slides": {
+      "labels": [
+        "Chunk",
+        "Slide",
+        "TRAINING"
+      ],
+      "nodes": [
+        {
+          "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1",
+          "number": 1,
+          "text": "[Title] Instrument Calibration\n[Title] Whitespace-only text and notes-only text",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Instrument Calibration",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Whitespace-only text and notes-only text",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2",
+          "number": 2,
+          "text": "[Title] Reference Standards",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Reference Standards",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
+          "number": 3,
+          "text": "[NarrativeText] Speaker note only: explain the calibration chain from the working standard to the national standard.",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "NarrativeText",
+              "text": "Speaker note only: explain the calibration chain from the working standard to the national standard.",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+          "number": 4,
+          "text": "[NarrativeText] Mention the drift trend chart.\n[Title] Calibration Intervals\n[Title] Annual by default\n[Title] Shorter after a drop or overload",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "NarrativeText",
+              "text": "Mention the drift trend chart.",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Calibration Intervals",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Annual by default",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "Title",
+              "text": "Shorter after a drop or overload",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "course_slide_edges": [
+      "HAS_CHILD",
+      "HAS_SLIDE"
+    ],
+    "nondeterministic": {
+      "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "sections": {
+        "labels": [
+          "Section",
+          "TRAINING"
+        ],
+        "section_slide_edges": [
+          "HAS_CHILD",
+          "HAS_SLIDE"
+        ],
+        "nodes": [
+          {
+            "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
+            "title": "Instrument Calibration",
+            "level": 1,
+            "start_page": 1,
+            "end_page": 1,
+            "concept_summary": [
+              "Instrument Calibration"
+            ],
+            "parent": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+            "slides": [
+              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1"
+            ],
+            "covers": [
+              {
+                "concept": "Instrument Calibration",
+                "score": 1.0,
+                "frequency": 1
+              }
+            ],
+            "summary": "This section introduces the concept of instrument calibration, outlining its purpose and significance in ensuring accurate measurements. It sets the foundation for understanding why calibration is a critical part of instrument maintenance.",
+            "objectives": [
+              "Define instrument calibration",
+              "Explain the importance of calibrating instruments"
+            ]
+          },
+          {
+            "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
+            "title": "Reference Standards",
+            "level": 1,
+            "start_page": 2,
+            "end_page": 3,
+            "concept_summary": [
+              "Calibration Chain",
+              "Reference Standards",
+              "Working Standard",
+              "National Standard"
+            ],
+            "parent": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+            "slides": [
+              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2",
+              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3"
+            ],
+            "covers": [
+              {
+                "concept": "Calibration Chain",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Reference Standards",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "National Standard",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Working Standard",
+                "score": 0.7,
+                "frequency": 1
+              }
+            ],
+            "summary": "This section explains reference standards and their role in the calibration hierarchy. Learners are introduced to the calibration chain that links working standards to national standards.",
+            "objectives": [
+              "Describe reference standards",
+              "Explain the calibration chain from working standard to national standard",
+              "Identify working and national standards"
+            ]
+          },
+          {
+            "id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
+            "title": "Calibration Intervals",
+            "level": 1,
+            "start_page": 4,
+            "end_page": 4,
+            "concept_summary": [
+              "Calibration Intervals",
+              "Drift Trend Chart",
+              "Annual Interval",
+              "Shorter Interval after Overload",
+              "Shorter Interval after Drop"
+            ],
+            "parent": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+            "slides": [
+              "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Calibration Intervals",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Annual Interval",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Drift Trend Chart",
+                "score": 0.7,
+                "frequency": 1
+              },
+              {
+                "concept": "Shorter Interval after Drop",
+                "score": 0.5,
+                "frequency": 1
+              },
+              {
+                "concept": "Shorter Interval after Overload",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ],
+            "summary": "This section covers how often instruments should be calibrated, stating that an annual interval is the default. It also discusses how the drift‑trend chart can guide interval adjustments, especially after a drop or overload event.",
+            "objectives": [
+              "Determine appropriate calibration intervals",
+              "Interpret drift trend charts",
+              "Adjust intervals after drops or overloads"
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "labels": [
+          "Concept",
+          "TRAINING"
+        ],
+        "nodes": [
+          {
+            "name": "Annual Interval",
+            "name_normalized": "annual interval",
+            "id": "concept_27be5ae61817b3af",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Calibration Chain",
+            "name_normalized": "calibration chain",
+            "id": "concept_86fb1b0aa9aab51f",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Calibration Intervals",
+            "name_normalized": "calibration intervals",
+            "id": "concept_cad06e70e7b0d866",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Drift Trend Chart",
+            "name_normalized": "drift trend chart",
+            "id": "concept_aedbb4112f1a1c75",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Instrument Calibration",
+            "name_normalized": "instrument calibration",
+            "id": "concept_a7c78f909d4a649c",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "National Standard",
+            "name_normalized": "national standard",
+            "id": "concept_c9024798a21fdb6a",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Reference Standards",
+            "name_normalized": "reference standards",
+            "id": "concept_ee89bf6eb5697a4b",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Shorter Interval after Drop",
+            "name_normalized": "shorter interval after drop",
+            "id": "concept_fa962b315b0937dd",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Shorter Interval after Overload",
+            "name_normalized": "shorter interval after overload",
+            "id": "concept_a5758652c2749c70",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Working Standard",
+            "name_normalized": "working standard",
+            "id": "concept_86357c847ace337b",
+            "domain": "TRAINING"
+          }
+        ]
+      },
+      "teaches": [
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1",
+          "concept": "Instrument Calibration",
+          "salience": 1.0,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2",
+          "concept": "Reference Standards",
+          "salience": 1.0,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
+          "concept": "Calibration Chain",
+          "salience": 1.0,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
+          "concept": "National Standard",
+          "salience": 0.7,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
+          "concept": "Working Standard",
+          "salience": 0.7,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+          "concept": "Annual Interval",
+          "salience": 0.7,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+          "concept": "Calibration Intervals",
+          "salience": 1.0,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+          "concept": "Drift Trend Chart",
+          "salience": 0.7,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+          "concept": "Shorter Interval after Drop",
+          "salience": 0.5,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+          "concept": "Shorter Interval after Overload",
+          "salience": 0.5,
+          "related_terms": []
+        }
+      ],
+      "salience_location": "edge",
+      "section_objects": {
+        "objects": [
+          {
+            "uuid": "0d30284f-6a63-5044-9c1e-1e5b86055fab",
+            "properties": {
+              "chunk_kind": "section",
+              "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+              "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
+              "text": "Instrument Calibration\n\nThis section introduces the concept of instrument calibration, outlining its purpose and significance in ensuring accurate measurements. It sets the foundation for understanding why calibration is a critical part of instrument maintenance.\n\nObjectives:\n- Define instrument calibration\n- Explain the importance of calibrating instruments",
+              "section": null,
+              "section_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
+              "page": 1,
+              "heading": "Instrument Calibration",
+              "domain": "TRAINING"
+            },
+            "vector_length": 768
+          },
+          {
+            "uuid": "82b59e67-1417-5be9-a281-9112d9c1d751",
+            "properties": {
+              "chunk_kind": "section",
+              "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+              "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
+              "section_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
+              "section": null,
+              "text": "Reference Standards\n\nThis section explains reference standards and their role in the calibration hierarchy. Learners are introduced to the calibration chain that links working standards to national standards.\n\nObjectives:\n- Describe reference standards\n- Explain the calibration chain from working standard to national standard\n- Identify working and national standards",
+              "page": 2,
+              "heading": "Reference Standards",
+              "domain": "TRAINING"
+            },
+            "vector_length": 768
+          },
+          {
+            "uuid": "2e6418b7-d6e6-5910-bb61-34f37e3d8fe5",
+            "properties": {
+              "chunk_kind": "section",
+              "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+              "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
+              "text": "Calibration Intervals\n\nThis section covers how often instruments should be calibrated, stating that an annual interval is the default. It also discusses how the drift‑trend chart can guide interval adjustments, especially after a drop or overload event.\n\nObjectives:\n- Determine appropriate calibration intervals\n- Interpret drift trend charts\n- Adjust intervals after drops or overloads",
+              "section": null,
+              "section_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
+              "page": 4,
+              "heading": "Calibration Intervals",
+              "domain": "TRAINING"
+            },
+            "vector_length": 768
+          }
+        ]
+      },
+      "edges": {
+        "HAS_SECTION": [
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0"
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1"
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2"
+          }
+        ],
+        "section_slide": [
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
+            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1"
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
+            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2"
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
+            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3"
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
+            "to": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4"
+          }
+        ],
+        "COVERS": [
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s0",
+            "to": "Instrument Calibration",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
+            "to": "Calibration Chain",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
+            "to": "Reference Standards",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
+            "to": "National Standard",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s1",
+            "to": "Working Standard",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
+            "to": "Calibration Intervals",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
+            "to": "Annual Interval",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
+            "to": "Drift Trend Chart",
+            "score": 0.7,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
+            "to": "Shorter Interval after Drop",
+            "score": 0.5,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_s2",
+            "to": "Shorter Interval after Overload",
+            "score": 0.5,
+            "frequency": 1
+          }
+        ],
+        "TEACHES": [
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1",
+            "to": "Instrument Calibration",
+            "salience": 1.0,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2",
+            "to": "Reference Standards",
+            "salience": 1.0,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
+            "to": "Calibration Chain",
+            "salience": 1.0,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
+            "to": "National Standard",
+            "salience": 0.7,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
+            "to": "Working Standard",
+            "salience": 0.7,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+            "to": "Annual Interval",
+            "salience": 0.7,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+            "to": "Calibration Intervals",
+            "salience": 1.0,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+            "to": "Drift Trend Chart",
+            "salience": 0.7,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+            "to": "Shorter Interval after Drop",
+            "salience": 0.5,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+            "to": "Shorter Interval after Overload",
+            "salience": 0.5,
+            "related_terms": []
+          }
+        ],
+        "ALIAS_OF": []
+      }
+    },
+    "never_written": {
+      "labels": [
+        "Project",
+        "TargetNode",
+        "User"
+      ],
+      "relations": [
+        "OWNS",
+        "SUGGESTED_SOURCE",
+        "DERIVED_FROM"
+      ]
+    },
+    "written_only_by": {
+      "concepts.normalise": {
+        "labels": [
+          "CanonicalConcept"
+        ],
+        "relations": [
+          "ALIGNS_TO",
+          "PROPOSED_ALIGNS_TO"
+        ]
+      }
+    }
+  },
+  "minio": {
+    "bucket": "processing-artifacts",
+    "current_json_key": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/current.json",
+    "current_json": {
+      "pipeline_version": "doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d",
+      "manifest_key": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/manifest.json",
+      "prefix": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/",
+      "updated_at": "2026-11-09T04:11:55.402520+00:00"
+    },
+    "prefix": "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/",
+    "keys_required": [
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/current.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/extraction.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/manifest.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_1.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_2.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_3.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_4.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/text.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
+    ]
+  },
+  "weaviate": {
+    "server": "1.27.0",
+    "collection": "DocumentChunk",
+    "distance": "cosine",
+    "objects": [
+      {
+        "uuid": "4bca6baa-6ed3-57bc-9cd1-845ff4ceb323",
+        "properties": {
+          "chunk_kind": "slide",
+          "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+          "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p1",
+          "text": "[Title] Instrument Calibration\n[Title] Whitespace-only text and notes-only text",
+          "section": null,
+          "section_id": null,
+          "page": 1,
+          "heading": null,
+          "domain": "TRAINING"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "1afa793a-1a5c-5038-ad0a-725f523d8304",
+        "properties": {
+          "chunk_kind": "slide",
+          "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+          "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p2",
+          "section_id": null,
+          "section": null,
+          "text": "[Title] Reference Standards",
+          "page": 2,
+          "heading": null,
+          "domain": "TRAINING"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "ac1922e2-34c8-5185-a996-4b6600da16ad",
+        "properties": {
+          "chunk_kind": "slide",
+          "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+          "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p3",
+          "section_id": null,
+          "section": null,
+          "text": "[NarrativeText] Speaker note only: explain the calibration chain from the working standard to the national standard.",
+          "page": 3,
+          "heading": null,
+          "domain": "TRAINING"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "5ac0dd4d-b9a8-5c2e-8fac-daeb4c0494f5",
+        "properties": {
+          "chunk_kind": "slide",
+          "doc_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0",
+          "chunk_id": "sha256:88c13061bb3fc9df8f7e7f8f91a75c3ba24c490e3e7d6ae4028ce5152ab4cfa0_p4",
+          "section_id": null,
+          "section": null,
+          "text": "[NarrativeText] Mention the drift trend chart.\n[Title] Calibration Intervals\n[Title] Annual by default\n[Title] Shorter after a drop or overload",
+          "page": 4,
+          "heading": null,
+          "domain": "TRAINING"
+        },
+        "vector_length": 768
+      }
+    ],
+    "forbidden_chunk_id_substrings": [
+      "_fig_"
+    ]
+  },
+  "embedder": {
+    "env": {
+      "base_url": [
+        "LLM_BASE_URL",
+        "OPENAI_BASE_URL"
+      ],
+      "api_key": [
+        "LLM_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "model": [
+        "LLM_EMBED_MODEL"
+      ]
+    },
+    "model_default": "nomic-embed-text",
+    "dimension": 768,
+    "document_prefix": "search_document: ",
+    "query_prefix": "search_query: ",
+    "normalized": false
+  },
+  "produced_by": {
+    "run": {
+      "key": "training/course/empty-whitespace-and-notes/empty-whitespace-and-notes.pptx",
+      "partition_key": "training__course__empty-whitespace-and-notes__empty-whitespace-and-notes.pptx",
+      "success": true,
+      "failed_steps": [],
+      "DOC_TOOLS_VERSION": "doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ca3e7d830c75294f18406444d79e5b52e7751ef7352e3ab7ba6bde3457d0fc4c",
+      "LLM_MODEL": "gpt-oss-128k:120b",
+      "LLM_EMBED_MODEL": "nomic-embed-text",
+      "PROMPT_SOURCE": "file",
+      "TRAINING_CONCEPT_ALIGNMENT": null,
+      "expect": "728afaf",
+      "start_utc": "2026-11-09T04:11:51.240658+00:00",
+      "concept_alignment": "dry",
+      "concept_alignment_summary": "{\"accepted_materialised\": 0, \"auto_edges\": {\"exact\": 10, \"mutual_related_terms\": 0, \"self\": 5}, \"canonical_created\": 10, \"canonical_deleted\": 0, \"canonical_reused\": 0, \"components\": 589, \"concepts\": 754, \"concepts_without_vector\": 78, \"conflicting_components\": 0, \"dry_run\": true, \"legacy_reversed_edges\": 0, \"multi_member_components\": 5, \"pinned_accepted\": 0, \"pinned_legacy\": 0, \"proposals\": {\"token_overlap\": 2}, \"proposals_computed\": 1043, \"proposals_emitted\": 1, \"rejected_pairs\": 0, \"seconds\": {\"apply\": 0.0, \"load\": 3.54, \"plan\": 0.27}}",
+      "end_utc": "2026-11-09T04:15:18.154527+00:00",
+      "wall_seconds": 206.91
+    },
+    "old_layout_keys": 0,
+    "stem_id_node_count": 0,
+    "alignment_edges": [],
+    "stale_fig_objects_excluded": 0,
+    "pending_steps": [],
+    "copied_not_observed": [
+      "weaviate.server",
+      "embedder",
+      "neo4j.never_written",
+      "neo4j.written_only_by"
+    ]
+  }
+}

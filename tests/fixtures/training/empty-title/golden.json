@@ -1,0 +1,747 @@
+{
+  "contract": "docs/contracts/training-workbench.md",
+  "contract_version": 5,
+  "fixture": {
+    "deck": "empty-title.pptx",
+    "deck_sha256": "914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+    "metadata": "metadata.json",
+    "metadata_sha256": "952727430341d99ad6f1b84851f64805a7abb6c386f2e2bb430d1c001923c9a6"
+  },
+  "volatile_element_keys": [
+    "element_id",
+    "metadata.parent_id",
+    "metadata.file_directory",
+    "metadata.last_modified",
+    "metadata.filename"
+  ],
+  "drop": {
+    "bucket": "processing-artifacts",
+    "keys_in_order": [
+      "training/course/empty-title/metadata.json",
+      "training/course/empty-title/empty-title.pptx"
+    ]
+  },
+  "ingest_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+  "neo4j": {
+    "course": {
+      "labels": [
+        "Document",
+        "Course",
+        "TRAINING"
+      ],
+      "props": {
+        "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+        "title": "Gearbox Inspection",
+        "filename": "empty-title.pptx",
+        "current_key": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/current.json",
+        "business_unit": "Rotorcraft Services",
+        "discipline": "Mechanical",
+        "audience": "Inspectors",
+        "level": "Intermediate",
+        "delivery_method": "Instructor-led",
+        "duration_hours": 1,
+        "version": "1.0",
+        "outline_source": "llm"
+      }
+    },
+    "slides": {
+      "labels": [
+        "Chunk",
+        "Slide",
+        "TRAINING"
+      ],
+      "nodes": [
+        {
+          "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1",
+          "number": 1,
+          "text": "[Title] Gearbox Inspection\n[NarrativeText] Some slides have empty titles",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Gearbox Inspection",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Some slides have empty titles",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 1,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
+          "number": 2,
+          "text": "[NarrativeText] Check the magnetic chip detector",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "NarrativeText",
+              "text": "Check the magnetic chip detector",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 2,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p3",
+          "number": 3,
+          "text": "",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 3,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
+          "number": 4,
+          "text": "[Title] Oil sample analysis",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Oil sample analysis",
+              "metadata": {
+                "category_depth": 1,
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "PageBreak",
+              "text": "",
+              "metadata": {
+                "page_number": 4,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        },
+        {
+          "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
+          "number": 5,
+          "text": "[Title] Wrap-up\n[NarrativeText] Record all findings",
+          "asset_type": "PPTX",
+          "layout_style": "hero",
+          "elements": [
+            {
+              "type": "Title",
+              "text": "Wrap-up",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            },
+            {
+              "type": "NarrativeText",
+              "text": "Record all findings",
+              "metadata": {
+                "category_depth": 0,
+                "page_number": 5,
+                "languages": [
+                  "eng"
+                ],
+                "filetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "course_slide_edges": [
+      "HAS_CHILD",
+      "HAS_SLIDE"
+    ],
+    "nondeterministic": {
+      "note": "OBSERVED from a sandbox run. doc-tools asserts shape only; wb uses it as fake-store data.",
+      "sections": {
+        "labels": [
+          "Section",
+          "TRAINING"
+        ],
+        "section_slide_edges": [
+          "HAS_CHILD",
+          "HAS_SLIDE"
+        ],
+        "nodes": [
+          {
+            "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "title": "Gearbox Inspection",
+            "level": 1,
+            "start_page": 1,
+            "end_page": 4,
+            "concept_summary": [
+              "Oil Sample Analysis",
+              "Magnetic Chip Detector",
+              "Gearbox Inspection"
+            ],
+            "parent": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+            "slides": [
+              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1",
+              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
+              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p3",
+              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Gearbox Inspection",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Magnetic Chip Detector",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Oil Sample Analysis",
+                "score": 1.0,
+                "frequency": 1
+              }
+            ],
+            "summary": "This section introduces the process of inspecting a gearbox, highlighting the importance of visual checks and specific component verification. It specifically calls out the magnetic chip detector as a key element to examine during the inspection.",
+            "objectives": [
+              "Identify a gearbox for inspection",
+              "Check the magnetic chip detector",
+              "Perform a basic gearbox inspection"
+            ]
+          },
+          {
+            "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0_s0",
+            "title": "Oil sample analysis",
+            "level": 2,
+            "start_page": 4,
+            "end_page": 4,
+            "concept_summary": [
+              "Oil Sample Analysis"
+            ],
+            "parent": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "slides": [
+              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
+            ],
+            "covers": [
+              {
+                "concept": "Oil Sample Analysis",
+                "score": 1.0,
+                "frequency": 1
+              }
+            ],
+            "summary": "This section presents the concept of oil sample analysis, explaining that oil testing is a diagnostic tool for assessing equipment condition.",
+            "objectives": [
+              "Explain oil sample analysis",
+              "Interpret basic oil analysis results"
+            ]
+          },
+          {
+            "id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
+            "title": "Wrap-up",
+            "level": 1,
+            "start_page": 5,
+            "end_page": 5,
+            "concept_summary": [
+              "Wrap-up",
+              "Findings"
+            ],
+            "parent": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+            "slides": [
+              "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
+            ],
+            "covers": [
+              {
+                "concept": "Wrap-up",
+                "score": 1.0,
+                "frequency": 1
+              },
+              {
+                "concept": "Findings",
+                "score": 0.5,
+                "frequency": 1
+              }
+            ],
+            "summary": "The wrap‑up section reviews the overall inspection process and emphasizes the need to document all observations and findings.",
+            "objectives": [
+              "Record all findings",
+              "Summarize inspection results"
+            ]
+          }
+        ]
+      },
+      "concepts": {
+        "labels": [
+          "Concept",
+          "TRAINING"
+        ],
+        "nodes": [
+          {
+            "name": "Findings",
+            "name_normalized": "findings",
+            "id": "concept_eaf03f84fb03b034",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Gearbox Inspection",
+            "name_normalized": "gearbox inspection",
+            "id": "concept_ecba7da314572a6d",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Magnetic Chip Detector",
+            "name_normalized": "magnetic chip detector",
+            "id": "concept_3b2e57da37527431",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Oil Sample Analysis",
+            "name_normalized": "oil sample analysis",
+            "id": "concept_d5a9891ae01ad5d4",
+            "domain": "TRAINING"
+          },
+          {
+            "name": "Wrap-up",
+            "name_normalized": "wrap-up",
+            "id": "concept_36a7e5692ffc6fc7",
+            "domain": "TRAINING"
+          }
+        ]
+      },
+      "teaches": [
+        {
+          "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1",
+          "concept": "Gearbox Inspection",
+          "salience": 1.0,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
+          "concept": "Magnetic Chip Detector",
+          "salience": 1.0,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
+          "concept": "Oil Sample Analysis",
+          "salience": 1.0,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
+          "concept": "Findings",
+          "salience": 0.5,
+          "related_terms": []
+        },
+        {
+          "slide": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
+          "concept": "Wrap-up",
+          "salience": 1.0,
+          "related_terms": []
+        }
+      ],
+      "salience_location": "edge",
+      "section_objects": {
+        "objects": [
+          {
+            "uuid": "f718383e-6902-5f9a-9b71-6337fb56f94b",
+            "properties": {
+              "text": "Gearbox Inspection\n\nThis section introduces the process of inspecting a gearbox, highlighting the importance of visual checks and specific component verification. It specifically calls out the magnetic chip detector as a key element to examine during the inspection.\n\nObjectives:\n- Identify a gearbox for inspection\n- Check the magnetic chip detector\n- Perform a basic gearbox inspection",
+              "page": 1,
+              "section": null,
+              "section_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+              "heading": "Gearbox Inspection",
+              "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+              "domain": "TRAINING",
+              "chunk_kind": "section",
+              "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0"
+            },
+            "vector_length": 768
+          },
+          {
+            "uuid": "c8a0f4dc-969e-5d04-ba7b-d0d351e377d0",
+            "properties": {
+              "text": "Oil sample analysis\n\nThis section presents the concept of oil sample analysis, explaining that oil testing is a diagnostic tool for assessing equipment condition.\n\nObjectives:\n- Explain oil sample analysis\n- Interpret basic oil analysis results",
+              "page": 4,
+              "section": null,
+              "section_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0_s0",
+              "heading": "Oil sample analysis",
+              "chunk_kind": "section",
+              "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+              "domain": "TRAINING",
+              "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0_s0"
+            },
+            "vector_length": 768
+          },
+          {
+            "uuid": "7f3dd177-bbc4-500f-bee0-164e97c3e3cc",
+            "properties": {
+              "text": "Wrap-up\n\nThe wrap‑up section reviews the overall inspection process and emphasizes the need to document all observations and findings.\n\nObjectives:\n- Record all findings\n- Summarize inspection results",
+              "page": 5,
+              "section": null,
+              "section_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
+              "heading": "Wrap-up",
+              "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+              "domain": "TRAINING",
+              "chunk_kind": "section",
+              "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1"
+            },
+            "vector_length": 768
+          }
+        ]
+      },
+      "edges": {
+        "HAS_SECTION": [
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0"
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1"
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0_s0"
+          }
+        ],
+        "section_slide": [
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1"
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2"
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p3"
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0_s0",
+            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
+            "to": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
+          }
+        ],
+        "COVERS": [
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "to": "Gearbox Inspection",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "to": "Magnetic Chip Detector",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0",
+            "to": "Oil Sample Analysis",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s0_s0",
+            "to": "Oil Sample Analysis",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
+            "to": "Wrap-up",
+            "score": 1.0,
+            "frequency": 1
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_s1",
+            "to": "Findings",
+            "score": 0.5,
+            "frequency": 1
+          }
+        ],
+        "TEACHES": [
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1",
+            "to": "Gearbox Inspection",
+            "salience": 1.0,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2",
+            "to": "Magnetic Chip Detector",
+            "salience": 1.0,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4",
+            "to": "Oil Sample Analysis",
+            "salience": 1.0,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
+            "to": "Findings",
+            "salience": 0.5,
+            "related_terms": []
+          },
+          {
+            "from": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5",
+            "to": "Wrap-up",
+            "salience": 1.0,
+            "related_terms": []
+          }
+        ],
+        "ALIAS_OF": []
+      }
+    },
+    "never_written": {
+      "labels": [
+        "Project",
+        "TargetNode",
+        "User"
+      ],
+      "relations": [
+        "OWNS",
+        "SUGGESTED_SOURCE",
+        "DERIVED_FROM"
+      ]
+    },
+    "written_only_by": {
+      "concepts.normalise": {
+        "labels": [
+          "CanonicalConcept"
+        ],
+        "relations": [
+          "ALIGNS_TO",
+          "PROPOSED_ALIGNS_TO"
+        ]
+      }
+    }
+  },
+  "minio": {
+    "bucket": "processing-artifacts",
+    "current_json_key": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/current.json",
+    "current_json": {
+      "pipeline_version": "doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d",
+      "manifest_key": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/manifest.json",
+      "prefix": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/",
+      "updated_at": "2026-11-09T04:08:07.795694+00:00"
+    },
+    "prefix": "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/",
+    "keys_required": [
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/current.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/extraction.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/manifest.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_1.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_2.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_3.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_4.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/pages/page_5.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d/text.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/extraction.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/manifest.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@7ad71e36cdbc8e68441b3b48589571854d54f48a/text.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/extraction.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/manifest.json",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_1.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_2.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_3.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_4.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/pages/page_5.png",
+      "training/generated/914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f/doc-tools@9d00b71c20fae275183c9336f87bba6e456beba0/text.json"
+    ]
+  },
+  "weaviate": {
+    "server": "1.27.0",
+    "collection": "DocumentChunk",
+    "distance": "cosine",
+    "objects": [
+      {
+        "uuid": "ec05a280-4e28-54a5-8a6a-83b9b2d5122b",
+        "properties": {
+          "text": "[Title] Gearbox Inspection\n[NarrativeText] Some slides have empty titles",
+          "page": 1,
+          "section": null,
+          "section_id": null,
+          "heading": null,
+          "domain": "TRAINING",
+          "chunk_kind": "slide",
+          "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+          "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p1"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "d467a51c-f619-51bb-bcc8-1a94a67b4481",
+        "properties": {
+          "text": "[NarrativeText] Check the magnetic chip detector",
+          "page": 2,
+          "section": null,
+          "section_id": null,
+          "heading": null,
+          "chunk_kind": "slide",
+          "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p2"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "9f0891d4-4120-55c7-8f52-67c01adaf34c",
+        "properties": {
+          "text": "[Title] Oil sample analysis",
+          "page": 4,
+          "section": null,
+          "section_id": null,
+          "heading": null,
+          "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+          "chunk_kind": "slide",
+          "domain": "TRAINING",
+          "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p4"
+        },
+        "vector_length": 768
+      },
+      {
+        "uuid": "aa8ebe97-01ca-576f-b32b-ed33932ae5eb",
+        "properties": {
+          "text": "[Title] Wrap-up\n[NarrativeText] Record all findings",
+          "page": 5,
+          "section": null,
+          "section_id": null,
+          "heading": null,
+          "doc_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f",
+          "domain": "TRAINING",
+          "chunk_kind": "slide",
+          "chunk_id": "sha256:914cded5c384c49f63a18c21403185bd71092e41a8635c7735049052a57cff1f_p5"
+        },
+        "vector_length": 768
+      }
+    ],
+    "forbidden_chunk_id_substrings": [
+      "_fig_"
+    ]
+  },
+  "embedder": {
+    "env": {
+      "base_url": [
+        "LLM_BASE_URL",
+        "OPENAI_BASE_URL"
+      ],
+      "api_key": [
+        "LLM_API_KEY",
+        "OPENAI_API_KEY"
+      ],
+      "model": [
+        "LLM_EMBED_MODEL"
+      ]
+    },
+    "model_default": "nomic-embed-text",
+    "dimension": 768,
+    "document_prefix": "search_document: ",
+    "query_prefix": "search_query: ",
+    "normalized": false
+  },
+  "produced_by": {
+    "run": {
+      "key": "training/course/empty-title/empty-title.pptx",
+      "partition_key": "training__course__empty-title__empty-title.pptx",
+      "success": true,
+      "failed_steps": [],
+      "DOC_TOOLS_VERSION": "doc-tools@728afaf56c98b6bf99c5c0f9432c44041e04dd6d",
+      "DOC_TOOLS_IMAGE": "ghcr.io/edgy-solutions/doc-tools@sha256:ca3e7d830c75294f18406444d79e5b52e7751ef7352e3ab7ba6bde3457d0fc4c",
+      "LLM_MODEL": "gpt-oss-128k:120b",
+      "LLM_EMBED_MODEL": "nomic-embed-text",
+      "PROMPT_SOURCE": "file",
+      "TRAINING_CONCEPT_ALIGNMENT": null,
+      "expect": "728afaf",
+      "start_utc": "2026-11-09T04:08:03.456360+00:00",
+      "concept_alignment": "dry",
+      "concept_alignment_summary": "{\"accepted_materialised\": 0, \"auto_edges\": {\"exact\": 6, \"mutual_related_terms\": 0, \"self\": 2}, \"canonical_created\": 5, \"canonical_deleted\": 0, \"canonical_reused\": 0, \"components\": 584, \"concepts\": 744, \"concepts_without_vector\": 70, \"conflicting_components\": 0, \"dry_run\": true, \"legacy_reversed_edges\": 0, \"multi_member_components\": 3, \"pinned_accepted\": 0, \"pinned_legacy\": 0, \"proposals\": {}, \"proposals_computed\": 1043, \"proposals_emitted\": 0, \"rejected_pairs\": 0, \"seconds\": {\"apply\": 0.0, \"load\": 1.8, \"plan\": 1.27}}",
+      "end_utc": "2026-11-09T04:11:51.240323+00:00",
+      "wall_seconds": 227.78
+    },
+    "old_layout_keys": 0,
+    "stem_id_node_count": 0,
+    "alignment_edges": [],
+    "stale_fig_objects_excluded": 0,
+    "pending_steps": [],
+    "copied_not_observed": [
+      "weaviate.server",
+      "embedder",
+      "neo4j.never_written",
+      "neo4j.written_only_by"
+    ]
+  }
+}
