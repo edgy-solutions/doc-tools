@@ -2,26 +2,33 @@
   "schema": 1,
   "verdict": "fail",
   "strict_verdict": "fail",
-  "generated_at": "2026-11-08T03:15:00Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:ca3e7d830c75294f18406444d79e5b52e7751ef7352e3ab7ba6bde3457d0fc4c",
-  "identity_mode": "pre_roll",
+  "generated_at": "2026-11-11T06:45:33Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+  "identity_mode": "rolled",
   "measured_pin_note": null,
   "image_identity": {
-    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:ca3e7d830c75294f18406444d79e5b52e7751ef7352e3ab7ba6bde3457d0fc4c",
-    "measured_digest": "sha256:ca3e7d830c75294f18406444d79e5b52e7751ef7352e3ab7ba6bde3457d0fc4c",
-    "checked": false,
-    "comparisons": [],
+    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+    "measured_digest": "sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+    "checked": true,
+    "comparisons": [
+      {
+        "source": "pods",
+        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+        "expected_digest": "sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+        "result": "match"
+      }
+    ],
     "void_reasons": [],
-    "mode": "pre_roll",
-    "self_declared": true
+    "mode": "rolled",
+    "self_declared": false
   },
   "fires": [
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-11-08T00:35:14Z",
-      "ended_at": "2026-11-08T01:27:57Z",
-      "elapsed_s": 3163.4,
+      "started_at": "2026-11-11T04:04:43Z",
+      "ended_at": "2026-11-11T04:57:22Z",
+      "elapsed_s": 3159.0,
       "log": "fire1.log",
       "totals": {
         "gt": 512,
@@ -67,16 +74,16 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 481802,
+      "log_bytes": 478941,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-11-08T01:27:57Z",
-      "ended_at": "2026-11-08T02:21:50Z",
-      "elapsed_s": 3233.0,
+      "started_at": "2026-11-11T04:57:22Z",
+      "ended_at": "2026-11-11T05:51:56Z",
+      "elapsed_s": 3273.8,
       "log": "fire2.log",
       "totals": {
         "gt": 512,
@@ -122,16 +129,16 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 481491,
+      "log_bytes": 485763,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     },
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-11-08T02:21:50Z",
-      "ended_at": "2026-11-08T03:14:59Z",
-      "elapsed_s": 3188.9,
+      "started_at": "2026-11-11T05:51:56Z",
+      "ended_at": "2026-11-11T06:45:33Z",
+      "elapsed_s": 3216.7,
       "log": "fire3.log",
       "totals": {
         "gt": 512,
@@ -177,7 +184,7 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 482496,
+      "log_bytes": 481779,
       "log_echoed": true,
       "log_echo_cap_bytes": 262144
     }
@@ -515,17 +522,17 @@
     "observed": true,
     "fires": {
       "1": {
-        "exact": 14,
+        "exact": 15,
         "fields_scored": 16,
-        "clean": false,
+        "clean": true,
         "observed": true,
         "unobserved": [],
         "pending": []
       },
       "2": {
-        "exact": 15,
+        "exact": 13,
         "fields_scored": 16,
-        "clean": true,
+        "clean": false,
         "observed": true,
         "unobserved": [],
         "pending": []
@@ -540,7 +547,7 @@
       }
     },
     "failing_notices": [
-      "onsemi_Generic_IPCN25300X.pdf"
+      "TYC-PCN-24-210412.pdf"
     ]
   },
   "customer_aliases": {
@@ -585,7 +592,9 @@
       "TYC-PCN-24-210412.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "doc_level_ltb_date_source": "'-2024\\n[Unca' | '-2024' | '06-JUN-2024'"
+          "mfr": "'TE Connecvity' | 'TE Connecvity' | 'TE'",
+          "mfr_source": "'TE Connecvity' | 'TE Connecvity' | 'TE'",
+          "doc_level_ltb_date_source": "'06-JUN-2024' | '-2024\\n[Unca' | '-2024'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
@@ -611,11 +620,8 @@
         "fields": {}
       },
       "onsemi_Generic_IPCN25300X.pdf": {
-        "verdict": "DISAGREE",
-        "fields": {
-          "mfr": "'ONSEM.' | 'onsemi' | 'onsemi'",
-          "mfr_source": "'ONSEM.' | 'onsemi' | 'onsemi'"
-        }
+        "verdict": "agree",
+        "fields": {}
       },
       "onsemi_Generic_PD26044X1.pdf": {
         "verdict": "agree",
@@ -624,8 +630,8 @@
       "TI_PCN_20210316000.pdf": {
         "verdict": "DISAGREE",
         "fields": {
-          "mfr": "'Texas Instruments Incorporated' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'",
-          "mfr_source": "'Texas Instruments Incorporated' | 'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS'"
+          "mfr": "'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS' | 'TEXAS INSTRUMENTS'",
+          "mfr_source": "'Texas Instruments Incorporated' | 'TEXAS INSTRUMENTS' | 'TEXAS INSTRUMENTS'"
         }
       },
       "IDT_PDN_OV-19-05.pdf": {
@@ -651,7 +657,7 @@
       "field": "mfr",
       "forms": [
         "'Texas Instruments Incorporated'",
-        "'Texas Instruments Incorporated'",
+        "'TEXAS INSTRUMENTS'",
         "'TEXAS INSTRUMENTS'"
       ]
     },
@@ -660,35 +666,35 @@
       "field": "mfr_source",
       "forms": [
         "'Texas Instruments Incorporated'",
-        "'Texas Instruments Incorporated'",
+        "'TEXAS INSTRUMENTS'",
         "'TEXAS INSTRUMENTS'"
+      ]
+    },
+    {
+      "notice": "TYC-PCN-24-210412.pdf",
+      "field": "mfr",
+      "forms": [
+        "'TE Connecvity'",
+        "'TE Connecvity'",
+        "'TE'"
+      ]
+    },
+    {
+      "notice": "TYC-PCN-24-210412.pdf",
+      "field": "mfr_source",
+      "forms": [
+        "'TE Connecvity'",
+        "'TE Connecvity'",
+        "'TE'"
       ]
     },
     {
       "notice": "TYC-PCN-24-210412.pdf",
       "field": "doc_level_ltb_date_source",
       "forms": [
+        "'06-JUN-2024'",
         "'-2024\\n[Unca'",
-        "'-2024'",
-        "'06-JUN-2024'"
-      ]
-    },
-    {
-      "notice": "onsemi_Generic_IPCN25300X.pdf",
-      "field": "mfr",
-      "forms": [
-        "'ONSEM.'",
-        "'onsemi'",
-        "'onsemi'"
-      ]
-    },
-    {
-      "notice": "onsemi_Generic_IPCN25300X.pdf",
-      "field": "mfr_source",
-      "forms": [
-        "'ONSEM.'",
-        "'onsemi'",
-        "'onsemi'"
+        "'-2024'"
       ]
     }
   ],
@@ -700,35 +706,66 @@
       "IDT_PDN_OV-19-05.pdf": "agree",
       "PCN23-002.pdf": "agree",
       "PCN24-029.pdf": "agree",
-      "TI_PCN_20210316000.pdf": "DISAGREE",
-      "TYC-PCN-24-210412.pdf": "agree",
-      "onsemi_Generic_IPCN25300X.pdf": "DISAGREE",
+      "TI_PCN_20210316000.pdf": "agree",
+      "TYC-PCN-24-210412.pdf": "BLANK",
+      "onsemi_Generic_IPCN25300X.pdf": "agree",
       "onsemi_Generic_PD26044X1.pdf": "agree"
     },
-    "disagreements": [
-      [
-        "TI_PCN_20210316000.pdf",
-        "mfr",
-        [
-          "Texas Instruments Incorporated",
-          "Texas Instruments Incorporated",
-          "TEXAS INSTRUMENTS"
+    "disagreements": [],
+    "blank_rows": [
+      {
+        "notice": "TYC-PCN-24-210412.pdf",
+        "field": "mfr",
+        "seen": {
+          "1": "TE Connectivity",
+          "2": null,
+          "3": "TE Connectivity"
+        },
+        "blank_fires": [
+          2
         ]
-      ],
-      [
-        "onsemi_Generic_IPCN25300X.pdf",
-        "mfr",
-        [
-          "ONSEM.",
-          "onsemi",
-          "onsemi"
-        ]
-      ]
+      }
     ],
-    "blank_rows": [],
     "absent": [],
     "no_written": [],
-    "unrecorded": []
+    "unrecorded": [],
+    "canonical": {
+      "ADI_PDN_23_0120.pdf": [
+        "mfr"
+      ],
+      "Diodes_PCN_2683_Rev1_EOL.pdf": [
+        "mfr"
+      ],
+      "EOL-36_BYV34-400,-BYV34-500.pdf": [
+        "mfr"
+      ],
+      "IDT_PDN_OV-19-05.pdf": [
+        "doc_level_ltb_date",
+        "mfr",
+        "pub_date"
+      ],
+      "PCN23-002.pdf": [
+        "mfr"
+      ],
+      "PCN24-029.pdf": [
+        "mfr"
+      ],
+      "TI_PCN_20210316000.pdf": [
+        "mfr",
+        "pub_date"
+      ],
+      "TYC-PCN-24-210412.pdf": [
+        "doc_level_ltb_date",
+        "mfr",
+        "pub_date"
+      ],
+      "onsemi_Generic_IPCN25300X.pdf": [
+        "mfr"
+      ],
+      "onsemi_Generic_PD26044X1.pdf": [
+        "mfr"
+      ]
+    }
   },
   "identity": {
     "source": "corpus_json",
@@ -760,20 +797,22 @@
     "collapses": [],
     "incomplete_identity": [],
     "identity_half_unstable": [
-      "onsemi_Generic_IPCN25300X.pdf"
+      "TYC-PCN-24-210412.pdf"
     ],
     "identity_moving_fields": {
-      "onsemi_Generic_IPCN25300X.pdf": [
-        "mfr"
+      "TYC-PCN-24-210412.pdf": [
+        "mfr",
+        "doc_id"
       ]
     },
-    "revision_half_unstable": []
+    "revision_half_unstable": [
+      "Diodes_PCN_2683_Rev1_EOL.pdf"
+    ]
   },
   "blocking": [
-    "onsemi_Generic_IPCN25300X.pdf: identity half is unstable across fires on `mfr` \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one (every moving identity field must be declared; undeclared: mfr)",
-    "TI_PCN_20210316000.pdf: WRITTEN header fields disagree across fires on `mfr` ['Texas Instruments Incorporated', 'Texas Instruments Incorporated', 'TEXAS INSTRUMENTS'] \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one",
-    "onsemi_Generic_IPCN25300X.pdf: WRITTEN header fields disagree across fires on `mfr` ['ONSEM.', 'onsemi', 'onsemi'] \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one",
-    "onsemi_Generic_IPCN25300X.pdf: written header `mfr` does not match ground truth \u2014 fire 1: mfr (distractor) (pcn_ground_truth.json notices[onsemi_Generic_IPCN25300X.pdf].headers) \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one"
+    "TYC-PCN-24-210412.pdf: identity half is unstable across fires on `mfr/doc_id` \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one (every moving identity field must be declared; undeclared: mfr, doc_id)",
+    "TYC-PCN-24-210412.pdf: `mfr` is blank in fire 2 but populated in the others (fire 1='TE Connectivity'; fire 3='TE Connectivity') \u2014 blocking, undeclared silent blank: needs_review=True in fire 2 but no reason names `mfr` -- a declaration about another field is not a declaration about this one",
+    "TYC-PCN-24-210412.pdf: written header `mfr` does not match ground truth \u2014 fire 2: mfr (absent) (pcn_ground_truth.json notices[TYC-PCN-24-210412.pdf].headers) \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one"
   ],
   "exempted": []
 }
