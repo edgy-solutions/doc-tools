@@ -1781,7 +1781,7 @@ corpusGate:
   # IF YOU BUMP image.digest AND STOP, YOU HAVE ARMED THAT SAME FAILURE. The
   # two lines are not kept in step by anything automatic; no test and no CI job
   # compares them, because the Job that would is the one being checked.
-  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:ca3e7d830c75294f18406444d79e5b52e7751ef7352e3ab7ba6bde3457d0fc4c"
+  expectImage: "pods=ghcr.io/edgy-solutions/doc-tools@sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c"
   publish:
     repo: edgy-solutions/doc-tools
 
