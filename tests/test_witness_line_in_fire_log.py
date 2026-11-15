@@ -132,6 +132,19 @@ def test_the_summary_runs_after_all_three_trust_calls():
     src = pathlib.Path("doc_tools/plugins/sustainment.py").read_text(encoding="utf-8")
     i_supply = src.index("trust_reasons += header_trust.supply_header_from_regions(")
     i_refuse = src.index("trust_reasons += header_trust.refuse_unsourced_header_values(")
-    i_corrob = src.index("trust_reasons += header_trust.require_mfr_witness_agreement(")
+    i_corrob = src.index("header_trust.require_mfr_witness_agreement(")
     i_print = src.index('print("[SustainmentPlugin] " + header_trust.header_witness_summary(')
     assert i_supply < i_refuse < i_corrob < i_print
+
+
+def test_the_plugin_raises_review_on_a_withdrawal_and_stores_the_branch():
+    """The arm returns `(reasons, needs_review, record)`; both of the new halves have
+    to be consumed, or the withdrawal is as silent as it was before."""
+    src = pathlib.Path("doc_tools/plugins/sustainment.py").read_text(encoding="utf-8")
+    ast.parse(src)
+    assert 'stats["header_mfr_witness"]' in src
+    i_call = src.index("header_trust.require_mfr_witness_agreement(")
+    tail = src[i_call:]
+    assert "trust_reasons += _mfr_reasons" in tail
+    i_flag = tail.index("if _mfr_review:")
+    assert tail[i_flag:].startswith("if _mfr_review:\n            needs_review = True")

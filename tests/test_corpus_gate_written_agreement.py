@@ -51,6 +51,24 @@ PASS_FAILED = "header pass failed: TimeoutError"
 WITNESS_DISABLED = "region witness DISABLED for this document: no raster"
 LTB_LOST = ("region witness LOST the ltb region on page 1 (unreadable); header fields "
             "doc_level_ltb_date were neither supplied nor corroborated")
+# The withdrawal vocabulary and the narrations that must NOT count as one, verbatim in
+# the product's own words: sustainment_header_trust.py:1264, :1282 (withdrawals), :1274
+# (the agreement branch) and :1009 (text-layer primacy), plus a sibling field's refusal.
+MFR_WITHDRAWN_NO_READING = (
+    "header.mfr 'TE Connecvity' withdrawn: the text layer is degraded and the region "
+    "witness supplied no manufacturer reading to corroborate it. Not corroborated is "
+    "not the same as disproved -- the value was NOT found wrong; it is withdrawn for "
+    "review")
+MFR_WITHDRAWN_DISAGREE = (
+    "header.mfr withdrawn: text layer 'TE Connecvity' and region witness 'Vishay' do "
+    "not agree; an uncorroborated manufacturer is withdrawn rather than written")
+MFR_CORROBORATED = (
+    "header.mfr corroborated by the region witness: text layer 'TE Connecvity', "
+    "witness 'TE Connectivity'; kept 'TE Connectivity'")
+MFR_TAKEN = ("header.mfr taken from the text layer: the document prints 'TE "
+             "Connectivity' and the header pass returned the same")
+MFR_PARENT_REFUSED = ("header.mfr_parent refused: 'ttelectronics.com' is a web or "
+                      "e-mail domain, not a name")
 
 
 def _reviews(reasons=None, **by_fire):
@@ -575,6 +593,74 @@ def test_a_lost_region_naming_the_field_exempts_it_and_its_source_companion():
         assert blocking == [] and len(exempted) == 1
     # and says nothing about a field it does not name
     assert not gate.header_declaration_for_field_in_all_fires(_all([LTB_LOST]), FN, "mfr")
+
+
+# --------------------------------------------------------------------------
+# Order 2026-11-14: the vocabulary reads the verb, and only a declaring one.
+
+def test_a_withdrawal_declares_the_field_it_names():
+    """The TYC `mfr` blocker. The arm withdrew the value and said so, naming the field;
+    the matcher knew one verb (`refused`) and the arm writes another (`withdrawn`), so a
+    declared withdrawal was reported as an undeclared silent write."""
+    for reason in (MFR_WITHDRAWN_NO_READING, MFR_WITHDRAWN_DISAGREE):
+        corpus = _all([reason])
+        assert gate.header_declaration_for_field_in_all_fires(corpus, FN, "mfr")
+        assert "withdrawn" in gate._field_declaration_basis(corpus, 1, FN, "mfr")
+        blocking, exempted = gate.apply_written_arm(_mfr_disagree(), corpus)
+        assert blocking == [] and len(exempted) == 1 and "`mfr`" in exempted[0]
+        # still keyed to the field: it says nothing about another one
+        assert not gate.header_declaration_for_field_in_all_fires(corpus, FN, "pub_date")
+        # and it exempts the citation companion, as a refusal does
+        assert gate.header_declaration_for_field_in_all_fires(corpus, FN, "mfr_source")
+
+
+def test_a_corroboration_names_the_field_and_declares_nothing():
+    """NAMING IS NOT DECLARING, and this is the case that decides it: `corroborated` is
+    the AGREEMENT branch -- the value was published. A rule that accepted any reason
+    naming the field would exempt a field BECAUSE it was corroborated. `taken from the
+    text layer` is the same shape and is narrated routinely, which is how a blanket
+    match would reach nearly every field on nearly every notice."""
+    for reason in (MFR_CORROBORATED, MFR_TAKEN):
+        corpus = _all([reason])
+        assert gate._field_declaration_basis(corpus, 1, FN, "mfr") is None
+        blocking, exempted = gate.apply_written_arm(_mfr_disagree(), corpus)
+        assert exempted == [] and len(blocking) == 1
+        assert "no reason names `mfr`" in blocking[0]
+
+
+def test_a_sibling_fields_refusal_does_not_declare_mfr():
+    """`header.mfr_parent` and `header.mfr_source` both begin `header.mfr`. The parent
+    company is a different field, absent on most notices, and its refusal must not
+    exempt the manufacturer."""
+    corpus = _all([MFR_PARENT_REFUSED])
+    assert gate._field_declaration_basis(corpus, 1, FN, "mfr") is None
+    assert gate.header_declaration_for_field_in_all_fires(corpus, FN, "mfr_parent")
+
+
+def test_the_verb_and_the_field_must_be_in_the_same_reason():
+    """Two reasons, one naming the field and the other carrying a declaring verb about
+    a different field, are not a declaration about this field."""
+    corpus = _all([MFR_CORROBORATED, PUB_REFUSED])
+    assert gate._field_declaration_basis(corpus, 1, FN, "mfr") is None
+    assert gate.header_declaration_for_field_in_all_fires(corpus, FN, "pub_date")
+
+
+def test_a_withdrawal_in_the_blank_fire_alone_exempts_the_blank():
+    """TYC's live shape: `mfr` blank in fire 2, populated in 1 and 3, with the
+    withdrawal reason in the blank fire only -- which is what the blank-fire rule asks
+    for, and all it asks for."""
+    res = gate.compare_written_headers(_fires(
+        _wh(mfr="TE Connectivity"), _wh(mfr=None), _wh(mfr="TE Connectivity")))
+    corpus = _reviews({2: [MFR_WITHDRAWN_NO_READING]}, f1=True, f2=True, f3=True)
+    blocking, exempted = gate.apply_blank_fire_rule(res["blank_rows"], corpus)
+    assert blocking == [] and len(exempted) == 1
+    assert "fire 2" in exempted[0] and "`mfr`" in exempted[0]
+
+
+def test_the_declaring_verbs_are_the_ones_the_product_writes():
+    """A verb is added to the list only with the producer line that emits it; this pins
+    the list itself so widening it is a visible edit here."""
+    assert gate._FIELD_DECLARING_VERBS == ("refused", "withdrawn", "not written")
 
 
 def test_the_source_base_strips_one_suffix_only():

@@ -895,6 +895,62 @@ def _declaration_field_base(field):
     return field[:-len("_source")] if field.endswith("_source") else field
 
 
+# THE VERB, NOT ONLY THE FIELD NAME (architect's order, 2026-11-14). The matcher
+# below accepted exactly one verb -- `header.<field> refused` -- while its own docstring
+# and the comment above state the rule as "a reason naming the field". The product has
+# more than one way to say a field was not published, and the one it uses on a withdrawn
+# `mfr` is `withdrawn`:
+#
+#   header.mfr '<v>' withdrawn: the text layer is degraded and the region witness
+#   supplied no manufacturer reading to corroborate it ...
+#     sustainment_header_trust.py:1264 (no witness reading) and :1282 (readings disagree)
+#
+# That reason names the field, names the problem, and was invisible here -- which is the
+# TYC `mfr` blocker: a DECLARED withdrawal read as an undeclared silent write.
+#
+# WHY A VERB LIST AND NOT "ANY REASON NAMING THE FIELD". Naming the field is necessary
+# and not sufficient, because the same `header.<field> ...` prefix also carries
+# narrations that declare NOTHING -- and the first of these is the OPPOSITE of a
+# declaration:
+#
+#   header.mfr corroborated by the region witness: ...            :1274  (AGREEMENT)
+#   header.<f> readings agree / supplied from the region witness  :1183 / :1214
+#   header.<f> taken from the text layer / kept from / filled by  :1009 / :1043 / :1061
+#   header.<f> citation replaced from the region witness          :1204
+#   header.<f> recovered: ...                                     :1512 / :1518
+#
+# Accepting those would exempt a field BECAUSE it was corroborated, and `taken from the
+# text layer` is narrated routinely, so a blanket match would hand nearly every field an
+# exemption on nearly every notice -- re-opening by verb exactly the hole the per-field
+# keying closed by name (see `check_header_correctness`).
+#
+# THE RULE THIS LIST IMPLEMENTS: a declaration is a reason saying the field was NOT
+# PUBLISHED. That is what the exemption's own rationale requires -- a value nobody
+# published cannot have been published wrong in silence. A reason reporting that a value
+# WAS written (corroborated, supplied, recovered, taken from, kept from) is therefore
+# not a declaration, however much narration it carries. A verb is added here only
+# together with the producer line that emits it.
+_FIELD_DECLARING_VERBS = (
+    "refused",      # sustainment_header_trust.py:1533, :1636 -- the value was dropped
+    "withdrawn",    # sustainment_header_trust.py:1264, :1282 -- the value was nulled
+    "not written",  # sustainment_header_trust.py:1527 -- the pass returned none
+)
+
+
+def _reason_names_field(reason, base):
+    """Does `reason` name the header field `base` -- `header.<base>` followed by a
+    character that cannot continue an identifier?
+
+    THE BOUNDARY IS LOAD-BEARING. Without it `header.mfr_parent refused` and
+    `header.mfr_source refused` would both read as declarations about `mfr`, so a
+    refusal of the PARENT company -- a different field, absent on most notices -- would
+    exempt the manufacturer. The old literal `"header.mfr refused" in r` got this right
+    by accident, because the verb followed the name immediately and `header.mfr refused`
+    is not a substring of `header.mfr_parent refused`. A verb list has to say it."""
+    return re.search(r"header\." + re.escape(base) + r"(?![0-9A-Za-z_])",
+                     reason) is not None
+
+
 def _field_declaration_basis(corpus_by_fire, n, notice, field):
     """What, if anything, fire `n` declared about `field` -- as a phrase for the report,
     or None. The single place the vocabulary is read, so the predicate and the messages
@@ -907,8 +963,16 @@ def _field_declaration_basis(corpus_by_fire, n, notice, field):
     for marker in _HEADER_WIDE_DECLARATION_MARKERS:
         if any(marker in r for r in reasons):
             return f"a header-wide reason ({marker!r}) covers every field"
-    if any(f"header.{base} refused" in r for r in reasons):
-        return f"a review reason names `{base}` (header.{base} refused)"
+    # PER REASON, not across them: the field name and the verb must be in the SAME
+    # sentence, or `header.mfr corroborated ...` beside `header.doc_id refused ...`
+    # would exempt `mfr` -- the collapsing defect this rule already fixed once, in its
+    # other direction.
+    for r in reasons:
+        if not _reason_names_field(r, base):
+            continue
+        for verb in _FIELD_DECLARING_VERBS:
+            if verb in r:
+                return f"a review reason names `{base}` (header.{base} {verb})"
     if any("region witness LOST" in r and base in r for r in reasons):
         return f"a review reason names `{base}` (region witness LOST)"
     return None
