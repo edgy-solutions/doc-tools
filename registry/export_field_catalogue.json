@@ -2,7 +2,7 @@
   "catalogue_version": 2,
   "catalogue_date": "2026-10-30",
   "owner": "doc-tools/lane/7f",
-  "purpose": "The field catalogue an export profile (policy/exports/<name>.yaml, lane 01) may reference by name. One entry per promoted field, plus steward edits and the ADR-0041 provenance rung. `served_by` is the load-bearing column: a field with `served_by: null` is produced by doc-tools but is NOT reachable on the extraction route, so no profile can emit it today without lane 01 widening the route.",
+  "purpose": "The field catalogue an export profile (policy/exports/<name>.yaml, lane 01) may reference by name. One entry per promoted field, plus steward edits and the invincible-agent ADR-0041 provenance rung. `served_by` is the load-bearing column: a field with `served_by: null` is produced by doc-tools but is NOT reachable on the extraction route, so no profile can emit it today without lane 01 widening the route.",
   "seal": {
     "test": "tests/test_export_field_catalogue.py",
     "producer_leg": "Every `producer.field` is checked against what the code actually emits: the BAML class property sets in doc_tools/baml_client/type_builder.py and the field_path/key sets written by doc_tools.utils.sustainment_merge.build_review_items.",
@@ -14,7 +14,7 @@
     "notice": "One value per notice. A per-notice profile emits one row of these; a per-(notice,part) profile repeats them on every row.",
     "row": "One value per (notice, part, field). The extraction route serves ONLY the parts[i].* review items as rows, in review.json file order.",
     "steward_edit": "A correction a steward made during promotion. Not an extracted value.",
-    "provenance": "ADR-0041 trust rung, written at ingest. NOT the row-level match method -- see collisions."
+    "provenance": "invincible-agent ADR-0041 trust rung, written at ingest. NOT the row-level match method -- see collisions."
   },
   "collisions": [
     {
@@ -26,7 +26,7 @@
     {
       "name": "obtained_via",
       "severity": "high",
-      "detail": "On the extraction wire, row.obtained_via is the MATCH METHOD (the producer's match_method: unique / region_preferred / ambiguous / not_found / text_layer_cell / text_layer_word / inherited_doc_level / derived). In ADR-0041, obtained_via is the TRUST RUNG (None or 'user-drop', with siblings authoritative_source and standing). The packet's phrase 'provenance rung' means the ADR-0041 one. Cataloguing row.obtained_via as the rung would export match methods under a provenance heading.",
+      "detail": "On the extraction wire, row.obtained_via is the MATCH METHOD (the producer's match_method: unique / region_preferred / ambiguous / not_found / text_layer_cell / text_layer_word / inherited_doc_level / derived). In invincible-agent ADR-0041, obtained_via is the TRUST RUNG (None or 'user-drop', with siblings authoritative_source and standing). The packet's phrase 'provenance rung' means the invincible-agent ADR-0041 one. Cataloguing row.obtained_via as the rung would export match methods under a provenance heading.",
       "mapping_unverified": false
     },
     {
@@ -43,7 +43,7 @@
   "not_extracted": [
     "change_type -- named by the batch-fixture ruling (closed vocabulary, free text to change_type_note). Measured absent: zero occurrences in doc_tools/utils/sustainment_merge.py and doc_tools/plugins/sustainment.py. Not a promoted field, so no profile can reference it.",
     "effective_date -- same ruling, same measurement. Not a promoted field.",
-    "A batch column-map vocabulary. SUPERSEDED 2026-10-29: it is now written, at docs/contracts/batch-column-map.md (contract_version 1), after the architect ruled the vocabulary 7f's to write and lane 01's to review. It remains correct that `column_map` / `column-map` has zero occurrences in doc_tools/, registry/ and docs/ OUTSIDE that contract -- it is a contract with no implementation, so nothing here is reachable from a profile yet. Two of the four batch-fixture rulings name fields this catalogue records as not extracted at all: `change_type` and `effective_date`, immediately above, which that contract declares a hard stop at profile-validation time rather than working around."
+    "A batch column-map vocabulary. SUPERSEDED 2026-10-29: it is now written, at docs/contracts/batch-column-map.md (contract_version 2), after the architect ruled the vocabulary 7f's to write and lane 01's to review. RE-MEASURED 2026-11-16 at origin/main@54de79c, AND THE NOTE THAT STOOD HERE IS WITHDRAWN: it said `column_map` had zero occurrences outside the contract and that nothing here was reachable from a profile. Both are stale. The contract is implemented -- doc_tools/batch/profile.py validates a profile against THIS catalogue (the producibility gate, the shared-wire-name selector, the landing and granularity rules), doc_tools/batch/cli.py exports CSV rows from a validated profile, and doc_tools/batch/score.py scores them against a hand-typed truth set; all three landed 2026-10-31 (PRs #198, #200, #202). They are operator entry points, not Dagster assets, so no pipeline code imports doc_tools.batch. Two of the four batch-fixture rulings name fields this catalogue records as not extracted at all: `change_type` and `effective_date`, immediately above, which that contract declares a hard stop at profile-validation time rather than working around."
   ],
   "fields": [
     {
@@ -663,7 +663,7 @@
         "schema_note": "Two families: four from provenance.resolve_value, four set directly by the merge. The schema declares no enum, so this list is measured, not guaranteed."
       },
       "evidence": "none",
-      "notes": "COLLISION: this is the MATCH METHOD, not the ADR-0041 provenance rung. `inherited_doc_level` means the value came from header.doc_level_ltb_date, not from the part own row."
+      "notes": "COLLISION: this is the MATCH METHOD, not the invincible-agent ADR-0041 provenance rung. `inherited_doc_level` means the value came from header.doc_level_ltb_date, not from the part own row."
     },
     {
       "name": "row.match_confidence",
@@ -1163,7 +1163,7 @@
         ]
       },
       "evidence": "none",
-      "notes": "ADR-0041 sibling of the rung. Default user-upload. Not served."
+      "notes": "invincible-agent ADR-0041 sibling of the rung. Default user-upload. Not served."
     },
     {
       "name": "provenance.standing",
@@ -1184,7 +1184,7 @@
         ]
       },
       "evidence": "none",
-      "notes": "ADR-0041 standing, the trust rung at write time. Default unverified. Not served."
+      "notes": "invincible-agent ADR-0041 standing, the trust rung at write time. Default unverified. Not served."
     }
   ],
   "review_json_only": [
