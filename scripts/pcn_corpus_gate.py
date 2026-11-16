@@ -1039,18 +1039,36 @@ def _all_fires_basis(corpus_by_fire, notice, field):
 
 def _why_not_declared(corpus_by_fire, notice, field, fires=(1, 2, 3)):
     """For a blocking line: a MISSING flag and a flag about the WRONG field are
-    different defects with different fixes, and a red report must say which."""
+    different defects with different fixes, and a red report must say which.
+
+    AND WHICH FIRES DECLARED, ruled 2026-11-16. This message used to end "no reason
+    names `mfr`" whenever the all-fires predicate failed, and the 2026-11-11 report
+    printed exactly that on a notice where fire 2 named `mfr` precisely as asked.
+    Fires 1 and 3 did not, because they corroborated and PUBLISHED the value, so they
+    have nothing to declare. "No fire named it" and "only the fire with the defect
+    named it" are different states with different fixes -- the first is a producer that
+    never flagged, the second is a rule demanding a declaration from fires where
+    nothing went wrong -- and a red line that cannot tell them apart sends the reader
+    to the wrong half of the pipeline.
+    """
     base = _declaration_field_base(field)
     unflagged = [n for n in fires if not needs_review_in_fire(corpus_by_fire, n, notice)]
     where = "all three fires" if len(fires) == 3 else f"fire {fires[0]}"
     if unflagged:
         return (f"needs_review is not True in fire(s) {unflagged} "
                 f"(undeclared silent write of `{field}`)")
-    return (f"needs_review=True in {where} but no reason names `{base}` -- a declaration "
-            f"about another field is not a declaration about this one")
+    declared = [n for n in fires
+                if _field_declaration_basis(corpus_by_fire, n, notice, field)]
+    if declared:
+        silent = [n for n in fires if n not in declared]
+        return (f"needs_review=True in {where}, and `{base}` IS declared in fire(s) "
+                f"{declared} but NOT in fire(s) {silent} -- this rule reads the "
+                f"declaration in every fire, not only the one that withdrew")
+    return (f"needs_review=True in {where} but NO fire's reasons name `{base}` -- a "
+            f"declaration about another field is not a declaration about this one")
 
 
-def check_header_correctness(header_totals_by_fire, corpus_by_fire):
+def check_header_correctness(header_totals_by_fire, corpus_by_fire, declined=None):
     """(e) Was the written header CORRECT, not merely stable across fires?
 
     THE CASE THIS CATCHES, measured on the real f32 fire set: all three fires
@@ -1107,8 +1125,15 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
                 failures.setdefault(notice, {}).setdefault(field, {})[n] = status
     block["failing_notices"] = sorted(failures)
 
+    declined = declined or {}
     for notice, by_field in sorted(failures.items()):
         for field, by_fire in sorted(by_field.items()):
+            # DECLINED rows leave blocking and exempted, but `failing_notices` above
+            # is left INTACT on purpose: it is what `strict_verdict` reads, and the
+            # strict view grants nothing. The failure stays measured and stays red
+            # there.
+            if (notice, field) in declined:
+                continue
             detail = "; ".join(f"fire {n}: {field} ({s})" for n, s in sorted(by_fire.items()))
             line = (f"{notice}: written header `{field}` does not match ground truth — "
                     f"{detail} (pcn_ground_truth.json notices[{notice}].headers)")
@@ -1123,7 +1148,8 @@ def check_header_correctness(header_totals_by_fire, corpus_by_fire):
 
 
 def apply_declaration_rule(disagreements, identity_half_unstable, corpus_by_fire,
-                           identity_moving_fields=None):
+                           identity_moving_fields=None, declined=None,
+                           unsettled_fields=None):
     """The all-fires declaration rule, decided PER FIELD.
 
     `disagreements` is `compare_written_headers`'s per-field rows,
@@ -1157,9 +1183,15 @@ def apply_declaration_rule(disagreements, identity_half_unstable, corpus_by_fire
                 + _why_not_declared(corpus_by_fire, notice, field)
             )
     moving_by_notice = identity_moving_fields or {}
+    declined = declined or {}
+    unsettled_fields = unsettled_fields or set()
     for notice in sorted(identity_half_unstable):
         moving = tuple(moving_by_notice.get(notice) or _IDENTITY_HALF_FIELDS)
         named = "/".join(moving)
+        # DECLINED: the instability is the declined blank nulling an identity
+        # component, not two fires disagreeing about which notice this is.
+        if identity_instability_declined(notice, moving, declined, unsettled_fields):
+            continue
         # EVERY moving field, in EVERY fire. `any` here would be the collapsing
         # defect again, one level down: `doc_id` declared, `mfr` moved, exempt.
         bases = []
@@ -1188,7 +1220,167 @@ def apply_declaration_rule(disagreements, identity_half_unstable, corpus_by_fire
     return blocking, exempted
 
 
-def apply_blank_fire_rule(blank_rows, corpus_by_fire):
+# --------------------------------------------------------------------------
+# DECLINED — the third classification, ruled 2026-11-16.
+#
+# A field BLANK in one fire with a DECLARED withdrawal, where every other fire
+# published the GROUND-TRUTH value, is DECLINED: not unstable and not wrong.
+#
+# WHY IT IS NEITHER. "Unstable" says the pipeline cannot be relied on to give the
+# same answer twice. "Wrong" says it published something the page does not say. A
+# declined field is neither: the fires that answered answered CORRECTLY, measured
+# against ground truth, and the fire that did not answer SAID SO and asked for
+# review. Nothing was published in silence and nothing was published wrong. What
+# varied is whether the pipeline was willing to VOUCH for the value, which is the
+# region witness doing its job -- `require_mfr_witness_agreement`'s two withdrawal
+# branches are the only producers of this shape.
+#
+# THE STRICT VERDICT STAYS BESIDE IT, and that is the whole safety of the rule.
+# `strict_verdict` counts `written_unsettled` (blank rows included),
+# `identity_half_unstable` and every header-correctness failure, granting no
+# exemptions of any kind, so a declined row keeps the strict view RED with no
+# wiring here at all. A reader who distrusts this classification has the
+# unclassified verdict printed beside it, in the same report, always.
+#
+# NOT AN EXEMPTION, and reported in its own section. An exemption says "this is a
+# defect, but a human was warned". Declined says the measurement does not describe
+# a defect. Conflating the two is how an exemption list becomes the place defects
+# go to be forgotten.
+
+
+def _gt_published_in_fire(header_totals_by_fire, n, notice, field):
+    """Did fire `n` publish the GROUND-TRUTH value of `notice`.`field`?
+
+    Derived from the scorer's located lists, not from ground truth directly, because
+    `header_totals` carries `exact` only as a COUNT -- the located lists are
+    `aliases`, `correctly_absent`, `pending` and one per `HEADER_FAILURES`. A field
+    that was scored and appears in no failure list passed, as `exact` or as `alias`
+    (an alias is a pass: the spelling ground truth accepts as verbatim-correct).
+
+    `correctly_absent` is NOT a publication. Ground truth holds no value there, so
+    there is no ground-truth value for another fire to have declined, and this
+    returns False -- which makes the declined rule inapplicable rather than
+    silently true."""
+    t = (header_totals_by_fire or {}).get(n)
+    if not t:
+        return False
+    if notice in (t.get("unobserved") or []):
+        return False
+    key = f"{notice}:{field}"
+    if key in (t.get("pending") or []):
+        return False
+    if key in (t.get("correctly_absent") or []):
+        return False
+    return not any(key in (t.get(s) or []) for s in pcn_score.HEADER_FAILURES)
+
+
+def _gt_scores_field(header_totals_by_fire, notice, field):
+    """Does ground truth score `notice`.`field` at all, WITH a value?
+
+    POSITIVE EVIDENCE IS REQUIRED, and this closes the one hole the rule would
+    otherwise have. `_gt_published_in_fire` reads a pass as "named in no failure
+    list", so a field ground truth never scores would read as published-correctly in
+    EVERY fire, and a real instability would classify as declined on the strength of
+    never having been measured. A field counts as scored only when some fire LOCATES
+    it -- which the blank fire does by construction whenever ground truth holds a
+    value, since a blank measured against a value scores `absent`."""
+    key = f"{notice}:{field}"
+    for t in (header_totals_by_fire or {}).values():
+        if not t:
+            continue
+        if key in (t.get("correctly_absent") or []):
+            return False          # scored, but ground truth holds no value
+        if key in (t.get("aliases") or []):
+            return True
+        if any(key in (t.get(s) or []) for s in pcn_score.HEADER_FAILURES):
+            return True
+    return False
+
+
+def classify_declined(blank_rows, corpus_by_fire, header_totals_by_fire,
+                      fires=(1, 2, 3)):
+    """The declined rows, as `{(notice, field): record}`.
+
+    `blank_rows` is `compare_written_headers`'s own shape,
+    `(filename, field, {fire_n: value}, [blank_fire_ns])`. A row qualifies when ALL
+    of these hold:
+
+      * it is blank in at least one fire and populated in at least one other;
+      * EVERY blank fire DECLARED a problem with THAT FIELD --
+        `header_declaration_for_field_in_fire`, so needs_review plus a reason naming
+        the field with a declaring verb, never a bare flag;
+      * EVERY other fire published the ground-truth value;
+      * ground truth holds a value for the field at all.
+
+    Any one of them failing leaves the row exactly where it was: blocking, or
+    exempted by the blank-fire rule. The classification only ever removes a row from
+    the red lists when all four are measured true."""
+    out = {}
+    for notice, field, seen, blank_fires in blank_rows:
+        blanks = sorted(set(blank_fires) & set(fires))
+        others = [n for n in fires if n not in set(blank_fires)]
+        if not blanks or not others:
+            continue
+        if not _gt_scores_field(header_totals_by_fire, notice, field):
+            continue
+        if not all(header_declaration_for_field_in_fire(corpus_by_fire, n, notice,
+                                                        field) for n in blanks):
+            continue
+        if not all(_gt_published_in_fire(header_totals_by_fire, n, notice, field)
+                   for n in others):
+            continue
+        out[(notice, field)] = {
+            "notice": notice,
+            "field": field,
+            "declined_fires": blanks,
+            "published_fires": others,
+            "declined_in": len(blanks),
+            "of": len(fires),
+            "basis": "; ".join(sorted({
+                _field_declaration_basis(corpus_by_fire, n, notice, field)
+                for n in blanks})),
+        }
+    return out
+
+
+def identity_instability_declined(notice, moving, declined, unsettled_fields):
+    """Is this notice's identity-half instability wholly explained by declined fields?
+
+    `compute_stability` reports BOTH identity fields as moving whenever identity could
+    not be FORMED in some fire (its `None in distinct` path), which is the exact shape
+    a declined blank produces: the blank nulls one component, so no key exists, so no
+    moving half can be named. That conservative widening is right for an exemption and
+    wrong here -- it would charge `doc_id` with a difference it does not have.
+
+    A moving field is ACCOUNTED FOR when it is either declined or SETTLED, where
+    settled means the written comparison found it neither disagreeing nor blank
+    (`unsettled_fields` is that comparison's own rows, so the two readings cannot
+    drift apart). At least one field must actually be declined, or this is an ordinary
+    instability with nothing to classify."""
+    any_declined = False
+    for f in moving:
+        if (notice, f) in declined:
+            any_declined = True
+        elif (notice, f) in unsettled_fields:
+            return False
+    return any_declined
+
+
+def declined_lines(declined):
+    """The report's own sentences, one per declined row."""
+    lines = []
+    for key in sorted(declined):
+        r = declined[key]
+        lines.append(
+            f"{r['notice']}: `{r['field']}` DECLINED in {r['declined_in']} of "
+            f"{r['of']} fires — fire(s) {r['declined_fires']} withdrew it and said so; "
+            f"fire(s) {r['published_fires']} published the ground-truth value. Not "
+            f"unstable and not wrong: " + r["basis"]
+        )
+    return lines
+
+
+def apply_blank_fire_rule(blank_rows, corpus_by_fire, declined=None):
     """The blank-fire rule: a header field that is blank in one fire and populated in
     another is declared on the BLANK fire, always -- and declared FOR THAT FIELD
     (`header_declaration_for_field_in_fire`), not merely `needs_review`: a flag raised
@@ -1207,7 +1399,12 @@ def apply_blank_fire_rule(blank_rows, corpus_by_fire):
     No exemption for a blank that is not declared: that is a silent write of nothing,
     the same defect `apply_declaration_rule` blocks for two populated values."""
     blocking, exempted = [], []
+    declined = declined or {}
     for notice, field, seen, blank_fires in sorted(blank_rows, key=lambda r: (r[0], r[1])):
+        # DECLINED rows leave both lists: see the declined block above. The row is
+        # still reported, in its own section, and still counts in `strict_verdict`.
+        if (notice, field) in declined:
+            continue
         populated = "; ".join(f"fire {m}={v!r}" for m, v in sorted(seen.items())
                               if m not in blank_fires)
         for n in blank_fires:
@@ -1226,14 +1423,15 @@ def apply_blank_fire_rule(blank_rows, corpus_by_fire):
     return blocking, exempted
 
 
-def apply_written_arm(written, corpus_by_fire):
+def apply_written_arm(written, corpus_by_fire, declined=None):
     """The written arm's contribution to blocking/exempted: value differences through
     the all-fires declaration rule, blanks through the blank-fire rule, and ABSENT / no
     `written_header` as unexempted instrument gaps (a gate that cannot measure does not
     pass)."""
     blocking, exempted = apply_declaration_rule(
-        written["disagreements"], [], corpus_by_fire)
-    b2, e2 = apply_blank_fire_rule(written["blank_rows"], corpus_by_fire)
+        written["disagreements"], [], corpus_by_fire, declined=declined)
+    b2, e2 = apply_blank_fire_rule(written["blank_rows"], corpus_by_fire,
+                                   declined=declined)
     blocking.extend(b2)
     exempted.extend(e2)
     for fn, fires_missing in written["absent"]:
@@ -1886,19 +2084,35 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
     written = compare_written_headers(from_corpus, expected=expected_files,
                                       specs=written_header_specs())
 
+    # DECLINED, classified once and read by all three arms that could otherwise
+    # report the same withdrawal three different ways. Computed here because it needs
+    # both the written comparison and the scorer's ground-truth verdicts, and those
+    # meet for the first time at this point.
+    declined = classify_declined(written["blank_rows"], corpus_by_fire,
+                                 header_totals_by_fire)
+    # The written comparison's own unsettled rows, so the identity arm can tell a
+    # field that MOVED from one that `compute_stability` merely named (see
+    # `identity_instability_declined`).
+    unsettled_fields = (
+        {(r[0], r[1]) for r in written["disagreements"]}
+        | {(r[0], r[1]) for r in written["blank_rows"]}
+    ) - set(declined)
+
     # (d) The declaration rule.
     d_blocking, d_exempted = apply_declaration_rule(
-        [], identity_half_unstable, corpus_by_fire, identity_moving_fields)
+        [], identity_half_unstable, corpus_by_fire, identity_moving_fields,
+        declined=declined, unsettled_fields=unsettled_fields)
     blocking.extend(d_blocking)
     exempted.extend(d_exempted)
-    w_blocking, w_exempted = apply_written_arm(written, corpus_by_fire)
+    w_blocking, w_exempted = apply_written_arm(written, corpus_by_fire,
+                                               declined=declined)
     blocking.extend(w_blocking)
     exempted.extend(w_exempted)
 
     # (e) Header correctness against ground truth — see check_header_correctness
     # for why agreement (b) cannot answer this.
     header_correctness, h_blocking, h_exempted = check_header_correctness(
-        header_totals_by_fire, corpus_by_fire)
+        header_totals_by_fire, corpus_by_fire, declined=declined)
     blocking.extend(h_blocking)
     exempted.extend(h_exempted)
 
@@ -1985,6 +2199,12 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
         # ADVISORY, never a gate term. See `mfr_witness_branches`: without this
         # the branch is recorded only inside the pod and dies with it.
         "header_mfr_witness": mfr_witness,
+        # DECLINED — the third classification (ruled 2026-11-16), additive to
+        # schema 1. A consumer that does not know this key is unaffected; one that
+        # does must NOT read an absent key as "nothing declined", since every report
+        # written before this rule classified these rows as blocking or exempted.
+        "declined": [declined[k] for k in sorted(declined)],
+        "declined_lines": declined_lines(declined),
         # THE BLOCKING header arm: written values compared across the fires.
         "written_agreement": {
             "verdicts": written["verdicts"],
@@ -2648,6 +2868,32 @@ def render_markdown(report, gate_dir, command_str, log_paths):
             lines.append(f"- {e}")
     else:
         lines.append("(none)")
+    lines.append("")
+    lines.append("## Declined")
+    lines.append("")
+    lines.append(
+        "A field blank in one fire with a **declared** withdrawal, where every other "
+        "fire published the **ground-truth** value. Not unstable and not wrong: the "
+        "fires that answered answered correctly, and the fire that did not say so. "
+        "These rows were withheld from **Blocking** -- the blank-fire rule, the "
+        "identity-half rule and header correctness all read this classification."
+    )
+    lines.append("")
+    for line in report.get("declined_lines") or []:
+        lines.append(f"- {line}")
+    if not report.get("declined_lines"):
+        lines.append("(none)")
+    lines.append("")
+    # THE STRICT VERDICT, BESIDE THE DECLINED ROWS AND NOT ONLY IN THE HEADER (ruled
+    # 2026-11-16). The strict view grants no exemptions and classifies nothing, so it
+    # is the number that says what this section cost. A reader who reaches Declined
+    # and stops must not have to scroll back up to find it.
+    lines.append(
+        f"Strict verdict, which grants no exemptions and classifies nothing: "
+        f"**{report['strict_verdict'].upper()}**"
+        + (" — every row above still counts there."
+           if report.get("declined_lines") else "")
+    )
     lines.append("")
     lines.append("## How it was run")
     lines.append("")

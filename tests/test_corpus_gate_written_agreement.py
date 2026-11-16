@@ -501,7 +501,7 @@ def _score(tmp_path, monkeypatch, plain_exit, plain_stdout, writtens,
     monkeypatch.setattr(gate, "run_header_agreement",
                         lambda base_dir, logs: (plain_exit, plain_stdout))
     monkeypatch.setattr(gate, "check_header_correctness",
-                        lambda totals, corpus: ({}, [], []))
+                        lambda totals, corpus, declined=None: ({}, [], []))
     monkeypatch.setattr(gate, "check_declared_bytes", lambda a, b: [])
     stats_by_fire = stats_by_fire or {}
     fires = [_write_fire(tmp_path, n, w, stats_by_fire.get(n))
@@ -555,7 +555,7 @@ def test_a_doc_id_reason_does_not_exempt_an_mfr_disagreement():
     blocking, exempted = gate.apply_written_arm(_mfr_disagree(), _all([DOC_ID_REASON]))
     assert exempted == []
     assert len(blocking) == 1 and "`mfr`" in blocking[0]
-    assert "no reason names `mfr`" in blocking[0]
+    assert "NO fire's reasons name `mfr`" in blocking[0]
     assert "another field" in blocking[0]
 
 
@@ -569,7 +569,7 @@ def test_a_refusal_names_one_field_and_exempts_only_that_field():
     assert len(exempted) == 1 and "`mfr`" in exempted[0]
     assert "header.mfr refused" in exempted[0]
     assert len(blocking) == 1 and "`pub_date`" in blocking[0]
-    assert "no reason names `pub_date`" in blocking[0]
+    assert "NO fire's reasons name `pub_date`" in blocking[0]
 
 
 def test_a_failed_header_pass_exempts_every_field():
@@ -630,7 +630,7 @@ def test_a_corroboration_names_the_field_and_declares_nothing():
         assert gate._field_declaration_basis(corpus, 1, FN, "mfr") is None
         blocking, exempted = gate.apply_written_arm(_mfr_disagree(), corpus)
         assert exempted == [] and len(blocking) == 1
-        assert "no reason names `mfr`" in blocking[0]
+        assert "NO fire's reasons name `mfr`" in blocking[0]
 
 
 def test_a_sibling_fields_refusal_does_not_declare_mfr():
@@ -697,7 +697,7 @@ def test_a_blank_fire_is_exempted_only_by_a_declaration_naming_its_field():
     other = _reviews({2: [DOC_ID_REASON]}, f1=False, f2=True, f3=False)
     blocking, exempted = gate.apply_written_arm(res, other)
     assert exempted == [] and len(blocking) == 1
-    assert "no reason names `pub_date`" in blocking[0] and "fire 2" in blocking[0]
+    assert "NO fire's reasons name `pub_date`" in blocking[0] and "fire 2" in blocking[0]
 
 
 # the doc_id NARRATION is not a declaration, so it is absent from these lists
@@ -715,7 +715,7 @@ def test_the_identity_half_is_keyed_to_the_field_that_actually_moved():
     blocking, exempted = gate.apply_declaration_rule(
         [], [FN], _all([DOC_ID_REFUSED]), moving_mfr)
     assert exempted == [] and len(blocking) == 1
-    assert "no reason names `mfr`" in blocking[0] and "undeclared: mfr" in blocking[0]
+    assert "NO fire's reasons name `mfr`" in blocking[0] and "undeclared: mfr" in blocking[0]
 
     # a header-WIDE reason still covers whichever field moved
     blocking, exempted = gate.apply_declaration_rule(

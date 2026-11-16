@@ -270,7 +270,7 @@ def _report(tmp_path, monkeypatch, customer_totals):
     # their own tests. Everything NOT stubbed here is the code under test.
     monkeypatch.setattr(gate, "run_header_agreement", lambda base_dir, logs: (0, ""))
     monkeypatch.setattr(gate, "check_header_correctness",
-                        lambda totals, corpus: ({}, [], []))
+                        lambda totals, corpus, declined=None: ({}, [], []))
     monkeypatch.setattr(gate, "check_declared_bytes", lambda a, b: [])
     fires = [_fire(tmp_path, n, customer_totals) for n in (1, 2, 3)]
     report, _ = gate.score_fires(str(tmp_path), fires)
