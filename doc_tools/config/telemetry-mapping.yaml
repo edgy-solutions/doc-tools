@@ -1,4 +1,4 @@
-# doc-tools telemetry mapping (ADR-0038 seed for THIS repo).
+# doc-tools telemetry mapping (invincible-agent ADR-0038 seed for THIS repo).
 #
 # The provenance-telemetry leaf validates only the SHAPE of this file (the
 # left-hand Langfuse slots + score encodings are a closed set). The field names

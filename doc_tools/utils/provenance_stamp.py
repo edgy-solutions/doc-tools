@@ -1,4 +1,4 @@
-"""ADR-0041 provenance as an invariant of the WRITE PATH, not a per-domain opt-in.
+"""invincible-agent ADR-0041 provenance as an invariant of the WRITE PATH, not a per-domain opt-in.
 
 ARCHITECT RULING 2026-10-02: *"provenance persists for every domain; it's an
 invariant of the write path, not an opt-in."* This module is what makes that
@@ -32,7 +32,7 @@ invariant covers both stores.
 
 from typing import Optional
 
-#: The eight ADR-0041 block fields that reach the graph, in the order
+#: The eight invincible-agent ADR-0041 block fields that reach the graph, in the order
 #: ``SustainmentPlugin`` already writes them. Property name on the node is
 #: ``provenance_<field>``; this tuple is the single spelling of the set.
 PROVENANCE_FIELDS = (
