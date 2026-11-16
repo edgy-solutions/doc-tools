@@ -18,6 +18,7 @@ What must still FAIL, pinned below: two different manufacturers must not agree, 
 2-character subsequence trap (`TE` inside `Texas Instruments`) must not agree.
 """
 import itertools
+import json
 
 import pytest
 
@@ -147,7 +148,7 @@ def test_a_disagreeing_crop_still_replaces_as_before():
 # --------------------------------------------------------------------------- #
 def test_agreement_keeps_the_canonical_value():
     h = _header(DAMAGED)
-    reasons = header_trust.require_mfr_witness_agreement(
+    reasons, _review, _rec = header_trust.require_mfr_witness_agreement(
         h, _witness(LOGO), text_layer_degraded=True)
     # `TE Connecvity` vs `TE`: both shorten the same name; the fuller is kept.
     assert h["mfr"] == DAMAGED
@@ -161,7 +162,7 @@ def test_agreement_keeps_the_canonical_value():
 
 def test_disagreement_nulls_mfr_and_source_and_names_both_readings():
     h = _header("Vishay")
-    reasons = header_trust.require_mfr_witness_agreement(
+    reasons, _review, _rec = header_trust.require_mfr_witness_agreement(
         h, _witness(FULL), text_layer_degraded=True)
     assert h["mfr"] is None and h["mfr_source"] is None
     assert len(reasons) == 1
@@ -171,7 +172,7 @@ def test_disagreement_nulls_mfr_and_source_and_names_both_readings():
 
 def test_no_witness_reading_nulls_with_a_reason_that_is_not_a_disproof():
     h = _header(FULL)
-    reasons = header_trust.require_mfr_witness_agreement(
+    reasons, _review, _rec = header_trust.require_mfr_witness_agreement(
         h, _witness(None), text_layer_degraded=True)
     assert h["mfr"] is None and h["mfr_source"] is None
     assert len(reasons) == 1
@@ -185,8 +186,10 @@ def test_a_healthy_document_is_untouched():
     for witness in (_witness(None), _witness("Vishay"), None):
         h = _header(FULL)
         before = dict(h)
-        assert header_trust.require_mfr_witness_agreement(
-            h, witness, text_layer_degraded=False) == []
+        reasons, review, record = header_trust.require_mfr_witness_agreement(
+            h, witness, text_layer_degraded=False)
+        assert (reasons, review) == ([], False)
+        assert record["branch"] == "not_degraded" and record["withdrawn"] is False
         assert h == before
 
 
@@ -195,6 +198,86 @@ def test_an_already_empty_mfr_returns_no_reasons():
         h = _header(empty)
         h["mfr_source"] = None
         before = dict(h)
-        assert header_trust.require_mfr_witness_agreement(
-            h, _witness(FULL), text_layer_degraded=True) == []
+        reasons, review, record = header_trust.require_mfr_witness_agreement(
+            h, _witness(FULL), text_layer_degraded=True)
+        assert (reasons, review) == ([], False)
+        assert record["branch"] == "no_written_value"
         assert h == before
+
+
+# --------------------------------------------------------------------------- #
+# the flag and the record (architect's order, 2026-11-14, items 2 and 3)
+# --------------------------------------------------------------------------- #
+def test_a_withdrawal_asks_for_review_and_names_its_branch():
+    """Until now this arm nulled `mfr` and raised nothing: TYC's withdrawal counted as
+    declared only because the degraded-layer arm sets the flag for its own reasons."""
+    h = _header("Vishay")
+    _r, review, record = header_trust.require_mfr_witness_agreement(
+        h, _witness(FULL), text_layer_degraded=True)
+    assert review is True
+    assert record["branch"] == "readings_disagree"
+    assert record["withdrawn"] is True and record["witness_reading_present"] is True
+
+    h = _header(FULL)
+    _r, review, record = header_trust.require_mfr_witness_agreement(
+        h, _witness(None), text_layer_degraded=True)
+    assert review is True
+    assert record["branch"] == "no_witness_reading"
+    assert record["withdrawn"] is True and record["witness_reading_present"] is False
+
+
+def test_a_published_value_asks_for_no_review():
+    """The agreement branch publishes the value, so it declares nothing and must raise
+    no flag: a corroboration is not a problem."""
+    h = _header(DAMAGED)
+    _r, review, record = header_trust.require_mfr_witness_agreement(
+        h, _witness(FULL), text_layer_degraded=True)
+    assert review is False
+    assert record["branch"] == "readings_agree" and record["withdrawn"] is False
+
+
+def test_an_unparsable_witness_is_recorded_and_withdraws_nothing():
+    class Exploding(list):
+        def __iter__(self):
+            raise RuntimeError("boom")
+
+    h = _header(FULL)
+    reasons, review, record = header_trust.require_mfr_witness_agreement(
+        h, Exploding([1]), text_layer_degraded=True)
+    assert h["mfr"] == FULL
+    assert len(reasons) == 1 and "could not be parsed" in reasons[0]
+    assert review is False
+    assert record["branch"] == "witness_unparsable" and record["withdrawn"] is False
+
+
+def test_every_branch_is_reachable_and_declared():
+    """The record names a branch from one tuple, so a new path cannot be added without
+    naming itself -- and `assert branch in _MFR_WITNESS_BRANCHES` makes a typo fatal in
+    the tests rather than silent in a published report."""
+    seen = set()
+    cases = ((_header(FULL), None, False),
+             (_header(FULL), _witness(None), True),
+             (_header(FULL), _witness(FULL), True),
+             (_header("Vishay"), _witness(FULL), True),
+             (_header(None), _witness(FULL), True))
+    for h, w, degraded in cases:
+        h.setdefault("mfr_source", None)
+        _r, _rev, record = header_trust.require_mfr_witness_agreement(
+            h, w, text_layer_degraded=degraded)
+        seen.add(record["branch"])
+    assert seen == set(header_trust._MFR_WITNESS_BRANCHES) - {"witness_unparsable"}
+
+
+def test_the_record_carries_no_document_value():
+    """It goes on `stats`, which `pcn_corpus_run.run_one` copies whole into
+    `corpus_f{N}.json` and the published corpus-gate report is written from. Branch
+    names and booleans only -- never a reading, never a cited source."""
+    h = _header("Vishay")
+    _r, _rev, record = header_trust.require_mfr_witness_agreement(
+        h, _witness(FULL), text_layer_degraded=True)
+    assert set(record) == {"branch", "withdrawn", "degraded", "written_present",
+                           "witness_reading_present"}
+    assert all(isinstance(v, bool) for k, v in record.items() if k != "branch")
+    blob = json.dumps(record)
+    for value in ("Vishay", FULL, DAMAGED, LOGO):
+        assert value not in blob

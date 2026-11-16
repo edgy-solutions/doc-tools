@@ -2017,9 +2017,22 @@ class SustainmentPlugin(AugmentationPlugin):
         # refusal's own explanation never appears. Measured: that reordering
         # alone broke three assertions in tests/test_second_witness_wiring.py,
         # all three on the REASON and none on the value.
-        trust_reasons += header_trust.require_mfr_witness_agreement(
-            header_d, header_witness,
-            text_layer_degraded=text_layer_assessment["text_layer_degraded"])
+        _mfr_reasons, _mfr_review, stats["header_mfr_witness"] = (
+            header_trust.require_mfr_witness_agreement(
+                header_d, header_witness,
+                text_layer_degraded=text_layer_assessment["text_layer_degraded"]))
+        trust_reasons += _mfr_reasons
+        # A WITHDRAWAL IS A REVIEW ITEM IN ITS OWN RIGHT (architect's order,
+        # 2026-11-14). `mfr` has just been nulled on a document that published a value
+        # a moment ago, and until now this arm raised no flag: the only reason TYC's
+        # withdrawal was declared at all is that the degraded-layer arm sets
+        # `needs_review` unconditionally, for its own reasons. A withdrawal on a
+        # document that did not happen to be degraded for some other reason would have
+        # been a silent null. The branch taken goes on `stats` beside the flag, because
+        # the fire log's echoed tail does not reach TYC's header pass and the branch was
+        # otherwise unobservable in anything a fire produced.
+        if _mfr_review:
+            needs_review = True
         # RE-ASSERT THE KEY-SAFE doc_id INVARIANT, because the trust pipeline above can
         # write this field and the normalization that guarantees it ran before the
         # pipeline, not after. `supply_header_from_regions` assigns `header_d["doc_id"]`

@@ -1221,8 +1221,45 @@ def supply_header_from_regions(header_d: dict, region_witness,
     return reasons
 
 
+# Every path `require_mfr_witness_agreement` can take, named once so the record and
+# the tests cannot drift apart. Two of them withdraw the value; the rest publish it or
+# touch nothing.
+_MFR_WITNESS_BRANCHES = (
+    "not_degraded",          # the arm is gated off: a healthy text layer is exact
+    "witness_unparsable",    # the witness readings could not be parsed
+    "no_written_value",      # nothing to corroborate; an absent mfr is a legal answer
+    "no_witness_reading",    # WITHDRAWN: the witness said nothing
+    "readings_agree",        # published, as the fullest reading
+    "readings_disagree",     # WITHDRAWN: the witness read something else
+)
+
+
+def _mfr_witness_record(branch: str, *, withdrawn: bool = False,
+                        degraded: bool = False, written_present: bool = False,
+                        reading_present: bool = False) -> dict:
+    """The structured record of what the corroboration arm DID, for the fire's own
+    artifact (the architect's order of 2026-11-14, item 3).
+
+    WHY IT EXISTS. The branch was previously inferable only from the reason prose, and
+    on the live TYC fires not even from that: the corpus gate echoes the last 262144
+    bytes of each fire log and TYC's header pass falls outside that window, so the
+    2026-11-11 report had to record WHICH withdrawal branch fire 2 took as inferred
+    rather than observed. This makes it a field.
+
+    BRANCH NAMES AND BOOLEANS ONLY -- no document value, no witness reading, no cited
+    source. It goes on `stats`, which `pcn_corpus_run.run_one` copies whole into
+    `corpus_f{N}.json`, which the published corpus-gate report is written from."""
+    assert branch in _MFR_WITNESS_BRANCHES, branch
+    return {"branch": branch,
+            "withdrawn": bool(withdrawn),
+            "degraded": bool(degraded),
+            "written_present": bool(written_present),
+            "witness_reading_present": bool(reading_present)}
+
+
 def require_mfr_witness_agreement(header_d: dict, region_witness,
-                                  text_layer_degraded: bool = False) -> List[str]:
+                                  text_layer_degraded: bool = False
+                                  ) -> Tuple[List[str], bool, dict]:
     """On a degraded document, an `mfr` the region witness does not corroborate is
     WITHDRAWN (null + review), never written.
 
@@ -1241,20 +1278,41 @@ def require_mfr_witness_agreement(header_d: dict, region_witness,
         AS DISPROVED -- the witness said nothing, so the value was not shown wrong.
       - reading agrees (`mfr_agreement.readings_agree`): kept, as the fullest form.
       - reading disagrees: withdrawn, both readings named verbatim.
+
+    RETURNS `(reasons, needs_review, record)` -- the shape `apply_text_layer_primacy`
+    already uses, and the architect's order of 2026-11-14, items 2 and 3.
+
+    `needs_review` is True on the two WITHDRAWAL branches and on nothing else. The arm
+    used to return reasons alone and raise no flag: for TYC the conjunction the corpus
+    gate requires (`needs_review` AND a reason naming the field) held only because the
+    degraded-layer arm raises the flag unconditionally for its own reasons. A withdrawal
+    that did not inherit someone else's flag was not a declaration at all -- a nulled
+    `mfr` with nobody told to look at it. The arm now carries its own.
+
+    It is deliberately NOT raised on `witness_unparsable`: that branch withdraws
+    nothing and leaves the field exactly as it was, so the value it publishes is the one
+    the rest of the trust pipeline already judged. Whether an uncorroborated value
+    published on a degraded layer after a witness parse failure should itself ask for
+    review is a separate question, and a separate measurement, from this one.
+
+    `record` is `_mfr_witness_record`: the branch taken, as a field, in `stats`.
     """
     reasons: List[str] = []
     if not text_layer_degraded:
-        return reasons
+        return reasons, False, _mfr_witness_record("not_degraded")
     try:
         from doc_tools.utils import witness_regions
         values, _notes = witness_regions.header_values_from_regions(region_witness)
     except Exception as e:  # noqa: BLE001 -- a parse failure must not lose the document
-        return [f"region witness readings could not be parsed ({e}); header.mfr is "
-                f"left as it was"]
+        return ([f"region witness readings could not be parsed ({e}); header.mfr is "
+                 f"left as it was"],
+                False,
+                _mfr_witness_record("witness_unparsable", degraded=True,
+                                    written_present=bool(header_d.get("mfr"))))
 
     written = header_d.get("mfr")
     if not written:
-        return reasons
+        return reasons, False, _mfr_witness_record("no_written_value", degraded=True)
 
     reading = (values.get("mfr") or (None, None))[0]
     if not reading:
@@ -1266,7 +1324,8 @@ def require_mfr_witness_agreement(header_d: dict, region_witness,
             f"it. Not corroborated is not the same as disproved -- the value was NOT "
             f"found wrong; it is withdrawn for review"
         )
-        return reasons
+        return reasons, True, _mfr_witness_record(
+            "no_witness_reading", withdrawn=True, degraded=True, written_present=True)
     if mfr_agreement.readings_agree(written, reading):
         kept = mfr_agreement.canonical_reading(written, reading)
         header_d["mfr"] = kept
@@ -1275,7 +1334,9 @@ def require_mfr_witness_agreement(header_d: dict, region_witness,
             f"'{_clip(str(written))}', witness '{_clip(str(reading))}'; kept "
             f"'{_clip(str(kept))}'"
         )
-        return reasons
+        return reasons, False, _mfr_witness_record(
+            "readings_agree", degraded=True, written_present=True,
+            reading_present=True)
     header_d["mfr"] = None
     header_d["mfr_source"] = None
     reasons.append(
@@ -1283,7 +1344,9 @@ def require_mfr_witness_agreement(header_d: dict, region_witness,
         f"'{_clip(str(reading))}' do not agree; an uncorroborated manufacturer is "
         f"withdrawn rather than written"
     )
-    return reasons
+    return reasons, True, _mfr_witness_record(
+        "readings_disagree", withdrawn=True, degraded=True, written_present=True,
+        reading_present=True)
 
 
 def header_witness_summary(header_d: dict, region_witness,

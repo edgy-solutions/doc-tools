@@ -51,6 +51,24 @@ PASS_FAILED = "header pass failed: TimeoutError"
 WITNESS_DISABLED = "region witness DISABLED for this document: no raster"
 LTB_LOST = ("region witness LOST the ltb region on page 1 (unreadable); header fields "
             "doc_level_ltb_date were neither supplied nor corroborated")
+# The withdrawal vocabulary and the narrations that must NOT count as one, verbatim in
+# the product's own words: sustainment_header_trust.py:1264, :1282 (withdrawals), :1274
+# (the agreement branch) and :1009 (text-layer primacy), plus a sibling field's refusal.
+MFR_WITHDRAWN_NO_READING = (
+    "header.mfr 'TE Connecvity' withdrawn: the text layer is degraded and the region "
+    "witness supplied no manufacturer reading to corroborate it. Not corroborated is "
+    "not the same as disproved -- the value was NOT found wrong; it is withdrawn for "
+    "review")
+MFR_WITHDRAWN_DISAGREE = (
+    "header.mfr withdrawn: text layer 'TE Connecvity' and region witness 'Vishay' do "
+    "not agree; an uncorroborated manufacturer is withdrawn rather than written")
+MFR_CORROBORATED = (
+    "header.mfr corroborated by the region witness: text layer 'TE Connecvity', "
+    "witness 'TE Connectivity'; kept 'TE Connectivity'")
+MFR_TAKEN = ("header.mfr taken from the text layer: the document prints 'TE "
+             "Connectivity' and the header pass returned the same")
+MFR_PARENT_REFUSED = ("header.mfr_parent refused: 'ttelectronics.com' is a web or "
+                      "e-mail domain, not a name")
 
 
 def _reviews(reasons=None, **by_fire):
@@ -462,9 +480,11 @@ def test_forms_containing_a_bar_are_not_torn():
     assert forms == ["'a | b'", "'c'", "'a | b'"]
 
 
-def _write_fire(tmp_path, n, written):
+def _write_fire(tmp_path, n, written, stats=None):
     corpus = {FN: {"ok": True, "needs_review": False, "written_header": written,
                    "content_hash": "sha256:aaa"}}
+    if stats is not None:
+        corpus[FN]["stats"] = stats
     cp, sp = tmp_path / f"corpus_f{n}.json", tmp_path / f"score_f{n}.json"
     cp.write_text(json.dumps(corpus), encoding="utf-8")
     sp.write_text(json.dumps({"totals": {"exact": 1, "gt": 1, "spurious": 0,
@@ -474,15 +494,18 @@ def _write_fire(tmp_path, n, written):
             "corpus_path": str(cp), "score_path": str(sp), "seal_path": None}
 
 
-def _score(tmp_path, monkeypatch, plain_exit, plain_stdout, writtens):
+def _score(tmp_path, monkeypatch, plain_exit, plain_stdout, writtens,
+           stats_by_fire=None):
     # Isolate the header arms: the parts/seal/bytes terms are other instruments' business
     # and have their own tests. Everything NOT stubbed here is the code under test.
     monkeypatch.setattr(gate, "run_header_agreement",
                         lambda base_dir, logs: (plain_exit, plain_stdout))
     monkeypatch.setattr(gate, "check_header_correctness",
-                        lambda totals, corpus: ({}, [], []))
+                        lambda totals, corpus, declined=None: ({}, [], []))
     monkeypatch.setattr(gate, "check_declared_bytes", lambda a, b: [])
-    fires = [_write_fire(tmp_path, n, w) for n, w in enumerate(writtens, start=1)]
+    stats_by_fire = stats_by_fire or {}
+    fires = [_write_fire(tmp_path, n, w, stats_by_fire.get(n))
+             for n, w in enumerate(writtens, start=1)]
     report, _ = gate.score_fires(str(tmp_path), fires)
     return report
 
@@ -532,7 +555,7 @@ def test_a_doc_id_reason_does_not_exempt_an_mfr_disagreement():
     blocking, exempted = gate.apply_written_arm(_mfr_disagree(), _all([DOC_ID_REASON]))
     assert exempted == []
     assert len(blocking) == 1 and "`mfr`" in blocking[0]
-    assert "no reason names `mfr`" in blocking[0]
+    assert "NO fire's reasons name `mfr`" in blocking[0]
     assert "another field" in blocking[0]
 
 
@@ -546,7 +569,7 @@ def test_a_refusal_names_one_field_and_exempts_only_that_field():
     assert len(exempted) == 1 and "`mfr`" in exempted[0]
     assert "header.mfr refused" in exempted[0]
     assert len(blocking) == 1 and "`pub_date`" in blocking[0]
-    assert "no reason names `pub_date`" in blocking[0]
+    assert "NO fire's reasons name `pub_date`" in blocking[0]
 
 
 def test_a_failed_header_pass_exempts_every_field():
@@ -575,6 +598,74 @@ def test_a_lost_region_naming_the_field_exempts_it_and_its_source_companion():
         assert blocking == [] and len(exempted) == 1
     # and says nothing about a field it does not name
     assert not gate.header_declaration_for_field_in_all_fires(_all([LTB_LOST]), FN, "mfr")
+
+
+# --------------------------------------------------------------------------
+# Order 2026-11-14: the vocabulary reads the verb, and only a declaring one.
+
+def test_a_withdrawal_declares_the_field_it_names():
+    """The TYC `mfr` blocker. The arm withdrew the value and said so, naming the field;
+    the matcher knew one verb (`refused`) and the arm writes another (`withdrawn`), so a
+    declared withdrawal was reported as an undeclared silent write."""
+    for reason in (MFR_WITHDRAWN_NO_READING, MFR_WITHDRAWN_DISAGREE):
+        corpus = _all([reason])
+        assert gate.header_declaration_for_field_in_all_fires(corpus, FN, "mfr")
+        assert "withdrawn" in gate._field_declaration_basis(corpus, 1, FN, "mfr")
+        blocking, exempted = gate.apply_written_arm(_mfr_disagree(), corpus)
+        assert blocking == [] and len(exempted) == 1 and "`mfr`" in exempted[0]
+        # still keyed to the field: it says nothing about another one
+        assert not gate.header_declaration_for_field_in_all_fires(corpus, FN, "pub_date")
+        # and it exempts the citation companion, as a refusal does
+        assert gate.header_declaration_for_field_in_all_fires(corpus, FN, "mfr_source")
+
+
+def test_a_corroboration_names_the_field_and_declares_nothing():
+    """NAMING IS NOT DECLARING, and this is the case that decides it: `corroborated` is
+    the AGREEMENT branch -- the value was published. A rule that accepted any reason
+    naming the field would exempt a field BECAUSE it was corroborated. `taken from the
+    text layer` is the same shape and is narrated routinely, which is how a blanket
+    match would reach nearly every field on nearly every notice."""
+    for reason in (MFR_CORROBORATED, MFR_TAKEN):
+        corpus = _all([reason])
+        assert gate._field_declaration_basis(corpus, 1, FN, "mfr") is None
+        blocking, exempted = gate.apply_written_arm(_mfr_disagree(), corpus)
+        assert exempted == [] and len(blocking) == 1
+        assert "NO fire's reasons name `mfr`" in blocking[0]
+
+
+def test_a_sibling_fields_refusal_does_not_declare_mfr():
+    """`header.mfr_parent` and `header.mfr_source` both begin `header.mfr`. The parent
+    company is a different field, absent on most notices, and its refusal must not
+    exempt the manufacturer."""
+    corpus = _all([MFR_PARENT_REFUSED])
+    assert gate._field_declaration_basis(corpus, 1, FN, "mfr") is None
+    assert gate.header_declaration_for_field_in_all_fires(corpus, FN, "mfr_parent")
+
+
+def test_the_verb_and_the_field_must_be_in_the_same_reason():
+    """Two reasons, one naming the field and the other carrying a declaring verb about
+    a different field, are not a declaration about this field."""
+    corpus = _all([MFR_CORROBORATED, PUB_REFUSED])
+    assert gate._field_declaration_basis(corpus, 1, FN, "mfr") is None
+    assert gate.header_declaration_for_field_in_all_fires(corpus, FN, "pub_date")
+
+
+def test_a_withdrawal_in_the_blank_fire_alone_exempts_the_blank():
+    """TYC's live shape: `mfr` blank in fire 2, populated in 1 and 3, with the
+    withdrawal reason in the blank fire only -- which is what the blank-fire rule asks
+    for, and all it asks for."""
+    res = gate.compare_written_headers(_fires(
+        _wh(mfr="TE Connectivity"), _wh(mfr=None), _wh(mfr="TE Connectivity")))
+    corpus = _reviews({2: [MFR_WITHDRAWN_NO_READING]}, f1=True, f2=True, f3=True)
+    blocking, exempted = gate.apply_blank_fire_rule(res["blank_rows"], corpus)
+    assert blocking == [] and len(exempted) == 1
+    assert "fire 2" in exempted[0] and "`mfr`" in exempted[0]
+
+
+def test_the_declaring_verbs_are_the_ones_the_product_writes():
+    """A verb is added to the list only with the producer line that emits it; this pins
+    the list itself so widening it is a visible edit here."""
+    assert gate._FIELD_DECLARING_VERBS == ("refused", "withdrawn", "not written")
 
 
 def test_the_source_base_strips_one_suffix_only():
@@ -606,7 +697,7 @@ def test_a_blank_fire_is_exempted_only_by_a_declaration_naming_its_field():
     other = _reviews({2: [DOC_ID_REASON]}, f1=False, f2=True, f3=False)
     blocking, exempted = gate.apply_written_arm(res, other)
     assert exempted == [] and len(blocking) == 1
-    assert "no reason names `pub_date`" in blocking[0] and "fire 2" in blocking[0]
+    assert "NO fire's reasons name `pub_date`" in blocking[0] and "fire 2" in blocking[0]
 
 
 # the doc_id NARRATION is not a declaration, so it is absent from these lists
@@ -624,7 +715,7 @@ def test_the_identity_half_is_keyed_to_the_field_that_actually_moved():
     blocking, exempted = gate.apply_declaration_rule(
         [], [FN], _all([DOC_ID_REFUSED]), moving_mfr)
     assert exempted == [] and len(blocking) == 1
-    assert "no reason names `mfr`" in blocking[0] and "undeclared: mfr" in blocking[0]
+    assert "NO fire's reasons name `mfr`" in blocking[0] and "undeclared: mfr" in blocking[0]
 
     # a header-WIDE reason still covers whichever field moved
     blocking, exempted = gate.apply_declaration_rule(
@@ -704,3 +795,65 @@ def test_a_real_declared_spelling_no_longer_blocks_the_whole_report(
     assert report["written_agreement"]["verdicts"] == {FN: "agree"}
     assert not any("WRITTEN header fields disagree" in b
                    for b in report["blocking"])
+
+
+# --- The witness branch is SURFACED, not left inside the pod -------------------
+# `stats["header_mfr_witness"]` lands in corpus_f{N}.json, which lives in the Job
+# pod's working directory. `kubectl exec` is refused once the Job is terminal --
+# measured 2026-11-15 on a *Succeeded* pod, so there is no terminal state in which
+# that file is readable -- and nothing echoes the corpus JSON. A branch recorded
+# only there is unobservable the moment the fire ends, which is why the
+# 2026-11-11 report had to call fire 2's withdrawal branch inferred. These pin the
+# surfacing so it cannot regress to unobservable.
+
+def _rec(branch, **kw):
+    r = {"branch": branch, "withdrawn": False, "degraded": False,
+         "written_present": True, "witness_present": True}
+    r.update(kw)
+    return r
+
+
+def test_the_report_surfaces_which_branch_each_fire_took(tmp_path, monkeypatch):
+    report = _score(
+        tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()],
+        stats_by_fire={
+            1: {"header_mfr_witness": _rec("readings_agree")},
+            2: {"header_mfr_witness": _rec("readings_disagree", withdrawn=True,
+                                           degraded=True)},
+            3: {"header_mfr_witness": _rec("not_degraded")},
+        })
+    assert report["header_mfr_witness"][FN]["1"]["branch"] == "readings_agree"
+    assert report["header_mfr_witness"][FN]["2"]["branch"] == "readings_disagree"
+    assert report["header_mfr_witness"][FN]["2"]["withdrawn"] is True
+    assert report["header_mfr_witness"][FN]["3"]["branch"] == "not_degraded"
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    assert "## Header `mfr` witness branch (advisory, never blocks)" in md
+    # The withdrawing fire is marked, so a reader does not have to know which of
+    # the six branch names withdraw.
+    assert "| readings_agree | **readings_disagree** | not_degraded |" in md
+    # Advisory: surfacing a withdrawal must not move the verdict by itself.
+    assert report["verdict"] == "pass"
+    assert report["blocking"] == []
+
+
+def test_the_surfaced_branch_carries_no_document_value(tmp_path, monkeypatch):
+    report = _score(
+        tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()],
+        stats_by_fire={2: {"header_mfr_witness": _rec("no_witness_reading",
+                                                      withdrawn=True)}})
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    tail = md.split("## Header `mfr` witness branch")[1]
+    block = tail.split("## Header agreement")[0]
+    # The manufacturer this corpus writes must not reach the block -- the record is
+    # a branch name and four booleans, and this is the line that keeps it that way.
+    assert "TE Connectivity" not in block
+    for v in report["header_mfr_witness"][FN]["2"].values():
+        assert isinstance(v, (bool, str))
+
+
+def test_a_fire_set_predating_the_field_says_so_rather_than_reading_clean(
+        tmp_path, monkeypatch):
+    report = _score(tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()])
+    assert report["header_mfr_witness"] == {}
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    assert "every image in this set predates the field" in md

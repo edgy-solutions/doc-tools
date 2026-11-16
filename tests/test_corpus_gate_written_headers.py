@@ -667,7 +667,7 @@ def test_the_ground_truth_arm_decides_per_field_and_a_doc_id_reason_exempts_noth
         totals, _corpus(True, reasons=("header.mfr refused: x is not cited",)))
     assert len(exempted) == 1 and "`mfr`" in exempted[0]
     assert len(blocking) == 1 and "`pub_date`" in blocking[0]
-    assert "no reason names `pub_date`" in blocking[0]
+    assert "NO fire's reasons name `pub_date`" in blocking[0]
     _, blocking, exempted = gate.check_header_correctness(
         totals, _corpus(True, reasons=("doc_id taken from the document ('X')",)))
     assert exempted == [] and len(blocking) == 2
