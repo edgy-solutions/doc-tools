@@ -480,9 +480,11 @@ def test_forms_containing_a_bar_are_not_torn():
     assert forms == ["'a | b'", "'c'", "'a | b'"]
 
 
-def _write_fire(tmp_path, n, written):
+def _write_fire(tmp_path, n, written, stats=None):
     corpus = {FN: {"ok": True, "needs_review": False, "written_header": written,
                    "content_hash": "sha256:aaa"}}
+    if stats is not None:
+        corpus[FN]["stats"] = stats
     cp, sp = tmp_path / f"corpus_f{n}.json", tmp_path / f"score_f{n}.json"
     cp.write_text(json.dumps(corpus), encoding="utf-8")
     sp.write_text(json.dumps({"totals": {"exact": 1, "gt": 1, "spurious": 0,
@@ -492,7 +494,8 @@ def _write_fire(tmp_path, n, written):
             "corpus_path": str(cp), "score_path": str(sp), "seal_path": None}
 
 
-def _score(tmp_path, monkeypatch, plain_exit, plain_stdout, writtens):
+def _score(tmp_path, monkeypatch, plain_exit, plain_stdout, writtens,
+           stats_by_fire=None):
     # Isolate the header arms: the parts/seal/bytes terms are other instruments' business
     # and have their own tests. Everything NOT stubbed here is the code under test.
     monkeypatch.setattr(gate, "run_header_agreement",
@@ -500,7 +503,9 @@ def _score(tmp_path, monkeypatch, plain_exit, plain_stdout, writtens):
     monkeypatch.setattr(gate, "check_header_correctness",
                         lambda totals, corpus: ({}, [], []))
     monkeypatch.setattr(gate, "check_declared_bytes", lambda a, b: [])
-    fires = [_write_fire(tmp_path, n, w) for n, w in enumerate(writtens, start=1)]
+    stats_by_fire = stats_by_fire or {}
+    fires = [_write_fire(tmp_path, n, w, stats_by_fire.get(n))
+             for n, w in enumerate(writtens, start=1)]
     report, _ = gate.score_fires(str(tmp_path), fires)
     return report
 
@@ -790,3 +795,65 @@ def test_a_real_declared_spelling_no_longer_blocks_the_whole_report(
     assert report["written_agreement"]["verdicts"] == {FN: "agree"}
     assert not any("WRITTEN header fields disagree" in b
                    for b in report["blocking"])
+
+
+# --- The witness branch is SURFACED, not left inside the pod -------------------
+# `stats["header_mfr_witness"]` lands in corpus_f{N}.json, which lives in the Job
+# pod's working directory. `kubectl exec` is refused once the Job is terminal --
+# measured 2026-11-15 on a *Succeeded* pod, so there is no terminal state in which
+# that file is readable -- and nothing echoes the corpus JSON. A branch recorded
+# only there is unobservable the moment the fire ends, which is why the
+# 2026-11-11 report had to call fire 2's withdrawal branch inferred. These pin the
+# surfacing so it cannot regress to unobservable.
+
+def _rec(branch, **kw):
+    r = {"branch": branch, "withdrawn": False, "degraded": False,
+         "written_present": True, "witness_present": True}
+    r.update(kw)
+    return r
+
+
+def test_the_report_surfaces_which_branch_each_fire_took(tmp_path, monkeypatch):
+    report = _score(
+        tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()],
+        stats_by_fire={
+            1: {"header_mfr_witness": _rec("readings_agree")},
+            2: {"header_mfr_witness": _rec("readings_disagree", withdrawn=True,
+                                           degraded=True)},
+            3: {"header_mfr_witness": _rec("not_degraded")},
+        })
+    assert report["header_mfr_witness"][FN]["1"]["branch"] == "readings_agree"
+    assert report["header_mfr_witness"][FN]["2"]["branch"] == "readings_disagree"
+    assert report["header_mfr_witness"][FN]["2"]["withdrawn"] is True
+    assert report["header_mfr_witness"][FN]["3"]["branch"] == "not_degraded"
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    assert "## Header `mfr` witness branch (advisory, never blocks)" in md
+    # The withdrawing fire is marked, so a reader does not have to know which of
+    # the six branch names withdraw.
+    assert "| readings_agree | **readings_disagree** | not_degraded |" in md
+    # Advisory: surfacing a withdrawal must not move the verdict by itself.
+    assert report["verdict"] == "pass"
+    assert report["blocking"] == []
+
+
+def test_the_surfaced_branch_carries_no_document_value(tmp_path, monkeypatch):
+    report = _score(
+        tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()],
+        stats_by_fire={2: {"header_mfr_witness": _rec("no_witness_reading",
+                                                      withdrawn=True)}})
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    tail = md.split("## Header `mfr` witness branch")[1]
+    block = tail.split("## Header agreement")[0]
+    # The manufacturer this corpus writes must not reach the block -- the record is
+    # a branch name and four booleans, and this is the line that keeps it that way.
+    assert "TE Connectivity" not in block
+    for v in report["header_mfr_witness"][FN]["2"].values():
+        assert isinstance(v, (bool, str))
+
+
+def test_a_fire_set_predating_the_field_says_so_rather_than_reading_clean(
+        tmp_path, monkeypatch):
+    report = _score(tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()])
+    assert report["header_mfr_witness"] == {}
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    assert "every image in this set predates the field" in md

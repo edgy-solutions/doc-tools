@@ -844,6 +844,34 @@ def needs_review_in_all_fires(corpus_by_fire, notice):
     return all(needs_review_in_fire(corpus_by_fire, n, notice) for n in (1, 2, 3))
 
 
+def mfr_witness_branches(corpus_by_fire):
+    """Per notice, the `mfr` witness branch each fire took.
+
+    `stats["header_mfr_witness"]` is written by
+    `sustainment_header_trust.require_mfr_witness_agreement` and copied into
+    corpus_f{N}.json whole by `pcn_corpus_run.run_one`. It is surfaced HERE
+    because that file lives inside the Job pod and dies with it: `kubectl exec`
+    is refused once the Job is terminal (measured 2026-11-15 on a *Succeeded*
+    pod, not only a failed one), nothing echoes the corpus JSON, and the gate's
+    log echo is capped per fire at a window that TYC's header pass falls outside
+    of. So a branch recorded only in `stats` is unobservable the moment the fire
+    ends, which is the gap the 2026-11-11 report hit when it had to record WHICH
+    withdrawal branch fire 2 took as inferred rather than read.
+
+    Advisory and never a gate term: this reports what the arm did, it does not
+    judge it. Carries the branch name and its booleans only -- never a document
+    value, which is pinned by test.
+    """
+    rows = {}
+    for n in sorted(corpus_by_fire):
+        for notice, entry in (corpus_by_fire.get(n) or {}).items():
+            rec = ((entry or {}).get("stats") or {}).get("header_mfr_witness")
+            if not rec:
+                continue
+            rows.setdefault(notice, {})[str(n)] = rec
+    return rows
+
+
 # Declarations are matched as substrings of `review_reasons`, not by a flag, because
 # there is no flag: the product narrates, and a structured field would mean adding one
 # and keeping two representations of the same fact in step.
@@ -1785,6 +1813,7 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
     raw_flagged_notices = sorted(n for n, info in parsed_notices.items()
                                  if info["verdict"] in ("DISAGREE", "BLANK"))
     unstable_raw = unstable_raw_rows(parsed_notices)
+    mfr_witness = mfr_witness_branches(corpus_by_fire)
 
     if absent_notices or not_measured_notices:
         parts = []
@@ -1953,6 +1982,9 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
         },
         # ADVISORY: the raw reader rotating between forms. Never blocks.
         "unstable_raw": unstable_raw,
+        # ADVISORY, never a gate term. See `mfr_witness_branches`: without this
+        # the branch is recorded only inside the pod and dies with it.
+        "header_mfr_witness": mfr_witness,
         # THE BLOCKING header arm: written values compared across the fires.
         "written_agreement": {
             "verdicts": written["verdicts"],
@@ -2497,6 +2529,36 @@ def render_markdown(report, gate_dir, command_str, log_paths):
                          + " | ".join(f.replace("|", BAR_ESCAPE) for f in r["forms"]))
     else:
         lines.append("(none)")
+    lines.append("")
+    lines.append("## Header `mfr` witness branch (advisory, never blocks)")
+    lines.append("")
+    lines.append("Which branch the manufacturer witness arm took in each fire. A "
+                 "withdrawal (`no_witness_reading`, `readings_disagree`) is what "
+                 "blanks a written `mfr` and asks for review, so this is the line "
+                 "that says whether a blank above was a WITHDRAWAL or a miss -- "
+                 "read, not inferred. Recorded per fire in "
+                 "`stats['header_mfr_witness']`, which lives only inside the Job "
+                 "pod and is unreachable once the Job is terminal; without this "
+                 "block the 2026-11-11 report's fire-2 branch stays inferred for "
+                 "ever.")
+    lines.append("")
+    if report.get("header_mfr_witness"):
+        lines.append("| notice | f1 | f2 | f3 |")
+        lines.append("|---|---|---|---|")
+        for notice, by_fire in sorted(report["header_mfr_witness"].items()):
+            cells = []
+            for n in ("1", "2", "3"):
+                rec = by_fire.get(n) or {}
+                branch = rec.get("branch") or "--"
+                cells.append(f"**{branch}**" if rec.get("withdrawn") else branch)
+            lines.append(f"| {notice} | " + " | ".join(cells) + " |")
+        lines.append("")
+        lines.append("A **bold** branch withdrew the written value. An absent cell is "
+                     "a fire whose corpus JSON carries no record -- an image built "
+                     "before the field existed, not a fire that did nothing.")
+    else:
+        lines.append("(no fire recorded a witness branch -- every image in this set "
+                     "predates the field)")
     lines.append("")
     lines.append("## Header agreement (raw plain-mode run; advisory)")
     lines.append("")
