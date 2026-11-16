@@ -249,7 +249,7 @@ image:
   # buildx provenance/SBOM attestation manifests. Expected.)
   #
   # AND BOTH CHILDREN WERE ASKED WHICH COMMIT IS INSIDE THEM, rather than
-  # trusted to be whatever their tag says -- the invincible-agent ADR-0034 build stamp:
+  # trusted to be whatever their tag says -- the ADR-0034 build stamp:
   #     DOC_TOOLS_VERSION=doc-tools@7f22479a79ac4030ab1d51a02a9110e988511e66
   # on amd64 AND arm64. A tag is guessable from git log; a baked env var is the
   # image answering for itself. This is also the check that WOULD have caught
@@ -332,7 +332,7 @@ image:
   #
   # AND THE IMAGE WAS ASKED WHICH COMMIT IS INSIDE IT, rather than trusted to
   # be whatever its tag says. The arm64 child's own config carries the build
-  # stamp invincible-agent ADR-0034 bakes in:
+  # stamp ADR-0034 bakes in:
   #     DOC_TOOLS_VERSION=doc-tools@78f8d10a1c7137da1f3ec30e72e046202d673cd5
   # A tag is guessable from git log; a baked env var is the image answering for
   # itself. This is the check that would have caught the f70d779 substitution
@@ -483,7 +483,7 @@ image:
   # short-circuits at "origin unresolved" before any pass would run. Its one
   # declared pass is admitted UNBUILT on purpose. What the row does change is
   # that an XML document which is not an S1000D data module stops halting at
-  # invincible-agent ADR-0021 section 3 -- a refusal becoming a routable drop, not a write.
+  # ADR-0021 section 3 -- a refusal becoming a routable drop, not a write.
   #
   # #88 IS A CHART CHANGE, so it goes live by this ROLL rather than by this
   # image. Both are in the same `helm upgrade`; do not read a green pod as
@@ -875,7 +875,7 @@ image:
   # WHAT THIS CARRIES BEYOND b18d7dc4, AND IT IS ONE THING: #112 (bdf1daf) --
   # a pipeline failure now reaches the row. The stage route gains `failed` with
   # {reason_code, reason, step, run_id, pin_digest}, and the op error boundary
-  # was moved so the invincible-agent ADR-0041 guard refusal actually lands inside it. #111 is
+  # was moved so the ADR-0041 guard refusal actually lands inside it. #111 is
   # also new on main but is chart + report only, so it changes no code in this
   # image. NOTHING in #112 touches extraction, so the parts score is expected to
   # be UNCHANGED by this pin; a move either way is a finding, not a win.
