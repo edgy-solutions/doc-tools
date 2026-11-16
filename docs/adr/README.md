@@ -121,3 +121,20 @@ citation to qualify.
   whatever is in a sibling working tree.
 - Mesh-wide decisions that span tools are recorded in `dag-tools` and cited from here, so
   expect `dag-tools ADR-00NN` rows to appear in this table over time.
+
+## Five citations deliberately still unqualified
+
+`charts/doc-tools/values.yaml` and `charts/doc-tools/values-sandbox.yaml` carry five
+cross-repo citations in **comments** that this pass left as bare numbers: ADR-0021,
+ADR-0034 (twice), ADR-0038 and ADR-0041 — all invincible-agent's.
+
+They are held back, not missed. `corpus-gate-verdict` is
+`if: needs.changes.outputs.charts == 'true'`, so **editing a comment in a chart file arms
+the gate guard** against the committed `docs/corpus-gate/latest.json`. Measured on
+[#226](https://github.com/edgy-solutions/doc-tools/pull/226) on 2026-11-16: the qualified
+comments made the job run and fail in 13s on the standing TYC `mfr` blocker — a verdict
+that PR neither introduced nor could fix. Qualifying a comment is not worth an exempted
+gate or a red check on a docs change.
+
+**Qualify them in the next PR that touches `charts/` for a real reason** — a pin bump,
+which carries a report of its own. Then this section goes away.
