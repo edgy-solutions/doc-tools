@@ -48,7 +48,7 @@ class ManufacturingPlugin(AugmentationPlugin):
     New Munitions Acceleration & Manufacturing (MAT) extraction logic.
     """
 
-    # ADR-0021 Phase 2/3: the INSTANCE_OF target URI used by the Cypher MERGE
+    # invincible-agent ADR-0021 Phase 2/3: the INSTANCE_OF target URI used by the Cypher MERGE
     # in ``to_graph_queries`` is now parameterized via the constructor. The
     # default below matches ``KIND_MAPPING["work-instructions"].target_ontology_class``
     # in ``doc_tools.utils.content_kind`` (the only row today) — a SELF-
@@ -336,7 +336,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                     "action": step.action_verb,
                     "tools": step.tooling,
                     "image_prefix": image_prefix,
-                    # ADR-0021 Phase 2/3: target URI sourced from
+                    # invincible-agent ADR-0021 Phase 2/3: target URI sourced from
                     # KIND_MAPPING via the resolver in semantic_assets
                     # (overridden via constructor), or the self-consistent
                     # default when the plugin is constructed directly.
@@ -366,11 +366,11 @@ class ManufacturingPlugin(AugmentationPlugin):
                 SET tool.part_number = t_name
                 MERGE (s)-[:REQUIRES_TOOL]->(tool)
                 """
-                # ADR-0021 Step 4: stamp the canonical content-kind edge above.
+                # invincible-agent ADR-0021 Step 4: stamp the canonical content-kind edge above.
                 # The :ManufacturingStep label stays for backward compat
                 # (existing MATCH queries filter on it). The new edge makes
                 # the step reachable through the substrate class chain
-                # (ADR-0018 symmetric (S,P) routing) — a verb typed against
+                # (invincible-agent ADR-0018 symmetric (S,P) routing) — a verb typed against
                 # mfg:WorkInstruction can now reach manufacturing content.
                 # Single general kind today per architect's ruling 2026-06-18;
                 # sub-kinds become rows in the kind-selection mapping table
@@ -407,7 +407,7 @@ class ManufacturingPlugin(AugmentationPlugin):
                 # (e.g. "inbound/22"), and a raw "/" is illegal in a prefixed name
                 # -> Fuseki 400 Bad Request on the whole Update.
                 step_uri = f"mfg:{safe_iri_local(step_node_id)}"
-                # ADR-0021 Step 4: canonical mfg namespace + general kind.
+                # invincible-agent ADR-0021 Step 4: canonical mfg namespace + general kind.
                 # Old placeholder ns http://example.com/manufacturing# was the
                 # pre-canonical direct-load shape (see STATE_GATEWAY_V02.md
                 # 2026-06-17 Step 1 — 7 legacy classes there are residue).

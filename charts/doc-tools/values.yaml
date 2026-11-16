@@ -158,7 +158,7 @@ env:
   # reads them at run-build so they must exist. Real values only needed for PROMPT_SOURCE=langfuse.
   LANGFUSE_PUBLIC_KEY: "pk-sandbox-placeholder"
   LANGFUSE_HOST: "http://langfuse.invalid:3000"
-  # Trace provenance (ADR-0038). DEPLOY_ENV tags every trace with the cluster it ran
+  # Trace provenance (invincible-agent ADR-0038). DEPLOY_ENV tags every trace with the cluster it ran
   # in; LANGFUSE_RELEASE is the deployed build — CI bakes the git SHA at image build
   # (left UNSET in-repo so os.getenv returns None and no empty release is stamped).
   DEPLOY_ENV: "sandbox"

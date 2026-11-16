@@ -208,7 +208,7 @@ def extract_rdf_from_xml(context, config: XmlIngestConfig, s3: S3Resource) -> di
 
     # A user drop (ingress-user/<fmt>/<sha256>/<name>) names the SEAM in its
     # first segment, not a parser. Its parser comes from the content kind the
-    # sibling manifest.json DECLARES -- never sniffed, never defaulted (ADR-0021).
+    # sibling manifest.json DECLARES -- never sniffed, never defaulted (invincible-agent ADR-0021).
     if doc_type == _INGRESS_USER_SEGMENT:
         parser_cls, kind = _resolve_ingress_user_parser(context, s3_client, s3_bucket, s3_key)
         PARSERS = {doc_type: parser_cls}

@@ -15,7 +15,7 @@ unpinned:
 
  1. **The table vs the rows.** ``registered_kinds()`` makes the picker's legal
     set the registered rows. If the rows drifted from ``KIND_MAPPING``, the
-    picker would offer a kind the mapping table cannot resolve, and ADR-0021's
+    picker would offer a kind the mapping table cannot resolve, and invincible-agent ADR-0021's
     halt would fire on a kind that IS registered.
  2. **The two spellings of a kind.** The table is keyed by
     ``kind_source_value``; the picker offers ``kind``. They differ for exactly
@@ -60,7 +60,9 @@ RULED_DOMAINS = {
     # nothing is a row that can drift to a domain nobody granted it.
     "cad": None,
     # Not from the 2026-10-02 ruling either — the `course` row is the
-    # architect's 2026-10-23 restore-training directive (ADR-0059, lane tr),
+    # architect's 2026-10-23 "restore training ingestion" directive (lane tr —
+    # the packet's title said `ADR-0059`, but NO SUCH ADR EXISTS in any repo and
+    # the number is UNRESOLVED; see docs/adr/README.md),
     # and its NAME is Chris's 2026-10-23 ruling: "a kind names the document,
     # not the domain" (a course deck in the training domain, the way a PCN is a
     # notice in sustainment). Unlike cad it declares a domain, and the drop
@@ -288,7 +290,7 @@ def test_the_domain_sidecar_covers_every_registered_kind():
 # 3. The phantoms stay visible
 # --------------------------------------------------------------------------- #
 def test_the_phantom_outputs_are_exactly_the_two_owed_by_lane_1():
-    """ADR-0019 §6: an output URI is a phantom until it resolves to a declared
+    """invincible-agent ADR-0019 §6: an output URI is a phantom until it resolves to a declared
     class. Two are, by the architect's own sequencing — ``mesh_system.ttl`` is
     Lane 1's TTL and the leaf lands there ("7f registers the row now and it
     resolves when the TTL lands"). Asserting the set EXACTLY means a third
@@ -453,7 +455,7 @@ def test_the_projection_fills_exactly_what_doc_tools_owns():
     it. ``parent_link_field``/``id_namespaces`` are unset pending a measurement
     rather than a decision -- see the projection module.
 
-    ``branch`` is the one to read twice: the dataclass now HAS it (ADR-0063
+    ``branch`` is the one to read twice: the dataclass now HAS it (invincible-agent ADR-0063
     section 1's remaining answer) and every row still takes ``"document"``, so
     ``exclude_defaults`` must not see it. A projection that emitted it
     unconditionally would pass every other arm in this file and rewrite all
@@ -470,9 +472,9 @@ def test_the_projection_fills_exactly_what_doc_tools_owns():
 
 # ----------------------------------------------------- the event branch (F4)
 #
-# ADR-0063 section 1's remaining answer. These arms prove doc-tools CAN declare
+# invincible-agent ADR-0063 section 1's remaining answer. These arms prove doc-tools CAN declare
 # and project an event row; they add no row to ``KIND_MAPPING``, because lane 01
-# confirmed on 2026-10-28 that ADR-0063's three event kinds are iagent overlay
+# confirmed on 2026-10-28 that invincible-agent ADR-0063's three event kinds are iagent overlay
 # rows under ``policy/overlays/openddil-lab/content_kinds/``.
 #
 # The per-branch required/forbidden rule is NOT restated in this repo. It is the
@@ -591,7 +593,7 @@ def test_the_sdk_refuses_a_document_row_that_declares_an_event_only_field():
 
 
 def test_no_registered_row_declares_the_event_branch_today():
-    """Lane 01 owns ADR-0063's three event kinds as overlay rows. If one of them
+    """Lane 01 owns invincible-agent ADR-0063's three event kinds as overlay rows. If one of them
     appears in ``KIND_MAPPING``, that is a split of ownership to settle before
     it ships, not a row to add quietly -- and it would move
     ``registry_fingerprint`` (which hashes ``(kind, passes)``) on its way."""

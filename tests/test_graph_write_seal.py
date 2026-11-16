@@ -145,7 +145,7 @@ def _drive(manifest, *, rollup_raises, cypher_raises=False):
     neo4j = MagicMock()
     if cypher_raises:
         # The first write is the stamped parent MERGE, whose failure HALTS the
-        # ingest (ADR-0041); the domain cypher loop after it is what swallows.
+        # ingest (invincible-agent ADR-0041); the domain cypher loop after it is what swallows.
         calls = {"n": 0}
 
         def _fail_after_parent(*a, **k):
