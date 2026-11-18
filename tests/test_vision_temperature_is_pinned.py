@@ -93,7 +93,7 @@ def test_every_vision_call_site_passes_the_bounded_client():
     """
     src = Path(sustainment_module.__file__).read_text(encoding="utf-8")
 
-    vision_calls = re.findall(r"b\.(ExtractParts|LabelGridColumns)\((.*?)\)\n",
+    vision_calls = re.findall(r"b\.(ExtractParts|LabelGridColumns|ReadRegion)\((.*?)\)\n",
                               src, re.DOTALL)
     assert vision_calls, "expected to find the vision call sites"
 
@@ -101,3 +101,44 @@ def test_every_vision_call_site_passes_the_bounded_client():
         assert "baml_options=" in args, \
             (f"b.{name} is called without baml_options, so it uses the declared Vision "
              f"client and SAMPLES - route it through _vision_call_opts()")
+
+
+# --- The seed, 2026-11-17 -----------------------------------------------------
+# Temperature pinned the parts pass. It did NOT pin the region witness, and that
+# call is the one that decides a written `mfr` on a degraded text layer: the value
+# is published only if `ReadRegion` corroborates it. TYC wrote
+# `TE Connectivity | null | TE Connectivity` across three fires from identical raw
+# text-layer input, so the deciding call was the last unpinned sampling path in the
+# repo while `_header_call_opts` next door set temperature AND seed.
+
+
+def test_the_vision_client_is_registered_with_a_seed(registered):
+    """Asserted on the value that reaches the provider, like the temperature above."""
+    options = registered.clients["VisionBounded"]["options"]
+    assert "seed" in options, \
+        ("no seed means the region witness samples freely, and a written `mfr` turns "
+         "on which answer one call happened to draw")
+    assert options["seed"] == 0
+
+
+def test_the_seed_is_a_top_level_request_parameter(registered):
+    """`seed` is a standard OpenAI-compatible REQUEST field, not an Ollama `options`
+    knob. Nested under `options` it is dropped silently by this provider -- the same
+    way `num_ctx` is inert on a `/v1` endpoint -- and the call would keep sampling
+    while the registration looked pinned."""
+    options = registered.clients["VisionBounded"]["options"]
+    nested = options.get("options")
+    assert not (isinstance(nested, dict) and "seed" in nested), \
+        "a nested seed is dropped by the provider: set it at the top level"
+
+
+def test_the_seed_is_not_env_overridable(registered):
+    """Same reasoning as the temperature: it backs a reproducibility claim, so it
+    reads the same in every environment."""
+    assert sustainment_module.VISION_SEED == 0
+
+    src = Path(sustainment_module.__file__).read_text(encoding="utf-8")
+    match = re.search(r"^VISION_SEED\s*=\s*(.+)$", src, re.MULTILINE)
+    assert match, "VISION_SEED must be a module-level constant"
+    assert "getenv" not in match.group(1) and "environ" not in match.group(1), \
+        "VISION_SEED must not be read from the environment"
