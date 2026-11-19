@@ -64,8 +64,10 @@ cluster**: nothing in these records put load on any environment.
 `ADR-0001` means three different things in this fleet — doc-tools' memory-bounded PDF
 ingestion, invincible-agent's `mem0-llm-decouple`, and dag-tools' `mesh-publishing-protocol`
 — and at this pin 75 tracked files in this repo cite an `ADR-00NN` number (51 of them
-outside `sessions/`), spanning 20 distinct numbers, while `docs/adr/` holds exactly one
-file. These records therefore **name the owning repo**:
+outside `sessions/`), spanning 20 distinct numbers, of which 18 mean another
+repo. When that was measured `docs/adr/` held one file; it now holds [this
+series](../adr/README.md), numbered from `0100` for exactly that reason. These records
+**name the owning repo**:
 
 | Citation | Means |
 |---|---|
@@ -97,4 +99,4 @@ will not resolve until its PR lands.
 | [components/corpus-gate.md](components/corpus-gate.md) | component (CO-CORPUS-GATE) | in this commit |
 | [NOT-ESTABLISHED.md](NOT-ESTABLISHED.md) | this repo's half of the merged not-established list | in this commit |
 | [flows/document-to-review-record.md](flows/document-to-review-record.md) | flow (FL-REVIEW), a document arriving to a review record | in this commit |
-| `decisions/` | decision records, from the 2026-11-16 census | next |
+| [../adr/README.md](../adr/README.md) | 94 decision records, from the 2026-11-16 census, plus three registers | in this commit |
