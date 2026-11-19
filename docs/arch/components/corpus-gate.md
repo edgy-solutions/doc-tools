@@ -146,14 +146,25 @@ Nothing in this record was run: it is read from the scripts, the chart and the t
 
 ## Place in the mesh
 
-| Aspect | What the code and chart show | Suggested alignment row |
-|---|---|---|
-| Purpose | turn "the extractor works" into a citable verdict over an enumerated corpus, three times, with the evidence attached | `AL-DMRA S13` — quality measured and kept as metadata `proposed` |
-| How the mesh wires it | nothing calls it; an operator fires it into the cluster and the pod publishes to a branch. CI reads the published report, not the gate | — |
-| Data path | it reads the corpus through the ordinary extraction path, in the image under measurement; it has no path of its own | — |
-| What it emits | one verdict, one strict verdict, per-fire artifacts, and a committed report that names the digest it measured | — |
-| Security role | none. It makes no access decision and holds no credential of its own; it runs as the pipeline does | — |
-| Plane | we would read it as data management — a lifecycle service over the extraction, not a producer of data. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here |
+The **Capability** column answers the architect's instruction of 2026-11-19, which carries lane 02's
+structured-fields packet §4.1: every alignment row names one or more ids from the NATO DCRA's
+thirteen capabilities, or `none` written out, so that a blank never reads as an answer. Every value
+in that column is **`proposed`**, and on weaker evidence than the rest of this record: this lane
+mapped each row from the **appendix titles reproduced in §4.1** and has not read DCRA v2
+(AC/322-D(2025)0056) itself, so no cell is confirmed against an appendix's contents. The `none` on
+the **Plane** row is the one cell that is not a reading — §4.1 rules that Appendix 14 (Technical
+Architecture) is the source of the planes and is *not* a capability. See
+[NE-16](../NOT-ESTABLISHED.md), which records that the element alignment in the third column is
+this lane's reading as well.
+
+| Aspect | What the code and chart show | Suggested alignment row | Capability |
+|---|---|---|---|
+| Purpose | turn "the extractor works" into a citable verdict over an enumerated corpus, three times, with the evidence attached | `AL-DMRA S13` — quality measured and kept as metadata `proposed` | `dcra:A10` |
+| How the mesh wires it | nothing calls it; an operator fires it into the cluster and the pod publishes to a branch. CI reads the published report, not the gate | — | `none` |
+| Data path | it reads the corpus through the ordinary extraction path, in the image under measurement; it has no path of its own | — | `none` |
+| What it emits | one verdict, one strict verdict, per-fire artifacts, and a committed report that names the digest it measured | — | `none` |
+| Security role | none. It makes no access decision and holds no credential of its own; it runs as the pipeline does | — | `none` |
+| Plane | we would read it as data management — a lifecycle service over the extraction, not a producer of data. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here | `none` |
 
 ## Sources
 

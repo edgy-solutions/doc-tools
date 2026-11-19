@@ -95,6 +95,7 @@ All evidence is read at these commits. **A line number is valid only at its pin.
 | doc-tools | `2b9e6cbc61178f7086cceade8614dca4d736150a` | this repo, read directly |
 | arch-kit | `v0.1.0` = `e0b9b3c40520440a09a4e0e6050ea5017de05848` | the record form, read directly. **Superseded upstream**: lane 02's packet names `v0.2.0` and a later main, and neither was read here — see [the shape section](#the-shape-markdown-now-converted-later) |
 | lane 02's shapes packet | `PACKET-2026-11-18-dagtools-shapes.md`, dated 2026-11-18 | the six record shapes, the declaration keys and the split. Read from the copy relayed to the dag-tools arch lane; it is not in this repo's `sessions/` inbox and carries no commit of its own |
+| lane 02's structured-fields packet | `PACKET-2026-11-19-architect-structured-fields.md`, dated 2026-11-19 | §4.1 — the thirteen DCRA capability ids, the rules for the `Capability` column, and the ruling that Appendix 14 is the source of the planes and not a capability; and §1's rule that the portal reads columns **by header name, not position**. Read from the dispatch copy the architect's instruction carried; it is not in this repo's `sessions/` inbox and carries no commit of its own |
 | dag-tools (arch records) | `a246e0693194bfbe7b1bc66962781273d480fa74` | the shape and the status vocabulary, read directly |
 | invincible-agent | not read here | this repo's platform peer. Facts about the deployment overlay, the substrate priming and the ADR namespace it owns are named as *that* repo's and left `not established` here rather than read from a local checkout — a local checkout is not the deployed contract. |
 
@@ -117,6 +118,7 @@ series](../adr/README.md), numbered from `0100` for exactly that reason. These r
 | `iagent:ADR-0041` | a record in invincible-agent's `docs/adr/` (66 records and an index) |
 | `CO-DAGSTER`, `FL-BIG` | a dag-tools component or flow record, by its stable id |
 | `AL-DMRA S4`, `AL-DCRA R1` | a dag-tools alignment record, cited together with the element it names |
+| `dcra:A9` | one of the NATO DCRA's thirteen capabilities, by the id lane 02 declares once in the mesh composition; `A`*n* is that document's appendix *n* |
 | dag-tools `§4p.3` | a dag-tools decision; that lane keys its decisions to census sections |
 | dag-tools roadmap row 8 | one numbered row of the dag-tools roadmap, which runs 1 to 16 |
 
