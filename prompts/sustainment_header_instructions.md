@@ -9,6 +9,7 @@ Extract these header fields:
   Choose the PRIMARY class. If a change notice also kills a variant, keep doc_type as the primary class (usually PCN) and record the discontinuation nuance in categories.
 - revision: the document revision exactly as printed (e.g. "A", "-"). Null if the notice shows none.
 - pub_date: the notification / publication date, normalized to ISO 8601 (YYYY-MM-DD).
+  If the document prints no notification or publication date anywhere in the text, return **null** for BOTH pub_date and pub_date_source. Null is a CORRECT answer here — a notice with no printed date is a valid notice — and is always preferred over a date you had to infer, a date of a different kind (an effective, last-time-buy or revision date), or today's date.
 - mfr: the manufacturer or brand name **AS PRINTED IN THE DOCUMENT TEXT** — copied character-for-character from the page. This is a COPYING task, not an identification task:
     * Do NOT expand an abbreviation or wordmark into the fuller name you know it stands for.
     * Do NOT substitute a parent or owning company for the brand that is printed (that is what mfr_parent is for).
