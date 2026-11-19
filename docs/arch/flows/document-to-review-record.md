@@ -13,8 +13,9 @@ document that was extracted and that nobody is asked to review.
 
 **This record describes; it proposes nothing.** Statuses are those of
 [the README](../README.md). Code line numbers are valid at the code pin
-`5eb72e5cefaa4e3b414f4fc3b9f7c0bde4c98bed`; the architecture-records commits since it change
-no code. Nothing in this record was run.
+`2b9e6cbc61178f7086cceade8614dca4d736150a`; the architecture-records commits since it change
+no code. Nothing in this record was run, with one exception named as `measured`: the BAML
+exception envelope in finding 19, read from the installed library.
 
 ## Findings
 
@@ -94,16 +95,33 @@ no code. Nothing in this record was run.
     verbatim by the reader. `page_dims` and `evidence_ref` are **omitted, never nulled**,
     because the reader discriminates on presence: an absent `evidence_ref` is how it is told
     there is no evidence. `built`
-18. **The review record a person reads currently carries raw model output.** The header
-    failure path appends `"header pass failed: " + str(last["error"])` to `review_reasons`,
-    and the exception echo is written into the item. The prefix is matched as a substring by
-    the corpus gate, so it is load-bearing text; the raw tail is not. A ruling of 2026-11-18
-    says raw prompts and raw model output stay in telemetry and never enter a record a person
-    reads. `built` (the echo); the ruling is `accepted` and its implementation is `not built`.
-19. **The pipeline already has the shape the ruling asks for, unused on this path.**
-    `ingest_failure.classify(exc)` returns a `(reason_code, reason)` pair bounded at 400
-    characters, over a declared `REASON_CODES` set with the codes reserved to Lane 1 excluded.
-    The stage POST uses it; the review record does not. `built`
+18. **A failure reason in the review record is a code and a bounded message, and carries no
+    exception text at all.** The 2026-11-18 ruling — raw prompts and raw model output stay in
+    telemetry and never enter a record a person reads — is implemented at the six sites that
+    echoed: the header pass's attempt record and its two reasons, the mixed-notice grid
+    forwarding failure, and both parts-pass failures. Each writes `<code> — <sentence>
+    (<ExcType>)` from `pass_failure.py` and logs the raw text instead. The `header pass
+    failed: `, `parts pass failed` and `PARTS MAY BE MISSING` markers are byte-for-byte
+    unchanged, because the corpus gate matches the first as a substring of `review_reasons`;
+    a test imports the gate's own marker list and asserts the declaration still matches.
+    `built`
+19. **The echo was never a truncation problem, which is why no bound was added.** Measured on
+    the installed `baml_py` 0.222.0: `BamlValidationError.__str__` and
+    `BamlClientFinishReasonError.__str__` emit `message=`, then `raw_output=`, then `prompt=`.
+    `raw_output` is the model's reply verbatim; `prompt` is the RENDERED prompt, which on this
+    path contains the document's own text. So a bounded 400-character echo publishes the reply
+    and an unbounded one publishes the document. `pass_failure.classify_pass_failure` therefore
+    classifies on the exception's TYPE and on the PRESENCE of those attributes, never on
+    message text, and the review record carries none of it. A side effect worth the name: the
+    reason is now deterministic across fires, where `str(exc)` embedded a reply that differs
+    between fires on identical input — and the gate compares these strings across three fires.
+    `measured` (the envelope), `built` (the implementation)
+20. **The same echo rode to Lane 1's ingest row, and that door is closed too.**
+    `ingest_failure.classify(exc)` returns a `(reason_code, reason)` pair over a declared
+    `REASON_CODES` set with the codes reserved to Lane 1 excluded, bounded at 400 characters.
+    For an exception carrying BAML's envelope it now reports a code and this lane's own
+    sentence instead of the echo; for every other raise on that path — all of them OUR guards,
+    whose message is the thing the row exists to carry — the echo is unchanged. `built`
 
 ## The flow, step by step
 
@@ -139,8 +157,14 @@ no code. Nothing in this record was run.
   in for", while the body posts. A reader deciding whether a stage reaches Lane 1 can read the
   wrong answer from the function they are looking at. `built` (the transport); the docstring is
   wrong at this pin.
-- **The review record carries raw model output.** `sustainment.py:773`, `:818`, `:2487`. The
-  2026-11-18 ruling says it must not. `accepted`; `not built`.
+- **One echo door is still open, and it is not this lane's to close.**
+  `semantic_assets.py:1056`, `:1097`, `:1107` build `_augment_failures` as
+  `"<chunk_id>: <ExcType>: {e}"`, which reaches Lane 1's `concept_parse` detail through
+  `_augment_failure_detail` — bounded at 500 characters, and so no defence against the
+  envelope in finding 19. It is deliberately unchanged:
+  `tests/test_augmentation_failure_fails_the_run.py:131` PINS the BAML message as reaching
+  that detail, measured by lane tr, so changing it reverses another lane's deliberate
+  assertion. Packeted to lane tr. The ruling is `accepted`; the fix is `not built`.
 - **A `needs_review` count has no asset check.** It is surfaced as a Dagit warning, and the
   code names a formal `asset_check` as a follow-up. `built` (the warning); the check is
   `not built`.
@@ -183,5 +207,7 @@ All paths are in this repo at the code pin named above, except where a row says 
 | The route requires a `svc:doc-tools` Bearer JWT and 403s others | `dagster_resources.py:180-183`; `doc_tools/utils/mesh_identity.py:189` | — | — | `built` |
 | `extracted_count` and `extracted_total` are independent, not a rate; `extraction_ref` is the manifest key | `dagster_resources.py:260-264`; `document_parser.py:605-620` | `ADR-0034` | — | `built` |
 | The row contract is domain-generic | `semantic_assets.py:1449-1457` | — | — | `built` |
-| The raw-echo sites in the review record, and the load-bearing prefix | `doc_tools/plugins/sustainment.py:773`, `:793-795`, `:815-818`, `:2482-2487` | ruling 2026-11-18 | — | `built` (the echo); the ruling is `accepted` |
-| A bounded `(reason_code, reason)` classifier already exists, unused by the review record | `doc_tools/utils/ingest_failure.py:25`, `:76`, `:89`, `:184`, `:198` | — | — | `built` |
+| A review-record failure reason is a code and a bounded message, with no exception text | `doc_tools/utils/pass_failure.py:48`, `:97`, `:119`, `:140`, `:173` | ruling 2026-11-18 | `tests/test_no_raw_model_text_in_the_review_record.py` | `built` |
+| The six sites that stopped echoing, and the markers kept byte-for-byte | `doc_tools/plugins/sustainment.py:781`, `:795-796`, `:845-848`, `:2242-2245`, `:2262-2265`, `:2303-2306` | ruling 2026-11-18 | same file | `built` |
+| The BAML envelope that made truncation useless: `raw_output` before `prompt` | `baml_py/internal_monkeypatch.py` (0.222.0, installed) | — | `tests/test_no_raw_model_text_in_the_review_record.py` asserts the shape before asserting the fix | `measured` |
+| The same `(reason_code, reason)` classifier on Lane 1's ingest row, envelope refused | `doc_tools/utils/ingest_failure.py:30`, `:78`, `:94`, `:189`, `:213` | — | `tests/test_ingest_failure_reasons.py` | `built` |
