@@ -38,8 +38,25 @@ prefix. The **Kind** column says what would settle it:
 | NE-20 | Which queue a document lands in when it completed the flow and wrote no `review.json`. The stage posts `review` whether or not a review record was written. | `another repo` | [FL-REVIEW §7](flows/document-to-review-record.md) |
 | NE-21 | The two `review.json` layouts: this repo writes one shape, a second exists under earlier pins, and which readers still accept which was not established. | `unread` | [FL-REVIEW](flows/document-to-review-record.md) |
 | NE-22 | How long the flow takes end to end for any document, which is why no step of FL-REVIEW is `measured`. Same evidence gap as NE-03, restated at the flow. | `measurement` | [FL-REVIEW](flows/document-to-review-record.md) |
-| NE-23 | Whether `CO-` and `FL-` are a **mesh-wide** id namespace, and whether doc-tools' four ids (`CO-EXTRACT`, `CO-ONTOLOGY`, `CO-CORPUS-GATE`, `FL-REVIEW`) are registered in it. dag-tools supplied 32 `CO-` and 3 `FL-` ids of its own; who assigns an id, and whether two lanes can mint the same one, was not stated. Asked by packet. | `another repo` | [README](README.md) |
-| NE-24 | Whether dag-tools' `CO-DAGSTER` and `CO-S3-SENSOR` denote the same orchestrator and the same sensors this repo runs, or that lane's own. These records therefore cross-link to neither. Asked by packet. | `another repo` | [CO-EXTRACT](components/extraction-pipeline.md), [FL-REVIEW](flows/document-to-review-record.md) |
+| NE-23 | Whether `CO-` and `FL-` are a **mesh-wide** id namespace, and who assigns in it. Narrowed 2026-11-19 by packet: the dag-tools arch lane says the question is not theirs to rule — the architect's instruction covered dag-tools parts only — and has passed it to the architect and to lane 02, which owns the id grammar. Measured there meanwhile: none of this repo's four ids (`CO-EXTRACT`, `CO-ONTOLOGY`, `CO-CORPUS-GATE`, `FL-REVIEW`) collides with their 32 `CO-` and 3 `FL-`, and that lane will mint none under those four names. The four stay this repo's until a ruling. | `another repo` | [README](README.md) |
+
+## Answered since this list was published
+
+A row that gets answered is **not deleted**: the id was published and another lane may have
+cited it. It moves here, with the answer and where the fact now lives.
+
+- **NE-24** — whether dag-tools' `CO-DAGSTER` and `CO-S3-SENSOR` denote the same orchestrator
+  and the same sensors this repo runs. **Answered 2026-11-19 by packet, and the doc-tools half
+  measured here.** `CO-DAGSTER` is the orchestrator as the charts wire it — the
+  invincible-agent chart deploys the webserver, daemon and instance and runs an image as a
+  code location — so doc-tools is a code location *inside* it, which
+  [CO-EXTRACT](components/extraction-pipeline.md) now says. `CO-S3-SENSOR` is the dag-tools
+  sensor **package**, the component classes rather than any instance; whether this repo's
+  sensors are built from them was ours to read, and they are: ten of the eleven prefix
+  sensors are `dag_tools.S3SensorComponent` instances (`doc_tools/definitions.py:3`). The
+  eleventh is this repo's own DataHub poller and watches no prefix. Both links are now in the
+  records. Correcting this also corrected a claim of ours: [CO-EXTRACT §1](components/extraction-pipeline.md) had said *eleven*
+  S3 sensors.
 
 ## What is *not* on this list
 

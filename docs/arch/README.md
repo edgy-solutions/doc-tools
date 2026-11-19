@@ -83,8 +83,8 @@ series](../adr/README.md), numbered from `0100` for exactly that reason. These r
 | `iagent:ADR-0041` | a record in invincible-agent's `docs/adr/` (66 records and an index) |
 | `CO-DAGSTER`, `FL-BIG` | a dag-tools component or flow record, by its stable id |
 | `AL-DMRA S4`, `AL-DCRA R1` | a dag-tools alignment record, cited together with the element it names |
-| dag-tools census `§4p.3` | a dag-tools decision; that lane keys its decisions to census sections |
-| dag-tools roadmap row 7 | one numbered row of the dag-tools roadmap, which runs 1 to 16 |
+| dag-tools `§4p.3` | a dag-tools decision; that lane keys its decisions to census sections |
+| dag-tools roadmap row 8 | one numbered row of the dag-tools roadmap, which runs 1 to 16 |
 
 A bare number is this repo's. Two numbers cited in this tree resolve in no repo on this
 workstation (`ADR-0059`, `ADR-0066`); they are in [the not-established list](NOT-ESTABLISHED.md),

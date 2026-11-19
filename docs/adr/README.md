@@ -61,8 +61,8 @@ invincible-agent's `mem0-llm-decouple`, and dag-tools' `mesh-publishing-protocol
 | `iagent:ADR-0041` | a record in invincible-agent's `docs/adr/` |
 | `CO-DAGSTER`, `FL-BIG` | a dag-tools component or flow record, by its stable id |
 | `AL-DMRA S4`, `AL-DCRA R1` | a dag-tools alignment record, cited together with the element it names |
-| dag-tools census `§4p.3` | a dag-tools decision. That lane keys its decisions to census sections, not to ADR numbers |
-| dag-tools roadmap row 7 | one numbered row of the dag-tools roadmap, which runs 1 to 16 |
+| dag-tools `§4p.3` | a dag-tools decision. That lane keys its decisions to census sections, not to ADR numbers, and the repo is named in the citation |
+| dag-tools roadmap row 8 | one numbered row of the dag-tools roadmap, which runs 1 to 16 |
 
 dag-tools has **no ADR-numbered series this repo may cite**: the `dag:ADR-NNNN` form that
 stood here was ours, not theirs, and is withdrawn. The ids above are stable and were supplied

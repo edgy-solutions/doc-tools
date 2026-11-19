@@ -16,10 +16,14 @@ Nothing in this record was run: it is read from the code, the chart and the test
 ## Findings
 
 1. **Work enters by sensor, never by schedule.** `doc_tools/definitions.py` defines no
-   `ScheduleDefinition` and passes no `schedules=` to `Definitions`; the `sensors=` list is
-   eleven S3 sensors plus two retry sensors and one publisher. Every ingest therefore begins
-   with an object appearing under a watched prefix, or with the gateway offering a retry.
-   `built`
+   `ScheduleDefinition` and passes no `schedules=` to `Definitions`. The `sensors=` list at
+   `:582` is **ten** S3 sensors, one DataHub poller, two retry sensors and one publisher.
+   The ten are `dag_tools.S3SensorComponent` instances (`definitions.py:3`, constructed at
+   `:89`, `:106`, `:128`, `:170`, `:274`, `:294`, `:320`, `:346`, `:383`, `:404`) — dag-tools'
+   `CO-S3-SENSOR` classes, not sensor code of ours. The eleventh, `datahub_sensor`, is this
+   repo's own `DataHubSensorComponent` and watches no prefix at all: it polls a DataHub
+   GraphQL endpoint for recently tagged entities. Every document ingest therefore begins with
+   an object appearing under a watched prefix, or with the gateway offering a retry. `built`
 2. **A sensor is per prefix, and the prefix is where the kind comes from.** Each
    `S3SensorComponent` watches one prefix and targets one job: `manufacturing/inbound/`,
    `sustainment/inbound/`, `training/course/`, `ingress-user/`, `ingress-user/xml/`, `iads/`,
@@ -193,7 +197,7 @@ Nothing in this record was run: it is read from the code, the chart and the test
 |---|---|---|
 | Purpose | turn a document into a parse artifact, a graph, an index and a review record, addressed by a minted ingest id | `AL-DMRA S4` — data and metadata profiles with lineage and pedigree `proposed` |
 | Identity | the ingest id is the sidecar's or minted from the bytes, and is the doc id; the run key is the object's ETag | `AL-DMRA S1` — unique identification `proposed` |
-| How the mesh reaches it | it is a Dagster code location over gRPC; the mesh does not call the pipeline, it drops an object or offers a retry | `AL-DMRA S7` — data exchange `proposed` |
+| How the mesh reaches it | it is a Dagster code location over gRPC, running inside the orchestrator dag-tools records as `CO-DAGSTER`; the mesh does not call the pipeline, it drops an object or offers a retry | `AL-DMRA S7` — data exchange `proposed` |
 | What it emits | a versioned manifest plus a pointer written after it, a graph write, a vector index, a review record | — |
 | Security role | none of its own. It holds credentials for the stores it writes and makes no access decision | `AL-DCRA R1` is *not* here — the enforcement point is the gateway's `proposed` |
 | Plane | we would read it as an operational data plane — it produces the data the rest of the mesh reads. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here |
