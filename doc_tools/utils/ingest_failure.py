@@ -21,6 +21,11 @@ import os
 import re
 from typing import Optional
 
+# Equally pure, and the reason the import is safe here: no Dagster, no network,
+# no SDK, no BAML. It owns the "what may a person read" question for both the
+# ingest row and the review record, so the two cannot drift apart.
+from doc_tools.utils.pass_failure import carries_model_text, classify_pass_failure
+
 #: The reason codes a `failed` stage may carry. Each names its raise site.
 REASON_CODES: frozenset[str] = frozenset({
     # The ADR-0041 kindless guard in document_parser.py ("carries no
@@ -193,6 +198,22 @@ def classify(exc: BaseException) -> tuple[str, str]:
     from the message, so it holds even when the original message omitted it.
     """
     try:
+        # RULING 2026-11-18: "raw prompts and raw model output ... never enter a
+        # record a person reads". Lane 1's ingest row IS read by a person, and
+        # this echo is bounded but not safe: `str()` of a BAML validation or
+        # finish-reason error puts `raw_output=` BEFORE `prompt=`, so the first
+        # `_MAX_ECHO` characters are the model's reply, and the rest is the
+        # rendered prompt -- which carries the document's own text. Truncation
+        # cannot fix that shape, so an exception that carries the envelope is
+        # not echoed at all: it reports a code and this module's own sentence.
+        #
+        # Every other raise on this path is one of OUR guards, whose message is
+        # written in this repo and is the thing the row exists to carry, so the
+        # echo below is unchanged for them.
+        if carries_model_text(exc):
+            code = _code_for(exc, "")
+            _, phrase = classify_pass_failure(exc)
+            return code, phrase
         msg = str(exc)
         code = _code_for(exc, msg)
         echoed = msg[:_MAX_ECHO]

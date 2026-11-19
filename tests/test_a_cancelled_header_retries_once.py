@@ -203,7 +203,7 @@ def test_a_cancel_on_both_attempts_still_refuses_and_still_declares(monkeypatch)
     assert aug.needs_review is True
     assert aug.stats["header_pass"]["outcome"] == "cancelled"
     assert aug.stats["header_pass"]["retried"] is True
-    assert any("header pass failed: AbortError" in r for r in aug.review_reasons)
+    assert any("header pass failed: call_cancelled" in r for r in aug.review_reasons)
     assert any("attempt 2 of 2" in r for r in aug.review_reasons)
     # And the document's own mfr still survives it -- the text-layer arm runs anyway.
     assert aug.notice.mfr == "TE Connectivity"
