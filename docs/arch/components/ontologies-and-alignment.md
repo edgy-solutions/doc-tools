@@ -143,7 +143,7 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
   **graph** uri from a vocabulary **namespace**; the difference here is that both spellings
   end in `mesh#`, so a reader who meets one has nothing in either file telling them the other
   exists. `built` (both namespaces, at every site above); a reconciliation, or a cross-note in
-  either file, is `not built`. Checked 2026-11-19 at the dag-tools arch lane's request.
+  either file, is `not built`. Checked 2026-11-19 at the dag-tools arch lane's request, and the collision is bounded: `mesh#` appears nowhere in the dag-tools tree at dag-tools `4c6107523acf50bfc1338c4ee46813ff9090f929`, so the two authorities are this repo's and the platform's, and no third member spells it.
 
 ## Not established from code
 
