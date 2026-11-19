@@ -51,7 +51,7 @@ All evidence is read at these commits. **A line number is valid only at its pin.
 
 | Source | Pin | Read status |
 |---|---|---|
-| doc-tools | `5eb72e5cefaa4e3b414f4fc3b9f7c0bde4c98bed` | this repo, read directly |
+| doc-tools | `2b9e6cbc61178f7086cceade8614dca4d736150a` | this repo, read directly |
 | arch-kit | `v0.1.0` = `e0b9b3c40520440a09a4e0e6050ea5017de05848` | the record form, read directly |
 | dag-tools (arch records) | `a246e0693194bfbe7b1bc66962781273d480fa74` | the shape and the status vocabulary, read directly |
 | invincible-agent | not read here | this repo's platform peer. Facts about the deployment overlay, the substrate priming and the ADR namespace it owns are named as *that* repo's and left `not established` here rather than read from a local checkout — a local checkout is not the deployed contract. |
