@@ -33,6 +33,11 @@ prefix. The **Kind** column says what would settle it:
 | NE-15 | What `ADR-0059` and `ADR-0066` are. Both are cited in this tree and resolve in no repo on this workstation. They are not silently repaired. | `another repo` | [README](README.md) |
 | NE-16 | Which alignment rows of the DoD and NATO references doc-tools answers to. Every "Place in the mesh" row here is marked `proposed`: those records do not name doc-tools at their pin, so the alignment is this lane's reading until the arch lane confirms it. | `another repo` | all three component records |
 | NE-17 | What the deployed overlay actually sets, as opposed to what `charts/` declares. A local checkout is not the deployed contract, and these records read no cluster and no sibling working tree. | `cluster` | [README](README.md) |
+| NE-18 | Whether a stage POST succeeds in any environment, and what fraction of runs lose it. A transport failure is a WARNING log line and nothing counts it. | `measurement` | [FL-REVIEW §13](flows/document-to-review-record.md) |
+| NE-19 | What the reader renders from `review.json`. The wire shape is ruled and served verbatim; the rendering is another lane's code and was not read. | `another repo` | [FL-REVIEW §17](flows/document-to-review-record.md) |
+| NE-20 | Which queue a document lands in when it completed the flow and wrote no `review.json`. The stage posts `review` whether or not a review record was written. | `another repo` | [FL-REVIEW §7](flows/document-to-review-record.md) |
+| NE-21 | The two `review.json` layouts: this repo writes one shape, a second exists under earlier pins, and which readers still accept which was not established. | `unread` | [FL-REVIEW](flows/document-to-review-record.md) |
+| NE-22 | How long the flow takes end to end for any document, which is why no step of FL-REVIEW is `measured`. Same evidence gap as NE-03, restated at the flow. | `measurement` | [FL-REVIEW](flows/document-to-review-record.md) |
 
 ## What is *not* on this list
 
