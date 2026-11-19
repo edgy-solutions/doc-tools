@@ -404,3 +404,34 @@ def test_the_ingest_row_still_echoes_our_own_guard_messages():
         "sidecar manifest missing or unparseable for ingress-user/pdf/x/y.pdf"))
     assert code == "sidecar_unreadable"
     assert "sidecar manifest missing or unparseable" in reason
+
+
+def test_no_producible_message_exceeds_the_consumers_160_characters():
+    """The reader of these messages draws one line of at most 160 characters and
+    shows "detail withheld" for anything longer or multi-line (packet to 7f from
+    cortex, 2026-11-19). The declared clamp was 200, which contradicted that
+    agreement even though nothing producible reached it. This pins both: the cap
+    is the agreed number, and the arithmetic says it cannot bite in practice."""
+    from doc_tools.utils.pass_failure import _MAX_PHRASE, _MAX_TYPE, _SENTENCES
+
+    assert _MAX_PHRASE == 160
+
+    worst_sentence = max(len(s) for s in _SENTENCES.values())
+    assert worst_sentence + len(" ()") + _MAX_TYPE <= _MAX_PHRASE, (
+        "the longest sentence plus the longest type name the clamp allows must "
+        "still fit the reader's line"
+    )
+    for sentence in _SENTENCES.values():
+        assert "\n" not in sentence
+
+
+def test_a_pathological_type_name_is_still_clamped_to_one_short_line():
+    """The clamp exists for a generated or dynamic class, which is the only way
+    a reason can grow. It must clamp, not raise, and the result stays drawable."""
+    hostile = type("E" * 500, (Exception,), {})("ignored")
+    code, message = classify_pass_failure(hostile)
+
+    assert code in PASS_FAILURE_CODES
+    assert len(message) <= 160
+    assert "\n" not in message
+    assert "ignored" not in message

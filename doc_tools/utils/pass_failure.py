@@ -77,9 +77,13 @@ _SENTENCES: dict[str, str] = {
 #: clamp is there so a generated or dynamic class cannot make a reason long.
 _MAX_TYPE = 64
 
-#: The clamp on the whole phrase. Every sentence above is fixed-length, so this
-#: can only ever bite on a pathological type name.
-_MAX_PHRASE = 200
+#: The clamp on the whole phrase, and it is a contract, not a convenience: the
+#: consumer that draws these messages on a card does not draw one longer than
+#: 160 characters or spanning more than one line -- it shows "detail withheld"
+#: instead (packet to 7f from cortex, 2026-11-19). Every sentence above is
+#: fixed-length, so the clamp can only ever bite on a pathological type name:
+#: the real maximum is 58 + 3 + 64 = 125, pinned by a test.
+_MAX_PHRASE = 160
 
 #: Telemetry keeps the raw text, by the ruling. It is still bounded, because a
 #: rendered prompt is the size of a document and a log line is not the place to
