@@ -175,7 +175,7 @@ this lane's reading as well.
 | Identity | class IRIs are the ontology's; the mesh predicates are in `http://invincible-agent/mesh#`, and a document's graph is named by its source key | `AL-DMRA S1` `proposed` | `dcra:A12` |
 | Quality | the seals are the quality instrument: declared classes are rows, and a row is retrievable | `AL-DMRA S13` `proposed` | `dcra:A10` |
 | Security role | none. It holds store credentials and makes no access decision | — | `none` |
-| Plane | we would read it as data management — it maintains the semantic substrate the other planes read. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here | `none` |
+| Plane | it maintains the semantic substrate the other planes read, and produces no document data of its own | **`data-management`**, `proposed`. The four planes are `accepted` by the architect's ruling of 2026-11-19 — `infrastructure`, `operational-data`, `data-management`, `analytical-data`, from the NATO document's Appendix 14. Assigning *this* part to one of them is this lane's reading, and the dag-tools arch lane publishes the list with the alignment records | `none` |
 
 ## Sources
 

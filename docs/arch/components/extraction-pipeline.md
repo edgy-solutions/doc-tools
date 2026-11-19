@@ -211,7 +211,7 @@ this lane's reading as well.
 | How the mesh reaches it | it is a Dagster code location over gRPC, running inside the orchestrator dag-tools records as `CO-DAGSTER`; the mesh does not call the pipeline, it drops an object or offers a retry | `AL-DMRA S7` — data exchange `proposed` | `none` |
 | What it emits | a versioned manifest plus a pointer written after it, a graph write, a vector index, a review record | — | `none` |
 | Security role | none of its own. It holds credentials for the stores it writes and makes no access decision | `AL-DCRA R1` is *not* here — the enforcement point is the gateway's `proposed` | `none` |
-| Plane | we would read it as an operational data plane — it produces the data the rest of the mesh reads. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here | `none` |
+| Plane | it produces the data the rest of the mesh reads — the parse artifacts, the graph, the vector index and the review record | **`operational-data`**, `proposed`. The four planes are `accepted` by the architect's ruling of 2026-11-19 — `infrastructure`, `operational-data`, `data-management`, `analytical-data`, from the NATO document's Appendix 14. Assigning *this* part to one of them is this lane's reading, and the dag-tools arch lane publishes the list with the alignment records | `none` |
 
 ## Sources
 

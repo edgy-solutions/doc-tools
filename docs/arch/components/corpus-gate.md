@@ -164,7 +164,7 @@ this lane's reading as well.
 | Data path | it reads the corpus through the ordinary extraction path, in the image under measurement; it has no path of its own | — | `none` |
 | What it emits | one verdict, one strict verdict, per-fire artifacts, and a committed report that names the digest it measured | — | `none` |
 | Security role | none. It makes no access decision and holds no credential of its own; it runs as the pipeline does | — | `none` |
-| Plane | we would read it as data management — a lifecycle service over the extraction, not a producer of data. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here | `none` |
+| Plane | it is a lifecycle service over the extraction rather than a producer of data: it measures an enumerated corpus and publishes a verdict | **`data-management`**, `proposed`. The four planes are `accepted` by the architect's ruling of 2026-11-19 — `infrastructure`, `operational-data`, `data-management`, `analytical-data`, from the NATO document's Appendix 14. Assigning *this* part to one of them is this lane's reading, and the dag-tools arch lane publishes the list with the alignment records | `none` |
 
 ## Sources
 
