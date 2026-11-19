@@ -96,5 +96,5 @@ will not resolve until its PR lands.
 | [components/ontologies-and-alignment.md](components/ontologies-and-alignment.md) | component (CO-ONTOLOGY) | in this commit |
 | [components/corpus-gate.md](components/corpus-gate.md) | component (CO-CORPUS-GATE) | in this commit |
 | [NOT-ESTABLISHED.md](NOT-ESTABLISHED.md) | this repo's half of the merged not-established list | in this commit |
-| `flows/document-to-review-record.md` | flow (FL-REVIEW), a document arriving to a review record | next |
+| [flows/document-to-review-record.md](flows/document-to-review-record.md) | flow (FL-REVIEW), a document arriving to a review record | in this commit |
 | `decisions/` | decision records, from the 2026-11-16 census | next |
