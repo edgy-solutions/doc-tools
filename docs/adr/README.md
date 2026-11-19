@@ -70,6 +70,15 @@ by that lane at commit `823bf3480fbbfc1f4e41a0766e228507aacf4236`; **paths may m
 not**. A part of dag-tools that is not on their id list has no record yet — ask by packet,
 never invent an id.
 
+**An id carries no repo name.** Ruled 2026-11-19 from lane 02's shapes packet, relayed: a
+repository does not prefix its ids with its own name, and the composed build places each
+member's records. Every id this repo mints is therefore bare — `ADR-0100`, `CO-EXTRACT`,
+`FL-REVIEW`, `NE-01` — and nothing here was renamed to satisfy the ruling, because nothing
+here was prefixed. The `iagent:` and `dag-tools` forms in the table above are **citations of
+another member's record**, not prefixes on ids of ours: an ADR number is not unique across
+members (`ADR-0001` exists in two), so a citation has to say whose it is. That reading has
+gone to lane 02 with the question; the packet itself was not read in this repo.
+
 Externally-owned records this repo depends on are listed in **[FOREIGN.md](FOREIGN.md)**, with
 the owning repo and what we use them for. Two numbers cited in this tree resolve in no repo on
 this workstation (`ADR-0059`, `ADR-0066`); they are in [DEBT.md](DEBT.md), named rather than

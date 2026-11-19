@@ -90,6 +90,12 @@ A bare number is this repo's. Two numbers cited in this tree resolve in no repo 
 workstation (`ADR-0059`, `ADR-0066`); they are in [the not-established list](NOT-ESTABLISHED.md),
 not silently repaired.
 
+**An id carries no repo name**, ruled 2026-11-19 from lane 02's shapes packet as relayed: a
+repository does not prefix its ids with its own name, and the composed build places each
+member's records. `CO-EXTRACT`, `CO-ONTOLOGY`, `CO-CORPUS-GATE`, `FL-REVIEW` and the `NE-`
+rows are all bare, so nothing was renamed. The qualified forms in the table are citations of
+another member's record, not prefixes on ours. See [NE-23](NOT-ESTABLISHED.md).
+
 ## What these records never carry
 
 No site, customer or host is named. No document value, no filename from a private set, and
