@@ -70,14 +70,23 @@ by that lane at commit `823bf3480fbbfc1f4e41a0766e228507aacf4236`; **paths may m
 not**. A part of dag-tools that is not on their id list has no record yet — ask by packet,
 never invent an id.
 
-**An id carries no repo name.** Ruled 2026-11-19 from lane 02's shapes packet, relayed: a
-repository does not prefix its ids with its own name, and the composed build places each
-member's records. Every id this repo mints is therefore bare — `ADR-0100`, `CO-EXTRACT`,
-`FL-REVIEW`, `NE-01` — and nothing here was renamed to satisfy the ruling, because nothing
-here was prefixed. The `iagent:` and `dag-tools` forms in the table above are **citations of
-another member's record**, not prefixes on ids of ours: an ADR number is not unique across
-members (`ADR-0001` exists in two), so a citation has to say whose it is. That reading has
-gone to lane 02 with the question; the packet itself was not read in this repo.
+**An id carries no repo name.** Applied 2026-11-19 on Chris's relay; in lane 02's packet the
+rule is one of the **proposed rules of §4, "for lane 03 to confirm"**, so it is applied, not
+confirmed. A repository does not prefix its ids with its own name; the composed build renders
+each member's records under that member, with the member's name in the anchors; and an existing
+prefixed id still matches the pattern. Every id this repo mints is bare — `ADR-0100`,
+`CO-EXTRACT`, `FL-REVIEW`, `NE-01` — so nothing was renamed, and by the third clause nothing
+would have had to be.
+
+The `iagent:` and `dag-tools` forms in the table above are **citations of another member's
+record**, not prefixes on ids of ours: an ADR number is not unique across members (`ADR-0001`
+exists in two), so a citation has to say whose it is. **The packet accepts that form.** §4's
+evidence line reads "decision ids, `prefix:ADR-NNNN`, or repository paths; must resolve", and
+`iagent:ADR-0041` is `prefix:ADR-NNNN`. What is still open, and is with lane 02 rather than
+decided here, is whether the prefix must be the member's name as the composition spells it —
+this repo writes `iagent:`, and the member is `invincible-agent` — and whether a
+section-of-a-guide citation such as `dag-tools §4p.3` is an accepted evidence form at all or
+must be rewritten as a repository path with a line range. Both are [F-15](FOLLOW-UPS.md).
 
 Externally-owned records this repo depends on are listed in **[FOREIGN.md](FOREIGN.md)**, with
 the owning repo and what we use them for. Two numbers cited in this tree resolve in no repo on

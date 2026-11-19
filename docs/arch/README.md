@@ -15,23 +15,50 @@ alignment records, each cited together with the element it names (`AL-DMRA S4`,
 dag-tools carrying no id on that list has no record yet: ask by packet rather than invent
 an id.
 
-## The shape is provisional
+## The shape: markdown now, converted later
 
-The records are written for [arch-kit](https://github.com/edgy-solutions/arch-kit), pinned
-at tag `v0.1.0` (`e0b9b3c40520440a09a4e0e6050ea5017de05848`). arch-kit v0.1.0 declares a
-project (`arch-kit.yaml`), views, and a `decisions/` directory with its registers; it has
-no record type for a *component* or a *flow*. Until the kit or OpenDDIL lane 02's loader
-declares one, these files follow **the shape the dag-tools arch lane was using when that
-shape was read**, at `a246e0693194bfbe7b1bc66962781273d480fa74`: a title with an id,
-findings first, each finding carrying a status, then gaps, then what the code does not
-establish, then a Sources table. That lane has moved on since — it supplied this repo with
-its citation ids at `823bf3480fbbfc1f4e41a0766e228507aacf4236` — and the shape has not been
-re-read there. When lane 02's shapes arrive these records are converted to them.
+The records are written for [arch-kit](https://github.com/edgy-solutions/arch-kit). **Lane 02's
+shapes packet has now been read** — not from this repo's inbox, which still holds no copy, but
+from the copy the dag-tools architecture lane was relayed and told this lane about
+(`PACKET-2026-11-18-dagtools-shapes.md`, 297 lines, dated 2026-11-18, "from lane 02 to lane 03").
+It carries six record shapes, the declaration keys and the split of who builds what. Three of
+its facts govern these files:
 
-No `arch-kit.yaml` is declared in this repo yet, so no kit tool runs over these records.
-That is [not established](NOT-ESTABLISHED.md) rather than decided: whether doc-tools
-declares its own project or is read as a source by one project in another repo is lane
-02's call, and the loader it is building reads this tree read-only at a pinned sha.
+- **A component record is `proposed`, not built.** The kit pins the packet names are `v0.2.0` =
+  `c1940ddfb63e065e3938ddf9529a9ee68cf87dd3` (tagged; decisions-only mode and the alignment
+  type) and kit main = `93d8818be841d21c814d41ed9f3f9c67040cd992` (the merge of composition,
+  #21, over flows, #23). The **flow** type is on main, its design not ruled; the **component**
+  type is a proposal for OpenDDIL lane 03 to build or change, and so is a roadmap record. Those
+  three shas are quoted from the packet and **were not read here**: no arch-kit tree was opened
+  at any of them.
+- **Records stay markdown until lane 03's types are on kit main**, and are converted then,
+  keeping their ids. The packet rules this for the dag-tools architecture lane, which like this
+  lane writes records and builds no kit code, and says the mesh loader reads the markdown
+  records directly until then. So these files are **not** converted now: the order's "then
+  convert" waits on a record type that exists.
+- **Gaps are not a key in the proposed component shape.** A part's gaps, including a present
+  exposure, stay in prose in the member's own markdown record and the loader renders them from
+  there. The gap sections here are therefore the right home for them, and every member's
+  not-established table is merged into one page — which is what
+  [NOT-ESTABLISHED.md](NOT-ESTABLISHED.md) is for.
+
+Until that conversion the files follow **the shape the dag-tools arch lane was using when that
+shape was read**, at `a246e0693194bfbe7b1bc66962781273d480fa74`: a title with an id, findings
+first, each finding carrying a status, then gaps, then what the code does not establish, then a
+Sources table. That lane has moved on since — it supplied this repo with its citation ids at
+`823bf3480fbbfc1f4e41a0766e228507aacf4236` — and the shape has not been re-read there.
+
+**A composed project is a member, not a component** (ruled 2026-11-18, per the packet).
+"Component" now means one part of one system: what `CO-EXTRACT`, `CO-ONTOLOGY` and
+`CO-CORPUS-GATE` are. doc-tools is a *member*, and these records say so.
+
+No `arch-kit.yaml` is declared in this repo, and the packet requires none of a member: it asks
+each member lane for its repository, a full 40-character commit, and the path of its
+`arch-kit.yaml` *if it has one*, and lane 02 then reads that repository as a read-only checkout
+at that commit and commits nothing in it. A project with no portal of its own declares
+`portal: none` with `consumes:` and needs nothing else. That a member need not declare a project
+to be read is settled; whether this repo should declare `portal: none` anyway is lane 02's call
+and stays [not established](NOT-ESTABLISHED.md).
 
 ## Status vocabulary
 
@@ -53,6 +80,12 @@ status is the status of whatever partial thing exists. A gap with nothing built 
 Two statuses on one row (`accepted + built`) mean the ruling and the code are both in
 hand and agree. Where they disagree, the row says so and the status is the code's.
 
+Lane 02's shapes packet carries the same four words with the same evidence, and says the mesh
+loader **checks each member's own rules**: one status per claim from the four, and a `measured`
+claim with a re-readable result or it is reported. Nothing in these records is `measured`, for
+exactly the reason that rule names: this repo holds no re-readable run record of a parse, a
+flow or a fire ([NE-03](NOT-ESTABLISHED.md), [NE-22](NOT-ESTABLISHED.md)).
+
 ## Pins
 
 All evidence is read at these commits. **A line number is valid only at its pin.**
@@ -60,7 +93,8 @@ All evidence is read at these commits. **A line number is valid only at its pin.
 | Source | Pin | Read status |
 |---|---|---|
 | doc-tools | `2b9e6cbc61178f7086cceade8614dca4d736150a` | this repo, read directly |
-| arch-kit | `v0.1.0` = `e0b9b3c40520440a09a4e0e6050ea5017de05848` | the record form, read directly |
+| arch-kit | `v0.1.0` = `e0b9b3c40520440a09a4e0e6050ea5017de05848` | the record form, read directly. **Superseded upstream**: lane 02's packet names `v0.2.0` and a later main, and neither was read here — see [the shape section](#the-shape-markdown-now-converted-later) |
+| lane 02's shapes packet | `PACKET-2026-11-18-dagtools-shapes.md`, dated 2026-11-18 | the six record shapes, the declaration keys and the split. Read from the copy relayed to the dag-tools arch lane; it is not in this repo's `sessions/` inbox and carries no commit of its own |
 | dag-tools (arch records) | `a246e0693194bfbe7b1bc66962781273d480fa74` | the shape and the status vocabulary, read directly |
 | invincible-agent | not read here | this repo's platform peer. Facts about the deployment overlay, the substrate priming and the ADR namespace it owns are named as *that* repo's and left `not established` here rather than read from a local checkout — a local checkout is not the deployed contract. |
 
@@ -90,11 +124,18 @@ A bare number is this repo's. Two numbers cited in this tree resolve in no repo 
 workstation (`ADR-0059`, `ADR-0066`); they are in [the not-established list](NOT-ESTABLISHED.md),
 not silently repaired.
 
-**An id carries no repo name**, ruled 2026-11-19 from lane 02's shapes packet as relayed: a
-repository does not prefix its ids with its own name, and the composed build places each
-member's records. `CO-EXTRACT`, `CO-ONTOLOGY`, `CO-CORPUS-GATE`, `FL-REVIEW` and the `NE-`
-rows are all bare, so nothing was renamed. The qualified forms in the table are citations of
-another member's record, not prefixes on ours. See [NE-23](NOT-ESTABLISHED.md).
+**An id carries no repo name.** Chris relayed this on 2026-11-19 as settled and this lane
+follows it. In lane 02's packet itself the rule is one of the **proposed rules of §4, "for lane
+03 to confirm"** — so the status word on it is `proposed`, not ruled, and it is applied here
+because the relay said to, not because the packet says it is final. The rule: a repository does
+not prefix its ids with its own name; the composed build renders each member's records under
+that member, **with the member's name in the anchors**, so two members may each have a
+`CO-BROKER`; and **an existing prefixed id still matches the pattern and needs no change**.
+`CO-EXTRACT`, `CO-ONTOLOGY`, `CO-CORPUS-GATE`, `FL-REVIEW` and the `NE-` rows are all bare, so
+nothing was renamed and nothing would have needed renaming either way. The qualified forms in
+the table above are citations of another member's record, not prefixes on ours; §4 of the same
+packet lists `prefix:ADR-NNNN` as an accepted evidence form, which is that qualifier. See
+[NE-23](NOT-ESTABLISHED.md).
 
 ## What these records never carry
 
@@ -102,6 +143,25 @@ No site, customer or host is named. No document value, no filename from a privat
 no credential — not even a credential's presence, except as `len=N sha256:XXXXXXXX`. An
 environment variable that carries a credential is named, never valued. Rates, counts,
 digests and file paths may be shown.
+
+**The term check is a pattern check, not only a word list** (the architect's instruction of
+2026-11-19, given to another lane after lane 02 found a host name in one of its records; adopted
+here before this repo's records go anywhere). Three classes are grepped over `docs/arch/` and
+`docs/adr/` before a push:
+
+| Class | Pattern | Result, 2026-11-19 |
+|---|---|---|
+| IPv4 literal | `\b([0-9]{1,3}\.){3}[0-9]{1,3}\b` | 0 |
+| internal suffix | `\.(svc\|local\|internal\|corp\|cluster\|lan\|intranet)\b` | 0 |
+| domain-shaped token | a label, a dot, then a public suffix | 4 in the records, all explained below — and 6 once this note quotes two of them, which is the usual fate of a check that documents itself |
+
+Of the four domain-shaped hits, two are not hosts at all: `github.com/edgy-solutions/arch-kit`
+is the kit's public repository, and `app.kubernetes.io/name=doc-tools` is a label key. The other
+two are **one ontology namespace IRI**, cited twice in `ADR-0148` because the code declares it
+(`AGENTS.md:110`) and an ADR that omitted it would be wrong. It is domain-shaped, it names no
+deployed host, and nothing in this repo resolves it. Whether a preview must redact a namespace
+IRI anyway is the architect's call and has been asked — it is not redacted unilaterally, because
+removing it would make the record false rather than safe.
 
 ## Records
 
