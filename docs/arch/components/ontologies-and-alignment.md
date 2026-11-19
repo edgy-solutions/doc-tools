@@ -88,10 +88,20 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
     accepted proposal as `ALIGNS_TO {status:'accepted', method:'review'}`. A one-way related
     term does not join a component; it becomes a proposal. `ALIAS_OF` is **not** this pass's —
     it is the training plugin's, written after every `TEACHES`. `built`
-16. **`TEACHES` is replaced on a re-ingest and `ALIAS_OF` is not.** The training plugin
-    deletes a section's stale `TEACHES` before writing (architect's ruling 2026-10-30, quoted
-    at the deletion), while the candidate `ALIAS_OF` edges are merged. So the alias set a
-    reader sees is the union of every run, and the `TEACHES` set is the latest run's. `built`
+16. **Both edge kinds are replaced on a re-ingest, and each prune runs *after* its writes.**
+    The training plugin prunes a section's stale `TEACHES` (architect's ruling 2026-10-30,
+    quoted at `doc_tools/plugins/training.py:501-511`) and this course's stale `ALIAS_OF`
+    (`:559-570`). Both prunes run **after** their own MERGEs, each as its own transaction, and
+    that order is the safety property, in the code's words: "if a MERGE failed, the old edge
+    stays rather than being lost with nothing to replace it." Both delete the RELATIONSHIP
+    only — never the `Concept`, which is shared across slides and courses and may carry the
+    workbench's `ALIGNS_TO`. `built`
+17. **An `ALIAS_OF` belongs to the course that asserted it first.** `r.course_id` is set
+    `ON CREATE` (`:554`) and the prune matches on it (`:566`), so a re-ingest replaces only
+    the aliases whose first assertion was its own. Two consequences, neither of them the
+    accumulation this record previously claimed: an edge whose first-asserting course never
+    re-ingests is permanent, and an edge a second course also asserts is still removed when
+    the first course drops it. `built`
 
 ## Settings and defaults
 
@@ -113,9 +123,13 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
   deliberately — an alignment failure must not fail a course ingest — but nothing else
   surfaces it, so a course whose alignment failed is indistinguishable downstream from one
   with nothing to align. `built` (the decision); a surfaced counter is `not built`.
-- **`ALIAS_OF` accumulates across re-ingests.** `TEACHES` is replaced and `ALIAS_OF` is
-  merged, so the alias set is a union of runs with no pruning. `built` (both behaviours); the
-  prune is `not built`.
+- **One course's re-ingest can remove an alias another course asserted.** Both prunes exist
+  (claim 16), but an `ALIAS_OF` is keyed to its *first* asserting course (claim 17), so a
+  second course that asserts the same pair neither re-keys it nor can protect it. The edge
+  set is therefore not a union of runs, and not purely the latest run's either: it is the
+  latest run of whichever course asserted each edge first. `built` (the keying); whether that
+  is the wanted behaviour is a question for the contract's owner, not a defect this record
+  declares.
 - **Three stores can disagree and nothing compares them.** The readiness asset checks Weaviate
   against the ontology manifest; no equivalent compares Jena with Neo4j, or either with
   Weaviate's class rows. `built` (the Weaviate arm); the cross-store comparison is `not built`.
@@ -173,4 +187,5 @@ otherwise.
 | The alignment switch, its four modes, the `dry` default, and that it never raises | `semantic_assets.py:458-476` | — | `tests/test_concept_normalise.py::test_align_key_unifies_punctuation_case_and_spacing`, `::test_align_key_lockout_tagout` | `built` |
 | An unknown mode behaves as `on` | `semantic_assets.py:464`, `:472` | — | none found | `built`; the test is `not built` |
 | The pass owns auto, open and accepted `ALIGNS_TO`; a one-way term becomes a proposal; `ALIAS_OF` is not its edge | `doc_tools/passes/concepts.py:6-19`, `:140` | — | `tests/test_concept_normalise.py::test_one_way_related_term_does_not_join_it_becomes_a_proposal`, `::test_exact_key_joins_one_component_and_mutual_terms_join_another`, `::test_a_component_keeps_its_auto_cc_when_a_new_member_joins` | `built` |
-| `TEACHES` is replaced on re-ingest; `ALIAS_OF` is merged after every `TEACHES` | `doc_tools/plugins/training.py:485`, `:501-515`, `:543` | architect's ruling 2026-10-30, quoted at `:501` | — | `built` |
+| `TEACHES` and `ALIAS_OF` are both replaced on re-ingest, each prune after its own MERGEs, in its own transaction | `doc_tools/plugins/training.py:485`, `:501-522` (`TEACHES`), `:543-557`, `:559-570` (`ALIAS_OF`) | architect's ruling 2026-10-30, quoted at `:501` | — | `built` |
+| An `ALIAS_OF` is keyed to its first-asserting course, so only that course's re-ingest replaces it | `doc_tools/plugins/training.py:554` (`ON CREATE SET r.course_id`), `:566` (the prune's match) | — | — | `built` |
