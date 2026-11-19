@@ -127,9 +127,9 @@ exception envelope in finding 19, read from the installed library.
 
 | # | Step | Component | Status | Evidence |
 |---|---|---|---|---|
-| 1 | A file appears under a watched prefix | storage, outside this repo | `built` | the prefixes are generated from the kind registry — [CO-EXTRACT §2](../components/extraction-pipeline.md) |
+| 1 | A file appears under a watched prefix | storage, outside this repo | `built` | `doc_tools/utils/content_kind.py:836`, `:850` generate the prefixes from the kind registry, pinned by `tests/test_ingress_prefix_registry.py::test_generated_pdf_pattern_equals_the_shipped_literal` — read with [CO-EXTRACT §2](../components/extraction-pipeline.md) |
 | 2 | Lane 1 stamps `received` for a user drop | gateway, **another lane** | `built` elsewhere | `dagster_resources.py:186-190` — doc-tools observes it locally and never posts it |
-| 3 | A sensor tick lists the prefix, mints `{ETag}-{key}`, adds a dynamic partition and launches a run | `S3SensorComponent` — dag-tools `CO-S3-SENSOR`, an **installed package** | `built` | identical bytes mint the same key and launch nothing; a key consumed by a failed run stays consumed |
+| 3 | A sensor tick lists the prefix, mints `{ETag}-{key}`, adds a dynamic partition and launches a run | `S3SensorComponent` — dag-tools `CO-S3-SENSOR`, an **installed package** | `built` | `dag_tools/components/s3_sensor/sensor_component.py:86`, `:112-116`, `:140`; `utils.py:36-38` — **installed package, not this repo**, read at the installed copy. Identical bytes mint the same key and launch nothing; a key consumed by a failed run stays consumed |
 | 4 | The parse asset downloads the object | CO-EXTRACT | `built` | `document_parser.py:397`; on failure it writes `mock document content` and continues — [CO-EXTRACT §10](../components/extraction-pipeline.md) |
 | 5 | `unstructured` partitions it at `hi_res`; tables and images are cropped; pages are rastered | CO-EXTRACT | `built` | `extraction.py:69-87`; `document_parser.py:436-442`, `:533-535` |
 | 6 | The ingest id is taken from the sidecar or minted from the bytes, and provenance is stamped | CO-EXTRACT | `built` | `document_parser.py:663-664`, `:683`, `:707-709` |

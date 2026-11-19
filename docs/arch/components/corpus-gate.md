@@ -164,7 +164,7 @@ this lane's reading as well.
 | Data path | it reads the corpus through the ordinary extraction path, in the image under measurement; it has no path of its own | — | `none` |
 | What it emits | one verdict, one strict verdict, per-fire artifacts, and a committed report that names the digest it measured | — | `none` |
 | Security role | none. It makes no access decision and holds no credential of its own; it runs as the pipeline does | — | `none` |
-| Plane | we would read it as data management — a lifecycle service over the extraction, not a producer of data. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here | `none` |
+| Plane | it is a lifecycle service over the extraction rather than a producer of data: it measures an enumerated corpus and publishes a verdict | **`data-management`**, `proposed`, against **L3** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L3 is "the shared lifecycle services, standardized through APIs and metadata", and a quality gate over the data's life is one of them, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools | `none` |
 
 ## Sources
 

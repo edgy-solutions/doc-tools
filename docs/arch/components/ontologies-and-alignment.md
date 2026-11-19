@@ -135,6 +135,15 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
   Weaviate's class rows. `built` (the Weaviate arm); the cross-store comparison is `not built`.
 - **The vocabulary's drop path is in another repo.** A reader of this repo cannot see what a
   re-ingest removes, only what it adds. `built` elsewhere.
+- **Two authorities share the local name `mesh`, and nothing reconciles them.** Class IRIs
+  come from the ontologies' own base — nine of them in a `mesh` family at
+  `content_kind.py:466`, `:505`, `:521`, `:577`, `:596`, `:608`, `:632`, `:644`, `:680` —
+  while the mesh *predicates* are `http://invincible-agent/mesh#` (`ontology_assets.py:120`).
+  They are different axes, in the way that file's own comment already distinguishes a named
+  **graph** uri from a vocabulary **namespace**; the difference here is that both spellings
+  end in `mesh#`, so a reader who meets one has nothing in either file telling them the other
+  exists. `built` (both namespaces, at every site above); a reconciliation, or a cross-note in
+  either file, is `not built`. Checked 2026-11-19 at the dag-tools arch lane's request, and the collision is bounded: `mesh#` appears nowhere in the dag-tools tree at dag-tools `4c6107523acf50bfc1338c4ee46813ff9090f929`, so the two authorities are this repo's and the platform's, and no third member spells it.
 
 ## Not established from code
 
@@ -172,10 +181,10 @@ this lane's reading as well.
 |---|---|---|---|
 | Purpose | ingest a vocabulary into three stores, write document facts into rule-chosen graphs, and align concepts to canonical ones | `AL-DMRA S2` — semantic services `proposed` | `dcra:A6, dcra:A7` |
 | Where the vocabulary comes from | not here: invincible-agent's TTLs, primed by its Helm Job. doc-tools consumes and mirrors it | `AL-DMRA S4` — data and metadata profiles `proposed` | `dcra:A12` |
-| Identity | class IRIs are the ontology's; the mesh predicates are in `http://invincible-agent/mesh#`, and a document's graph is named by its source key | `AL-DMRA S1` `proposed` | `dcra:A12` |
+| Identity | class IRIs come from the ontologies' own base — five families under it (`mil`, `mfg`, `pcn`, `training`, `mesh`), the `mil` one declared at `AGENTS.md:110` and the class names written at `content_kind.py:466` through `:680`; the mesh **predicates** are a different authority, `http://invincible-agent/mesh#`, which happens to share the local name `mesh` (see Gaps); and a document's graph is named by its source key | `AL-DMRA S1` `proposed` | `dcra:A12` |
 | Quality | the seals are the quality instrument: declared classes are rows, and a row is retrievable | `AL-DMRA S13` `proposed` | `dcra:A10` |
 | Security role | none. It holds store credentials and makes no access decision | — | `none` |
-| Plane | we would read it as data management — it maintains the semantic substrate the other planes read. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here | `none` |
+| Plane | it maintains the semantic substrate the other planes read, and produces no document data of its own | **`data-management`**, `proposed`, against **L3** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L3 is "the shared lifecycle services, standardized through APIs and metadata", and governing vocabulary across its life is one of them, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools | `none` |
 
 ## Sources
 
@@ -190,6 +199,7 @@ otherwise.
 | The three graph URIs, and that the instance write is never the bare domain graph | `ontology_assets.py:1223`; `doc_tools/assets/semantic_assets.py:1733`, `:1756`, `:1816`, `:1818`, `:1955` | — | — | `built` |
 | The vocabulary graph is POST-merged; the drop is invincible-agent's `clear_ontology_graphs` | `AGENTS.md:142`, `:152`; comment at `ontology_assets.py:1266` | — | — | `built` (here); the drop is elsewhere |
 | The mesh namespace, and the rejected one kept as a constant | `ontology_assets.py:104-130`, `:120`, `:124`, `:149-152` | recorded at `:104-108` | `tests/test_ontology_assets_universal_referent.py::test_the_projection_binds_by_the_declared_predicate_iri` | `built` |
+| Two authorities share the local name `mesh`, on different axes | nine **class** IRIs in the ontologies' `mesh` family — `content_kind.py:466`, `:505`, `:521`, `:577`, `:596`, `:608`, `:632`, `:644`, `:680` — against the **predicate** namespace `http://invincible-agent/mesh#` at `ontology_assets.py:120` | none; neither side cites the other | both read directly at the pin; the predicate side is pinned by `tests/test_ontology_assets_universal_referent.py::test_the_projection_binds_by_the_declared_predicate_iri` | `built` |
 | Universal referent: absent is None, an explicit false equals absent, every class carries the key | `ontology_assets.py:160`, `:149-152` | — | `tests/test_ontology_assets_universal_referent.py::test_absent_is_None_not_False`, `::test_an_explicit_false_is_the_same_as_absent`, `::test_every_class_carries_the_key_so_a_dropped_flag_is_REMOVED`, `::test_THE_SEAL_flagged_carries_it_unflagged_does_not` | `built` |
 | A vectorless write is refused when it would strip a stored vector | `ontology_assets.py:681-695` | — | `tests/test_ontology_writer_never_strips_a_vector.py::test_an_existing_row_WITH_a_named_vector_is_refused`, `::test_a_LEGACY_unnamed_vector_also_counts_as_a_vector_to_lose`, `::test_an_existing_row_that_never_had_a_vector_is_REFRESHED_not_refused`, `::test_a_store_we_cannot_interrogate_is_REFUSED_and_says_so`, `::test_the_writer_SKIPS_the_row_whose_vector_it_would_strip` | `built` |
 | Two seals; the retrieval seal exists because the row seal is green on a dead pool | `ontology_assets.py:513-520`, `:564-575` | — | `tests/test_ontology_rows_are_retrievable.py::test_THE_MEASURED_SUBSTRATE_FAILS`, `::test_an_index_that_answers_WITHOUT_the_row_also_fails`, `::test_the_seal_runs_BESIDE_the_row_seal_not_instead_of_it`, `::test_the_seal_asks_the_SERVER_to_use_the_vector`, `::test_the_probe_is_deterministic` | `built` |

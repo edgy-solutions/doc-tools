@@ -211,7 +211,7 @@ this lane's reading as well.
 | How the mesh reaches it | it is a Dagster code location over gRPC, running inside the orchestrator dag-tools records as `CO-DAGSTER`; the mesh does not call the pipeline, it drops an object or offers a retry | `AL-DMRA S7` — data exchange `proposed` | `none` |
 | What it emits | a versioned manifest plus a pointer written after it, a graph write, a vector index, a review record | — | `none` |
 | Security role | none of its own. It holds credentials for the stores it writes and makes no access decision | `AL-DCRA R1` is *not* here — the enforcement point is the gateway's `proposed` | `none` |
-| Plane | we would read it as an operational data plane — it produces the data the rest of the mesh reads. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here | `none` |
+| Plane | it produces the data the rest of the mesh reads — the parse artifacts, the graph, the vector index and the review record | **`operational-data`**, `proposed`, against **L2** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L2 is "where communities produce data, with metadata standardized as it is produced", which is what this part does, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools | `none` |
 
 ## Sources
 

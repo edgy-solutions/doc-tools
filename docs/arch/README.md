@@ -69,7 +69,7 @@ linked because a record is read on its own.
 | Status | Means | Evidence it needs |
 |---|---|---|
 | `measured` | A recorded run against a running system showed it. | The record of the run. Having a test that could measure it is not enough. |
-| `built` | Code at the pinned commit does it. | A file and line. A test that pins it, when one exists; when none does, the row says so. |
+| `built` | Code at the pinned commit does it. | **One of four, at a pinned commit**: a file path with lines, a test, a chart template, or a release record. A census key or a decision record **alone does not support `built`** — it supports `accepted` (the architect, 2026-11-19). A test that pins it as well, when one exists; when none does, the row says so. |
 | `accepted` | A decision record or a ruling accepts it, and no code does it yet. | The decision record or the ruling, with its date. |
 | `proposed` | It is written down as intent, but not accepted or built. | Where it is written. |
 
@@ -86,6 +86,24 @@ claim with a re-readable result or it is reported. Nothing in these records is `
 exactly the reason that rule names: this repo holds no re-readable run record of a parse, a
 flow or a fire ([NE-03](NOT-ESTABLISHED.md), [NE-22](NOT-ESTABLISHED.md)).
 
+**The `built` rule was checked against these records, not just written down.** The architect
+ruled it on 2026-11-19 saying nothing needs rewriting now and that records written from here on
+should cite the code; this lane measured the existing ones anyway, because a rule nobody checks
+is a rule nobody keeps. All **92** `built` claims across the three component records and the flow
+record now carry a file path with lines, a test, or a chart template:
+
+| Record | `built` claims | Carrying path-with-lines, a test or a template |
+|---|---|---|
+| [CO-EXTRACT](components/extraction-pipeline.md) | 22 | 22 |
+| [CO-ONTOLOGY](components/ontologies-and-alignment.md) | 16 | 16 |
+| [CO-CORPUS-GATE](components/corpus-gate.md) | 19 | 19 |
+| [FL-REVIEW](flows/document-to-review-record.md) | 35 | 35 |
+
+Two of the flow's rows did not, when measured: step 1 cited only the component record that holds
+the evidence, and step 3 stated the behaviour without naming where it lives. Both now cite the
+code — `content_kind.py` with lines and its test, and the installed sensor package with lines —
+which is the whole of the correction the rule asked for.
+
 ## Pins
 
 All evidence is read at these commits. **A line number is valid only at its pin.**
@@ -97,6 +115,8 @@ All evidence is read at these commits. **A line number is valid only at its pin.
 | lane 02's shapes packet | `PACKET-2026-11-18-dagtools-shapes.md`, dated 2026-11-18 | the six record shapes, the declaration keys and the split. Read from the copy relayed to the dag-tools arch lane; it is not in this repo's `sessions/` inbox and carries no commit of its own |
 | lane 02's structured-fields packet | `PACKET-2026-11-19-architect-structured-fields.md`, dated 2026-11-19 | §4.1 — the thirteen DCRA capability ids, the rules for the `Capability` column, and the ruling that Appendix 14 is the source of the planes and not a capability; and §1's rule that the portal reads columns **by header name, not position**. Read from the dispatch copy the architect's instruction carried; it is not in this repo's `sessions/` inbox and carries no commit of its own |
 | dag-tools (arch records) | `a246e0693194bfbe7b1bc66962781273d480fa74` | the shape and the status vocabulary, read directly |
+| dag-tools (the plane list) | `16da96502281c5496b1553e3ed560c2a10e77ed0` | `docs/arch/README.md` "## Planes" and `AL-DCRA`'s "## Data planes (Appendix 14)" rows L1–L4, read directly. **PR #111, unmerged**, relayed by the dag-tools arch lane on 2026-11-19: the sha is the pin, because the branch moves and `main` does not carry it yet |
+| dag-tools (headers and namespaces) | `4c6107523acf50bfc1338c4ee46813ff9090f929` | two narrow reads, both in the local checkout: the connections and steps **column names** across its 32 component and 3 flow records (F-21, F-22), and that `mesh#` occurs nowhere in that tree (the Gaps bullet in [CO-ONTOLOGY](components/ontologies-and-alignment.md)). Headers relayed by that lane and verified here, not taken on report |
 | invincible-agent | not read here | this repo's platform peer. Facts about the deployment overlay, the substrate priming and the ADR namespace it owns are named as *that* repo's and left `not established` here rather than read from a local checkout — a local checkout is not the deployed contract. |
 
 Statuses for anything deployed are read from `charts/` and from code, **never from a
