@@ -6,8 +6,14 @@ says so. Nothing unbuilt is called built.
 
 They are this repo's half of the mesh architecture portal. The mesh-wide records — the
 gateway, the broker, the mesh data client, the alignment to the outside references, and
-the roadmap — are in [dag-tools `docs/arch/`](https://github.com/edgy-solutions/dag-tools/tree/lane/arch-components-2/docs/arch),
-and are cited from here rather than restated.
+the roadmap — belong to dag-tools, and are cited from here by **stable id**, never by path
+or branch: `CO-*` for a component, `FL-*` for a flow, `AL-DCRA` and `AL-DMRA` for the two
+alignment records, each cited together with the element it names (`AL-DMRA S4`,
+`AL-DCRA R1`). That lane supplied the ids at commit
+`823bf3480fbbfc1f4e41a0766e228507aacf4236`, the head of a stack of drafts, none merged.
+**Ids are stable; paths are not** — which is why no branch URL appears here. A part of
+dag-tools carrying no id on that list has no record yet: ask by packet rather than invent
+an id.
 
 ## The shape is provisional
 
@@ -15,10 +21,12 @@ The records are written for [arch-kit](https://github.com/edgy-solutions/arch-ki
 at tag `v0.1.0` (`e0b9b3c40520440a09a4e0e6050ea5017de05848`). arch-kit v0.1.0 declares a
 project (`arch-kit.yaml`), views, and a `decisions/` directory with its registers; it has
 no record type for a *component* or a *flow*. Until the kit or OpenDDIL lane 02's loader
-declares one, these files follow **the shape the dag-tools arch lane is using** at
-`a246e0693194bfbe7b1bc66962781273d480fa74`: a title with an id, findings first, each
-finding carrying a status, then gaps, then what the code does not establish, then a
-Sources table. When lane 02's shapes arrive these records are converted to them.
+declares one, these files follow **the shape the dag-tools arch lane was using when that
+shape was read**, at `a246e0693194bfbe7b1bc66962781273d480fa74`: a title with an id,
+findings first, each finding carrying a status, then gaps, then what the code does not
+establish, then a Sources table. That lane has moved on since — it supplied this repo with
+its citation ids at `823bf3480fbbfc1f4e41a0766e228507aacf4236` — and the shape has not been
+re-read there. When lane 02's shapes arrive these records are converted to them.
 
 No `arch-kit.yaml` is declared in this repo yet, so no kit tool runs over these records.
 That is [not established](NOT-ESTABLISHED.md) rather than decided: whether doc-tools
@@ -73,7 +81,10 @@ series](../adr/README.md), numbered from `0100` for exactly that reason. These r
 |---|---|
 | `ADR-0001` | a record in this repo's `docs/adr/` |
 | `iagent:ADR-0041` | a record in invincible-agent's `docs/adr/` (66 records and an index) |
-| `dag:ADR-0001` | a record in dag-tools' `docs/adr/` |
+| `CO-DAGSTER`, `FL-BIG` | a dag-tools component or flow record, by its stable id |
+| `AL-DMRA S4`, `AL-DCRA R1` | a dag-tools alignment record, cited together with the element it names |
+| dag-tools census `§4p.3` | a dag-tools decision; that lane keys its decisions to census sections |
+| dag-tools roadmap row 7 | one numbered row of the dag-tools roadmap, which runs 1 to 16 |
 
 A bare number is this repo's. Two numbers cited in this tree resolve in no repo on this
 workstation (`ADR-0059`, `ADR-0066`); they are in [the not-established list](NOT-ESTABLISHED.md),

@@ -184,18 +184,19 @@ Nothing in this record was run: it is read from the code, the chart and the test
 - **What the parse step costs** — wall clock, memory, or pages per minute at either DPI. No
   such measurement exists in this repo, so no claim here is `measured`.
 - Which alignment rows of the outside references this component answers to. The rows
-  suggested below are this lane's reading, not the arch lane's. `proposed`
+  suggested below are this lane's reading, not the arch lane's. The **plane** is not among
+  them: the architect ruled on 2026-11-19 that planes are not established. `proposed`
 
 ## Place in the mesh
 
 | Aspect | What the code and chart show | Suggested alignment row |
 |---|---|---|
-| Purpose | turn a document into a parse artifact, a graph, an index and a review record, addressed by a minted ingest id | [DoD S4](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/dod-dmra.md) — data and metadata profiles with lineage and pedigree `proposed` |
-| Identity | the ingest id is the sidecar's or minted from the bytes, and is the doc id; the run key is the object's ETag | [DoD S1](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/dod-dmra.md) — unique identification `proposed` |
-| How the mesh reaches it | it is a Dagster code location over gRPC; the mesh does not call the pipeline, it drops an object or offers a retry | [DoD S7](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/dod-dmra.md) — data exchange `proposed` |
+| Purpose | turn a document into a parse artifact, a graph, an index and a review record, addressed by a minted ingest id | `AL-DMRA S4` — data and metadata profiles with lineage and pedigree `proposed` |
+| Identity | the ingest id is the sidecar's or minted from the bytes, and is the doc id; the run key is the object's ETag | `AL-DMRA S1` — unique identification `proposed` |
+| How the mesh reaches it | it is a Dagster code location over gRPC; the mesh does not call the pipeline, it drops an object or offers a retry | `AL-DMRA S7` — data exchange `proposed` |
 | What it emits | a versioned manifest plus a pointer written after it, a graph write, a vector index, a review record | — |
-| Security role | none of its own. It holds credentials for the stores it writes and makes no access decision | [NATO R1](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/nato-dcra.md) is *not* here — the enforcement point is the gateway's `proposed` |
-| Plane | operational data plane: it produces the data the rest of the mesh reads | [NATO L2](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/nato-dcra.md) `proposed` |
+| Security role | none of its own. It holds credentials for the stores it writes and makes no access decision | `AL-DCRA R1` is *not* here — the enforcement point is the gateway's `proposed` |
+| Plane | we would read it as an operational data plane — it produces the data the rest of the mesh reads. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here |
 
 ## Sources
 

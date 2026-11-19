@@ -141,18 +141,19 @@ Nothing in this record was run: it is read from the scripts, the chart and the t
   names were not read into this record.
 - Which alignment rows of the outside references the gate answers to. The rows suggested
   below are this lane's reading, not the arch lane's; dag-tools' alignment records do not
-  name doc-tools at their pin. `proposed`
+  name doc-tools at their pin. The **plane** is not among the rows: the architect ruled on
+  2026-11-19 that planes are not established. `proposed`
 
 ## Place in the mesh
 
 | Aspect | What the code and chart show | Suggested alignment row |
 |---|---|---|
-| Purpose | turn "the extractor works" into a citable verdict over an enumerated corpus, three times, with the evidence attached | [DoD S13](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/dod-dmra.md) — quality measured and kept as metadata `proposed` |
+| Purpose | turn "the extractor works" into a citable verdict over an enumerated corpus, three times, with the evidence attached | `AL-DMRA S13` — quality measured and kept as metadata `proposed` |
 | How the mesh wires it | nothing calls it; an operator fires it into the cluster and the pod publishes to a branch. CI reads the published report, not the gate | — |
 | Data path | it reads the corpus through the ordinary extraction path, in the image under measurement; it has no path of its own | — |
 | What it emits | one verdict, one strict verdict, per-fire artifacts, and a committed report that names the digest it measured | — |
 | Security role | none. It makes no access decision and holds no credential of its own; it runs as the pipeline does | — |
-| Plane | data management: it is a lifecycle service over the extraction, not a producer of data | [NATO L3](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/nato-dcra.md) `proposed` |
+| Plane | we would read it as data management — a lifecycle service over the extraction, not a producer of data. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here |
 
 ## Sources
 

@@ -59,7 +59,16 @@ invincible-agent's `mem0-llm-decouple`, and dag-tools' `mesh-publishing-protocol
 |---|---|
 | `ADR-0100` | a record in this directory |
 | `iagent:ADR-0041` | a record in invincible-agent's `docs/adr/` |
-| `dag:ADR-0001` | a record in dag-tools' `docs/adr/` |
+| `CO-DAGSTER`, `FL-BIG` | a dag-tools component or flow record, by its stable id |
+| `AL-DMRA S4`, `AL-DCRA R1` | a dag-tools alignment record, cited together with the element it names |
+| dag-tools census `§4p.3` | a dag-tools decision. That lane keys its decisions to census sections, not to ADR numbers |
+| dag-tools roadmap row 7 | one numbered row of the dag-tools roadmap, which runs 1 to 16 |
+
+dag-tools has **no ADR-numbered series this repo may cite**: the `dag:ADR-NNNN` form that
+stood here was ours, not theirs, and is withdrawn. The ids above are stable and were supplied
+by that lane at commit `823bf3480fbbfc1f4e41a0766e228507aacf4236`; **paths may move, ids may
+not**. A part of dag-tools that is not on their id list has no record yet — ask by packet,
+never invent an id.
 
 Externally-owned records this repo depends on are listed in **[FOREIGN.md](FOREIGN.md)**, with
 the owning repo and what we use them for. Two numbers cited in this tree resolve in no repo on

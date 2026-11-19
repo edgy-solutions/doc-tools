@@ -152,18 +152,19 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
 - **Whether any `mil:*` term is present in a deployed vocabulary graph.** The namespace is
   declared in `AGENTS.md:110`; what is loaded is a cluster fact.
 - Which alignment rows of the outside references this component answers to. The rows
-  suggested below are this lane's reading, not the arch lane's. `proposed`
+  suggested below are this lane's reading, not the arch lane's. The **plane** is not among
+  them: the architect ruled on 2026-11-19 that planes are not established. `proposed`
 
 ## Place in the mesh
 
 | Aspect | What the code and chart show | Suggested alignment row |
 |---|---|---|
-| Purpose | ingest a vocabulary into three stores, write document facts into rule-chosen graphs, and align concepts to canonical ones | [DoD S2](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/dod-dmra.md) — semantic services `proposed` |
-| Where the vocabulary comes from | not here: invincible-agent's TTLs, primed by its Helm Job. doc-tools consumes and mirrors it | [DoD S4](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/dod-dmra.md) — data and metadata profiles `proposed` |
-| Identity | class IRIs are the ontology's; the mesh predicates are in `http://invincible-agent/mesh#`, and a document's graph is named by its source key | [DoD S1](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/dod-dmra.md) `proposed` |
-| Quality | the seals are the quality instrument: declared classes are rows, and a row is retrievable | [DoD S13](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/dod-dmra.md) `proposed` |
+| Purpose | ingest a vocabulary into three stores, write document facts into rule-chosen graphs, and align concepts to canonical ones | `AL-DMRA S2` — semantic services `proposed` |
+| Where the vocabulary comes from | not here: invincible-agent's TTLs, primed by its Helm Job. doc-tools consumes and mirrors it | `AL-DMRA S4` — data and metadata profiles `proposed` |
+| Identity | class IRIs are the ontology's; the mesh predicates are in `http://invincible-agent/mesh#`, and a document's graph is named by its source key | `AL-DMRA S1` `proposed` |
+| Quality | the seals are the quality instrument: declared classes are rows, and a row is retrievable | `AL-DMRA S13` `proposed` |
 | Security role | none. It holds store credentials and makes no access decision | — |
-| Plane | data management: it maintains the semantic substrate the operational and analytical planes read | [NATO L3](https://github.com/edgy-solutions/dag-tools/blob/lane/arch-alignment/docs/arch/alignment/nato-dcra.md) `proposed` |
+| Plane | we would read it as data management — it maintains the semantic substrate the other planes read. That reading is ours and nothing confirms it | `not established` — the `AL-DCRA` plane layer is not settled (architect, 2026-11-19), so no `L`*n* is cited here |
 
 ## Sources
 
