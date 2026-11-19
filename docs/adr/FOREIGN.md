@@ -31,6 +31,7 @@ Two rules apply to every row:
 | The **batch column map's two header fields** | Lane 1 (ruled 2026-10-31) | which two fields Lane 1 serves. **Which two is unresolved** | accepted, unresolved — [ADR-0230](ADR-0230-the-batch-column-map-seam.md) |
 | The **training workbench's read side** | lane wb | the consumer of the contract whose write side is here; contract is at version 5, DRAFT | accepted + built, drifted — [ADR-0234](ADR-0234-the-training-workbench-seam.md) |
 | The **Level-2 dedupe decision** | the ingress-user lane | we own the key, they own the decision taken on it | built — [ADR-0132](ADR-0132-notice-identity-is-the-key-not-the-decision.md) |
+| The **mesh-wide architecture records** — the gateway, the broker, the mesh data client, the two alignment records and the roadmap | dag-tools arch lane | the ids this repo cites rather than restating the records: `CO-` and `FL-` for components and flows, `AL-DCRA` and `AL-DMRA` with the element they name | cited, never mirrored — [the arch README](../arch/README.md) |
 | **The architect's rulings**, relayed by Chris as packets | the architect | the top authority over every record in this directory | — |
 
 ## What this register deliberately does not do
