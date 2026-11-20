@@ -171,25 +171,25 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
 
 ## Place in the mesh
 
-The **Capability** column answers the architect's instruction of 2026-11-19, which carries lane 02's
-structured-fields packet §4.1: every alignment row names one or more ids from the NATO DCRA's
-thirteen capabilities, or `none` written out, so that a blank never reads as an answer. Every value
-in that column is **`proposed`**, and on weaker evidence than the rest of this record: this lane
-mapped each row from the **appendix titles reproduced in §4.1** and has not read DCRA v2
-(AC/322-D(2025)0056) itself, so no cell is confirmed against an appendix's contents. The `none` on
-the **Plane** row is the one cell that is not a reading — §4.1 rules that Appendix 14 (Technical
-Architecture) is the source of the planes and is *not* a capability. See
-[NE-16](../NOT-ESTABLISHED.md), which records that the element alignment in the third column is
-this lane's reading as well.
+**The Capability column is gone from this table**, on the architect's order of 2026-11-19
+(night): a capability belongs to an alignment record, not to a component's. The values were not
+discarded. They went to the dag-tools arch lane, which owns `AL-DCRA`, listed in full in this
+lane's packet of the same date, so that nobody has to reconstruct them from this file's history —
+and they went with the caveat they were written under. Every one was **`proposed`**, mapped from
+the **appendix titles reproduced in §4.1** of lane 02's packet by a lane that has not read DCRA v2
+(AC/322-D(2025)0056) itself, so no cell was ever confirmed against an appendix's contents. The
+**Plane** row never carried one: §4.1 rules that Appendix 14 is the source of the planes and is
+not a capability. See [NE-16](../NOT-ESTABLISHED.md), which records that the element alignment in
+the third column is this lane's reading too.
 
-| Aspect | What the code and chart show | Suggested alignment row | Capability |
-|---|---|---|---|
-| Purpose | ingest a vocabulary into three stores, write document facts into rule-chosen graphs, and align concepts to canonical ones | `AL-DMRA S2` — semantic services `proposed` | `dcra:A6, dcra:A7` |
-| Where the vocabulary comes from | not here: invincible-agent's TTLs, primed by its Helm Job. doc-tools consumes and mirrors it | `AL-DMRA S4` — data and metadata profiles `proposed` | `dcra:A12` |
-| Identity | class IRIs come from the ontologies' own base — five families under it (`mil`, `mfg`, `pcn`, `training`, `mesh`), the `mil` one declared at `AGENTS.md:110` and the class names written at `content_kind.py:466` through `:680`; the mesh **predicates** are a different authority, `http://invincible-agent/mesh#`, which happens to share the local name `mesh` (see Gaps); and a document's graph is named by its source key | `AL-DMRA S1` `proposed` | `dcra:A12` |
-| Quality | the seals are the quality instrument: declared classes are rows, and a row is retrievable | `AL-DMRA S13` `proposed` | `dcra:A10` |
-| Security role | none. It holds store credentials and makes no access decision | — | `none` |
-| Plane | it maintains the semantic substrate the other planes read, and produces no document data of its own | **`data-management`**, `proposed`, against **L3** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L3 is "the shared lifecycle services, standardized through APIs and metadata", and governing vocabulary across its life is one of them, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools | `none` |
+| Aspect | What the code and chart show | Suggested alignment row |
+|---|---|---|
+| Purpose | ingest a vocabulary into three stores, write document facts into rule-chosen graphs, and align concepts to canonical ones | `AL-DMRA S2` — semantic services `proposed` |
+| Where the vocabulary comes from | not here: invincible-agent's TTLs, primed by its Helm Job. doc-tools consumes and mirrors it | `AL-DMRA S4` — data and metadata profiles `proposed` |
+| Identity | class IRIs come from the ontologies' own base — five families under it (`mil`, `mfg`, `pcn`, `training`, `mesh`), the `mil` one declared at `AGENTS.md:110` and the class names written at `content_kind.py:466` through `:680`; the mesh **predicates** are a different authority, `http://invincible-agent/mesh#`, which happens to share the local name `mesh` (see Gaps); and a document's graph is named by its source key | `AL-DMRA S1` `proposed` |
+| Quality | the seals are the quality instrument: declared classes are rows, and a row is retrievable | `AL-DMRA S13` `proposed` |
+| Security role | none. It holds store credentials and makes no access decision | — |
+| Plane | it maintains the semantic substrate the other planes read, and produces no document data of its own | **`data-management`**, `proposed`, against **L3** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L3 is "the shared lifecycle services, standardized through APIs and metadata", and governing vocabulary across its life is one of them, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools |
 
 ## Sources
 

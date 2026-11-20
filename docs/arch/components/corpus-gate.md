@@ -146,25 +146,25 @@ Nothing in this record was run: it is read from the scripts, the chart and the t
 
 ## Place in the mesh
 
-The **Capability** column answers the architect's instruction of 2026-11-19, which carries lane 02's
-structured-fields packet §4.1: every alignment row names one or more ids from the NATO DCRA's
-thirteen capabilities, or `none` written out, so that a blank never reads as an answer. Every value
-in that column is **`proposed`**, and on weaker evidence than the rest of this record: this lane
-mapped each row from the **appendix titles reproduced in §4.1** and has not read DCRA v2
-(AC/322-D(2025)0056) itself, so no cell is confirmed against an appendix's contents. The `none` on
-the **Plane** row is the one cell that is not a reading — §4.1 rules that Appendix 14 (Technical
-Architecture) is the source of the planes and is *not* a capability. See
-[NE-16](../NOT-ESTABLISHED.md), which records that the element alignment in the third column is
-this lane's reading as well.
+**The Capability column is gone from this table**, on the architect's order of 2026-11-19
+(night): a capability belongs to an alignment record, not to a component's. The values were not
+discarded. They went to the dag-tools arch lane, which owns `AL-DCRA`, listed in full in this
+lane's packet of the same date, so that nobody has to reconstruct them from this file's history —
+and they went with the caveat they were written under. Every one was **`proposed`**, mapped from
+the **appendix titles reproduced in §4.1** of lane 02's packet by a lane that has not read DCRA v2
+(AC/322-D(2025)0056) itself, so no cell was ever confirmed against an appendix's contents. The
+**Plane** row never carried one: §4.1 rules that Appendix 14 is the source of the planes and is
+not a capability. See [NE-16](../NOT-ESTABLISHED.md), which records that the element alignment in
+the third column is this lane's reading too.
 
-| Aspect | What the code and chart show | Suggested alignment row | Capability |
-|---|---|---|---|
-| Purpose | turn "the extractor works" into a citable verdict over an enumerated corpus, three times, with the evidence attached | `AL-DMRA S13` — quality measured and kept as metadata `proposed` | `dcra:A10` |
-| How the mesh wires it | nothing calls it; an operator fires it into the cluster and the pod publishes to a branch. CI reads the published report, not the gate | — | `none` |
-| Data path | it reads the corpus through the ordinary extraction path, in the image under measurement; it has no path of its own | — | `none` |
-| What it emits | one verdict, one strict verdict, per-fire artifacts, and a committed report that names the digest it measured | — | `none` |
-| Security role | none. It makes no access decision and holds no credential of its own; it runs as the pipeline does | — | `none` |
-| Plane | it is a lifecycle service over the extraction rather than a producer of data: it measures an enumerated corpus and publishes a verdict | **`data-management`**, `proposed`, against **L3** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L3 is "the shared lifecycle services, standardized through APIs and metadata", and a quality gate over the data's life is one of them, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools | `none` |
+| Aspect | What the code and chart show | Suggested alignment row |
+|---|---|---|
+| Purpose | turn "the extractor works" into a citable verdict over an enumerated corpus, three times, with the evidence attached | `AL-DMRA S13` — quality measured and kept as metadata `proposed` |
+| How the mesh wires it | nothing calls it; an operator fires it into the cluster and the pod publishes to a branch. CI reads the published report, not the gate | — |
+| Data path | it reads the corpus through the ordinary extraction path, in the image under measurement; it has no path of its own | — |
+| What it emits | one verdict, one strict verdict, per-fire artifacts, and a committed report that names the digest it measured | — |
+| Security role | none. It makes no access decision and holds no credential of its own; it runs as the pipeline does | — |
+| Plane | it is a lifecycle service over the extraction rather than a producer of data: it measures an enumerated corpus and publishes a verdict | **`data-management`**, `proposed`, against **L3** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L3 is "the shared lifecycle services, standardized through APIs and metadata", and a quality gate over the data's life is one of them, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools |
 
 ## Sources
 
