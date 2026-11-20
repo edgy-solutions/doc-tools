@@ -109,7 +109,7 @@ exception envelope in finding 19, read from the installed library.
     the installed `baml_py` 0.222.0: `BamlValidationError.__str__` and
     `BamlClientFinishReasonError.__str__` emit `message=`, then `raw_output=`, then `prompt=`.
     `raw_output` is the model's reply verbatim; `prompt` is the RENDERED prompt, which on this
-    path contains the document's own text. So a bounded 400-character echo publishes the reply
+    path contains the document's own text. So the then-bounded 400-character echo published the reply
     and an unbounded one publishes the document. `pass_failure.classify_pass_failure` therefore
     classifies on the exception's TYPE and on the PRESENCE of those attributes, never on
     message text, and the review record carries none of it. A side effect worth the name: the
@@ -118,10 +118,33 @@ exception envelope in finding 19, read from the installed library.
     `measured` (the envelope), `built` (the implementation)
 20. **The same echo rode to Lane 1's ingest row, and that door is closed too.**
     `ingest_failure.classify(exc)` returns a `(reason_code, reason)` pair over a declared
-    `REASON_CODES` set with the codes reserved to Lane 1 excluded, bounded at 400 characters.
-    For an exception carrying BAML's envelope it now reports a code and this lane's own
-    sentence instead of the echo; for every other raise on that path — all of them OUR guards,
-    whose message is the thing the row exists to carry — the echo is unchanged. `built`
+    `REASON_CODES` set with the codes reserved to Lane 1 excluded. For an exception carrying
+    BAML's envelope it reports a code and this lane's own sentence instead of the echo; for
+    every other raise on that path — all of them OUR guards, whose message is the thing the row
+    exists to carry — the guard's own message is echoed. `built`
+21. **That echo is now bounded at 160 characters, one line, and the registered-kinds list no
+    longer fits.** The architect's order of 2026-11-19 (night) set the bound; the number is this
+    repo's existing one for a person-read phrase (`pass_failure._MAX_PHRASE`), and
+    `tests/test_ingest_failure_reasons.py::test_the_bound_is_the_one_this_repo_already_uses_for_a_read_phrase`
+    asserts the two agree rather than leaving two numbers to drift. It replaced 400 characters
+    that `kind_unregistered` then appended a 191-character list to, so the field could reach
+    about 600. Three consequences, each measured rather than intended. (a) Classification runs
+    on the WHOLE message and only the output is bounded, because the `ingest_id_malformed`
+    markers sit at the end of a message whose head is a 100-character object key — bounding
+    first would demote that failure to `extraction_failed`. (b) The registered-kinds list is
+    **gone from the row**: fourteen kinds render to 191 characters on their own, past the whole
+    bound, so no arrangement carries them; the message now carries the COUNT and says the names
+    were omitted, because a truncated list reads as complete and a reader could not tell an
+    absent kind from a cut one. That is a real loss of the most actionable thing the row said,
+    recorded as [F-25](../../adr/FOLLOW-UPS.md). (c) `detail` is bounded too: both
+    `document_parser.py` boundaries passed `detail=str(e)` beside the bounded `reason`, which
+    bounds nothing, since both fields land on the same row and a person reads both. They now
+    pass the same bounded value, as `semantic_assets.py` already did at all five of its posts;
+    the raw text is not lost, because `e` is re-raised and the run's own record keeps it.
+    `built` — `doc_tools/utils/ingest_failure.py:101` (the bound), `:108-120` (the clamp),
+    `:245`, `:255-265`, `:266` (the three bounded returns);
+    `doc_tools/components/document_parser.py:367-371` and `:879-883` (the two `detail=reason`
+    posts); ten pinned cases in six tests in `tests/test_ingest_failure_reasons.py`, of 50
 
 ## The flow, step by step
 

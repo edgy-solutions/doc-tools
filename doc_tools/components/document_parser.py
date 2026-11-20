@@ -354,8 +354,18 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     # `resolve_join_key` prefers a CANONICAL value.
                     join_key = resolve_join_key(ingest_id, source_object_key)
                     if join_key and status_resource is not None:
+                        # `detail=reason`, NOT `str(e)`. Both fields land on
+                        # the same ingest row and a person reads both, so
+                        # bounding one and sending the raw message in the
+                        # other bounds nothing: an exception carrying a
+                        # rendered prompt would arrive whole in `detail`. This
+                        # is what semantic_assets.py already does at all five
+                        # of its `failed` posts. The raw text is not lost --
+                        # `e` is re-raised below, so the full message and
+                        # traceback are in the run's own record, which is
+                        # telemetry and not a record a person reads.
                         status_resource.update(
-                            join_key, "failed", detail=str(e),
+                            join_key, "failed", detail=reason,
                             reason_code=reason_code, reason=reason,
                             step=self.name, run_id=failed_run_id,
                         )
@@ -862,8 +872,12 @@ class DocumentParserComponent(Component, Resolvable, Model):
 
                     if ingest_id is not None:
                         try:
+                            # `detail=reason`, not `str(e)`: see the
+                            # sidecar/guard boundary above. One rule for what
+                            # reaches the row, and `e` is re-raised below so
+                            # the raw text stays in the run's record.
                             status_resource.update(
-                                ingest_id, "failed", detail=str(e),
+                                ingest_id, "failed", detail=reason,
                                 reason_code=reason_code, reason=reason,
                                 step=self.name, run_id=failed_run_id,
                             )
