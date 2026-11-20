@@ -144,19 +144,20 @@ exception envelope in finding 19, read from the installed library.
 | 15 | `extraction.json` is written | FL-REVIEW | `built` | `semantic_assets.py:365`, `:1295-1306`; a failed write only logs |
 | 16 | `review.json` is written — only if an augmentation carries a `review` block | FL-REVIEW | `built` | `semantic_assets.py:1315-1338`; a failed write only logs |
 | 17 | The stage is posted: `review`, or `failed` with one of five codes | FL-REVIEW → gateway | `built` | `semantic_assets.py:1469`, `:1482`, `:1505`, `:1531`, `:1544`, `:1694`; transport at `dagster_resources.py:443-465` |
-| 18 | A person opens the review and dispositions it | **another lane** | `not built` here | `approval_state` is written as `"pending"` and doc-tools never reads it back |
+| 18 | A person opens the review and dispositions it | **another lane** | `proposed` | `approval_state` is written as `"pending"` and doc-tools never reads it back |
 | 19 | `promoted` / `rejected` are stamped by the disposition task | **another lane** | `built` elsewhere | observed locally only; never posted from here — `dagster_resources.py:188-190` |
 
 ## Gaps
 
 - **Two writes on this path fail silently.** `extraction.json` and `review.json` are each
   wrapped in a logging `try/except`, so a storage error yields a successful run with no
-  extraction payload or no review record. `built` (the behaviour); a check is `not built`.
+  extraction payload or no review record. `built` (the behaviour). A check is
+  [RM-12](../ROADMAP.md), `proposed`.
 - **A stale docstring says the stage seam only logs.** `dagster_resources.py:247` still says
   "validate and (for now) log" and calls the transport "the real transport this no-op stands
   in for", while the body posts. A reader deciding whether a stage reaches Lane 1 can read the
   wrong answer from the function they are looking at. `built` (the transport); the docstring is
-  wrong at this pin.
+  wrong at this pin. Correcting it is [RM-13](../ROADMAP.md), `proposed`.
 - **One echo door is still open, and it is not this lane's to close.**
   `semantic_assets.py:1056`, `:1097`, `:1107` build `_augment_failures` as
   `"<chunk_id>: <ExcType>: {e}"`, which reaches Lane 1's `concept_parse` detail through
@@ -164,13 +165,18 @@ exception envelope in finding 19, read from the installed library.
   envelope in finding 19. It is deliberately unchanged:
   `tests/test_augmentation_failure_fails_the_run.py:131` PINS the BAML message as reaching
   that detail, measured by lane tr, so changing it reverses another lane's deliberate
-  assertion. Packeted to lane tr. The ruling is `accepted`; the fix is `not built`.
+  assertion. Packeted to lane tr. `accepted` (the ruling of 2026-11-18). The fix is
+  [RM-14](../ROADMAP.md) — itself `accepted` and not `proposed`, because that ruling accepts it
+  — and it is lane tr's to make, not this lane's.
 - **A `needs_review` count has no asset check.** It is surfaced as a Dagit warning, and the
-  code names a formal `asset_check` as a follow-up. `built` (the warning); the check is
-  `not built`.
+  code names a formal `asset_check` as a follow-up. `built` (the warning). The check is
+  [RM-15](../ROADMAP.md), `proposed`.
 - **Nothing reconciles the three sinks for one document.** A document can land in the graph
   and not in the index, or the reverse, and this flow has no step that compares them. The
-  ontology seals cover the class pool, not a document's chunks. `not built`.
+  ontology seals cover the class pool, not a document's chunks. `built` — the condition is the
+  flow as enumerated: the nineteen steps below are the whole path and none of them compares the
+  sinks ([F-24](../../adr/FOLLOW-UPS.md) asks whether an absence may carry `built`). The
+  reconciling step is [RM-16](../ROADMAP.md), `proposed`.
 
 ## Not established from code
 

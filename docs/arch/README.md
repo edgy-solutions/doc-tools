@@ -73,9 +73,23 @@ linked because a record is read on its own.
 | `accepted` | A decision record or a ruling accepts it, and no code does it yet. | The decision record or the ruling, with its date. |
 | `proposed` | It is written down as intent, but not accepted or built. | Where it is written. |
 
-A gap is something a consumer or a reference expects and doc-tools does not provide. Its
-status is the status of whatever partial thing exists. A gap with nothing built is written
-`not built`.
+A **gap** is something a consumer or a reference expects and doc-tools does not provide.
+**Its status is the status of the condition it describes, because that is what its evidence
+supports**: a gap that says the code does X and cites the lines is `built`, and the `built`
+evidence rule above applies to it like any other claim. **The remedy is not part of the gap's
+status.** It is a separate row in [ROADMAP.md](ROADMAP.md) with its own status, usually
+`proposed` (the architect, 2026-11-19, adopting the pub-tools owner's rule). This replaces the
+rule this file carried until that date, which gave a gap the status of "whatever partial thing
+exists" and wrote a gap with nothing built as `not built`. Fifteen gap clauses and one steps
+row said that; they are corrected in the same commit as this paragraph, and the remedies they
+named became the first rows of the roadmap rather than being deleted.
+
+**`not built` and `not established` are not statuses.** Only the four above are, and the portal
+reads neither phrase as one (the architect, 2026-11-19). Something intended and not built is
+`proposed`. Something that could not be established is a row in
+[NOT-ESTABLISHED.md](NOT-ESTABLISHED.md) and carries **no status at all**, because a status is a
+claim about evidence and the whole point of that list is that the evidence is missing. A reader
+who wants the old phrasing finds it in the git history of this file, not in a cell.
 
 Two statuses on one row (`accepted + built`) mean the ruling and the code are both in
 hand and agree. Where they disagree, the row says so and the status is the code's.
@@ -168,8 +182,31 @@ digests and file paths may be shown.
 
 **The term check is a pattern check, not only a word list** (the architect's instruction of
 2026-11-19, given to another lane after lane 02 found a host name in one of its records; adopted
-here before this repo's records go anywhere). Three classes are grepped over `docs/arch/` and
-`docs/adr/` before a push:
+here before this repo's records go anywhere). Three classes are checked over `docs/arch/` and
+`docs/adr/` before a push. It is now **a script, not a hand-run grep**:
+[`tools/term_check.py`](../../tools/term_check.py), pinned by
+[`tests/test_term_check.py`](../../tests/test_term_check.py) (11 cases).
+
+**It exits non-zero when it finds a hit** — the architect's ruling of 2026-11-19, which says in
+so many words that exiting zero with hits is a fault. This lane had that fault: the hand-run
+form was three greps piped to `wc -l`, and a pipeline to `wc -l` exits 0 whether or not it
+matched, so every "term check clean" this lane reported was a count read by eye and not a gate.
+The counts were right; the gate did not exist. Exit `1` is a hard hit (an IPv4 literal or an
+internal suffix), `2` is a domain-shaped token with no hard hit, `3` is nothing to check. Both
+`1` and `2` are failures; they are separate so a caller can tell a host literal from a token a
+record is explaining on purpose. **A hard hit is located but never reprinted** — `path:line`
+plus `len=N sha256:XXXXXXXX`, so running the check is not what puts a site identifier in a
+transcript. The only allow-list is the two required attribution lines, and only under
+`--text-file`, the mode for a commit message or a PR body; a record is checked without it,
+because those lines do not belong in one.
+
+**On this tree the check exits 2**, on the six tokens below and nothing else. That is not a
+clean tree by the ruling's own arithmetic, and it is the ruling working as written rather than a
+defect: four of the six are explained in the next paragraph and two are created by that
+explanation quoting them. The ruling allows exactly one allow-list, which these tokens are not
+in, so the only ways to a `0` are a ruling that redacts the namespace IRI (asked, and still
+open) or a second allow-list (which the ruling currently forbids). Raised rather than worked
+around.
 
 | Class | Pattern | Result, 2026-11-19 |
 |---|---|---|
@@ -197,5 +234,6 @@ will not resolve until its PR lands.
 | [components/ontologies-and-alignment.md](components/ontologies-and-alignment.md) | component (CO-ONTOLOGY) | in this commit |
 | [components/corpus-gate.md](components/corpus-gate.md) | component (CO-CORPUS-GATE) | in this commit |
 | [NOT-ESTABLISHED.md](NOT-ESTABLISHED.md) | this repo's half of the merged not-established list | in this commit |
+| [ROADMAP.md](ROADMAP.md) | the remedies, one row each, after the 2026-11-19 gap ruling moved them out of the gaps' statuses | in this commit |
 | [flows/document-to-review-record.md](flows/document-to-review-record.md) | flow (FL-REVIEW), a document arriving to a review record | in this commit |
 | [../adr/README.md](../adr/README.md) | 94 decision records, from the 2026-11-16 census, plus three registers | in this commit |

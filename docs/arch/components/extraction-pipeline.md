@@ -154,22 +154,29 @@ Nothing in this record was run: it is read from the code, the chart and the test
 
 - **A failed download substitutes a mock body and the run goes green.** `document_parser.py:397-402`.
   Nothing downstream can tell a mock body from a short document, and no check compares the
-  written content against the object's size or ETag. `built` (the substitution); the check is
-  `not built`.
+  written content against the object's size or ETag. `built` (the substitution). The check that
+  would close it is [RM-01](../ROADMAP.md), `proposed`.
 - **No page cap and no memory bound anywhere on the parse path.** No `max_pages`, no page
   limit and no rlimit in `document_parser.py` or `extraction.py`; only the two DPI knobs
   bound the work, and the chart sets `resources: {}`. A single large document is bounded by
-  nothing but the node. `not built`.
+  nothing but the node. `built` — the condition is the unbounded path, and its evidence is
+  positive at the pin rather than a failed search: the chart template sets `resources: {}`, and
+  neither module declares a cap. Whether an absence-shaped condition may carry `built` at all is
+  [F-24](../../adr/FOLLOW-UPS.md); the 2026-11-19 ruling does not reach it, and this row says
+  which way it went rather than picking quietly. The cap and the bound are
+  [RM-02](../ROADMAP.md), `proposed`.
 - **The fingerprint cannot see a field rename.** It covers `(kind, passes)` only, so a
   renamed mapping key or a changed `domain`, `arrives_as` or `review_shape` compares equal
-  across two code locations. `built` (the fingerprint); the wider comparison is `not built`.
+  across two code locations. `built` (the fingerprint). The wider comparison is
+  [RM-03](../ROADMAP.md), `proposed`.
 - **`xml` is advertised by one arm and held by the hold list.** The hold is the only thing
   keeping a kind no arm can run out of the published list, and its lifting condition is a
-  measurement nobody has made. `accepted` (the hold, ruled 2026-10-16); the measurement is
-  `not built`.
+  measurement nobody has made. `accepted` (the hold, ruled 2026-10-16). The measurement is
+  [RM-04](../ROADMAP.md), `proposed`.
 - **The declared `passes` tuple and what executes diverge on the sustainment path.** A reader
   of a registry row cannot tell which of its passes actually run. `built` (both), and the
-  divergence is undocumented outside this record.
+  divergence is undocumented outside this record. Making a row honest about it is
+  [RM-05](../ROADMAP.md), `proposed`.
 
 ## Not established from code
 
@@ -188,8 +195,7 @@ Nothing in this record was run: it is read from the code, the chart and the test
 - **What the parse step costs** — wall clock, memory, or pages per minute at either DPI. No
   such measurement exists in this repo, so no claim here is `measured`.
 - Which alignment rows of the outside references this component answers to. The rows
-  suggested below are this lane's reading, not the arch lane's. The **plane** is not among
-  them: the architect ruled on 2026-11-19 that planes are not established. `proposed`
+  suggested below are this lane's reading, not the arch lane's. **The plane is no longer among the unsettled rows.** The list was published after this bullet was written, and this record's row now names **`operational-data`** against **L2** at dag-tools `16da9650`. What stays unsettled is **membership, not the plane**: no published alignment record places this repo at all ([NE-16](../NOT-ESTABLISHED.md)). This bullet carries **no status** — a not-established bullet is not a claim (the architect, 2026-11-19) — and it read `proposed` until that ruling.
 
 ## Place in the mesh
 

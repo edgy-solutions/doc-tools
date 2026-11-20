@@ -116,15 +116,16 @@ Nothing in this record was run: it is read from the scripts, the chart and the t
 - **The roll lock is an operator convention and is verified by nothing.** The pre-roll design
   document says a hand fire takes a `sandbox/roll-lock` ConfigMap (ruled 2026-11-04), and it
   is asserted by the operator: no script, chart template or test reads it.
-  `accepted` (the rule); `not built` (the check).
+  `accepted` (the rule, ruled 2026-11-04). The check is [RM-10](../ROADMAP.md), `proposed`.
 - **The pre-fire helper does not check the lock either**, by its own design note, and shells
-  out to `kubectl` to build a Job from the CronJob. `built` (the helper); the lock term is
-  `not built`.
+  out to `kubectl` to build a Job from the CronJob. `built` (the helper). The lock term is
+  [RM-10](../ROADMAP.md) as well — one remedy closes both bullets — `proposed`.
 - **The durations written in the code are stale.** The authority script's docstring says
   "~70 minutes", two comments say 2.5 hours, and the workflow says "~22 minutes ×3", while
   the design document records a measured 2h22m–2h34m per fire. The code figures are not
   wrong about a past run; they are wrong as guidance now. `built` (the measurement, in the
-  design document); the code's figures are stale.
+  design document); the code's figures are stale. Correcting them is
+  [RM-11](../ROADMAP.md), `proposed`.
 - **A fire's `stats` keys are observable only while the pod exists.** The gate reads a fixed
   set of keys from the artifacts; a key added to a fire's output that the gate does not read
   cannot be recovered after the Job finishes. `built` (the limitation, by construction).
@@ -141,8 +142,7 @@ Nothing in this record was run: it is read from the scripts, the chart and the t
   names were not read into this record.
 - Which alignment rows of the outside references the gate answers to. The rows suggested
   below are this lane's reading, not the arch lane's; dag-tools' alignment records do not
-  name doc-tools at their pin. The **plane** is not among the rows: the architect ruled on
-  2026-11-19 that planes are not established. `proposed`
+  name doc-tools at their pin. **The plane is no longer among the unsettled rows.** The list was published after this bullet was written, and this record's row now names **`data-management`** against **L3** at dag-tools `16da9650`. What stays unsettled is **membership, not the plane**: no published alignment record places this repo at all ([NE-16](../NOT-ESTABLISHED.md)). This bullet carries **no status** — a not-established bullet is not a claim (the architect, 2026-11-19) — and it read `proposed` until that ruling.
 
 ## Place in the mesh
 
@@ -191,4 +191,4 @@ All paths are in this repo at the pin in [the README](../README.md).
 | Two gate jobs, different conditions; verdict job scoped to `charts` by ruling | `.github/workflows/build-container.yml:915`, `:998`, `:1023`, `:1025`, `:1040`, `:1054`; `:379-386` | ruled 2026-11-03 | — | `built` |
 | A stacked PR dispatches nothing | `.github/workflows/build-container.yml:48`; `CLAUDE.md` | convention, this repo | — | `built` |
 | `--from-logs` reconstructs the exit code and can read a seal-red fire as green | `pcn_corpus_gate.py:215-226` | — | — | `built` |
-| The lock is an operator convention | `docs/pcn-pre-roll-fire-design.md:97-112`; `scripts/pcn_gate_prefire.py:12-13` | ruled 2026-11-04 | — | `accepted`; the check is `not built` |
+| The lock is an operator convention | `docs/pcn-pre-roll-fire-design.md:97-112`; `scripts/pcn_gate_prefire.py:12-13` | ruled 2026-11-04 | — | `accepted`; the check is [RM-10](../ROADMAP.md), `proposed` |

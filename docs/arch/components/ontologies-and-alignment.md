@@ -81,8 +81,8 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
     logged and the ingest continues. `built`
 14. **An unknown value of the switch behaves as `on`.** The mode is matched against `dry`,
     `propose` and `off`; anything else falls to the live branch and reports `ok`. A typo
-    therefore turns writing on, and no test covers that branch. `built` (the behaviour); the
-    test is `not built`.
+    therefore turns writing on, and no test covers that branch. `built` (the behaviour). The
+    test is [RM-06](../ROADMAP.md), `proposed`.
 15. **The pass owns three edge kinds and not the fourth.** It writes auto
     `ALIGNS_TO {status:'auto'}`, open `PROPOSED_ALIGNS_TO {status:'open'}`, and materialises an
     accepted proposal as `ALIGNS_TO {status:'accepted', method:'review'}`. A one-way related
@@ -118,11 +118,12 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
 
 - **An unknown alignment mode turns writing on, untested.** `semantic_assets.py:464-473`.
   The safe reading of an unrecognised switch value would be the default, and this is the
-  opposite. `built` (the branch); the test is `not built`.
+  opposite. `built` (the branch). The test is [RM-06](../ROADMAP.md), `proposed`.
 - **Alignment never raises, so a total failure is a log line.** The docstring says so
   deliberately — an alignment failure must not fail a course ingest — but nothing else
   surfaces it, so a course whose alignment failed is indistinguishable downstream from one
-  with nothing to align. `built` (the decision); a surfaced counter is `not built`.
+  with nothing to align. `built` (the decision). A surfaced counter is
+  [RM-07](../ROADMAP.md), `proposed`.
 - **One course's re-ingest can remove an alias another course asserted.** Both prunes exist
   (claim 16), but an `ALIAS_OF` is keyed to its *first* asserting course (claim 17), so a
   second course that asserts the same pair neither re-keys it nor can protect it. The edge
@@ -132,9 +133,14 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
   declares.
 - **Three stores can disagree and nothing compares them.** The readiness asset checks Weaviate
   against the ontology manifest; no equivalent compares Jena with Neo4j, or either with
-  Weaviate's class rows. `built` (the Weaviate arm); the cross-store comparison is `not built`.
+  Weaviate's class rows. `built` (the Weaviate arm). The cross-store comparison is
+  [RM-08](../ROADMAP.md), `proposed`.
 - **The vocabulary's drop path is in another repo.** A reader of this repo cannot see what a
-  re-ingest removes, only what it adds. `built` elsewhere.
+  re-ingest removes, only what it adds. **This bullet carries no status**, which is the ruling
+  of 2026-11-19 applied and not an omission: what it describes is an absence of evidence in this
+  tree, so it is [NE-26](../NOT-ESTABLISHED.md) and not a claim. It read "`built` elsewhere"
+  until that date, which named no pin in any repo and so could not have carried `built` under
+  the evidence rule either.
 - **Two authorities share the local name `mesh`, and nothing reconciles them.** Class IRIs
   come from the ontologies' own base — nine of them in a `mesh` family at
   `content_kind.py:466`, `:505`, `:521`, `:577`, `:596`, `:608`, `:632`, `:644`, `:680` —
@@ -142,8 +148,8 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
   They are different axes, in the way that file's own comment already distinguishes a named
   **graph** uri from a vocabulary **namespace**; the difference here is that both spellings
   end in `mesh#`, so a reader who meets one has nothing in either file telling them the other
-  exists. `built` (both namespaces, at every site above); a reconciliation, or a cross-note in
-  either file, is `not built`. Checked 2026-11-19 at the dag-tools arch lane's request, and the collision is bounded: `mesh#` appears nowhere in the dag-tools tree at dag-tools `4c6107523acf50bfc1338c4ee46813ff9090f929`, so the two authorities are this repo's and the platform's, and no third member spells it.
+  exists. `built` (both namespaces, at every site above). A reconciliation, or a cross-note in
+  either file, is [RM-09](../ROADMAP.md), `proposed`. Checked 2026-11-19 at the dag-tools arch lane's request, and the collision is bounded: `mesh#` appears nowhere in the dag-tools tree at dag-tools `4c6107523acf50bfc1338c4ee46813ff9090f929`, so the two authorities are this repo's and the platform's, and no third member spells it.
 
 ## Not established from code
 
@@ -161,8 +167,7 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
 - **Whether any `mil:*` term is present in a deployed vocabulary graph.** The namespace is
   declared in `AGENTS.md:110`; what is loaded is a cluster fact.
 - Which alignment rows of the outside references this component answers to. The rows
-  suggested below are this lane's reading, not the arch lane's. The **plane** is not among
-  them: the architect ruled on 2026-11-19 that planes are not established. `proposed`
+  suggested below are this lane's reading, not the arch lane's. **The plane is no longer among the unsettled rows.** The list was published after this bullet was written, and this record's row now names **`data-management`** against **L3** at dag-tools `16da9650`. What stays unsettled is **membership, not the plane**: no published alignment record places this repo at all ([NE-16](../NOT-ESTABLISHED.md)). This bullet carries **no status** — a not-established bullet is not a claim (the architect, 2026-11-19) — and it read `proposed` until that ruling.
 
 ## Place in the mesh
 
@@ -207,7 +212,7 @@ otherwise.
 | Partitioning is total and every exclusion carries a reason; blank nodes and response shapes filtered | `ontology_assets.py:325`, `:378`, `:455` | — | `tests/test_ontology_dual_write_fails_the_asset.py::test_every_declared_class_lands_in_exactly_one_bucket`, `::test_every_exclusion_carries_its_REASON`; `tests/test_ontology_assets_blank_node_filter.py`; `tests/test_ontology_assets_response_shape_filter.py` | `built` |
 | Weaviate readiness fails when a declared manifest entry has no rows; not partitioned | `ontology_assets.py:1502-1512` | — | — | `built` |
 | The alignment switch, its four modes, the `dry` default, and that it never raises | `semantic_assets.py:458-476` | — | `tests/test_concept_normalise.py::test_align_key_unifies_punctuation_case_and_spacing`, `::test_align_key_lockout_tagout` | `built` |
-| An unknown mode behaves as `on` | `semantic_assets.py:464`, `:472` | — | none found | `built`; the test is `not built` |
+| An unknown mode behaves as `on` | `semantic_assets.py:464`, `:472` | — | none found | `built`; the test is [RM-06](../ROADMAP.md), `proposed` |
 | The pass owns auto, open and accepted `ALIGNS_TO`; a one-way term becomes a proposal; `ALIAS_OF` is not its edge | `doc_tools/passes/concepts.py:6-19`, `:140` | — | `tests/test_concept_normalise.py::test_one_way_related_term_does_not_join_it_becomes_a_proposal`, `::test_exact_key_joins_one_component_and_mutual_terms_join_another`, `::test_a_component_keeps_its_auto_cc_when_a_new_member_joins` | `built` |
 | `TEACHES` and `ALIAS_OF` are both replaced on re-ingest, each prune after its own MERGEs, in its own transaction | `doc_tools/plugins/training.py:485`, `:501-522` (`TEACHES`), `:543-557`, `:559-570` (`ALIAS_OF`) | architect's ruling 2026-10-30, quoted at `:501` | — | `built` |
 | An `ALIAS_OF` is keyed to its first-asserting course, so only that course's re-ingest replaces it | `doc_tools/plugins/training.py:554` (`ON CREATE SET r.course_id`), `:566` (the prune's match) | — | — | `built` |
