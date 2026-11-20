@@ -154,22 +154,29 @@ Nothing in this record was run: it is read from the code, the chart and the test
 
 - **A failed download substitutes a mock body and the run goes green.** `document_parser.py:397-402`.
   Nothing downstream can tell a mock body from a short document, and no check compares the
-  written content against the object's size or ETag. `built` (the substitution); the check is
-  `not built`.
+  written content against the object's size or ETag. `built` (the substitution). The check that
+  would close it is [RM-01](../ROADMAP.md), `proposed`.
 - **No page cap and no memory bound anywhere on the parse path.** No `max_pages`, no page
   limit and no rlimit in `document_parser.py` or `extraction.py`; only the two DPI knobs
   bound the work, and the chart sets `resources: {}`. A single large document is bounded by
-  nothing but the node. `not built`.
+  nothing but the node. `built` — the condition is the unbounded path, and its evidence is
+  positive at the pin rather than a failed search: the chart template sets `resources: {}`, and
+  neither module declares a cap. Whether an absence-shaped condition may carry `built` at all is
+  [F-24](../../adr/FOLLOW-UPS.md); the 2026-11-19 ruling does not reach it, and this row says
+  which way it went rather than picking quietly. The cap and the bound are
+  [RM-02](../ROADMAP.md), `proposed`.
 - **The fingerprint cannot see a field rename.** It covers `(kind, passes)` only, so a
   renamed mapping key or a changed `domain`, `arrives_as` or `review_shape` compares equal
-  across two code locations. `built` (the fingerprint); the wider comparison is `not built`.
+  across two code locations. `built` (the fingerprint). The wider comparison is
+  [RM-03](../ROADMAP.md), `proposed`.
 - **`xml` is advertised by one arm and held by the hold list.** The hold is the only thing
   keeping a kind no arm can run out of the published list, and its lifting condition is a
-  measurement nobody has made. `accepted` (the hold, ruled 2026-10-16); the measurement is
-  `not built`.
+  measurement nobody has made. `accepted` (the hold, ruled 2026-10-16). The measurement is
+  [RM-04](../ROADMAP.md), `proposed`.
 - **The declared `passes` tuple and what executes diverge on the sustainment path.** A reader
   of a registry row cannot tell which of its passes actually run. `built` (both), and the
-  divergence is undocumented outside this record.
+  divergence is undocumented outside this record. Making a row honest about it is
+  [RM-05](../ROADMAP.md), `proposed`.
 
 ## Not established from code
 
@@ -188,30 +195,29 @@ Nothing in this record was run: it is read from the code, the chart and the test
 - **What the parse step costs** — wall clock, memory, or pages per minute at either DPI. No
   such measurement exists in this repo, so no claim here is `measured`.
 - Which alignment rows of the outside references this component answers to. The rows
-  suggested below are this lane's reading, not the arch lane's. The **plane** is not among
-  them: the architect ruled on 2026-11-19 that planes are not established. `proposed`
+  suggested below are this lane's reading, not the arch lane's. **The plane is no longer among the unsettled rows.** The list was published after this bullet was written, and this record's row now names **`operational-data`** against **L2** at dag-tools `16da9650`. What stays unsettled is **membership, not the plane**: no published alignment record places this repo at all ([NE-16](../NOT-ESTABLISHED.md)). This bullet carries **no status** — a not-established bullet is not a claim (the architect, 2026-11-19) — and it read `proposed` until that ruling.
 
 ## Place in the mesh
 
-The **Capability** column answers the architect's instruction of 2026-11-19, which carries lane 02's
-structured-fields packet §4.1: every alignment row names one or more ids from the NATO DCRA's
-thirteen capabilities, or `none` written out, so that a blank never reads as an answer. Every value
-in that column is **`proposed`**, and on weaker evidence than the rest of this record: this lane
-mapped each row from the **appendix titles reproduced in §4.1** and has not read DCRA v2
-(AC/322-D(2025)0056) itself, so no cell is confirmed against an appendix's contents. The `none` on
-the **Plane** row is the one cell that is not a reading — §4.1 rules that Appendix 14 (Technical
-Architecture) is the source of the planes and is *not* a capability. See
-[NE-16](../NOT-ESTABLISHED.md), which records that the element alignment in the third column is
-this lane's reading as well.
+**The Capability column is gone from this table**, on the architect's order of 2026-11-19
+(night): a capability belongs to an alignment record, not to a component's. The values were not
+discarded. They went to the dag-tools arch lane, which owns `AL-DCRA`, listed in full in this
+lane's packet of the same date, so that nobody has to reconstruct them from this file's history —
+and they went with the caveat they were written under. Every one was **`proposed`**, mapped from
+the **appendix titles reproduced in §4.1** of lane 02's packet by a lane that has not read DCRA v2
+(AC/322-D(2025)0056) itself, so no cell was ever confirmed against an appendix's contents. The
+**Plane** row never carried one: §4.1 rules that Appendix 14 is the source of the planes and is
+not a capability. See [NE-16](../NOT-ESTABLISHED.md), which records that the element alignment in
+the third column is this lane's reading too.
 
-| Aspect | What the code and chart show | Suggested alignment row | Capability |
-|---|---|---|---|
-| Purpose | turn a document into a parse artifact, a graph, an index and a review record, addressed by a minted ingest id | `AL-DMRA S4` — data and metadata profiles with lineage and pedigree `proposed` | `dcra:A5, dcra:A6` |
-| Identity | the ingest id is the sidecar's or minted from the bytes, and is the doc id; the run key is the object's ETag | `AL-DMRA S1` — unique identification `proposed` | `dcra:A12` |
-| How the mesh reaches it | it is a Dagster code location over gRPC, running inside the orchestrator dag-tools records as `CO-DAGSTER`; the mesh does not call the pipeline, it drops an object or offers a retry | `AL-DMRA S7` — data exchange `proposed` | `none` |
-| What it emits | a versioned manifest plus a pointer written after it, a graph write, a vector index, a review record | — | `none` |
-| Security role | none of its own. It holds credentials for the stores it writes and makes no access decision | `AL-DCRA R1` is *not* here — the enforcement point is the gateway's `proposed` | `none` |
-| Plane | it produces the data the rest of the mesh reads — the parse artifacts, the graph, the vector index and the review record | **`operational-data`**, `proposed`, against **L2** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L2 is "where communities produce data, with metadata standardized as it is produced", which is what this part does, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools | `none` |
+| Aspect | What the code and chart show | Suggested alignment row |
+|---|---|---|
+| Purpose | turn a document into a parse artifact, a graph, an index and a review record, addressed by a minted ingest id | `AL-DMRA S4` — data and metadata profiles with lineage and pedigree `proposed` |
+| Identity | the ingest id is the sidecar's or minted from the bytes, and is the doc id; the run key is the object's ETag | `AL-DMRA S1` — unique identification `proposed` |
+| How the mesh reaches it | it is a Dagster code location over gRPC, running inside the orchestrator dag-tools records as `CO-DAGSTER`; the mesh does not call the pipeline, it drops an object or offers a retry | `AL-DMRA S7` — data exchange `proposed` |
+| What it emits | a versioned manifest plus a pointer written after it, a graph write, a vector index, a review record | — |
+| Security role | none of its own. It holds credentials for the stores it writes and makes no access decision | `AL-DCRA R1` is *not* here — the enforcement point is the gateway's `proposed` |
+| Plane | it produces the data the rest of the mesh reads — the parse artifacts, the graph, the vector index and the review record | **`operational-data`**, `proposed`, against **L2** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L2 is "where communities produce data, with metadata standardized as it is produced", which is what this part does, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools |
 
 ## Sources
 

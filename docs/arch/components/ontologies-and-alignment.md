@@ -81,8 +81,8 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
     logged and the ingest continues. `built`
 14. **An unknown value of the switch behaves as `on`.** The mode is matched against `dry`,
     `propose` and `off`; anything else falls to the live branch and reports `ok`. A typo
-    therefore turns writing on, and no test covers that branch. `built` (the behaviour); the
-    test is `not built`.
+    therefore turns writing on, and no test covers that branch. `built` (the behaviour). The
+    test is [RM-06](../ROADMAP.md), `proposed`.
 15. **The pass owns three edge kinds and not the fourth.** It writes auto
     `ALIGNS_TO {status:'auto'}`, open `PROPOSED_ALIGNS_TO {status:'open'}`, and materialises an
     accepted proposal as `ALIGNS_TO {status:'accepted', method:'review'}`. A one-way related
@@ -118,11 +118,12 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
 
 - **An unknown alignment mode turns writing on, untested.** `semantic_assets.py:464-473`.
   The safe reading of an unrecognised switch value would be the default, and this is the
-  opposite. `built` (the branch); the test is `not built`.
+  opposite. `built` (the branch). The test is [RM-06](../ROADMAP.md), `proposed`.
 - **Alignment never raises, so a total failure is a log line.** The docstring says so
   deliberately — an alignment failure must not fail a course ingest — but nothing else
   surfaces it, so a course whose alignment failed is indistinguishable downstream from one
-  with nothing to align. `built` (the decision); a surfaced counter is `not built`.
+  with nothing to align. `built` (the decision). A surfaced counter is
+  [RM-07](../ROADMAP.md), `proposed`.
 - **One course's re-ingest can remove an alias another course asserted.** Both prunes exist
   (claim 16), but an `ALIAS_OF` is keyed to its *first* asserting course (claim 17), so a
   second course that asserts the same pair neither re-keys it nor can protect it. The edge
@@ -132,9 +133,14 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
   declares.
 - **Three stores can disagree and nothing compares them.** The readiness asset checks Weaviate
   against the ontology manifest; no equivalent compares Jena with Neo4j, or either with
-  Weaviate's class rows. `built` (the Weaviate arm); the cross-store comparison is `not built`.
+  Weaviate's class rows. `built` (the Weaviate arm). The cross-store comparison is
+  [RM-08](../ROADMAP.md), `proposed`.
 - **The vocabulary's drop path is in another repo.** A reader of this repo cannot see what a
-  re-ingest removes, only what it adds. `built` elsewhere.
+  re-ingest removes, only what it adds. **This bullet carries no status**, which is the ruling
+  of 2026-11-19 applied and not an omission: what it describes is an absence of evidence in this
+  tree, so it is [NE-26](../NOT-ESTABLISHED.md) and not a claim. It read "`built` elsewhere"
+  until that date, which named no pin in any repo and so could not have carried `built` under
+  the evidence rule either.
 - **Two authorities share the local name `mesh`, and nothing reconciles them.** Class IRIs
   come from the ontologies' own base — nine of them in a `mesh` family at
   `content_kind.py:466`, `:505`, `:521`, `:577`, `:596`, `:608`, `:632`, `:644`, `:680` —
@@ -142,8 +148,8 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
   They are different axes, in the way that file's own comment already distinguishes a named
   **graph** uri from a vocabulary **namespace**; the difference here is that both spellings
   end in `mesh#`, so a reader who meets one has nothing in either file telling them the other
-  exists. `built` (both namespaces, at every site above); a reconciliation, or a cross-note in
-  either file, is `not built`. Checked 2026-11-19 at the dag-tools arch lane's request, and the collision is bounded: `mesh#` appears nowhere in the dag-tools tree at dag-tools `4c6107523acf50bfc1338c4ee46813ff9090f929`, so the two authorities are this repo's and the platform's, and no third member spells it.
+  exists. `built` (both namespaces, at every site above). A reconciliation, or a cross-note in
+  either file, is [RM-09](../ROADMAP.md), `proposed`. Checked 2026-11-19 at the dag-tools arch lane's request, and the collision is bounded: `mesh#` appears nowhere in the dag-tools tree at dag-tools `4c6107523acf50bfc1338c4ee46813ff9090f929`, so the two authorities are this repo's and the platform's, and no third member spells it.
 
 ## Not established from code
 
@@ -161,30 +167,29 @@ Nothing in this record was run: it is read from the code, `AGENTS.md` and the te
 - **Whether any `mil:*` term is present in a deployed vocabulary graph.** The namespace is
   declared in `AGENTS.md:110`; what is loaded is a cluster fact.
 - Which alignment rows of the outside references this component answers to. The rows
-  suggested below are this lane's reading, not the arch lane's. The **plane** is not among
-  them: the architect ruled on 2026-11-19 that planes are not established. `proposed`
+  suggested below are this lane's reading, not the arch lane's. **The plane is no longer among the unsettled rows.** The list was published after this bullet was written, and this record's row now names **`data-management`** against **L3** at dag-tools `16da9650`. What stays unsettled is **membership, not the plane**: no published alignment record places this repo at all ([NE-16](../NOT-ESTABLISHED.md)). This bullet carries **no status** — a not-established bullet is not a claim (the architect, 2026-11-19) — and it read `proposed` until that ruling.
 
 ## Place in the mesh
 
-The **Capability** column answers the architect's instruction of 2026-11-19, which carries lane 02's
-structured-fields packet §4.1: every alignment row names one or more ids from the NATO DCRA's
-thirteen capabilities, or `none` written out, so that a blank never reads as an answer. Every value
-in that column is **`proposed`**, and on weaker evidence than the rest of this record: this lane
-mapped each row from the **appendix titles reproduced in §4.1** and has not read DCRA v2
-(AC/322-D(2025)0056) itself, so no cell is confirmed against an appendix's contents. The `none` on
-the **Plane** row is the one cell that is not a reading — §4.1 rules that Appendix 14 (Technical
-Architecture) is the source of the planes and is *not* a capability. See
-[NE-16](../NOT-ESTABLISHED.md), which records that the element alignment in the third column is
-this lane's reading as well.
+**The Capability column is gone from this table**, on the architect's order of 2026-11-19
+(night): a capability belongs to an alignment record, not to a component's. The values were not
+discarded. They went to the dag-tools arch lane, which owns `AL-DCRA`, listed in full in this
+lane's packet of the same date, so that nobody has to reconstruct them from this file's history —
+and they went with the caveat they were written under. Every one was **`proposed`**, mapped from
+the **appendix titles reproduced in §4.1** of lane 02's packet by a lane that has not read DCRA v2
+(AC/322-D(2025)0056) itself, so no cell was ever confirmed against an appendix's contents. The
+**Plane** row never carried one: §4.1 rules that Appendix 14 is the source of the planes and is
+not a capability. See [NE-16](../NOT-ESTABLISHED.md), which records that the element alignment in
+the third column is this lane's reading too.
 
-| Aspect | What the code and chart show | Suggested alignment row | Capability |
-|---|---|---|---|
-| Purpose | ingest a vocabulary into three stores, write document facts into rule-chosen graphs, and align concepts to canonical ones | `AL-DMRA S2` — semantic services `proposed` | `dcra:A6, dcra:A7` |
-| Where the vocabulary comes from | not here: invincible-agent's TTLs, primed by its Helm Job. doc-tools consumes and mirrors it | `AL-DMRA S4` — data and metadata profiles `proposed` | `dcra:A12` |
-| Identity | class IRIs come from the ontologies' own base — five families under it (`mil`, `mfg`, `pcn`, `training`, `mesh`), the `mil` one declared at `AGENTS.md:110` and the class names written at `content_kind.py:466` through `:680`; the mesh **predicates** are a different authority, `http://invincible-agent/mesh#`, which happens to share the local name `mesh` (see Gaps); and a document's graph is named by its source key | `AL-DMRA S1` `proposed` | `dcra:A12` |
-| Quality | the seals are the quality instrument: declared classes are rows, and a row is retrievable | `AL-DMRA S13` `proposed` | `dcra:A10` |
-| Security role | none. It holds store credentials and makes no access decision | — | `none` |
-| Plane | it maintains the semantic substrate the other planes read, and produces no document data of its own | **`data-management`**, `proposed`, against **L3** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L3 is "the shared lifecycle services, standardized through APIs and metadata", and governing vocabulary across its life is one of them, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools | `none` |
+| Aspect | What the code and chart show | Suggested alignment row |
+|---|---|---|
+| Purpose | ingest a vocabulary into three stores, write document facts into rule-chosen graphs, and align concepts to canonical ones | `AL-DMRA S2` — semantic services `proposed` |
+| Where the vocabulary comes from | not here: invincible-agent's TTLs, primed by its Helm Job. doc-tools consumes and mirrors it | `AL-DMRA S4` — data and metadata profiles `proposed` |
+| Identity | class IRIs come from the ontologies' own base — five families under it (`mil`, `mfg`, `pcn`, `training`, `mesh`), the `mil` one declared at `AGENTS.md:110` and the class names written at `content_kind.py:466` through `:680`; the mesh **predicates** are a different authority, `http://invincible-agent/mesh#`, which happens to share the local name `mesh` (see Gaps); and a document's graph is named by its source key | `AL-DMRA S1` `proposed` |
+| Quality | the seals are the quality instrument: declared classes are rows, and a row is retrievable | `AL-DMRA S13` `proposed` |
+| Security role | none. It holds store credentials and makes no access decision | — |
+| Plane | it maintains the semantic substrate the other planes read, and produces no document data of its own | **`data-management`**, `proposed`, against **L3** of dag-tools' `AL-DCRA`. The list is no longer a ruling only: it is published as `docs/arch/README.md` "## Planes" and `docs/arch/alignment/nato-dcra.md` "## Data planes (Appendix 14)", rows L1–L4, read at dag-tools `16da96502281c5496b1553e3ed560c2a10e77ed0` — PR #111, unmerged, so the sha is the pin and not the branch. The four names are `accepted` by the architect's ruling of 2026-11-19. L3 is "the shared lifecycle services, standardized through APIs and metadata", and governing vocabulary across its life is one of them, so the assignment is checked against the published definition and not just the name; it stays `proposed` because that record does not name doc-tools |
 
 ## Sources
 
@@ -207,7 +212,7 @@ otherwise.
 | Partitioning is total and every exclusion carries a reason; blank nodes and response shapes filtered | `ontology_assets.py:325`, `:378`, `:455` | — | `tests/test_ontology_dual_write_fails_the_asset.py::test_every_declared_class_lands_in_exactly_one_bucket`, `::test_every_exclusion_carries_its_REASON`; `tests/test_ontology_assets_blank_node_filter.py`; `tests/test_ontology_assets_response_shape_filter.py` | `built` |
 | Weaviate readiness fails when a declared manifest entry has no rows; not partitioned | `ontology_assets.py:1502-1512` | — | — | `built` |
 | The alignment switch, its four modes, the `dry` default, and that it never raises | `semantic_assets.py:458-476` | — | `tests/test_concept_normalise.py::test_align_key_unifies_punctuation_case_and_spacing`, `::test_align_key_lockout_tagout` | `built` |
-| An unknown mode behaves as `on` | `semantic_assets.py:464`, `:472` | — | none found | `built`; the test is `not built` |
+| An unknown mode behaves as `on` | `semantic_assets.py:464`, `:472` | — | none found | `built`; the test is [RM-06](../ROADMAP.md), `proposed` |
 | The pass owns auto, open and accepted `ALIGNS_TO`; a one-way term becomes a proposal; `ALIAS_OF` is not its edge | `doc_tools/passes/concepts.py:6-19`, `:140` | — | `tests/test_concept_normalise.py::test_one_way_related_term_does_not_join_it_becomes_a_proposal`, `::test_exact_key_joins_one_component_and_mutual_terms_join_another`, `::test_a_component_keeps_its_auto_cc_when_a_new_member_joins` | `built` |
 | `TEACHES` and `ALIAS_OF` are both replaced on re-ingest, each prune after its own MERGEs, in its own transaction | `doc_tools/plugins/training.py:485`, `:501-522` (`TEACHES`), `:543-557`, `:559-570` (`ALIAS_OF`) | architect's ruling 2026-10-30, quoted at `:501` | — | `built` |
 | An `ALIAS_OF` is keyed to its first-asserting course, so only that course's re-ingest replaces it | `doc_tools/plugins/training.py:554` (`ON CREATE SET r.course_id`), `:566` (the prune's match) | — | — | `built` |

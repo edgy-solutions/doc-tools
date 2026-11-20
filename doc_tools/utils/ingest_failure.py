@@ -91,7 +91,34 @@ _KEY_HASH_RE = re.compile(r"/([0-9a-f]{64})/")
 #: is the authority and a test asserts the two patterns agree.
 _CANONICAL_INGEST_ID_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
-_MAX_ECHO = 400
+#: What a `failed` stage's person-read fields may carry, in characters.
+#: Set by the architect's order of 2026-11-19 (night), and the number is not
+#: new here: `pass_failure._MAX_PHRASE` is already 160 and owns the same
+#: question for the review record. A test asserts the two agree, because two
+#: numbers for "what may a person read" is how they drift apart. It replaces a
+#: 400-character echo that `kind_unregistered` then appended a 191-character
+#: list to, so the field this bound governs could reach ~600.
+_MAX_REASON = 160
+
+#: What is cut is SHOWN as cut. A silently truncated message reads as whole,
+#: and a reader cannot tell a short message from a shortened one.
+_TRUNCATION_MARK = "..."
+
+
+def _clamp(text: object, budget: int = _MAX_REASON) -> str:
+    """`text` as ONE line of at most `budget` characters, cut marked. Total.
+
+    Newlines are folded out rather than carried: the destination is one cell of
+    an ingest row, and a message that wraps there is read as several facts.
+    """
+    try:
+        one_line = " ".join(str(text).split())
+    except Exception:  # noqa: BLE001 -- an exception whose __str__ raises
+        return "<unprintable>"
+    if len(one_line) <= budget:
+        return one_line
+    keep = budget - len(_TRUNCATION_MARK)
+    return one_line[:keep] + _TRUNCATION_MARK if keep > 0 else one_line[:budget]
 
 
 def ingest_id_from_object_key(source_object_key: object) -> Optional[str]:
@@ -193,16 +220,18 @@ def classify(exc: BaseException) -> tuple[str, str]:
     exception whose `__str__` itself raises. Its only caller is an error
     boundary, and a raise there would MASK the original exception.
 
-    `reason` is self-contained: for `kind_unregistered` it carries the
-    registered-kinds list, derived live from KIND_MAPPING rather than scraped
-    from the message, so it holds even when the original message omitted it.
+    `reason` is BOUNDED at `_MAX_REASON` characters, on one line, and what is
+    cut is marked. For `kind_unregistered` it carries the *number* of
+    registered kinds, counted live from KIND_MAPPING rather than scraped from
+    the message, so the count holds even when the original message omitted the
+    list. It does NOT carry the names: see the comment at that branch.
     """
     try:
         # RULING 2026-11-18: "raw prompts and raw model output ... never enter a
         # record a person reads". Lane 1's ingest row IS read by a person, and
         # this echo is bounded but not safe: `str()` of a BAML validation or
         # finish-reason error puts `raw_output=` BEFORE `prompt=`, so the first
-        # `_MAX_ECHO` characters are the model's reply, and the rest is the
+        # `_MAX_REASON` characters are the model's reply, and the rest is the
         # rendered prompt -- which carries the document's own text. Truncation
         # cannot fix that shape, so an exception that carries the envelope is
         # not echoed at all: it reports a code and this module's own sentence.
@@ -213,15 +242,28 @@ def classify(exc: BaseException) -> tuple[str, str]:
         if carries_model_text(exc):
             code = _code_for(exc, "")
             _, phrase = classify_pass_failure(exc)
-            return code, phrase
+            return code, _clamp(phrase)
         msg = str(exc)
+        # CLASSIFY BEFORE BOUNDING. `_code_for` is marker matching on message
+        # text, and a marker can sit past the bound -- the ingest_id markers
+        # do, on a real key. Bounding first would silently demote those
+        # failures to `extraction_failed`.
         code = _code_for(exc, msg)
-        echoed = msg[:_MAX_ECHO]
         if code == "kind_unregistered":
             kinds = _registered_kinds()
             if kinds is not None:
-                return code, f"{echoed} Registered kinds: {kinds}"
-        return code, echoed
+                # THE LIST NO LONGER FITS, and that is a loss, recorded as
+                # F-25. Fourteen kinds render to 191 characters on their own,
+                # past the whole bound, so under a 160-character field there is
+                # no arrangement that carries them. A *truncated* list is the
+                # one thing not to emit: it reads as complete, so a reader
+                # cannot tell a kind that is absent from one that was cut off,
+                # and "your kind is not registered" is exactly the question
+                # this message exists to answer. The count is true at any
+                # length; the names stay in KIND_MAPPING.
+                suffix = f" Registered kinds: {len(kinds)} (names omitted to fit)."
+                return code, _clamp(msg, _MAX_REASON - len(suffix)) + suffix
+        return code, _clamp(msg)
     except Exception:  # noqa: BLE001 -- totality is the contract
         return "unexpected_error", "<classifier failed>"
 

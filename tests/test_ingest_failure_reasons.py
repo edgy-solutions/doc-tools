@@ -11,7 +11,7 @@ import pytest
 
 from doc_tools.utils.content_kind import KIND_MAPPING
 from doc_tools.utils.ingest_failure import (
-    REASON_CODES, classify, running_code_identity,
+    REASON_CODES, _MAX_REASON, classify, running_code_identity,
 )
 from tests.test_ingest_stage_transport import (
     CANON_INGEST_ID, _FakePost, _authed, _resource, _stub_ingest_stages,
@@ -56,14 +56,74 @@ def test_classify_is_total():
     assert classify(None)[0] in REASON_CODES  # type: ignore[arg-type]
 
 
-def test_kind_unregistered_reason_derives_registered_kinds_live():
+def test_kind_unregistered_reason_carries_the_count_and_never_a_part_list():
+    """The names no longer fit, and a PART list is what must not be emitted.
+
+    Fourteen kinds render to 191 characters on their own, past the whole
+    160-character bound set on 2026-11-19 (night), so no arrangement carries
+    them. The count is the part that stays true at any length. A truncated
+    list would read as complete, and "is my kind registered?" is the one
+    question this message exists to answer, so the list is omitted and said to
+    be omitted rather than cut.
+    """
     _, reason = classify(
         ValueError("carries no domain_type AND no registered content_kind")
     )
-    for kind in {e.kind for e in KIND_MAPPING.values()}:
-        assert kind in reason
-    for kind in ("pcn", "pdn", "s1000d-data-module", "xml"):
-        assert kind in reason
+    n = len({e.kind for e in KIND_MAPPING.values()})
+    assert f"Registered kinds: {n} (names omitted to fit)." in reason
+    assert len(reason) <= _MAX_REASON
+    # No list was emitted, in either rendering of one.
+    assert "['" not in reason
+    assert "s1000d-data-module" not in reason
+
+
+def test_the_bound_is_the_one_this_repo_already_uses_for_a_read_phrase():
+    """Two numbers for "what may a person read" is how they drift apart."""
+    from doc_tools.utils.pass_failure import _MAX_PHRASE
+
+    assert _MAX_REASON == _MAX_PHRASE == 160
+
+
+@pytest.mark.parametrize("message", [
+    # A real guard message with a real key: already past 160 on its own.
+    "ADR-0041 guard: sidecar 'ingress-user/pdf/" + "a" * 64 + "/datasheet.pdf' "
+    "carries no domain_type (got None) AND no registered content_kind (got "
+    "'zzz'). Registered kinds: []",
+    "ADR-0041 sidecar manifest missing or unparseable at key='"
+    + "b" * 200 + "': boom",
+    "x" * 5000,
+    "a line" + chr(10) + "and another" + chr(13) + chr(10) + "and a third",
+    "",
+])
+def test_every_reason_is_one_bounded_line(message):
+    code, reason = classify(ValueError(message))
+    assert code in REASON_CODES
+    assert len(reason) <= _MAX_REASON, len(reason)
+    assert chr(10) not in reason and chr(13) not in reason
+
+
+def test_a_cut_message_says_it_was_cut():
+    _, reason = classify(ValueError("y" * 500))
+    assert len(reason) == _MAX_REASON
+    assert reason.endswith("...")
+    _, short = classify(ValueError("y" * 20))
+    assert not short.endswith("...")
+
+
+def test_a_marker_past_the_bound_still_classifies():
+    """Classification reads the WHOLE message; only the output is bounded.
+
+    Bounding first would demote a real failure to `extraction_failed`, and
+    `ingest_id_malformed` is the case that bites: its markers sit at the end
+    of a message whose head is a 100-character object key.
+    """
+    code, reason = classify(ValueError(
+        "ADR-0041: the sidecar for ingress-user/pdf/" + "c" * 64
+        + "/x.pdf could not be used because its ingest_id is not canonical "
+          "sha256:<hex>"
+    ))
+    assert code == "ingest_id_malformed"
+    assert len(reason) <= _MAX_REASON
 
 
 # --------------------------------------------------------------------------- #
@@ -226,8 +286,10 @@ def test_kind_guard_failure_posts_kind_unregistered_through_the_boundary(
     body = fake.calls[0]["json"]
     assert body["reason_code"] == "kind_unregistered"
     assert body["step"] == "document_parser"
-    for kind in ("pcn", "pdn", "s1000d-data-module", "xml"):
-        assert kind in body["reason"]
+    n = len({e.kind for e in KIND_MAPPING.values()})
+    assert f"Registered kinds: {n} (names omitted to fit)." in body["reason"]
+    assert len(body["reason"]) <= _MAX_REASON
+    assert "s1000d-data-module" not in body["reason"]
 
 
 def test_ingest_id_from_object_key():
