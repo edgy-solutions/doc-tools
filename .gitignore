@@ -73,3 +73,7 @@ run_dagster_test.py
 # Lane in-flight state. Durable findings go to project memory, published
 # reasoning to sessions/. Never committed: it is one lane's working notes.
 HANDOFF.md
+
+# Session files (lane packets and handoffs) are PLACED, NEVER COMMITTED -- ruled
+# 2026-11-12, all repos. They stay local files under sessions/; see CLAUDE.md.
+sessions/
