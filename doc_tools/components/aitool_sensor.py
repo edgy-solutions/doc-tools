@@ -5,7 +5,7 @@ changes) but for mesh tool registrations. Polls DataHub for ``mlModel``
 entities tagged with ``mesh_is_registration: "true"`` and dispatches
 ``sync_aitool_predicate_to_neo4j`` runs for new or changed registrations.
 
-Per ADR-0006 (DataHub inbox, Neo4j substrate), code-controlled mesh tools
+Per invincible-agent ADR-0006 (DataHub inbox, Neo4j substrate), code-controlled mesh tools
 auto-approve -- there is no HITL queue between the SDK lifespan and the
 Neo4j predicate edge. The sensor's poll interval bounds end-to-end
 registration latency (typically ~30s).
@@ -91,7 +91,7 @@ class AIToolSensorComponent(Component, Resolvable, Model):
             # catch (default only applies when the key is missing, not when
             # the value is null). The sensor then raises NoneType.get on
             # every tick, which gets caught by the broad except below and
-            # silently reported as "empty result." See ADR-0019 Contract C
+            # silently reported as "empty result." See invincible-agent ADR-0019 Contract C
             # follow-up: this whole sensor is being retired in favor of the
             # mesh-registrar gateway; the fix here keeps Contract C green
             # in the meantime.

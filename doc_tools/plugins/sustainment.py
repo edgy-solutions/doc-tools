@@ -53,7 +53,7 @@ from doc_tools.utils.sustainment_merge import (
     build_review_items, validate_count, empty_header,
 )
 
-# Telemetry (ADR-0038) — the thin seam lives in doc_tools.telemetry so the mapping
+# Telemetry (invincible-agent ADR-0038) — the thin seam lives in doc_tools.telemetry so the mapping
 # and the projected-values contract can be unit-tested without the plugin's heavy
 # imports (that test is the vocabulary-owner truth check). When the leaf / Langfuse
 # is absent these are no-ops, so file-mode keeps its zero-Langfuse-dependency.
@@ -1644,7 +1644,7 @@ class SustainmentPlugin(AugmentationPlugin):
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
                          s3_client: Any = None, bucket: str = None) -> List[DocumentNode]:
-        # v4 extraction-trace JOIN (ADR-0038): open the trace on doc_id via
+        # v4 extraction-trace JOIN (invincible-agent ADR-0038): open the trace on doc_id via
         # create_trace_id(seed=doc_id), so THIS extraction and the downstream review (which
         # seeds on the same doc_id it reads from review.json.trace_id) land ONE unified trace —
         # bucket -> extraction -> review. The header/parts @traced passes nest as child spans;
@@ -2327,7 +2327,7 @@ class SustainmentPlugin(AugmentationPlugin):
         if any(it["needs_review"] for it in items):
             needs_review = True
 
-        # Telemetry (ADR-0038): project the extraction's provenance onto the trace
+        # Telemetry (invincible-agent ADR-0038): project the extraction's provenance onto the trace
         # `traced` opened above — identity keyed on doc_id, honest-degradation as
         # scores (needs_review, crops_failed/n_tables). No-op when Langfuse is off;
         # emission never blocks the extraction (fail-soft-and-counted in the leaf).
@@ -2338,7 +2338,7 @@ class SustainmentPlugin(AugmentationPlugin):
         ))
 
         review = {"doc_id": header_d.get("doc_id") or doc_id,
-                  # PROVENANCE — the extractor that PRODUCED this artifact (ADR-0034).
+                  # PROVENANCE — the extractor that PRODUCED this artifact (invincible-agent ADR-0034).
                   #
                   # WHY IT LIVES IN THE ARTIFACT AND NOT IN THE READER'S ENVIRONMENT. The trust
                   # table is keyed on (vendor-format x pipeline_version) precisely so a rung
@@ -2391,7 +2391,7 @@ class SustainmentPlugin(AugmentationPlugin):
                   # Categories stringified to their enum values (== the ruleset's
                   # pcn:changeClass category keys: 'Material','Process',…).
                   "doc_type": header_d.get("doc_type") or "PCN",
-                  # ATTESTATION, not a second copy of the value (ADR-0034 normalization).
+                  # ATTESTATION, not a second copy of the value (invincible-agent ADR-0034 normalization).
                   #
                   # `doc_type` above DEFAULTS to "PCN" when the header pass extracted none — which
                   # makes "identified as a PCN" and "we did not know" the SAME VALUE downstream.
@@ -2464,10 +2464,10 @@ class SustainmentPlugin(AugmentationPlugin):
     def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "",
                          image_prefix: str = "",
                          provenance: Optional[Dict[str, Any]] = None) -> Tuple[List[str], List[str]]:
-        """`provenance` is the ADR-0041 block (doc_tools/utils/ingest_provenance.py's
+        """`provenance` is the invincible-agent ADR-0041 block (doc_tools/utils/ingest_provenance.py's
         `as_dict()` output) off the manifest — present only for documents that
         arrived via a non-vetted path (e.g. the ingress-user sensor). When absent
-        (every pre-ADR-0041 call site, and every vetted sensor), this emits exactly
+        (every call site predating invincible-agent ADR-0041, and every vetted sensor), this emits exactly
         what it emitted before this parameter existed — no stamp, no change. See
         doc_tools/assets/semantic_assets.py's DOMAINS_THAT_PERSIST_PROVENANCE for
         why SUSTAINMENT is the one domain allowed to receive a provenance-bearing
@@ -2489,7 +2489,7 @@ class SustainmentPlugin(AugmentationPlugin):
             # the IRI normalized while the Neo4j :SustainmentNotice id took doc_id
             # VERBATIM -- so the same notice was keyed two ways and never joined
             # across the two stores. Both :SustainmentNotice MERGE sites below (the
-            # edge query and the ADR-0041 provenance query) use this, and so does the IRI.
+            # edge query and the invincible-agent ADR-0041 provenance query) use this, and so does the IRI.
             notice_graph_key = norm.normalize_doc_id(notice.doc_id)
 
             cypher_queries.append({
@@ -2570,7 +2570,7 @@ class SustainmentPlugin(AugmentationPlugin):
                 },
             })
 
-            # ADR-0041 — persist the provenance block onto the SAME per-document
+            # invincible-agent ADR-0041 — persist the provenance block onto the SAME per-document
             # node the queries above already MERGE (n:SustainmentNotice), never a
             # new node type and never keyed on a component/figure subject — those
             # IRIs/ids are shared across notices (see AGENTS.md), so a
@@ -2657,14 +2657,14 @@ class SustainmentPlugin(AugmentationPlugin):
                     sparql += f"""
                     <http://internal/components/{safe_mpn}> pcn:hasReplacement <http://internal/components/{safe_rep}> .
                     """
-            # ADR-0041 — the two provenance fields the SDK maps onto PROV terms,
+            # invincible-agent ADR-0041 — the two provenance fields the SDK maps onto PROV terms,
             # written into the SAME GRAPH <..._INSTANCES> block above (never the
             # default graph — invisible to the mesh resolver — and never the
             # vocabulary graph <http://internal/{DOMAIN}>, which prime DROPs on
             # every re-ingest and would wipe this runtime instance data).
             # PROV_DERIVED_FROM/PROV_GENERATED_AT come from iagent_mesh.provenance
             # (SDK v0.9.5+) rather than inventing pcn:* predicates for them, per
-            # ADR-0035's "cherry-picked standard vocabulary" posture.
+            # invincible-agent ADR-0035's "cherry-picked standard vocabulary" posture.
             if provenance:
                 from iagent_mesh.provenance import PROV_DERIVED_FROM, PROV_GENERATED_AT
 

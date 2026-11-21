@@ -1,4 +1,4 @@
-"""Contract tests for ADR-0021 deterministic content-kind selection.
+"""Contract tests for invincible-agent ADR-0021 deterministic content-kind selection.
 
 These tests are the design's enforcement layer. The architect's ratification
 gave four sharpenings that must each be testable:
@@ -31,7 +31,7 @@ from doc_tools.utils.content_kind import (
 # ---------------------------------------------------------------------------
 
 def test_unclassifiable_kind_HALTS_does_not_default():
-    """ADR-0021 §Precedence §3: HALT, never silent default.
+    """invincible-agent ADR-0021 §Precedence §3: HALT, never silent default.
 
     The legacy ``domain_type`` chain in ``semantic_assets.py`` ends in
     ``metadata.get("project", "Training")`` — silent default. This test
@@ -51,7 +51,7 @@ def test_unclassifiable_kind_HALTS_does_not_default():
     # The failure message names the resolved value AND points at the table.
     assert "zzz-not-a-registered-kind" in msg, msg
     assert "KIND_MAPPING" in msg, msg
-    assert "ADR-0021" in msg, msg
+    assert "invincible-agent ADR-0021" in msg, msg
 
 
 def test_unclassifiable_kind_HALTS_when_metadata_present_but_wrong():
@@ -176,7 +176,7 @@ def test_resolver_output_matches_legacy_hardcode_for_manufacturing():
         "Resolver output diverged from the legacy hardcoded URI. The "
         "dispatch swap's positive control is violated — the existing "
         "manufacturing path will produce different INSTANCE_OF edges "
-        "than it did before ADR-0021."
+        "than it did before invincible-agent ADR-0021."
     )
     assert entry.baml_function == LEGACY_HARDCODED_BAML
     assert entry.extractor_config == "manufacturing_default"
@@ -246,7 +246,7 @@ def test_every_KIND_MAPPING_row_has_a_well_formed_target_uri():
 # ---------------------------------------------------------------------------
 
 def test_metadata_content_kind_overrides_path_derived():
-    """Per ADR-0021 §Precedence: metadata > path. Metadata wins."""
+    """Per invincible-agent ADR-0021 §Precedence: metadata > path. Metadata wins."""
     # path-derive WOULD yield "something-else" (not in the table)
     # but metadata declares "work-instructions" (valid row)
     entry = resolve_content_kind(

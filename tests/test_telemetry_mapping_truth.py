@@ -3,7 +3,7 @@
 The provenance-telemetry leaf validates the mapping's SHAPE (that its slots and
 score encodings are a closed, known set). It CANNOT know whether ``crops_failed``
 or ``doc_id`` are real doc-tools fields — that truth lives here, with the
-vocabulary owner (ADR-0038's two-tier validation).
+vocabulary owner (invincible-agent ADR-0038's two-tier validation).
 
 The single source of truth for the projected fields is
 ``doc_tools.telemetry.build_trace_values``; this test pins the mapping to it, so a

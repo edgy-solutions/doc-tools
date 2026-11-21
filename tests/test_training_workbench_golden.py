@@ -247,7 +247,7 @@ def test_training_kind_row_and_sensor():
     assert row.ingress_prefix is None
     src = (REPO_ROOT / "doc_tools" / "definitions.py").read_text(encoding="utf-8")
     assert "training/course/" in src
-    # Contract section 2: the PATH carries the kind (ADR-0021 <domain>/<kind>/...),
+    # Contract section 2: the PATH carries the kind (invincible-agent ADR-0021 <domain>/<kind>/...),
     # and the sidecar carries neither. The parser stamps domain_type from the
     # first key segment; path-derive then reads "course" from the second.
     from doc_tools.utils.content_kind import resolve_content_kind

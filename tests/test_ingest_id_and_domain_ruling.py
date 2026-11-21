@@ -305,7 +305,7 @@ def test_a11_no_bare_hexdigest_mint_survives_in_the_parser():
 # orchestration past the top of the function is heavy I/O left to
 # integration tests.
 #
-# THE DISCRIMINATOR MOVED (2026-10-02). It used to be the ADR-0041 provenance
+# THE DISCRIMINATOR MOVED (2026-10-02). It used to be the invincible-agent ADR-0041 provenance
 # check, which sat immediately after resolution and named `domain_label` in
 # its refusal — so "which domain did it resolve to?" was answerable as "which
 # exception?". That check is deleted (provenance now persists for every
@@ -413,7 +413,7 @@ def test_b3_manufacturing_still_halts_on_an_unresolvable_kind():
     """Manufacturing IS migrated, so for it the resolver's halt stands.
 
     A declared-manufacturing document whose kind does not resolve is a
-    document whose registered kind is missing, and ADR-0021 §Precedence has
+    document whose registered kind is missing, and invincible-agent ADR-0021 §Precedence has
     no default for that.
     """
     from doc_tools.utils.content_kind import UnclassifiableContentKindError

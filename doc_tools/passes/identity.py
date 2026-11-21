@@ -47,7 +47,7 @@ document; invariant 1 is what makes it locatable.
 
 Note on naming: the per-field key is ``method``/``label``/``region``, NOT
 ``obtained_via``. ``obtained_via`` already means something else in this repo —
-ADR-0041 drop provenance, how a document ENTERED the system ("user-drop") — and
+invincible-agent ADR-0041 drop provenance, how a document ENTERED the system ("user-drop") — and
 the two are unrelated. Reusing the name would silently merge them.
 
 REFUSED IF NOT PRINTED
