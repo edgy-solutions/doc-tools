@@ -107,7 +107,7 @@ def ingest_global_aitool_registrations(
     This asset is *informational* — it does not directly write to Neo4j.
     Instead it surfaces the list of mesh tools currently registered in
     DataHub so operators can spot drift against Neo4j (per the
-    reconciliation pattern of ADR-0006). The sensor handles the actual
+    reconciliation pattern of invincible-agent ADR-0006). The sensor handles the actual
     sync of new/changed registrations; an operator wanting to force-sync
     every tool can use the sensor's job manually with the URN list this
     asset returns.

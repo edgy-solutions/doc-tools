@@ -49,7 +49,7 @@ returned HTTP 200. Every one of them carried an EMPTY row list, so the skip is
 
 So this sensor is idle because NOTHING ENQUEUES A FAILED INGEST, not because the
 route is missing. That distinction decides a remedy: the five `ingress-user/pdf/`
-drops that failed the ADR-0041 guard are NOT in the queue and this sensor will
+drops that failed the invincible-agent ADR-0041 guard are NOT in the queue and this sensor will
 never pick them up, so they need a re-drop under a new object key. Do not tell
 anyone that shipping the route will relaunch them; the route is shipped.
 

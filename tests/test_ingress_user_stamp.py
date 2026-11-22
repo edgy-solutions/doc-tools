@@ -1,4 +1,4 @@
-"""ADR-0041 ingress-user sensor: the user-drop provenance stamp.
+"""invincible-agent ADR-0041 ingress-user sensor: the user-drop provenance stamp.
 
 Covers the five deliverables end to end at the unit level:
   1. doc_tools/utils/ingest_provenance.py's build_ingest_provenance()
@@ -448,7 +448,7 @@ def test_sustainment_rdf_persists_provenance_into_instances_graph_only():
 
 
 def test_sustainment_rdf_omits_provenance_entirely_when_absent():
-    """No `provenance` kwarg (every pre-ADR-0041 call site) must emit exactly
+    """No `provenance` kwarg (every call site predating invincible-agent ADR-0041) must emit exactly
     what the method emitted before this parameter existed — no SDK import,
     no PROV triples, no provenance_* Neo4j properties."""
     from doc_tools.plugins.sustainment import (
@@ -768,7 +768,7 @@ def test_f7_review_names_the_versioned_manifest_it_wrote(monkeypatch):
     assert not ref.endswith("current.json")
 
     # And the named artifact is self-describing: Lane 1 derives
-    # pipeline_version from it (ADR-0034 forbids this side asserting it on
+    # pipeline_version from it (invincible-agent ADR-0034 forbids this side asserting it on
     # the wire), so it has to be IN the artifact and not only in its path.
     written = json.loads(fake_client.objects[(BUCKET, ref)].decode("utf-8"))
     assert written["pipeline_version"] == version
@@ -1171,7 +1171,7 @@ def test_f8_a_document_that_says_nothing_records_the_read_rather_than_nothing(mo
 
 def test_f8_a_vetted_sensor_manifest_gains_no_leaf_block():
     """obtained_via is unset for every vetted instance, and for those the manifest
-    is byte-for-byte what it was -- the same rule ADR-0041's provenance block holds
+    is byte-for-byte what it was -- the same rule invincible-agent ADR-0041's provenance block holds
     to, and the reason this block sits beside it."""
     manifest = _run_parser(
         dict(name="process_document_artifact", partition_name="pdf_files"),

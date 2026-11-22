@@ -292,7 +292,7 @@ def test_gateway_url_trailing_slash_does_not_double(monkeypatch):
 # not name the extraction it was about. `extraction_ref` is the one field of
 # the six that only this side can supply; Lane 1 derives `pipeline_version`
 # and `format_fingerprint` FROM the named artifact rather than from anything
-# asserted here (ADR-0034), which is why this seam sends a key and not a
+# asserted here (invincible-agent ADR-0034), which is why this seam sends a key and not a
 # claim.
 # --------------------------------------------------------------------------- #
 def test_review_post_carries_extraction_ref(monkeypatch):

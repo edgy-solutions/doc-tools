@@ -1,4 +1,4 @@
-"""review.json must carry the EXTRACTOR'S OWN VERSION (ADR-0034 provenance stamp).
+"""review.json must carry the EXTRACTOR'S OWN VERSION (invincible-agent ADR-0034 provenance stamp).
 
 WHY THIS IS A CONTRACT AND NOT A NICE-TO-HAVE. Downstream, the trust table is keyed on
 (vendor-format x pipeline_version) so that a rung earned under one extractor does NOT survive that

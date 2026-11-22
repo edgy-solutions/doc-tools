@@ -2,6 +2,24 @@
 
 When working in `doc-tools`, AI agents should adhere to the following workflow and safety guardrails:
 
+## Citing a decision — a number from another repo names that repo
+
+**Clarified by the architect, 2026-11-16:** an ADR number cited from *another*
+repo names that repo — `invincible-agent ADR-0041`, `dag-tools ADR-0001`. Never
+the old short spelling `iagent ADR-00NN`. **Inside a repo a bare number means that
+repo's own ADR and needs no change**, so a bare `ADR-0001` here is
+[`doc-tools ADR-0001`](docs/adr/0001-memory-bounded-hi-res-pdf-ingestion.md), the
+one record doc-tools owns, and internal citations are not rewritten.
+
+The qualifier earns its keep because the three repos number independently from
+0001: `ADR-0001` is a different decision in each, and almost every number this
+tree cites is invincible-agent's.
+
+[`docs/adr/README.md`](docs/adr/README.md) carries the convention, an index of every
+number this repo cites with its owning repo and subject, and the two numbers that do
+not resolve: `ADR-0059` (no such file exists in any repo — the authority is the dated
+2026-10-23 packet that claimed the number) and `invincible-agent ADR-0066` (in draft).
+
 ## Domain handoffs — read before touching PCN/PDN extraction
 
 The SUSTAINMENT domain (PCN/PDN parts extraction) carries three documents on
@@ -56,6 +74,7 @@ hides the defect it exists to find.
 2. **Adding Assets**: Any new step in the ingestion pipeline should be represented as a modular Dagster `@asset`.
 3. **Configuration**: Use **Declarative Components** (`S3ToFileComponent`, `S3SensorComponent`) in `doc_tools/definitions.py` to instantiate jobs and sensors. These components encapsulate `IngestionConfig` (labels, collections) and replace the legacy `config.yaml`. Do not pollute the backend logic with specific client schemas.
 4. **Environment Generation**: When adding new libraries, leverage `uv add <package>` and update `pyproject.toml`. Do not use pip.
+5. **Shipping it**: [`docs/release-path.md`](docs/release-path.md) is the path as practised, measured from the tree — where CI does and does not fire, how to get a digest and prove it exists, the roll in **two** applies with `corpusGate.expectImage` read back off the settled pods, where the gate report is published, and why a version tag is retagged rather than rebuilt.
 
 ## Safety Guardrails
 - **Dynamic Queries**: Be extremely careful with Cypher query string formatting for dynamic labels to avoid injection vulnerability or syntax errors. Only use bounded f-strings against `config.graph_node_label` etc, and parameterize everything else natively.
@@ -173,7 +192,7 @@ hides the defect it exists to find.
   4. **HITL Workflow**: All semantic linkings must go through the `propose_datahub_term` flow for human-in-the-loop approval before being synced to the Neo4j Knowledge Graph via the `datahub_approval_sensor`.
   5. **Neo4j Sync**: The `sync_approved_tags_to_neo4j` asset must fetch the full `ontology_uri` from the DataHub entity's `customProperties` at runtime to ensure graph accuracy.
 
-- **AITool Binding Plane (Predicate-Graph Routing — iagent ADR-0004)**:
+- **AITool Binding Plane (Predicate-Graph Routing — invincible-agent ADR-0004)**:
   Sibling to the Semantic Binding Plane above, for SDK-registered mesh tools
   rather than Datasets. A mesh tool registered via `iagent-mesh-sdk` lands in
   DataHub as an `mlModel` entity with `customProperties.mesh_is_registration = "true"`

@@ -44,7 +44,7 @@ class AugmentationPlugin(ABC):
         # prompt_name -> content ref: a sha1 of the canonical file for ``file`` mode,
         # the label version for ``langfuse`` mode. The "ruleset_ref for prompts" —
         # telemetry stamps these so a trace names WHICH prompt version produced an
-        # extraction (ADR-0038 Phase 4). Populated as prompts are resolved.
+        # extraction (invincible-agent ADR-0038 Phase 4). Populated as prompts are resolved.
         self._prompt_refs: Dict[str, str] = {}
         # Cache flag for `_ensure_prompts_available`: validated once per process
         # (per instance), not on every extraction call.

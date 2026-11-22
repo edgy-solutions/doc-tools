@@ -1,4 +1,4 @@
-"""Structured failure reasons for the ADR-0041 ingest `failed` stage.
+"""Structured failure reasons for the invincible-agent ADR-0041 ingest `failed` stage.
 
 Pure module: no Dagster import, no network, no S3, and importable without the
 SDK installed. The document parser's error boundary calls `classify()` to turn
@@ -28,7 +28,7 @@ from doc_tools.utils.pass_failure import carries_model_text, classify_pass_failu
 
 #: The reason codes a `failed` stage may carry. Each names its raise site.
 REASON_CODES: frozenset[str] = frozenset({
-    # The ADR-0041 kindless guard in document_parser.py ("carries no
+    # The invincible-agent ADR-0041 kindless guard in document_parser.py ("carries no
     # domain_type ... AND no registered content_kind"). Named by the packet.
     "kind_unregistered",
     # The RuntimeError for a missing/unparseable sidecar manifest.

@@ -15,7 +15,7 @@ WHY CONTRACT ERRORS RAISE INSTEAD OF DEGRADING
 ----------------------------------------------
 A contract error (a class, a non-callable, a required parameter outside the
 vocabulary, ``*args``/``**kwargs``, an unresolvable or ambiguous name) is a
-REGISTRATION defect, not a document problem. ADR-0021 halts on an unresolvable
+REGISTRATION defect, not a document problem. invincible-agent ADR-0021 halts on an unresolvable
 kind rather than defaulting one; this is the same class of fault one layer in.
 A mis-declared row that degrades quietly is how a kind runs zero passes while
 every test stays green. A pass raising its OWN exception on a bad document
@@ -194,7 +194,7 @@ def run_passes_for_kind(kind: str, ctx: PassContext) -> tuple[PassResult, ...]:
     """Run every pass the kind's row declares, in declared order.
 
     The row documents its order as meaningful, so it is preserved. An unknown
-    kind raises: no default is invented (ADR-0021).
+    kind raises: no default is invented (invincible-agent ADR-0021).
     """
     entry = _lookup(kind)
     if entry is None:

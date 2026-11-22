@@ -89,7 +89,7 @@ dependencies = [
     #   list at all, so the mint seam is byte-identical across this bump as well — the
     #   previously consumed surface did not move. `provenance.py` is ADDED in the range (a new
     #   file, +305 lines); `ProvenanceBlock` lives there and types `obtained_via` as
-    #   `Literal[OBTAINED_VIA]`, whose fifth rung is `user-drop` (ADR-0041 section 2). That rung
+    #   `Literal[OBTAINED_VIA]`, whose fifth rung is `user-drop` (invincible-agent ADR-0041 section 2). That rung
     #   is the value the ingress-user stamp has to write, so v0.9.5 is the FLOOR for that work
     #   rather than a convenience: on v0.9.1 the symbol does not exist to import.
     #
@@ -138,7 +138,7 @@ dependencies = [
     #   appended at the far end, farther from truth than `user-drop`. `utils/ingest_provenance.py`
     #   re-exports that tuple as `Literal[OBTAINED_VIA]`, so our stamp's accepted set widens by
     #   two values it never writes. The ordering is append-only, so nothing that reasons by
-    #   position changes meaning; ADR-0041's own Consequences section asks for exactly this
+    #   position changes meaning; invincible-agent ADR-0041's own Consequences section asks for exactly this
     #   re-check when the tuple grows, and this is it.
     #
     #   `ProvenanceBlock` gains two optional fields, `corrected_by` and `extracted_value`, each
@@ -148,7 +148,7 @@ dependencies = [
     #   WHAT WE ARE ACTUALLY HERE FOR. `ContentKindRegistration` gained `parent_link_field`
     #   (0.9.9) and `id_namespaces`, `arrives_as`, `review_shape`, `label` (0.9.11). At v0.9.8
     #   the model was `extra="forbid"` with eight fields and no `arrives_as`/`review_shape` --
-    #   measured while drafting ADR-0063 section 1, which is why both were DECLINED rather than
+    #   measured while drafting invincible-agent ADR-0063 section 1, which is why both were DECLINED rather than
     #   deferred. That blocker is cleared by this bump, not argued away: the fields exist now.
     #   `branch`/`refresh` still have no counterpart on our own `ContentKindEntry`, so an event
     #   row remains unprojectable -- our plumbing, not the SDK's.
