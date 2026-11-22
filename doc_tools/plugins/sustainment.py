@@ -40,6 +40,11 @@ from doc_tools.utils.jena_client import (
     safe_iri_ref_component,
 )
 from doc_tools.utils import provenance
+from doc_tools.utils.pass_failure import (
+    classify_pass_failure,
+    reason_phrase,
+    telemetry_text,
+)
 from doc_tools.utils import sustainment_normalize as norm
 from doc_tools.utils import sustainment_header_trust as header_trust
 from doc_tools.utils import notice_identity
@@ -622,9 +627,12 @@ def _header_call_opts() -> dict:
 # time. `_header_call_opts`' AbortController fires at `header_bound_ms()` and nowhere
 # else. So elapsed-against-the-bound separates them, and elapsed is the measurement
 # NOTHING recorded before this: `stats` carried no header timing at all, and the reason
-# the plugin writes is the time-free `header pass failed: AbortError` -- byte-identical
+# the plugin wrote was the time-free `header pass failed: AbortError` -- byte-identical
 # on `onsemi_Generic_IPCN25300X` (2026-10-25 fire) and on 24_0003, so the persisted
-# record alone cannot tell the origins apart on either case.
+# record alone cannot tell the origins apart on either case. (That reason now reads
+# `header pass failed: call_cancelled — ...` plus the elapsed detail this block
+# classifies; the origin is in `stats["header_pass"]`, and the point stands that the
+# 2026-10-25 record could not have told them apart.)
 #
 # Measured on the 2026-10-25 fire by subtraction from the BAML log, because nothing
 # recorded it directly: the last timestamped line before the cancelled notice is
@@ -842,12 +850,27 @@ class SustainmentPlugin(AugmentationPlugin):
             except Exception as e:  # noqa: BLE001
                 elapsed_ms = int((time.monotonic() - t0) * 1000)
                 cancelled = looks_cancelled(e)
+                code, message = classify_pass_failure(e, cancelled=cancelled)
+                # TELEMETRY, which is where the ruling of 2026-11-18 puts the raw
+                # text -- and the only place it existed before was the RECORD, so
+                # this line is what keeps the diagnosis available at all.
+                print("[SustainmentPlugin] header pass attempt %d failed (%s): %s"
+                      % (n, code, telemetry_text(e)))
                 attempts.append({
                     "n": n,
                     "outcome": "cancelled" if cancelled else "failed",
                     "elapsed_ms": elapsed_ms,
+                    # The type name stays: it is a class name, not model output,
+                    # and on the live cut it was the ONLY thing `str(e)` held.
                     "error_type": type(e).__name__,
-                    "error": str(e),
+                    # `"error": str(e)` stood here until 2026-11-18. `stats` is
+                    # copied onto review.json (`semantic_assets.py`'s
+                    # `review_payload["stats"]`), so that one key published the
+                    # rendered prompt -- the document's own text -- and the
+                    # model's reply into a record a person reads, whenever the
+                    # raise was a BAML validation or finish-reason error.
+                    "reason_code": code,
+                    "reason": message,
                     "origin": (classify_header_cancel(elapsed_ms, bound_ms)
                                if cancelled else "error"),
                 })
@@ -868,7 +891,7 @@ class SustainmentPlugin(AugmentationPlugin):
             if record["cut_then_recovered"]:
                 first = attempts[0]
                 # Phrased WITHOUT the words "header pass failed" deliberately.
-                # `scripts/pcn_corpus_gate.py`'s `_HEADER_DECLARATION_MARKERS` matches
+                # `scripts/pcn_corpus_gate.py`'s `_HEADER_WIDE_DECLARATION_MARKERS` matches
                 # that phrase as a SUBSTRING of `review_reasons`, and a declaration
                 # about the header buys that notice's header fields an exemption from
                 # correctness in the gate. A pass that was cut and then ANSWERED has no
@@ -892,8 +915,14 @@ class SustainmentPlugin(AugmentationPlugin):
         # The `header pass failed: ` prefix is kept EXACTLY as `da7c1ee` wrote it: the
         # gate matches it as a substring to see that the product declared a header
         # problem, and the detail is appended after it rather than woven into it.
-        reasons.append("header pass failed: %s%s" % (last["error"], detail))
-        doc_flags.append("header extraction failed: %s" % last["error"])
+        #
+        # What follows the prefix changed on 2026-11-18, by ruling: a CODE and a
+        # bounded message in place of `str(e)`. The prefix, the detail and the
+        # declaration's meaning are untouched -- only the echo is gone.
+        reasons.append("header pass failed: %s — %s%s"
+                       % (last["reason_code"], last["reason"], detail))
+        doc_flags.append("header extraction failed: %s — %s"
+                         % (last["reason_code"], last["reason"]))
         return None, record
 
     def _extract_parts_text_layer(self, manifest: Optional[dict], s3_client,
@@ -2287,7 +2316,10 @@ class SustainmentPlugin(AugmentationPlugin):
                 except Exception as e:  # noqa: BLE001
                     # Outcome is today's behaviour (a declined grid left unlabeled), so
                     # this is recorded but deliberately does NOT set needs_review.
-                    reasons.append(f"mixed-notice grid forwarding failed: {e}")
+                    print("[SustainmentPlugin] mixed-notice grid forwarding failed: "
+                          f"{telemetry_text(e)}")
+                    reasons.append("mixed-notice grid forwarding failed: "
+                                   f"{reason_phrase(e)}")
                     parts_d = tl_parts
         elif tables and vision_ok and s3_client is not None:
             try:
@@ -2301,8 +2333,13 @@ class SustainmentPlugin(AugmentationPlugin):
                 # See the comment on the header pass's identical clause above.
                 raise
             except Exception as e:  # noqa: BLE001
-                reasons.append(f"parts pass failed: {e}")
-                doc_flags.append(f"PARTS MAY BE MISSING: the parts pass failed ({e})")
+                # Raw text to the LOG, a code and a bounded message to the record
+                # (ruling 2026-11-18). The banner wording and the
+                # `parts pass failed` marker are unchanged.
+                print(f"[SustainmentPlugin] parts pass failed: {telemetry_text(e)}")
+                phrase = reason_phrase(e)
+                reasons.append(f"parts pass failed: {phrase}")
+                doc_flags.append(f"PARTS MAY BE MISSING: the parts pass failed ({phrase})")
                 needs_review = True
         elif tables and not vision_ok:
             reasons.append("tables present but VISION_LLM_BASE_URL unset — parts NOT extracted")
@@ -2337,8 +2374,13 @@ class SustainmentPlugin(AugmentationPlugin):
                 # See the comment on the header pass's identical clause above.
                 raise
             except Exception as e:  # noqa: BLE001
-                reasons.append(f"parts pass failed: {e}")
-                doc_flags.append(f"PARTS MAY BE MISSING: the parts pass failed ({e})")
+                # Raw text to the LOG, a code and a bounded message to the record
+                # (ruling 2026-11-18). The banner wording and the
+                # `parts pass failed` marker are unchanged.
+                print(f"[SustainmentPlugin] parts pass failed: {telemetry_text(e)}")
+                phrase = reason_phrase(e)
+                reasons.append(f"parts pass failed: {phrase}")
+                doc_flags.append(f"PARTS MAY BE MISSING: the parts pass failed ({phrase})")
                 needs_review = True
         elif not tables:
             # No table detected -> header-only. Instrumented so the borderless

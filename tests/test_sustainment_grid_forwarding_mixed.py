@@ -192,5 +192,17 @@ def test_generic_failure_records_a_reason_but_does_not_flip_needs_review(plugin,
     monkeypatch.setattr(plugin, "_forward_declined_grids", boom)
     aug = _run(plugin, monkeypatch, [_tl_part(m) for m in TL_MPNS], [_decline()])
     assert _mpns(aug) == TL_MPNS
-    assert any("kaboom" in r for r in aug.review_reasons)
+    # RULING 2026-11-18: a failure reason in a record a person reads is a code
+    # and a bounded message, never the exception's text. This assertion used to
+    # read `any("kaboom" in r ...)`, i.e. it PINNED the echo; the same echo on
+    # this path carried a rendered prompt, because the grid forwarding it guards
+    # is a vision call and a BAML error puts the prompt on its `__str__`. The
+    # marker, the code and the type name are what is now asserted, and the
+    # exception's own message must be absent.
+    forwarding = [r for r in aug.review_reasons
+                  if r.startswith("mixed-notice grid forwarding failed: ")]
+    assert len(forwarding) == 1
+    assert "pass_failed" in forwarding[0]
+    assert "(RuntimeError)" in forwarding[0]
+    assert not any("kaboom" in r for r in aug.review_reasons)
     assert aug.needs_review == baseline.needs_review
