@@ -147,7 +147,7 @@ class NoticeHeader(BaseModel):
     doc_id: str = Field(description='The PCN/PDN/notice number exactly as printed, e.g. \'PDN 23_0120\' or \'PCN20250409000.1\'.')
     doc_type: DocType = Field(description='PCN for process/product changes; PDN for discontinuance / obsolescence / EOL / PTN / product-termination. Pick the PRIMARY class; discontinuation nuance goes in categories.')
     revision: typing.Optional[str] = Field(default=None, description='Document revision as printed, e.g. \'A\' or \'-\'. Null if the notice shows none.')
-    pub_date: str = Field(description='The notification / publication date in ISO 8601 (YYYY-MM-DD).')
+    pub_date: typing.Optional[str] = Field(default=None, description='The notification / publication date in ISO 8601 (YYYY-MM-DD). Null when the document prints no notification or publication date anywhere - null is a CORRECT answer here, not a failure. A notice with no printed date is a valid notice. Never substitute a date of another kind (effective, last-time-buy, revision) and never today\'s date.')
     pub_date_source: typing.Optional[str] = Field(default=None, description='Verbatim source substring for pub_date - the date string as printed - or null.')
     mfr: typing.Optional[str] = Field(default=None, description='The manufacturer or brand name AS PRINTED in this document, copied character-for-character from the text. Null when the document prints no manufacturer or brand name anywhere - null is a correct answer here, not a failure. Never expand an abbreviation, never substitute a parent or owning company, and never assemble a name out of a web address.')
     mfr_source: typing.Optional[str] = Field(default=None, description='Verbatim source substring for mfr - MANDATORY whenever mfr is non-null. If you cannot copy the name out of the text character-for-character, the correct answer is mfr = null, not a name with a null source.')
@@ -205,7 +205,7 @@ class SustainmentNotice(BaseModel):
     doc_id: str = Field(description='The PCN/PDN number, e.g., 23-002')
     doc_type: DocType = Field(description='PCN or PDN')
     revision: typing.Optional[str] = Field(default=None, description='Document revision, or null.')
-    pub_date: str = Field(description='The notification date')
+    pub_date: typing.Optional[str] = Field(default=None, description='The notification date; null when the document prints none.')
     mfr: str = Field(description='The manufacturer, e.g., Mini-Circuits')
     mfr_parent: typing.Optional[str] = Field(default=None, description='The parent / owning company, when the document prints its name as a name. Null otherwise.')
     categories: typing.List[ChangeCategory]

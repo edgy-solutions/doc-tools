@@ -1886,3 +1886,167 @@ def headline_candidate_elements(elements) -> List[Tuple[dict, str, int]]:
         elif not seen_title and len(text) <= HEADLINE_MAX_CHARS:
             out.append((el, text, i))
     return out
+
+
+# --------------------------------------------------------------------------- #
+# 2e. change categories from the document's own text
+# --------------------------------------------------------------------------- #
+# Finding 13, item 1 (2026-11-18): "when the header pass fails, the fallback still
+# recovers the change categories where the text supports them, so a failed header does
+# not leave every part without a proposal."
+#
+# WHY A CATEGORY IS LOAD-BEARING: every PCN disposition rule matches on a change
+# category, so `categories: []` makes the proposer return UNCLASSIFIABLE for EVERY part
+# and the UI shows "needs a disposition" on all of them -- the parts pass's entire
+# result unusable because a DIFFERENT pass died. `sustainment_merge.empty_header` sets
+# exactly that empty list, and a null `pub_date` used to be enough to get there (the
+# schema required a string, BAML could not coerce the null, and the whole header was
+# lost). The schema now allows the null; this is the floor under the OTHER ways the
+# pass can die -- a cancel, a host 400, an abort.
+#
+# A DETERMINISTIC KEYWORD WALK, not a second model call, for the same reason
+# `doc_type_from_titles` is one: it runs on the path where the model produced nothing,
+# so it cannot depend on the model, and a value a reviewer is asked to check has to be
+# reproducible from the bytes.
+#
+# A FLOOR, NEVER AN OVERRIDE. The caller runs this only where the header pass FAILED
+# (see the call site in `plugins/sustainment.py`). A header that RETURNED an empty
+# category list made a judgment -- "May be more than one. This is a judgment call."
+# (prompts/sustainment_header_instructions.md) -- and a keyword walk is not a better
+# judge of that than the model that read the document.
+
+CATEGORY_ORDER: Tuple[str, ...] = ("Material", "Process", "Location",
+                                   "Discontinuation", "Packaging", "Testing")
+
+# Stems: matched with a LEADING boundary only, so "discontinued" / "discontinuance" /
+# "relocating" all hit. Every other term is a whole word or phrase and is anchored at
+# both ends -- that anchoring is load-bearing, not decoration: "latest change" contains
+# the substring "test change", and an unanchored match would make every notice that
+# mentions its own latest change a Testing change.
+_STEM_TERMS = frozenset(("discontinu", "obsolesc", "relocat"))
+
+# `ptn` is DELIBERATELY dropped from the discontinuation terms that
+# `norm._PDN_TERMS` carries. That tuple is matched against TITLES, where a three-letter
+# code is safe; here it is matched against the WHOLE document text, where `\bptn\b`
+# hits inside a hyphenated part number ("XC-PTN-5" -- a hyphen is a word boundary).
+# Every other `_PDN_TERMS` entry survives, "eol" included: a bare EOL token in a
+# notice's text is discontinuation evidence, and both of its boundaries are real
+# (it does not fire inside "rheology").
+_DISCONTINUATION_TERMS: Tuple[str, ...] = tuple(
+    t for t in norm._PDN_TERMS if t != "ptn")
+
+
+def _change_phrases(noun: str) -> Tuple[str, ...]:
+    """`<noun> change` plus `change of/in/to (the) <noun>` -- the phrasings a vendor's
+    "Description of Change" line actually uses.
+
+    Enumerated as PHRASES rather than written as one alternation regex so that the term
+    reported to a reviewer is a phrase they can look for in the document, never a
+    pattern. Nothing a reviewer reads should require reading a regex.
+    """
+    return (noun + " change", "change of " + noun, "change in " + noun,
+            "change to " + noun, "change of the " + noun, "change in the " + noun)
+
+
+# CONSERVATIVE BY CONSTRUCTION. The generic nouns (material, process, site, test) are
+# admitted only inside a CHANGE phrase, because a notice's own form prints them as bare
+# field labels ("Manufacturing Site:", "Test Method:") on documents where that field is
+# not what changed. The bare terms that are admitted are the ones a notice has no
+# reason to print unless it is the subject of the change.
+_CATEGORY_TERMS: Dict[str, Tuple[str, ...]] = {
+    "Material": _change_phrases("material") + (
+        "raw material", "mold compound", "molding compound", "die attach material",
+        "substrate material", "lead frame material", "wire material", "solder alloy",
+    ),
+    "Process": _change_phrases("process")
+    + _change_phrases("manufacturing process") + _change_phrases("assembly process")
+    + _change_phrases("process flow") + (
+        "new process", "new manufacturing process", "new assembly process",
+        "process improvement",
+    ),
+    "Location": _change_phrases("site") + _change_phrases("location")
+    + _change_phrases("facility") + (
+        "relocat", "site transfer", "transfer of manufacturing",
+        "transfer of assembly", "transfer of test", "transfer of production",
+        "new manufacturing site", "new assembly site", "additional assembly site",
+        "additional manufacturing site", "alternate site",
+        "alternate manufacturing site", "second site",
+    ),
+    "Discontinuation": _DISCONTINUATION_TERMS,
+    "Packaging": _change_phrases("packaging") + _change_phrases("packing")
+    + _change_phrases("label") + _change_phrases("reel size")
+    + _change_phrases("dry pack") + _change_phrases("carrier tape") + (
+        "new reel size", "tape and reel change", "moisture barrier bag change",
+        "packaging material", "new packaging material",
+    ),
+    "Testing": _change_phrases("test") + _change_phrases("testing")
+    + _change_phrases("test method") + _change_phrases("test program")
+    + _change_phrases("test flow") + _change_phrases("test coverage") + (
+        "new test method", "new test program", "new test flow",
+    ),
+}
+assert set(_CATEGORY_TERMS) == set(CATEGORY_ORDER), \
+    "every ChangeCategory needs a term set, and no term set may name a non-category"
+
+
+def _term_pattern(term: str) -> str:
+    r"""One term -> its anchored pattern. Words are joined with `[\s-]+` so a term
+    survives a line wrap in the extracted text AND a vendor's hyphenation ("end of
+    life" also matches "end-of-life"), which is why the hyphenated duplicates already
+    in `norm._PDN_TERMS` are harmless here rather than contradictory.
+
+    A trailing `s?` admits the plural, because a vendor writes both "the reel size
+    change" and "the reel size changes" and the `\b` that stops "latest change" from
+    reading as a test change also stops the second form from matching at all. Stems
+    get no tail: they are already open-ended ("discontinu" -> discontinued,
+    discontinuance, discontinuation).
+    """
+    body = r"[\s\-]+".join(re.escape(w) for w in term.split())
+    tail = "" if term in _STEM_TERMS else r"s?\b"
+    return r"\b" + body + tail
+
+
+_CATEGORY_RE = {
+    cat: tuple((t, re.compile(_term_pattern(t), re.IGNORECASE)) for t in terms)
+    for cat, terms in _CATEGORY_TERMS.items()
+}
+
+
+def category_signals(text) -> Dict[str, str]:
+    """Every change category the document TEXT supports, mapped to the term that
+    matched it: `{"Material": "mold compound", "Location": "site transfer"}`.
+
+    Iteration is in `CATEGORY_ORDER`, NOT in order of appearance in the document, so
+    the same bytes always produce the same list in the same order -- a category list is
+    compared across fires, and an appearance-ordered list would read as drift on
+    identical input. Within a category the FIRST matching term wins and the rest are
+    not consulted: the term is reported as evidence, so one is enough and a second adds
+    nothing a reviewer can act on.
+
+    The matched term is OUR vocabulary, not a substring of the document, and that is
+    deliberate -- the reason text this feeds is read by a person, and the ruling of
+    2026-11-18 keeps raw document and model text out of records a person reads.
+    """
+    body = str(text or "")
+    out: Dict[str, str] = {}
+    for cat in CATEGORY_ORDER:
+        for term, rx in _CATEGORY_RE[cat]:
+            if rx.search(body):
+                out[cat] = term
+                break
+    return out
+
+
+def categories_from_text(text) -> Tuple[List[str], str]:
+    """`(categories, source)` with `source` one of:
+      - "text": the document text supports at least one change category.
+      - "no-text-evidence": it supports none. The caller keeps the empty list -- an
+        invented category is worse than no category, because a disposition proposed
+        under the wrong rule looks like a proposal rather than a gap.
+
+    A PROJECTION of `category_signals`, not a second walk over the same rule: two
+    implementations of one rule drift, and the drift here would be the quiet kind -- a
+    reason text naming terms that do not match the categories actually written.
+    """
+    signals = category_signals(text)
+    return list(signals), ("text" if signals else "no-text-evidence")

@@ -1929,6 +1929,55 @@ class SustainmentPlugin(AugmentationPlugin):
                              "(dispositions proposed under PCN rules may be wrong)")
             needs_review = True
 
+        # FINDING 13, item 1 (2026-11-18): a failed header pass must not leave every
+        # part without a disposition proposal. `empty_header` sets `categories: []`,
+        # and every PCN rule matches on a change category, so the proposer returns
+        # UNCLASSIFIABLE for every part -- the parts pass's whole result unusable
+        # because a DIFFERENT pass died. Recover the categories deterministically from
+        # the document's own text where it supports them, and attest where the value
+        # came from in `categories_source` (same shape as `doc_type_source` above: the
+        # field keeps its usable value, a provenance field says where it came from).
+        #
+        # ONLY on the failed-header path, and `header_trust.categories_from_text`
+        # documents why: a header that RETURNED an empty list made a judgment the
+        # prompt asks it to make, and a keyword walk is not a better judge of it.
+        # `needs_review` is already True here -- it was set the moment the pass failed
+        # -- so what this adds is a usable proposal plus the banner that says the
+        # categories behind it are keyword-derived.
+        if header is None:
+            recovered, cat_source = header_trust.categories_from_text(full_text)
+            header_d["categories"] = recovered
+            header_d["categories_source"] = cat_source
+            if recovered:
+                # A second call, not a second walk: `categories_from_text` is defined
+                # as a projection of `category_signals`, so these cannot disagree.
+                signals = header_trust.category_signals(full_text)
+                reasons.append(
+                    "the header pass failed; change categories recovered from the "
+                    "document text: "
+                    + ", ".join(f"{cat} (term {term!r})"
+                                for cat, term in signals.items())
+                    + " — keyword-derived, NOT the header model's judgment"
+                )
+                doc_flags.append(
+                    "change categories ("
+                    + ", ".join(recovered)
+                    + ") were derived from the document's text because the header "
+                      "pass failed — check them before accepting the proposed "
+                      "dispositions"
+                )
+            else:
+                reasons.append(
+                    "the header pass failed and the document text supports no change "
+                    "category, so none was recovered — an invented category would "
+                    "propose a disposition under the wrong rule"
+                )
+                doc_flags.append(
+                    "no change category could be established (the header pass failed "
+                    "and the text supports none) — every part will read as "
+                    "needing a disposition"
+                )
+
         # Refuse any header value (mfr / pub_date / doc_level_ltb_date) that is not
         # verbatim in the document, and do it HERE — as soon as the header dict is final.
         #
@@ -2497,6 +2546,15 @@ class SustainmentPlugin(AugmentationPlugin):
                   "doc_type_source": header_d.get("doc_type_source") or "defaulted",
                   "categories": [str(getattr(c, "value", c))
                                  for c in (header_d.get("categories") or [])],
+                  # ATTESTATION for `categories`, for the same reason `doc_type_source`
+                  # exists beside `doc_type`: "the header model judged these" and "we
+                  # derived these from keywords because the header pass died" are
+                  # otherwise the SAME VALUE downstream. "model" is the header-pass
+                  # path (the model's own judgment, empty list included); "text" and
+                  # "no-text-evidence" come from `categories_from_text` on the failed
+                  # path. `header_d` carries no key at all on the model path, which the
+                  # `or "model"` fallback covers.
+                  "categories_source": header_d.get("categories_source") or "model",
                   # EXTRACTION-QUALITY WARNINGS the reviewer must see (the doc-level reasons
                   # that forced review). Distinct from `review_reasons`, which is the complete
                   # record including advisory notes and per-item detail — those either aren't
