@@ -1,7 +1,7 @@
 """AITool binding plane — propose / sync side.
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  RETIRED 2026-06-13 (ADR-0006 §Addendum). THIS IS NOT THE LIVE PATH.         ║
+║  RETIRED 2026-06-13 (invincible-agent ADR-0006 §Addendum). THIS IS NOT THE LIVE PATH.         ║
 ║                                                                              ║
 ║  `agent_fleet/mesh_registrar` (invincible-agent) is the SOLE WRITER of       ║
 ║  AITool predicate edges into Neo4j and Weaviate. It writes them              ║
@@ -27,7 +27,7 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 Mirror of ``semantic_linker`` for AITool registrations rather than Datasets.
-Per ADR-0004 (predicate-graph routing) and ADR-0006 (DataHub inbox, Neo4j
+Per invincible-agent ADR-0004 (predicate-graph routing) and invincible-agent ADR-0006 (DataHub inbox, Neo4j
 substrate), a mesh tool registers itself to DataHub as an ``mlModel`` entity
 with ``customProperties.mesh_is_registration = "true"`` plus a full
 SPO-shaped payload (verb IRI, input/output URIs, synonyms, endpoint URL,
@@ -45,7 +45,7 @@ OpenAPI schema, etc.). This module:
    namespaced IRI is preserved as a relationship property. APOC's
    ``apoc.merge.relationship`` lets us parameterize the type.
 
-Per ADR-0006: code-controlled mesh tool registrations auto-approve.
+Per invincible-agent ADR-0006: code-controlled mesh tool registrations auto-approve.
 There is no HITL queue for the AITool side (unlike legacy DB tables which
 need human classification). The asset is fired by ``AIToolSensorComponent``
 whenever DataHub gains or updates a tagged ``mlModel`` entity.
@@ -106,7 +106,7 @@ def _fetch_tool_properties(tool_urn: str) -> Optional[Dict[str, str]]:
 
     The mlModel's top-level ``description`` is folded into the returned dict
     under the synthetic key ``_mesh_description`` so the Weaviate sync (per
-    iagent ADR-0009 Step F'.6) has the natural-language text it needs for
+    invincible-agent ADR-0009 Step F'.6) has the natural-language text it needs for
     semantic verb matching, without forcing a second GraphQL round trip.
     """
     # DataHub v1.6.0 renamed MLModel.mlModelProperties → MLModel.properties.
@@ -271,7 +271,7 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     except json.JSONDecodeError:
         synonyms = []
 
-    # Per iagent ADR-0008 follow-up: verb_anti_synonyms are NL phrases that
+    # Per invincible-agent ADR-0008 follow-up: verb_anti_synonyms are NL phrases that
     # should REPEL the verb in Engine O's /search_predicates re-rank. The
     # Engine O side reads this Predicate property and applies a lexical
     # overlap penalty against the query. Critically: these must NOT be
@@ -283,7 +283,7 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     except json.JSONDecodeError:
         anti_synonyms = []
 
-    # Per iagent ADR-0009: `domains` is a scope filter, not a routing key.
+    # Per invincible-agent ADR-0009: `domains` is a scope filter, not a routing key.
     # Engines self-declare the domains they serve at registration; Engine O
     # filters /find_tool matches against the caller's entitled_domains.
     # JSON-decoded back into a Neo4j list property.
@@ -358,7 +358,7 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
     return {
         # TWO SPECIES, ONE EDGE PROPERTY. An engine registration names its edge with
         # `mesh_verb_iri`; a presentation names it with `mesh_predicate_iri` (always
-        # mesh:rendersAs, per ADR-0017). Both are "the IRI of this edge", so both land in
+        # mesh:rendersAs, per invincible-agent ADR-0017). Both are "the IRI of this edge", so both land in
         # `iri`. This was a HARD KeyError for presentations -- found 2026-08-21 by the
         # break-on-purpose test, not in production, which is the point of writing it.
         "iri": props.get("mesh_verb_iri") or props.get("mesh_predicate_iri", ""),
@@ -389,7 +389,7 @@ def _build_relationship_properties(props: Dict[str, str]) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Weaviate `Predicate` collection sync (iagent ADR-0009 Step F'.6)
+# Weaviate `Predicate` collection sync (invincible-agent ADR-0009 Step F'.6)
 # ---------------------------------------------------------------------------
 #
 # Engine O's /search_predicates does verb-level routing — given an NL query,
@@ -466,7 +466,7 @@ def _ensure_predicate_collection(client, log) -> Any:
             # that carries entitled domains. This mirrors the seed script's
             # config so the reproducible-ingest path matches the hand-seed
             # (see the seed's IndexPropertyLength fix; the durable owner of
-            # the collection is this asset per ADR-0006).
+            # the collection is this asset per invincible-agent ADR-0006).
             inverted_index_config=wvc.config.Configure.inverted_index(
                 index_property_length=True,
             ),
@@ -496,7 +496,7 @@ def _ensure_predicate_collection(client, log) -> Any:
                 # Engine O's /search_predicates re-rank. NOT included in
                 # search_text (would attract the wrong query); read by
                 # Engine O as a separate field for the lexical-overlap
-                # penalty. Per iagent ADR-0008 follow-up.
+                # penalty. Per invincible-agent ADR-0008 follow-up.
                 wvc.config.Property(
                     name="anti_synonyms",
                     data_type=wvc.config.DataType.TEXT_ARRAY,
@@ -609,7 +609,7 @@ def sync_predicate_to_weaviate(
             f"✅ Mirrored predicate to Weaviate: {verb_iri} (uuid={deterministic_uuid})"
         )
     except Exception as exc:  # noqa: BLE001
-        # Per ADR-0009 Step F'.6: Weaviate is a routing accelerator, not the
+        # Per invincible-agent ADR-0009 Step F'.6: Weaviate is a routing accelerator, not the
         # source of truth. A missed sync degrades verb matching to Cypher
         # exact-match (the current behavior) — it does not break routing.
         context.log.warning(
@@ -698,7 +698,7 @@ def sync_aitool_predicate_to_neo4j(
         return {"status": "rejected", "tool_urn": config.tool_urn, "reason": "incomplete"}
 
     # Tag the tool URN onto the relationship so operators can trace edges back
-    # to their DataHub entries (and the reconciliation asset of ADR-0006 can
+    # to their DataHub entries (and the reconciliation asset of invincible-agent ADR-0006 can
     # detect orphans).
     props_with_urn = dict(props)
     props_with_urn["_tool_urn"] = config.tool_urn
@@ -715,7 +715,7 @@ def sync_aitool_predicate_to_neo4j(
 
     verb_local = get_verb_local_name(verb_iri)
 
-    # ADR-0019 Contract D — typed-range validation, no auto-MERGE.
+    # invincible-agent ADR-0019 Contract D — typed-range validation, no auto-MERGE.
     # The endpoint classes (input_uri/output_uri) MUST already exist as
     # :OntologyClass nodes from a canonical ontology load. The prior
     # MERGE form silently fabricated phantom :OntologyClass nodes when
@@ -807,7 +807,7 @@ def sync_aitool_predicate_to_neo4j(
                 ]
             context.log.error(
                 "❌ Refusing to sync %s: registered range types not "
-                "pre-existing in noun graph (ADR-0019 Contract D). "
+                "pre-existing in noun graph (invincible-agent ADR-0019 Contract D). "
                 "Missing OntologyClass nodes: %s. Run the canonical "
                 "ontology load (e.g. doc-tools' ingest_ontology_job) "
                 "to define them, or fix the tool's registration to "
@@ -828,7 +828,7 @@ def sync_aitool_predicate_to_neo4j(
         context.log.error(f"❌ Failed to sync {config.tool_urn} to Neo4j: {e}")
         raise
 
-    # Mirror the predicate to Weaviate (iagent ADR-0009 Step F'.6). Done
+    # Mirror the predicate to Weaviate (invincible-agent ADR-0009 Step F'.6). Done
     # *after* the Neo4j MERGE because Neo4j is the system of record; if
     # this Weaviate write fails, the function still returns success — verb
     # matching just degrades to Cypher exact-match until the next sync.

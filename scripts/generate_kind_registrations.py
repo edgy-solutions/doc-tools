@@ -9,7 +9,7 @@ WHY GENERATED AND NOT HAND-MAINTAINED. ``iagent_mesh.ingest.registered_kinds``
 makes the picker's legal set *be* the registered rows. If those rows were typed
 out by hand beside ``doc_tools/utils/content_kind.py``'s table, the two could
 disagree — and the failure mode is the quiet one: a picker offering a kind the
-mapping table cannot resolve, which halts at ADR-0021 rule 3 on a kind that IS
+mapping table cannot resolve, which halts at invincible-agent ADR-0021 rule 3 on a kind that IS
 registered. So the table is the authority and these files are its projection,
 with the drift pinned by ``tests/test_kind_registry.py``.
 

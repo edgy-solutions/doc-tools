@@ -1,4 +1,4 @@
-"""ADR-0041 provenance as an invariant of the write path (ruling 2026-10-02).
+"""invincible-agent ADR-0041 provenance as an invariant of the write path (ruling 2026-10-02).
 
 *"DOMAINS_THAT_PERSIST_PROVENANCE = {SUSTAINMENT}: provenance persists for
 every domain; it's an invariant of the write path, not an opt-in. 7f deletes

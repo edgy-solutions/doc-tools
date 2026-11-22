@@ -872,6 +872,52 @@ def mfr_witness_branches(corpus_by_fire):
     return rows
 
 
+def witness_coverage(corpus_by_fire):
+    """Per notice per fire: was the text layer degraded, how many header regions were
+    located, and how many were LOCATED BUT LOST.
+
+    Surfaced on the architect's order of 2026-11-17, for the same reason
+    `mfr_witness_branches` is (above): `stats["witness_regions"]` and
+    `stats["witness_regions_lost"]` have been written since 2026-10-01 (`5c35568`) and
+    have never been readable after a fire ends -- `corpus_f{N}.json` lives inside the Job
+    pod, and `kubectl exec` is refused once the Job is terminal.
+
+    WHAT IT DISTINGUISHES, which nothing published could distinguish before: a fire that
+    LOST its witness to a transient host 400 from a fire whose witness answered and
+    DISAGREED. Both blank a written `mfr`, and in the 2026-11-11 report both read as the
+    same thing -- `mfr` populated in fires 1 and 3, absent in fire 2, cause unstated.
+    `lost > 0` says the host dropped the crop; `lost == 0` with a withdrawal in
+    `header_mfr_witness` says the witness was consulted and did not corroborate. The
+    first is an infrastructure defect, the second is the arm working.
+
+    A zero on a DEGRADED document is also a signal in its own right: it means header
+    corroboration had nothing to consult (no region could be located -- an unfamiliar
+    masthead), which is not the same as a document that never paid for a witness.
+
+    Rows are kept only for notices that paid for a witness or lost something, so an
+    undegraded corpus renders nothing rather than ten rows of zeros. Counts and booleans
+    only -- never a document value, which is pinned by test. Advisory, never a gate term.
+    """
+    rows = {}
+    for n in sorted(corpus_by_fire):
+        for notice, entry in (corpus_by_fire.get(n) or {}).items():
+            stats = (entry or {}).get("stats") or {}
+            if "witness_regions" not in stats and "text_layer_degraded" not in stats:
+                continue
+            degraded = bool(stats.get("text_layer_degraded"))
+            regions = stats.get("witness_regions")
+            lost = stats.get("witness_regions_lost")
+            if not degraded and not regions and not lost:
+                continue
+            rows.setdefault(notice, {})[str(n)] = {
+                "degraded": degraded,
+                "regions": regions,
+                "lost": lost,
+                "pages": stats.get("witness_pages"),
+            }
+    return rows
+
+
 # Declarations are matched as substrings of `review_reasons`, not by a flag, because
 # there is no flag: the product narrates, and a structured field would mean adding one
 # and keeping two representations of the same fact in step.
@@ -2012,6 +2058,7 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
                                  if info["verdict"] in ("DISAGREE", "BLANK"))
     unstable_raw = unstable_raw_rows(parsed_notices)
     mfr_witness = mfr_witness_branches(corpus_by_fire)
+    witness_cover = witness_coverage(corpus_by_fire)
 
     if absent_notices or not_measured_notices:
         parts = []
@@ -2199,6 +2246,10 @@ def score_fires(base_dir, fires, expectations=None, identity_mode="rolled"):
         # ADVISORY, never a gate term. See `mfr_witness_branches`: without this
         # the branch is recorded only inside the pod and dies with it.
         "header_mfr_witness": mfr_witness,
+        # ADVISORY, never a gate term. See `witness_coverage`: this is what tells a
+        # reader whether a blanked header field LOST its witness or was not corroborated
+        # by one.
+        "witness_coverage": witness_cover,
         # DECLINED — the third classification (ruled 2026-11-16), additive to
         # schema 1. A consumer that does not know this key is unaffected; one that
         # does must NOT read an absent key as "nothing declined", since every report
@@ -2779,6 +2830,49 @@ def render_markdown(report, gate_dir, command_str, log_paths):
     else:
         lines.append("(no fire recorded a witness branch -- every image in this set "
                      "predates the field)")
+    lines.append("")
+    lines.append("## Region witness coverage (advisory, never blocks)")
+    lines.append("")
+    lines.append("Whether each degraded document's header regions were LOCATED and "
+                 "whether any located region was LOST -- `located/lost` per fire. Read "
+                 "it beside the block above: a withdrawal with `lost > 0` is the host "
+                 "dropping the crop (a transient 400, measured at one fire in three), "
+                 "while a withdrawal with `lost == 0` is the witness answering and not "
+                 "corroborating. Those are an infrastructure defect and the arm working "
+                 "respectively, and nothing published before 2026-11-17 could tell them "
+                 "apart. `0 located` on a degraded document is a third case: header "
+                 "corroboration had nothing to consult. Counts from "
+                 "`stats['witness_regions']` and `stats['witness_regions_lost']`, which "
+                 "die with the Job pod.")
+    lines.append("")
+    if report.get("witness_coverage"):
+        lines.append("| notice | f1 | f2 | f3 |")
+        lines.append("|---|---|---|---|")
+        for notice, by_fire in sorted(report["witness_coverage"].items()):
+            cells = []
+            for n in ("1", "2", "3"):
+                rec = by_fire.get(n)
+                if not rec:
+                    cells.append("--")
+                    continue
+                regions = rec.get("regions")
+                lost = rec.get("lost")
+                cell = (f"{'?' if regions is None else regions} located/"
+                        f"{'?' if lost is None else lost} lost")
+                if not rec.get("degraded"):
+                    cell += " (not degraded)"
+                cells.append(f"**{cell}**" if lost else cell)
+            lines.append(f"| {notice} | " + " | ".join(cells) + " |")
+        lines.append("")
+        lines.append("Rows are the documents that PAID for a witness (a degraded text "
+                     "layer) or lost a region. A **bold** cell lost at least one located "
+                     "region, and the header fields it answers kept the damaged text "
+                     "layer's reading or were withdrawn. An absent cell is a fire whose "
+                     "corpus JSON carries no counter -- an image built before the field "
+                     "existed, not a fire that read nothing.")
+    else:
+        lines.append("(no fire recorded a witness counter -- either no document was "
+                     "degraded, or every image in this set predates the field)")
     lines.append("")
     lines.append("## Header agreement (raw plain-mode run; advisory)")
     lines.append("")

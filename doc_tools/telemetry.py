@@ -1,4 +1,4 @@
-"""doc-tools telemetry glue (ADR-0038).
+"""doc-tools telemetry glue (invincible-agent ADR-0038).
 
 The thin seam between the extraction and the provenance-telemetry leaf. Kept free
 of heavy imports (no baml / dagster) on purpose: the mapping and the projected-

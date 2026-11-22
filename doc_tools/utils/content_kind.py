@@ -1,10 +1,10 @@
-"""ADR-0021 deterministic content-kind selection at ingest.
+"""invincible-agent ADR-0021 deterministic content-kind selection at ingest.
 
 Single source of truth for "what kinds exist and what each maps to."
 Adding a kind = one row in ``KIND_MAPPING`` + the target ``OntologyClass``
 declared in the matching TTL.
 
-Precedence (per ADR-0021 §Decision):
+Precedence (per invincible-agent ADR-0021 §Decision):
 
     1. ``manifest.metadata.content_kind`` (explicit declaration)
     2. Path-derived segment AFTER the ``domain_type`` segment of the S3 key
@@ -61,7 +61,7 @@ class UnclassifiableContentKindError(Exception):
     """Raised when neither metadata.content_kind nor the path-derived segment
     yields a kind_source_value present in ``KIND_MAPPING``.
 
-    Per ADR-0021 §Precedence rule §3 the kind-selection chain MUST halt here.
+    Per invincible-agent ADR-0021 §Precedence rule §3 the kind-selection chain MUST halt here.
     There is no silent default — that is the rule the legacy ``domain_type``
     chain broke and that this resolver deliberately does not inherit.
     """
@@ -85,7 +85,7 @@ class RefreshDecl:
 
 @dataclass(frozen=True)
 class ContentKindEntry:
-    """A single row of the ADR-0021 mapping table.
+    """A single row of the invincible-agent ADR-0021 mapping table.
 
     The row IS the contract: adding a content kind = adding an entry to
     ``KIND_MAPPING`` whose ``target_ontology_class`` is declared in the
@@ -101,7 +101,7 @@ class ContentKindEntry:
     #: It is an assertion about format-level kinds, not an unfilled field.
     domain_type: Optional[str]
 
-    #: ADR-0021 → SDK projection: the extraction passes this kind runs, in
+    #: invincible-agent ADR-0021 → SDK projection: the extraction passes this kind runs, in
     #: order, as ``ContentKindRegistration.passes``. Non-empty (the SDK model
     #: refuses ``()``: "a kind with no pass is not a kind").
     passes: tuple[str, ...] = ()
@@ -147,7 +147,7 @@ class ContentKindEntry:
     #: ``tests/test_kind_registry.py`` pins the backstop instead, by proving the
     #: SDK refuses a document row that declares an event-only field.
     #:
-    #: ADR-0063's three event kinds are NOT rows here: lane 01 confirmed on
+    #: invincible-agent ADR-0063's three event kinds are NOT rows here: lane 01 confirmed on
     #: 2026-10-28 that they are iagent overlay rows under
     #: ``policy/overlays/openddil-lab/content_kinds/``. This field is what makes
     #: doc-tools ABLE to declare and project one, not what registers theirs.
@@ -249,7 +249,7 @@ UNBUILT_PASSES: tuple[str, ...] = (
     "cad.cad_document_identity",
 )
 
-#: Output classes with no ``owl:Class`` declaration in any TTL yet. ADR-0019 §6
+#: Output classes with no ``owl:Class`` declaration in any TTL yet. invincible-agent ADR-0019 §6
 #: calls these phantoms: an output URI is a phantom until it resolves to a
 #: declared class. Both are owed by Lane 1 in
 #: ``invincible-agent/setup/ontologies/mesh_system.ttl`` — whose ContentKind
@@ -361,7 +361,7 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
         outputs=("mil:DataModule",),
     ),
     # The training-domain course kind (2026-10-23 restore-training directive,
-    # lane tr). Reached by PATH: training/course/<folder>/<deck> (ADR-0021).
+    # lane tr). Reached by PATH: training/course/<folder>/<deck> (invincible-agent ADR-0021).
     "course": ContentKindEntry(
         kind_source_value="course",
         kind="course",
@@ -529,7 +529,7 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
     # format row to KIND_MAPPING (architect authorisation, cite this)". Placed
     # beside ``pdf`` rather than with the other format rows because the
     # ontology pairs them: ``mesh:CADArtifact`` is "the drop-box's SECOND case,
-    # alongside PDF (ADR-0041 §8's `ContentKind` pairing)".
+    # alongside PDF (invincible-agent ADR-0041 §8's `ContentKind` pairing)".
     #
     # THE OUTPUT CLASS IS NOT A PHANTOM, and that is the one thing worth
     # checking before adding a row. ``mesh:CADArtifact`` is declared —
@@ -557,7 +557,7 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
     #
     # WHAT THIS ROW UNBLOCKS, AND WHAT IT DOES NOT. It closes the halt: a drop
     # declaring ``content_kind: cad`` now resolves to a row instead of raising
-    # ``UnclassifiableContentKindError`` at the ADR-0041 kind guard. It does
+    # ``UnclassifiableContentKindError`` at the invincible-agent ADR-0041 kind guard. It does
     # NOT make a CAD drop ingest. ``ingress_user_sensor``'s ``s3_filter`` is
     # ``^ingress-user/pdf/[0-9a-f]{64}/[^/]+\.pdf$``, which rejects
     # ``ingress-user/cad/<64hex>/part.step`` BY DESIGN (the D2 fix — a CAD drop
@@ -651,13 +651,13 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
     # data module. It exists because without it such a drop HALTS. The S1000D
     # 3xx planning types are the measured case -- they carry 320 types under
     # the bare root, so the row that classifies a data module cannot classify
-    # them, and ADR-0021 §3 then (correctly) refuses the drop entirely.
+    # them, and invincible-agent ADR-0021 §3 then (correctly) refuses the drop entirely.
     #
     # IT DOES NOT WEAKEN THE HALT for an undeclared drop. A kind is reached
     # only by an explicit ``metadata.content_kind: xml`` or by a path whose
     # segment after the domain IS ``xml`` (``_derive_from_path`` requires
     # ``parts[0] == domain_type``). A file that declares nothing and sits at no
-    # such path still halts, which is the behaviour ADR-0021 is protecting.
+    # such path still halts, which is the behaviour invincible-agent ADR-0021 is protecting.
     #
     # It also does not shadow ``s1000d-data-module``: precedence is metadata
     # first, and a drop that declares ``s1000d-data-module`` gets that row. A
@@ -704,7 +704,7 @@ KIND_MAPPING: dict[str, ContentKindEntry] = {
 #: rows the two spellings coincide. For the seventh they do NOT
 #: (``work-instructions`` → ``work-instruction``), so a picker offering the
 #: registered kind would send a value the mapping table has no key for, and
-#: ADR-0021's halt would fire on a kind that IS registered. Both spellings
+#: invincible-agent ADR-0021's halt would fire on a kind that IS registered. Both spellings
 #: resolving to one row is what makes "the legal set IS the registered rows"
 #: true rather than nearly true. Pinned by
 #: ``tests/test_kind_registry.py::test_the_registered_kind_spelling_also_resolves``.
@@ -739,7 +739,7 @@ def _lookup(kind_source_value: Optional[str]) -> Optional[ContentKindEntry]:
 
 
 def _derive_from_path(s3_key: str, domain_type: Optional[str]) -> Optional[str]:
-    """Per ADR-0021 §Path-derived: segment AFTER the ``domain_type`` segment.
+    """Per invincible-agent ADR-0021 §Path-derived: segment AFTER the ``domain_type`` segment.
 
     Returns ``None`` on shape mismatch (key has < 2 segments, or first
     segment does not match ``domain_type``). The caller's halt fires at
@@ -757,7 +757,7 @@ def _derive_from_path(s3_key: str, domain_type: Optional[str]) -> Optional[str]:
 def resolve_content_kind(
     manifest_metadata: dict, s3_key: str
 ) -> ContentKindEntry:
-    """ADR-0021 precedence: metadata > path > HALT.
+    """invincible-agent ADR-0021 precedence: metadata > path > HALT.
 
     The function NEVER returns a default. The only way to NOT raise is for
     the resolved ``kind_source_value`` to have a row in ``KIND_MAPPING``
@@ -797,7 +797,7 @@ def resolve_content_kind(
             f"No KIND_MAPPING row for kind_source_value={kind_source_value!r} "
             f"(from manifest.metadata.content_kind={raw_metadata_value!r} "
             f"or path-derive over s3_key={s3_key!r}). "
-            f"Per ADR-0021 §Precedence the kind-selection chain HALTS here — "
+            f"Per invincible-agent ADR-0021 §Precedence the kind-selection chain HALTS here — "
             f"there is no silent default. Either add a row to KIND_MAPPING "
             f"(in doc_tools/utils/content_kind.py) with a registered "
             f"target_ontology_class and BAML extractor, or correct the "
@@ -927,7 +927,7 @@ def _kind_exclusion(e: ContentKindEntry) -> Optional[dict]:
 def processable_kinds() -> tuple[str, ...]:
     """Registered kinds every declared pass of which this repo can actually run.
 
-    ADR-0041 section 4 is "classifier suggests, human confirms into
+    invincible-agent ADR-0041 section 4 is "classifier suggests, human confirms into
     manifest.metadata.content_kind", and the picker's legal set is
     ``registered_kinds()``. That set is WIDER than what the dispatcher can
     execute, so a suggester built on it alone would offer a kind that fails at

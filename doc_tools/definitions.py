@@ -37,12 +37,12 @@ document_parser = DocumentParserComponent(
 )
 _document_parser_defs = document_parser.build_defs(None)
 
-# 1b. ADR-0041 ingress-user sensor's own parser instance — a SEPARATE
+# 1b. invincible-agent ADR-0041 ingress-user sensor's own parser instance — a SEPARATE
 # DocumentParserComponent, not a config toggle on `document_parser`, so it
 # gets its OWN partition set (user_pdf_files, not pdf_files — see
 # doc_tools/partitions.py) and its own job/asset name
 # (process_user_document_artifact). obtained_via="user-drop" makes this
-# instance stamp every manifest it produces with the ADR-0041 provenance
+# instance stamp every manifest it produces with the invincible-agent ADR-0041 provenance
 # block (doc_tools/utils/ingest_provenance.py) WHEN the sidecar carries
 # none of its own (see sidecar_manifest_name below — the sidecar's block
 # wins). path_prefix_strip strips the "ingress-user/" transport prefix
@@ -122,7 +122,7 @@ sustainment_sensor = S3SensorComponent(
 _sustainment_sensor_defs = sustainment_sensor.build_defs(None)
 
 # Training course drops. The KIND comes from the PATH (contract section 2,
-# ADR-0021): training/course/<folder>/<deck> -> domain training, kind course.
+# invincible-agent ADR-0021): training/course/<folder>/<deck> -> domain training, kind course.
 # The sidecar carries neither. s3_filter is generated from the course row's
 # file_suffixes, never written by hand.
 training_sensor = S3SensorComponent(
@@ -144,7 +144,7 @@ training_sensor = S3SensorComponent(
 )
 _training_sensor_defs = training_sensor.build_defs(None)
 
-# ADR-0041 — watches the ingress-user inbox, dynamically registers each new
+# invincible-agent ADR-0041 — watches the ingress-user inbox, dynamically registers each new
 # object into the user_pdf_files partition set, and targets the SEPARATE
 # user_document_parser job (never document_parser's job) — same filter
 # patterns and s3_resource block as sustainment_sensor, matched exactly,
@@ -431,7 +431,7 @@ datahub_sensor = DataHubSensorComponent(
 )
 _datahub_sensor_defs = datahub_sensor.build_defs(None)
 
-# AITool binding plane — RETIRED 2026-06-13 per ADR-0006 §Addendum.
+# AITool binding plane — RETIRED 2026-06-13 per invincible-agent ADR-0006 §Addendum.
 #
 # Gateway v0.2 (agent_fleet/mesh_registrar) is now sole writer of AITool
 # predicate edges into Neo4j + Weaviate. The sensor's role was to poll
@@ -453,10 +453,10 @@ _datahub_sensor_defs = datahub_sensor.build_defs(None)
 #     audit-trail records, not materialization triggers.
 #   - The Dataset sync sensor (datahub_sensor) is UNCHANGED — it
 #     operates on glossary terms / Dataset HAS_DATA edges, which v0.2
-#     explicitly does not touch (ADR-0006 §Addendum §Scope guardrails).
+#     explicitly does not touch (invincible-agent ADR-0006 §Addendum §Scope guardrails).
 #
 # A short-window race during cutover is the only failure mode this
-# transition introduces — see ADR-0006 §Addendum §Cutover. The mitigation
+# transition introduces — see invincible-agent ADR-0006 §Addendum §Cutover. The mitigation
 # in that section is: the conjunctive-read invariant makes any
 # half-written state unrouted, so even if the sensor fires once during
 # the rollout window with allowlist-drift'd properties, the resulting
@@ -571,7 +571,7 @@ s3_io_manager = s3_pickle_io_manager.configured({
 })
 
 defs = Definitions(
-    # AITool sensor RETIRED 2026-06-13 per ADR-0006 §Addendum — the
+    # AITool sensor RETIRED 2026-06-13 per invincible-agent ADR-0006 §Addendum — the
     # gateway v0.2 saga is now sole writer of AITool predicate edges.
     # The aitool_linker module (with sync_aitool_predicate_to_neo4j)
     # is loaded via all_assets so the asset is still callable for
@@ -634,6 +634,6 @@ del _datahub_sensor_defs
 del _iads_sensor_defs
 del _xml_sensor_defs
 del _doors_sensor_defs
-# del _aitool_sensor_defs  # RETIRED 2026-06-13 — gateway v0.2 is sole writer; see ADR-0006 §Addendum
+# del _aitool_sensor_defs  # RETIRED 2026-06-13 — gateway v0.2 is sole writer; see invincible-agent ADR-0006 §Addendum
 del _sqlserver_extractor_defs
 del _oracle_extractor_defs
