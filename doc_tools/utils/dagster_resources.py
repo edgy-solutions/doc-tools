@@ -168,7 +168,7 @@ def _postable_candidates(candidates, logger) -> list:
 
 
 class IngestStatusResource(ConfigurableResource):
-    """ADR-0041 stage-status seam for the ingress-user path.
+    """invincible-agent ADR-0041 stage-status seam for the ingress-user path.
 
     Lane 1 (`invincible-agent/src/iagent/gateway.py`'s `POST /ingest`) owns a
     `ingest_status_projection` row per ingest, keyed on the `ingest_id` its
@@ -277,7 +277,7 @@ class IngestStatusResource(ConfigurableResource):
         'content_kind', 'pipeline_version', 'format_fingerprint',
         'standing', 'extraction_ref']`. Lane 1 holds `object_ref`,
         `content_kind` and `standing` already; the other three describe an
-        extraction only this side has seen. Under ADR-0034 `pipeline_version`
+        extraction only this side has seen. Under invincible-agent ADR-0034 `pipeline_version`
         and `format_fingerprint` must NOT be caller-asserted, so this seam
         sends neither — it sends one bucket-relative artifact KEY and Lane 1
         derives them from the artifact. That is the whole of the contract: a
@@ -345,7 +345,7 @@ class IngestStatusResource(ConfigurableResource):
             or reason_code not in REASON_CODES
         ):
             logger.warning(
-                "ADR-0041 ingest status: bad reason_code=%r (must match "
+                "invincible-agent ADR-0041 ingest status: bad reason_code=%r (must match "
                 "%s and be one of %s) -- coerced to 'unexpected_error', "
                 "not raised.",
                 reason_code, REASON_CODE_SLUG_RE.pattern, sorted(REASON_CODES),
@@ -362,7 +362,7 @@ class IngestStatusResource(ConfigurableResource):
             for _fname, _fval in _fields.items():
                 if _fval is not None:
                     logger.warning(
-                        "ADR-0041 ingest status: %s is failure-only (Lane 1: "
+                        "invincible-agent ADR-0041 ingest status: %s is failure-only (Lane 1: "
                         "422 failure_fields_without_failed) but stage=%r -- "
                         "omitted from the body.", _fname, stage,
                     )
@@ -376,7 +376,7 @@ class IngestStatusResource(ConfigurableResource):
 
         if wire_stage not in _WIRE_POSTABLE:
             logger.info(
-                "ADR-0041 ingest status LOCALLY OBSERVED ONLY (Lane 1's "
+                "invincible-agent ADR-0041 ingest status LOCALLY OBSERVED ONLY (Lane 1's "
                 "stage route does not accept stage=%s [wire=%s] — Lane 1 "
                 "owns the 'received' stamp and the human disposition task "
                 "owns 'promoted'/'rejected'; neither is posted here): "
@@ -396,7 +396,7 @@ class IngestStatusResource(ConfigurableResource):
         headers = stage_auth_headers()
         if headers is None:
             logger.warning(
-                "ADR-0041 ingest status: no token minted for svc:doc-tools "
+                "invincible-agent ADR-0041 ingest status: no token minted for svc:doc-tools "
                 "— skipping the POST for ingest_id=%s stage=%s [wire=%s] "
                 "rather than send one Lane 1's route will 401 "
                 "unauthenticated. extracted_count=%s [%s] extracted_total="
@@ -415,7 +415,7 @@ class IngestStatusResource(ConfigurableResource):
         # so an older body still posts.
         if wire_stage == self._PROMOTION_FILING_WIRE_STAGE and extraction_ref is None:
             logger.warning(
-                "ADR-0041 ingest status: posting wire stage %r with NO "
+                "invincible-agent ADR-0041 ingest status: posting wire stage %r with NO "
                 "extraction_ref for ingest_id=%s. Lane 1 files a "
                 "document_promotion task from this POST, and a promote on a "
                 "task whose payload cannot name the extraction is refused "
@@ -449,7 +449,7 @@ class IngestStatusResource(ConfigurableResource):
             )
         except Exception as exc:  # noqa: BLE001 — NON-FATAL, ALWAYS; see class docstring
             logger.warning(
-                "ADR-0041 ingest status POST failed (non-fatal — a stage "
+                "invincible-agent ADR-0041 ingest status POST failed (non-fatal — a stage "
                 "write must never fail an extraction): ingest_id=%s "
                 "stage=%s [wire=%s] url=%s %s: %s. extracted_count=%s [%s] "
                 "extracted_total=%s [%s] detail=%s reason_code=%s reason=%s "
@@ -465,7 +465,7 @@ class IngestStatusResource(ConfigurableResource):
 
         if 200 <= response.status_code < 300:
             logger.info(
-                "ADR-0041 ingest status posted: ingest_id=%s stage=%s "
+                "invincible-agent ADR-0041 ingest status posted: ingest_id=%s stage=%s "
                 "[wire=%s] status=%s extracted_count=%s [%s] "
                 "extracted_total=%s [%s] extraction_ref=%s detail=%s "
                 "reason_code=%s reason=%s step=%s run_id=%s pin_digest=%s",
@@ -477,7 +477,7 @@ class IngestStatusResource(ConfigurableResource):
             )
         else:
             logger.warning(
-                "ADR-0041 ingest status POST non-2xx (non-fatal — a stage "
+                "invincible-agent ADR-0041 ingest status POST non-2xx (non-fatal — a stage "
                 "write must never fail an extraction): ingest_id=%s "
                 "stage=%s [wire=%s] url=%s status=%s body=%s. "
                 "extracted_count=%s [%s] extracted_total=%s [%s] detail=%s "

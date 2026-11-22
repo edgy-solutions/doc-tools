@@ -58,7 +58,7 @@ class DomainTypeNotResolvableError(RuntimeError):
     gone there is no third source to fall back to, and the `"Training"`
     default that used to sit behind it was a silent semantic claim about an
     unidentified document: it wrote the content into the TRAINING domain's
-    Neo4j label and graph. Halting is the same posture ADR-0021 already takes
+    Neo4j label and graph. Halting is the same posture invincible-agent ADR-0021 already takes
     for `content_kind` (`UnclassifiableContentKindError`) — the two are no
     longer asymmetric.
     """
@@ -500,7 +500,7 @@ def _build_knowledge_graph_impl(
 
     This is the asset BODY, factored out from the @asset-decorated wrapper so
     one implementation serves both the vetted path (build_knowledge_graph,
-    fed by process_document_artifact / pdf_files_partition) and the ADR-0041
+    fed by process_document_artifact / pdf_files_partition) and the invincible-agent ADR-0041
     ingress-user path (build_user_knowledge_graph, fed by
     process_user_document_artifact / user_pdf_files_partition) — see
     make_build_knowledge_graph() below.
@@ -566,7 +566,7 @@ def _build_knowledge_graph_impl(
     try:
         kind_entry = resolve_content_kind(metadata, s3_key)
         context.log.info(
-            f"ADR-0021 content_kind resolved: kind={kind_entry.kind!r} "
+            f"invincible-agent ADR-0021 content_kind resolved: kind={kind_entry.kind!r} "
             f"target={kind_entry.target_ontology_class!r} "
             f"domain_type={kind_entry.domain_type!r}"
         )
@@ -587,7 +587,7 @@ def _build_knowledge_graph_impl(
         #
         # Manufacturing still HALTS, because a manufacturing document whose
         # kind does not resolve is a document whose registered kind is missing,
-        # and ADR-0021 §Precedence has no default for that.
+        # and invincible-agent ADR-0021 §Precedence has no default for that.
         #
         # SO THERE IS NOW AN ASYMMETRY, AND IT IS DELIBERATELY LEFT: sustainment
         # and maintenance are migrated too, but an unresolvable drop on either
@@ -598,13 +598,13 @@ def _build_knowledge_graph_impl(
         # maintenance drops that fall back successfully today.
         if declared_domain == "manufacturing":
             context.log.error(
-                "ADR-0021 content_kind resolution HALTED for manufacturing "
+                "invincible-agent ADR-0021 content_kind resolution HALTED for manufacturing "
                 "path (no KIND_MAPPING row matches metadata.content_kind "
                 "or the path-derived segment)."
             )
             raise
         context.log.info(
-            f"ADR-0021: no KIND_MAPPING row matches for doc_id={doc_id!r} "
+            f"invincible-agent ADR-0021: no KIND_MAPPING row matches for doc_id={doc_id!r} "
             f"(declared domain {declared_domain!r}; the table holds "
             f"{len(KIND_MAPPING)} rows, of which "
             f"{sorted({e.domain_type for e in KIND_MAPPING.values() if e.domain_type})} "
@@ -665,7 +665,7 @@ def _build_knowledge_graph_impl(
                     f"(the domain-declaring keys are "
                     f"{sorted(k for k, e in KIND_MAPPING.items() if e.domain_type)}). "
                     f"Extraction does NOT run: picking a plugin for a kind "
-                    f"with no declared domain is the hazard ADR-0021 "
+                    f"with no declared domain is the hazard invincible-agent ADR-0021 "
                     f"§Precedence has no default for. Falling through to "
                     f"origin_unresolved."
                 )
@@ -818,7 +818,7 @@ def _build_knowledge_graph_impl(
         child_label = "Chunk"
 
     # ----------------------------------------------------------------------
-    # ADR-0041 — a manifest carrying "provenance" means this content is NOT
+    # invincible-agent ADR-0041 — a manifest carrying "provenance" means this content is NOT
     # vetted (e.g. it arrived via the ingress-user sensor). It is stamped on
     # the way in for EVERY domain; the stamp rides the parent-document MERGE
     # below, which is the one Cypher write that runs whatever the domain and
@@ -827,7 +827,7 @@ def _build_knowledge_graph_impl(
     provenance = manifest.get("provenance")
     if provenance:
         context.log.info(
-            f"ADR-0041: doc_id={doc_id!r} carries a provenance block "
+            f"invincible-agent ADR-0041: doc_id={doc_id!r} carries a provenance block "
             f"(obtained_via={provenance.get('obtained_via')!r}, "
             f"standing={provenance.get('standing')!r}); it will be stamped "
             f"onto the {domain_label} document node."
@@ -896,7 +896,7 @@ def _build_knowledge_graph_impl(
         )
         if provenance:
             context.log.info(
-                f"ADR-0041 stamp written onto ({node_label}:{domain_label} "
+                f"invincible-agent ADR-0041 stamp written onto ({node_label}:{domain_label} "
                 f"{{id: {doc_id!r}}}): {len(PROVENANCE_FIELDS)} provenance_* "
                 f"properties."
             )
@@ -904,7 +904,7 @@ def _build_knowledge_graph_impl(
         if provenance:
             raise ProvenanceStampFailedError(
                 f"The parent-document MERGE for doc_id={doc_id!r} carried the "
-                f"ADR-0041 provenance stamp and FAILED ({e}). Halting the "
+                f"invincible-agent ADR-0041 provenance stamp and FAILED ({e}). Halting the "
                 f"ingest rather than continuing: every write after this one "
                 f"would land unvetted content in the {domain_label} graph with "
                 f"nothing on it to say so, which is the harm the stamp exists "
@@ -930,7 +930,7 @@ def _build_knowledge_graph_impl(
             
     # Initialize appropriate Plugin
     if domain_type == "manufacturing":
-        # ADR-0021 Phase 2/3: target_ontology_class flows from the
+        # invincible-agent ADR-0021 Phase 2/3: target_ontology_class flows from the
         # resolved kind_entry → manufacturing plugin → Cypher MERGE.
         # When no resolver ran (won't happen for manufacturing per the
         # halt above), the plugin's self-consistent default kicks in.
@@ -1340,7 +1340,7 @@ def _build_knowledge_graph_impl(
 
     # 3. Graph Sink: Convert Augmented Nodes to Cypher/SPARQL
     #
-    # ADR-0041, AND THE ONE RESIDUAL OF THE INVARIANT, NAMED.
+    # invincible-agent ADR-0041, AND THE ONE RESIDUAL OF THE INVARIANT, NAMED.
     #
     # The Neo4j stamp is universal as of 2026-10-02 — it rides the parent
     # MERGE above, for every domain. This thread is about the RDF side, which
@@ -1606,7 +1606,7 @@ def make_build_knowledge_graph(
     Why a factory and not a plain hardcoded @asset: build_knowledge_graph's
     `partitions_def` used to be hardcoded to pdf_files_partition, and Dagster
     resolves a manifest input strictly by the asset's PARAMETER NAME
-    (`process_document_artifact`). The ADR-0041 ingress-user path produces
+    (`process_document_artifact`). The invincible-agent ADR-0041 ingress-user path produces
     its manifest from a different upstream asset
     (`process_user_document_artifact`) on a different partition set
     (user_pdf_files_partition — see doc_tools/partitions.py for why the two
@@ -1629,7 +1629,7 @@ def make_build_knowledge_graph(
     instantiation, referenced by name ("build_knowledge_graph") from
     doc_tools/components/document_parser.py's process_job selection and
     imported/called directly by tests/test_ingress_user_stamp.py.
-    build_user_knowledge_graph is the ADR-0041 ingress-user instantiation,
+    build_user_knowledge_graph is the invincible-agent ADR-0041 ingress-user instantiation,
     registered in doc_tools/definitions.py and selected by
     user_document_parser's own process_job (see downstream_graph_asset on
     DocumentParserComponent).
@@ -1707,7 +1707,7 @@ def make_build_knowledge_graph(
 # directly.
 build_knowledge_graph = make_build_knowledge_graph()
 
-# ADR-0041 ingress-user instantiation — same body, fed by
+# invincible-agent ADR-0041 ingress-user instantiation — same body, fed by
 # process_user_document_artifact on user_pdf_files_partition. Registered in
 # doc_tools/definitions.py's Definitions asset list and selected by
 # user_document_parser's own process_job via downstream_graph_asset.

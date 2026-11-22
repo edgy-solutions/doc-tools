@@ -680,17 +680,21 @@ def test_a_region_read_that_fails_once_is_retried_with_the_same_bytes(monkeypatc
     assert not any("LOST" in r for r in aug.review_reasons), aug.review_reasons
 
 
-def test_a_region_that_fails_twice_is_recorded_as_a_lost_field(monkeypatch, plugin):
+def test_a_region_that_fails_every_attempt_is_recorded_as_a_lost_field(
+        monkeypatch, plugin):
     """The retry is bounded, and exhausting it is REPORTED.
 
     `witness_regions == 0` alone is not enough: that is also what a document with no
     locatable masthead looks like, and neither reaches a reviewer. This asserts the
     reason, the counter and the doc_flags banner, because the banner is what makes a
     degraded document stop looking clean -- a degraded text layer by itself deliberately
-    raises none."""
+    raises none.
+
+    The bound is REGION_READ_RETRIES, raised from one to three on 2026-11-17: four
+    rejections, not two, and the fifth behaviour is never reached."""
     monkeypatch.setenv("VISION_LLM_BASE_URL", "http://fake-vision:1234/v1")
     fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS),
-                    region_behaviors=[_FakeB.RAISE, _FakeB.RAISE])
+                    region_behaviors=[_FakeB.RAISE] * 4 + ["never reached"])
     _patch_b(monkeypatch, fake_b)
 
     nodes = plugin._extract_fulltext(
@@ -699,7 +703,7 @@ def test_a_region_that_fails_twice_is_recorded_as_a_lost_field(monkeypatch, plug
     )
 
     aug = nodes[0].domain_augmentation
-    assert fake_b.region_calls == 2, "the retry is not bounded at one"
+    assert fake_b.region_calls == 4, "the retry is not bounded at three"
     assert aug.stats["witness_regions"] == 0
     assert aug.stats["witness_regions_lost"] == 1
     assert aug.needs_review is True
@@ -708,6 +712,48 @@ def test_a_region_that_fails_twice_is_recorded_as_a_lost_field(monkeypatch, plug
     assert "mfr" in lost[0], lost[0]
     banner = aug.review.get("doc_review_reasons") or []
     assert any("degraded" in f and "header region" in f for f in banner), banner
+
+
+def test_three_rejections_in_a_row_still_yield_the_field(monkeypatch, plugin):
+    """Why the bound moved. The measured rejection rate is about one call in three on
+    byte-identical bytes, so with ONE retry a region is still lost on roughly one fire
+    in nine -- which is the order of the blanking this corpus has been showing. Four
+    calls take the same arithmetic to about one in eighty-one. Nothing else changes: the
+    bytes are identical on every attempt, and the field is published.
+
+    The cost is bounded by the shape of the failure: a 400 comes back fast, and a
+    timeout still exits on the first attempt (the test below), so the worst case this
+    adds is three quick rejections, not three ~300s waits."""
+    monkeypatch.setenv("VISION_LLM_BASE_URL", "http://fake-vision:1234/v1")
+    fake_b = _FakeB(header=_header(), transcribe_behaviors=list(_CONTROL_PARAGRAPHS),
+                    region_behaviors=[_FakeB.RAISE, _FakeB.RAISE, _FakeB.RAISE,
+                                      "Manufacturer: TE Connectivity\n"
+                                      "Document Number: PCN-TEST-001\n"
+                                      "Notice Date: not printed\n"
+                                      "Current Date: not printed"])
+    _patch_b(monkeypatch, fake_b)
+
+    nodes = plugin._extract_fulltext(
+        _full_text(healthy=False), "doc-1", elements=_degraded_elements(),
+        manifest=_manifest(len(_CONTROL_PARAGRAPHS)), s3_client=_FakeS3(), bucket="notices",
+    )
+
+    aug = nodes[0].domain_augmentation
+    assert fake_b.region_calls == 4, "the third retry was not sent"
+    assert aug.stats["witness_regions"] == 1
+    assert aug.stats["witness_regions_lost"] == 0
+    assert aug.notice.mfr == "TE Connectivity"
+    assert not any("LOST" in r for r in aug.review_reasons), aug.review_reasons
+
+
+def test_the_region_bound_is_a_named_constant_and_not_a_literal(monkeypatch, plugin):
+    """The bound is read from the module, so a change to it cannot leave these tests
+    asserting a number the code no longer uses."""
+    import doc_tools.plugins.sustainment as sust
+    assert sust.REGION_READ_RETRIES == 3
+    # The parts crop is deliberately NOT moved: the 2026-11-17 order is scoped to the
+    # region read, and a parts crop is the expensive call on this host.
+    assert sust.PARTS_CROP_RETRIES == 1
 
 
 def test_a_region_read_that_times_out_is_not_retried(monkeypatch, plugin):

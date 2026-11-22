@@ -1,6 +1,6 @@
 """The ONE spelling of an `ingest_id` doc-tools is allowed to emit.
 
-ADR-0041 ruling (architect, 2026-10-02): *"ingest_id is the SDK shape
+invincible-agent ADR-0041 ruling (architect, 2026-10-02): *"ingest_id is the SDK shape
 (sha256:<hex>) everywhere, uuid form is a defect."* Applied here, with one
 premise corrected — see WHERE THE RULE ACTUALLY LIVES below.
 

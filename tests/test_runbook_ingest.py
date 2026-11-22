@@ -1,6 +1,6 @@
 """Runbook frontmatter ingest — the prefix pass-through, sealed.
 
-The whole risk of ADR-0041 ingest-on-arrival is one step: turning an author-written
+The whole risk of invincible-agent ADR-0041 ingest-on-arrival is one step: turning an author-written
 compact IRI into the full IRI the graph is keyed on. An unknown prefix PASSES
 THROUGH VERBATIM if nothing stops it — the page stores `docs:runbook-x`, the
 linker MATCHes full-IRI nodes, the two never meet, and the page registers

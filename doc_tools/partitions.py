@@ -1,7 +1,7 @@
 from dagster import DynamicPartitionsDefinition
 
 pdf_files_partition = DynamicPartitionsDefinition(name="pdf_files")
-# ADR-0041 ingress-user sensor — a SEPARATE partition set from pdf_files_partition,
+# invincible-agent ADR-0041 ingress-user sensor — a SEPARATE partition set from pdf_files_partition,
 # not stylistic. Both parser assets carry AutomationCondition.on_missing(); if a
 # user-dropped document's partition were registered in the SAME set the vetted
 # parser watches, the vetted parser would see it as "missing" and materialize it

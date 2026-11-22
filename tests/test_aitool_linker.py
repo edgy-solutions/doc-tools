@@ -1,4 +1,4 @@
-"""Tests for the AITool binding plane (ADR-0004 Step B).
+"""Tests for the AITool binding plane (invincible-agent ADR-0004 Step B).
 
 Covers the deterministic logic in ``aitool_linker``:
 
@@ -77,7 +77,7 @@ def test_build_relationship_properties_restores_types():
     assert props["synonyms"] == ["diagnose", "troubleshoot"]  # restored to list
     assert props["endpoint_url"] == "http://engine-a.mesh.svc:8081/execute"
     assert props["owner_persona"] == "MECHANIC"
-    # Per iagent ADR-0009: domains projected from mesh_domains as a real list
+    # Per invincible-agent ADR-0009: domains projected from mesh_domains as a real list
     assert props["domains"] == ["MAINTENANCE", "MANUFACTURING"]
     assert props["cost_class"] == "medium"
     assert props["requires_human_approval"] is True  # restored to bool
@@ -96,7 +96,7 @@ def test_build_relationship_properties_defaults():
     assert props["synonyms"] == []
     assert props["endpoint_url"] == ""
     assert props["owner_persona"] == ""
-    # Per iagent ADR-0009: missing mesh_domains defaults to an empty list
+    # Per invincible-agent ADR-0009: missing mesh_domains defaults to an empty list
     # (domain-agnostic) — matches the SDK-side default.
     assert props["domains"] == []
     assert props["cost_class"] == "fast"  # SDK default
@@ -131,7 +131,7 @@ def test_requires_human_approval_only_true_when_string_is_true():
 
 
 # ---------------------------------------------------------------------------
-# Predicate-vector-store helpers (iagent ADR-0009 Step F'.6)
+# Predicate-vector-store helpers (invincible-agent ADR-0009 Step F'.6)
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
     "verb_local,expected",
@@ -272,7 +272,7 @@ def test_sync_emits_apoc_merge_with_verb_local_name(monkeypatch):
     monkeypatch.setattr(aitool_linker, "_fetch_tool_properties", lambda urn: full_props)
     # No live services in this unit test: Neo4j is faked via _FakeNeo4jResource
     # and DataHub via the patch above. The happy path also mirrors the predicate
-    # to Weaviate (ADR-0009 Step F'.6) as a best-effort side effect; stub it so
+    # to Weaviate (invincible-agent ADR-0009 Step F'.6) as a best-effort side effect; stub it so
     # the test doesn't attempt a real connection to http://weaviate:8080.
     monkeypatch.setattr(aitool_linker, "sync_predicate_to_weaviate", lambda **kwargs: None)
 
@@ -338,7 +338,7 @@ def test_sync_rejects_incomplete_payload(monkeypatch):
 
 
 def test_sync_propagates_neo4j_errors(monkeypatch):
-    """Per ADR-0006, the runtime Neo4j side is authoritative for routing.
+    """Per invincible-agent ADR-0006, the runtime Neo4j side is authoritative for routing.
     If we can't write the edge, the asset must FAIL loudly so Dagster
     surfaces it -- we do NOT swallow errors here."""
     monkeypatch.setattr(
@@ -673,7 +673,7 @@ def test_a_key_outside_the_allowlist_DOES_NOT_PROJECT():
 # ---------------------------------------------------------------------------
 
 _RETIREMENT = (
-    "ADR-0006 §Addendum retired this path on 2026-06-13. "
+    "invincible-agent ADR-0006 §Addendum retired this path on 2026-06-13. "
     "`agent_fleet/mesh_registrar` (invincible-agent) is the SOLE WRITER of AITool "
     "predicate edges to the live graph; this module exists only for one-off manual "
     "re-syncs through the Dagster launchpad. Re-wiring it into automatic registration "
@@ -739,7 +739,7 @@ def test_the_module_says_it_is_retired_where_a_reader_LANDS():
     head = src[:2500]
     assert "RETIRED" in head, "the retirement banner left the top of the module"
     assert "mesh_registrar" in head, "the banner no longer names the live writer"
-    assert "ADR-0006" in head, "the banner no longer cites the ruling that retired this"
+    assert "invincible-agent ADR-0006" in head, "the banner no longer cites the ruling that retired this"
 
     fn = src[src.index("def _build_relationship_properties"):][:1400]
     assert "RETIRED" in fn, (

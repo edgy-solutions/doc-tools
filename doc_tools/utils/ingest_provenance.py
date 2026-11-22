@@ -1,8 +1,8 @@
-"""ADR-0041 ingest-provenance stamp builder — for the ingress-user sensor.
+"""invincible-agent ADR-0041 ingest-provenance stamp builder — for the ingress-user sensor.
 
 NOT `doc_tools/utils/provenance.py`: that module is the UNRELATED Phase-5
 value -> (page, bbox) / crop-URL resolver used by sustainment extraction.
-This module builds the ADR-0041 provenance BLOCK (who-obtained-it,
+This module builds the invincible-agent ADR-0041 provenance BLOCK (who-obtained-it,
 how-far-from-truth) that gets stamped onto a manifest; it has nothing to
 do with element bounding boxes.
 
@@ -29,7 +29,7 @@ def build_ingest_provenance(*, obtained_via: "_ObtainedVia", authoritative_sourc
                              ingest_run: str, standing: str,
                              ingest_id: Optional[str] = None,
                              as_of: Optional[str] = None) -> dict:
-    """Build the ADR-0041 provenance block for one ingest and return it as a
+    """Build the invincible-agent ADR-0041 provenance block for one ingest and return it as a
     plain dict — this value is JSON-serialized into the manifest and passed
     between Dagster assets, so a `ProvenanceBlock` instance itself would not
     survive that round trip.

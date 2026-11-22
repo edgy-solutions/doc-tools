@@ -67,9 +67,13 @@ run_test.py
 convert_error.py
 run_dagster_test.py
 
-# Local secret overlays — real credentials, NEVER commit (ADR-0038 telemetry keys, etc.)
+# Local secret overlays — real credentials, NEVER commit (invincible-agent ADR-0038 telemetry keys, etc.)
 *.secret.yaml
 
 # Lane in-flight state. Durable findings go to project memory, published
 # reasoning to sessions/. Never committed: it is one lane's working notes.
 HANDOFF.md
+
+# Session files (lane packets and handoffs) are PLACED, NEVER COMMITTED -- ruled
+# 2026-11-12, all repos. They stay local files under sessions/; see CLAUDE.md.
+sessions/
