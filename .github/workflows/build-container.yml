@@ -568,7 +568,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   telemetry-contract:
-    # Fast pre-build gate (ADR-0038): the telemetry mapping must name only fields
+    # Fast pre-build gate (invincible-agent ADR-0038): the telemetry mapping must name only fields
     # doc-tools actually produces. The truth-check loads the thin telemetry seam by
     # file path, so it needs the provenance-telemetry leaf + pydantic/pyyaml only —
     # not the full extraction stack — and runs in seconds, ahead of the costly build.
@@ -1281,7 +1281,7 @@ jobs:
           # ============================================================================
           FROM python:3.12-slim
 
-          # PROVENANCE STAMP (ADR-0034) — the extractor's identity, baked into the image.
+          # PROVENANCE STAMP (invincible-agent ADR-0034) — the extractor's identity, baked into the image.
           # Written into every review.json as `pipeline_version`; the trust table is KEYED on it,
           # so a rung earned under one extractor does not survive that extractor changing.
           # The default is deliberately a LOUD sentinel rather than a plausible-looking version:
@@ -1489,7 +1489,7 @@ jobs:
             org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
             org.opencontainers.image.version=${{ steps.meta.outputs.version }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          # PROVENANCE STAMP (ADR-0034). The extractor's own identity, baked at BUILD time so it
+          # PROVENANCE STAMP (invincible-agent ADR-0034). The extractor's own identity, baked at BUILD time so it
           # cannot be unset, forgotten, or overridden per-deploy. It is written into every
           # review.json as `pipeline_version`, and the trust table is KEYED on it: a rung is earned
           # under a specific extractor and must not survive that extractor changing.

@@ -1,5 +1,10 @@
-# ADR-0001: Memory-Bounded hi_res PDF Ingestion
+# doc-tools ADR-0001: Memory-Bounded hi_res PDF Ingestion
 
+- **Repo:** `doc-tools` — and the number collides. `invincible-agent ADR-0001` is
+  `mem0-llm-decouple` and `dag-tools ADR-0001` is the mesh publishing protocol; all three
+  are different decisions. A bare `ADR-0001` **inside doc-tools** means this one and needs
+  no qualifier; from any other repo, cite it as **`doc-tools ADR-0001`**. See
+  [`README.md`](README.md) for the convention and the index.
 - **Status:** Draft / Proposed
 - **Date:** 2026-06-10
 - **Deciders:** (TBD)

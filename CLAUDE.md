@@ -4,15 +4,26 @@ Working guidance for this repo lives in [`AGENTS.md`](AGENTS.md): the pipeline,
 the extension patterns, and the safety guardrails. This file carries the
 standing *conventions* of the 2026-10-06 fleet directive, which apply to every
 repo and are mirrored in `invincible-agent/CLAUDE.md`. Placed here by packets
-from `ia-01/lane/01` and `ia-gov/lane/gov`; committed, as the first rule
-requires, by the owning lane.
+from `ia-01/lane/01` and `ia-gov/lane/gov`, and committed by the owning lane:
+this file is a convention record, not a session file.
 
 ## Conventions
 
-- **Only the owning lane commits in this repo.** Packets are *placed*, never
-  committed, by anyone else. A placed packet is committed by the owning lane
-  along with its own work, so authorship and review stay with the lane that
-  owns the tree.
+- **Only the owning lane commits in this repo, and a session file is never
+  committed at all.** Packets and handoffs are *placed* under `sessions/` and
+  stay local files there -- ruled 2026-11-12, every repo, and `sessions/` is
+  gitignored here. Anything else a peer places in this tree is committed by
+  the owning lane along with its own work, so authorship and review stay with
+  the lane that owns the tree.
+
+  A branch that still *tracks* files under `sessions/` loses them from disk
+  the moment it merges a master that untracked them: the merge records the
+  deletions and git removes the files. From the worktree root, run
+  `git ls-files sessions | head -1`; if it prints anything, run
+  `git rm -r -q --cached sessions` and commit **before** merging. If a merge
+  has already deleted them, `git archive HEAD^1 sessions | tar -x` restores
+  the tree and leaves the index alone, where `git checkout HEAD^1 -- sessions`
+  would stage them all over again. Never `git add -f` a session file.
 
 - **Print a length and a hash prefix, never a secret value.** A secret's
   presence or equality is shown as `len=N sha256:XXXXXXXX` (first 8 hex). This

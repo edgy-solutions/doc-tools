@@ -1,14 +1,24 @@
 # Contract: the `playbook` kind — markdown playbooks on the existing git source
 
-**Status: SPEC ONLY. Nothing here is built.** This file is the measured design
-that a build implements; it declares no row, adds no property and changes no
-asset. Every statement about the tree below is measured at **`main@5c113ce`**,
-and the four files it reads (`doc_tools/utils/content_kind.py`,
-`doc_tools/utils/xml_chunks.py`, `doc_tools/assets/dds_ingestion.py`,
-`doc_tools/assets/semantic_assets.py`) are byte-identical to `origin/main` at
-the time of writing, so a reader can check it against `main` rather than against
-a branch.
+**Status, measured at `origin/main@54de79c` on 2026-11-16: BUILT, except its
+source.** This file was written as a design ahead of the build, and said so —
+*"SPEC ONLY. Nothing here is built"*, measured then at `main@5c113ce`. That line
+stood while the build landed and was stale for weeks, so it is replaced by the
+table below, which names a file per claim and can be re-measured. A section
+marked **built** describes code that exists; a section marked **owed** is still
+design.
 
+| § | state | where |
+| --- | --- | --- |
+| 1 the kind row | **built** | `KIND_MAPPING["playbook"]` in `doc_tools/utils/content_kind.py`, generated into `registry/content_kinds/playbook.yaml` |
+| 1.2 the pass is declared unbuilt | **SUPERSEDED** | `playbook.playbook_outline` resolves (`doc_tools/passes/playbook.py`) and is **not** in `UNBUILT_PASSES`. The kind is advertised by both `processable_kinds()` and `ingestable_kinds()` — the one-day hold was lifted by the ruling of 2026-11-07 and the lift is pinned positively in `tests/test_processable_kinds_publisher.py` |
+| 2 the source: clone, glob, recorded ref | **OWED — the one part still unbuilt** | No asset scans a repo for playbooks. The only clone sites are `doc_tools/assets/dds_ingestion.py` and `doc_tools/assets/rabbitmq_ingestion.py`, each with its pattern hardcoded, and `rev-parse` appears **nowhere** under `doc_tools/`. §2.2 and §2.3 therefore stand exactly as written: a playbook has no way in yet, and an advertised kind is not an ingested one |
+| 3 the chunker | **built** | `doc_tools/utils/md_chunks.py`, carrying the two chunking rulings of 2026-11-07 (every heading with prose is a chunk; the splitter fix that makes every chunk retrievable) |
+| 4 the citation properties | **built** | `doc_tools/assets/semantic_assets.py` |
+| 5 Neo4j tiers | **built** | `doc_tools/plugins/playbook.py`, dispatched from the `playbook` branch in `semantic_assets.py` |
+| 7 what doc-tools does NOT emit | **holds** | No SPARQL is emitted on this path |
+| 8 owed elsewhere | **owed** | `mesh:PlaybookArtifact` is still a phantom — no `owl:Class` for it in the invincible-agent `setup/ontologies/` checkout read on 2026-11-16 |
+| 10 fixture and golden | **built** | `tests/fixtures/playbook/`, `tests/test_playbook_kind_golden.py` |
 **The correction this absorbs.** The first proposal treated playbooks as a new
 *source mechanism*. It is not one: it is **a new content kind on the path that
 already ingests from git**. Cloning, auth and globbing do not change — that is
@@ -68,6 +78,10 @@ that must be paid in the *same* change:
 
 ### 1.2 The pass is declared unbuilt on purpose
 
+> **SUPERSEDED by the build, 2026-11-07.** The pass resolves, the kind is
+> advertised, and `UNBUILT_PASSES` no longer lists it. What follows is why the
+> row could be declared before the chunker existed — history, not current state.
+
 The SDK model refuses `passes=()` (*"a kind with no pass is not a kind"*), so the
 row must name one. `playbook.playbook_outline` does not exist until the chunker
 is built, so it is listed in `UNBUILT_PASSES` in the same commit.
@@ -91,6 +105,11 @@ glob rather than hardcoding `**/*.md` the way the DDS asset hardcodes `**/*.idl`
 (§2.3). Nothing about declaring it creates a drop path.
 
 ## 2. The source: what already exists, measured
+
+> **This section is the one part still owed**, and it is measured afresh at
+> `origin/main@54de79c`: no asset scans a repo for playbooks, and `rev-parse`
+> appears nowhere under `doc_tools/`. Until it is built, `playbook` is an
+> advertised kind with no way in.
 
 `DDSIngestionConfig` (`doc_tools/assets/dds_ingestion.py`) and
 `RabbitMQIngestionConfig` (`doc_tools/assets/rabbitmq_ingestion.py`) carry the

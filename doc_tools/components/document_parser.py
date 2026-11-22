@@ -26,24 +26,24 @@ class DocumentParserComponent(Component, Resolvable, Model):
     partition_name: str = Field(description="The dynamic partition name to use.")
     config: Dict[str, Any] = Field(default_factory=dict, description="Configuration for labels and extraction rules.")
     k8s_resource_prefix: str = Field(default="DOC_PARSER", description="Prefix for K8s resource environment variables.")
-    # ADR-0041 user-drop stamp — all four default to no-op so every existing
+    # invincible-agent ADR-0041 user-drop stamp — all four default to no-op so every existing
     # DocumentParserComponent instance (vetted sensors) is byte-for-byte
     # unaffected.
     obtained_via: Optional[str] = Field(
         default=None,
         description=(
-            "ADR-0041 OBTAINED_VIA rung for documents this instance ingests "
+            "invincible-agent ADR-0041 OBTAINED_VIA rung for documents this instance ingests "
             "(e.g. 'user-drop'). None means this instance is a vetted path: "
             "no provenance stamp is written at all."
         ),
     )
     authoritative_source: str = Field(
         default="user-upload",
-        description="ADR-0041 authoritative_source for the provenance stamp, when one is written.",
+        description="invincible-agent ADR-0041 authoritative_source for the provenance stamp, when one is written.",
     )
     standing: str = Field(
         default="unverified",
-        description="ADR-0041 standing (trust rung at write time) for the provenance stamp, when one is written.",
+        description="invincible-agent ADR-0041 standing (trust rung at write time) for the provenance stamp, when one is written.",
     )
     path_prefix_strip: str = Field(
         default="",
@@ -61,7 +61,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
             "doc_tools.assets.semantic_assets.make_build_knowledge_graph) "
             "this instance's process_job selects alongside its own parser "
             "asset. Defaults to the vetted 'build_knowledge_graph'. The "
-            "ADR-0041 user_document_parser instance sets this to "
+            "invincible-agent ADR-0041 user_document_parser instance sets this to "
             "'build_user_knowledge_graph' so the user-drop job never "
             "selects the vetted graph asset, which is pinned to a "
             "DIFFERENT partitions_def (pdf_files, not user_pdf_files) and "
@@ -71,7 +71,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
     sidecar_manifest_name: Optional[str] = Field(
         default=None,
         description=(
-            "ADR-0041 Lane-1-sidecar filename (e.g. 'manifest.json'), read "
+            "invincible-agent ADR-0041 Lane-1-sidecar filename (e.g. 'manifest.json'), read "
             "from the SAME directory as the source object, BEFORE anything "
             "is derived from the path. None (default) is the current/vetted "
             "behaviour, byte-for-byte unchanged: domain_type/content_kind "
@@ -90,7 +90,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
         # A SEPARATE partition set per self.partition_name, not the single
         # hardcoded `pdf_files_partition` singleton this line used to read.
         # Two DocumentParserComponent instances (the vetted `document_parser`
-        # and the ADR-0041 `user_document_parser`) must land on structurally
+        # and the invincible-agent ADR-0041 `user_document_parser`) must land on structurally
         # DIFFERENT dynamic partition sets — otherwise a partition the
         # ingress-user sensor registers would be seen as "missing" by the
         # OTHER parser's AutomationCondition.on_missing(), which would
@@ -130,13 +130,13 @@ class DocumentParserComponent(Component, Resolvable, Model):
             if not base_dir:
                 base_dir = "unknown"
 
-            # ADR-0041 path_prefix_strip — LOAD-BEARING, do not simplify away.
+            # invincible-agent ADR-0041 path_prefix_strip — LOAD-BEARING, do not simplify away.
             # `domain`/`content_kind` below are derived from `parts[0]`/`parts[1]`
             # of the S3 key. A raw `ingress-user/` prefix would make parts[0]
             # == "ingress-user", so domain_label becomes "INGRESS_USER" — a Neo4j
             # label and RDF graph name <http://internal/INGRESS_USER_INSTANCES>
             # derived from the TRANSPORT PATH, exactly the PLACE-based design
-            # ADR-0041 rejects (quarantine is a STATUS, never a PLACE). So: strip
+            # invincible-agent ADR-0041 rejects (quarantine is a STATUS, never a PLACE). So: strip
             # this instance's configured transport prefix from the key into a
             # SEPARATE `domain_key`/`domain_parts` used ONLY for domain/content_kind
             # derivation below. `source_object_key`, `base_dir`, `parts` and
@@ -160,7 +160,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
             # which is the worst time to also collapse every document onto one identity.
             doc_id = filename.rsplit('.', 1)[0] or filename
 
-            # ADR-0041 F2/F3 — the Lane-1 sidecar, when configured, WINS over
+            # invincible-agent ADR-0041 F2/F3 — the Lane-1 sidecar, when configured, WINS over
             # path derivation entirely. Ground truth (sandbox, 2026-10-02):
             # Lane 1's `POST /ingest` writes
             #   ingress-user/{kind}/{sha256}/{filename}     <- the document
@@ -187,7 +187,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
             status_resource = None
             # ERROR BOUNDARY for the sidecar/guard region. Measured: the
             # extraction `try:` whose handler posts `failed` opens well AFTER
-            # the sidecar read and the ADR-0041 kind guard, so both raise
+            # the sidecar read and the invincible-agent ADR-0041 kind guard, so both raise
             # before any handler exists. Without this boundary the whole
             # sidecar-and-guard family (sidecar_unreadable,
             # domain_is_a_format, content_kind_is_a_hash, ingest_id_malformed
@@ -205,7 +205,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         sidecar = json.loads(sidecar_body)
                     except Exception as e:
                         raise RuntimeError(
-                            f"ADR-0041 sidecar manifest missing or unparseable at "
+                            f"invincible-agent ADR-0041 sidecar manifest missing or unparseable at "
                             f"key={sidecar_key!r} (bucket={bucket!r}): {e}"
                         ) from e
 
@@ -220,7 +220,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     # label, even if some future sidecar producer gets this wrong.
                     if domain in ("pdf", "cad"):
                         raise ValueError(
-                            f"ADR-0041 guard: sidecar {sidecar_key!r} domain_type="
+                            f"invincible-agent ADR-0041 guard: sidecar {sidecar_key!r} domain_type="
                             f"{domain!r} is a file FORMAT (ingest_status.KINDS), "
                             f"not a semantic domain — refusing to use it as one."
                         )
@@ -260,7 +260,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         registered = _lookup(content_kind_from_path)
                         if registered is None:
                             raise ValueError(
-                                f"ADR-0041 guard: sidecar {sidecar_key!r} carries no "
+                                f"invincible-agent ADR-0041 guard: sidecar {sidecar_key!r} carries no "
                                 f"domain_type (got {domain!r}) AND no registered "
                                 f"content_kind (got {content_kind_from_path!r}). "
                                 f"Since 2026-10-02 the null domain is expected -- the "
@@ -287,19 +287,19 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             else "the domain is declared by the row"
                         )
                         context.log.info(
-                            f"ADR-0041: sidecar {sidecar_key!r} has domain_type=None "
+                            f"invincible-agent ADR-0041: sidecar {sidecar_key!r} has domain_type=None "
                             f"with registered content_kind="
                             f"{content_kind_from_path!r} -> admissible "
                             f"(domain_type={registered.domain_type!r}; {_row_note})."
                         )
                     if content_kind_from_path and re.match(r"^[0-9a-f]{64}$", content_kind_from_path):
                         raise ValueError(
-                            f"ADR-0041 guard: sidecar {sidecar_key!r} content_kind="
+                            f"invincible-agent ADR-0041 guard: sidecar {sidecar_key!r} content_kind="
                             f"{content_kind_from_path!r} is a sha256 hash, not a "
                             f"content kind — refusing to use it as one."
                         )
 
-                    # ADR-0041 ruling 2026-10-02 — ingest_id is the canonical
+                    # invincible-agent ADR-0041 ruling 2026-10-02 — ingest_id is the canonical
                     # `sha256:<64 hex>` spelling EVERYWHERE, and the uuid/bare-hex
                     # forms are defects. Checked HERE, beside the domain_type and
                     # content_kind guards, because this is the one place that holds
@@ -315,7 +315,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     # below). So a sidecar that omits it is refused, which is what
                     # makes the stamp's comment true rather than hopeful.
                     ingest_id = canonical_ingest_id(
-                        ingest_id, where=f"ADR-0041 sidecar {sidecar_key!r}"
+                        ingest_id, where=f"invincible-agent ADR-0041 sidecar {sidecar_key!r}"
                     )
 
                     # "extracting" — parse start, now that ingest_id is known
@@ -361,7 +361,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         )
                     else:
                         context.log.error(
-                            "ADR-0041: sidecar/guard region failed and no "
+                            "invincible-agent ADR-0041: sidecar/guard region failed and no "
                             "'failed' stage could be stamped (%s). "
                             "Underlying error: %s",
                             "no join key could be resolved"
@@ -370,7 +370,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         )
                 except Exception:  # noqa: BLE001 -- never mask `e`
                     context.log.error(
-                        "ADR-0041: could not stamp 'failed' from the "
+                        "invincible-agent ADR-0041: could not stamp 'failed' from the "
                         "sidecar/guard boundary. Underlying error: %s", e,
                     )
                 raise
@@ -576,7 +576,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
 
                     # Create Manifest (Merge component config with file metadata)
                     #
-                    # ADR-0021 Phase 2/3: also stamp content_kind from the path
+                    # invincible-agent ADR-0021 Phase 2/3: also stamp content_kind from the path
                     # alongside domain_type. The precedence is metadata > path,
                     # encoded via the dict-spread below — `doc_metadata` (from
                     # metadata.json) overrides this path-derived value when
@@ -620,7 +620,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                         # This manifest is the artifact the `review` stage
                         # POST names as its `extraction_ref`, and Lane 1
                         # derives `pipeline_version` from the artifact rather
-                        # than trusting a caller-asserted one (ADR-0034). The
+                        # than trusting a caller-asserted one (invincible-agent ADR-0034). The
                         # version IS also the second-to-last path segment of
                         # this object's own key, but recovering it that way is
                         # the same path-derivation guess `source_key` exists
@@ -642,7 +642,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     if render_error:
                         manifest["pages_error"] = render_error
 
-                    # ADR-0041 — when this instance is configured with obtained_via
+                    # invincible-agent ADR-0041 — when this instance is configured with obtained_via
                     # (e.g. the ingress-user sensor's user_document_parser), stamp a
                     # top-level "provenance" key onto the manifest — a SIBLING of
                     # doc_id/source_key, never buried under "metadata" — so the
@@ -718,7 +718,7 @@ class DocumentParserComponent(Component, Resolvable, Model):
                     # `tests/test_user_drop_runs_parse_only.py` pins from both sides.
                     #
                     # Stamped as a TOP-LEVEL sibling of "provenance", same as
-                    # ADR-0041's block and for the same reason: a consumer reads the
+                    # invincible-agent ADR-0041's block and for the same reason: a consumer reads the
                     # leaf without reaching into domain-specific metadata shape. And
                     # only when obtained_via is configured — for every vetted sensor
                     # the manifest is byte-for-byte what it was.
@@ -869,12 +869,12 @@ class DocumentParserComponent(Component, Resolvable, Model):
                             )
                         except Exception:  # noqa: BLE001 -- never mask `e`
                             context.log.error(
-                                "ADR-0041: could not stamp 'failed' for "
+                                "invincible-agent ADR-0041: could not stamp 'failed' for "
                                 "ingest_id=%s. Underlying error: %s", ingest_id, e,
                             )
                     else:
                         context.log.error(
-                            "ADR-0041: ingest failed before an ingest_id was "
+                            "invincible-agent ADR-0041: ingest failed before an ingest_id was "
                             "known, so no 'failed' stage could be stamped "
                             "(nothing to join to Lane 1's "
                             "ingest_status_projection). Underlying error: %s", e,

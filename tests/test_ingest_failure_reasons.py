@@ -1,4 +1,4 @@
-"""Tests for the structured failure reasons on the ADR-0041 `failed` stage.
+"""Tests for the structured failure reasons on the invincible-agent ADR-0041 `failed` stage.
 
 Covers `doc_tools/utils/ingest_failure.py` (classifier, vocabulary, code
 identity) and the five failure fields `IngestStatusResource.update()` puts on
@@ -24,14 +24,14 @@ from tests.test_ingest_stage_transport import (
 # `extraction_failed`. Phrases are copied from the real raise sites.
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("message, code", [
-    ("ADR-0041 guard: sidecar 'k' carries no domain_type (got None) AND no "
+    ("invincible-agent ADR-0041 guard: sidecar 'k' carries no domain_type (got None) AND no "
      "registered content_kind (got 'zzz'). Registered kinds: []",
      "kind_unregistered"),
-    ("ADR-0041 sidecar manifest missing or unparseable at key='k' "
+    ("invincible-agent ADR-0041 sidecar manifest missing or unparseable at key='k' "
      "(bucket='b'): boom", "sidecar_unreadable"),
-    ("ADR-0041 guard: sidecar 'k' domain_type='pdf' is a file FORMAT "
+    ("invincible-agent ADR-0041 guard: sidecar 'k' domain_type='pdf' is a file FORMAT "
      "(ingest_status.KINDS), not a semantic domain", "domain_is_a_format"),
-    ("ADR-0041 guard: sidecar 'k' content_kind='ab' is a sha256 hash, not a "
+    ("invincible-agent ADR-0041 guard: sidecar 'k' content_kind='ab' is a sha256 hash, not a "
      "content kind", "content_kind_is_a_hash"),
 ])
 def test_each_real_guard_message_maps_to_its_code(message, code):
@@ -130,13 +130,13 @@ from doc_tools.utils.ingest_failure import (  # noqa: E402
 )
 
 _LOCKED_GUARD_MESSAGES = [
-    "ADR-0041 guard: sidecar 'k' carries no domain_type (got None) AND no "
+    "invincible-agent ADR-0041 guard: sidecar 'k' carries no domain_type (got None) AND no "
     "registered content_kind (got 'zzz'). Registered kinds: []",
-    "ADR-0041 sidecar manifest missing or unparseable at key='k' "
+    "invincible-agent ADR-0041 sidecar manifest missing or unparseable at key='k' "
     "(bucket='b'): boom",
-    "ADR-0041 guard: sidecar 'k' domain_type='pdf' is a file FORMAT "
+    "invincible-agent ADR-0041 guard: sidecar 'k' domain_type='pdf' is a file FORMAT "
     "(ingest_status.KINDS), not a semantic domain",
-    "ADR-0041 guard: sidecar 'k' content_kind='ab' is a sha256 hash, not a "
+    "invincible-agent ADR-0041 guard: sidecar 'k' content_kind='ab' is a sha256 hash, not a "
     "content kind",
     "ingest_id 'x' is not canonical sha256:<hex>",
     "something else broke",
@@ -205,7 +205,7 @@ def test_kind_guard_failure_posts_kind_unregistered_through_the_boundary(
     sidecar/guard boundary in document_parser.py does: classify, derive the
     join key via the shared helper, POST `failed`."""
     msg = (
-        "ADR-0041 guard: sidecar 'k' carries no domain_type (got None) AND no "
+        "invincible-agent ADR-0041 guard: sidecar 'k' carries no domain_type (got None) AND no "
         "registered content_kind (got 'zzz'). Registered kinds: []"
     )
     e = ValueError(msg)
