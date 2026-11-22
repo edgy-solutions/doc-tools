@@ -6,7 +6,16 @@
 |---|---|
 | Write side, fixture and golden | `doc-tools/lane/tr` |
 | Read side | `training-consolidation-workbench/lane/wb` |
-| Ruling | architect's "RESTORE TRAINING INGESTION — ADR-0059" packet |
+| Ruling | architect's "RESTORE TRAINING INGESTION" packet, 2026-10-23 (**not** an ADR — see below) |
+
+> **The number `ADR-0059` is UNRESOLVED and this contract no longer cites it.** The packet
+> above carried `ADR-0059` in its title, but no `ADR-0059` file exists in any repo:
+> `invincible-agent/docs/adr/ADR-0060-consumers-read-through-the-mesh-never-the-stores.md`
+> §Numbering records the measurement — *"No ADR-0059 or ADR-0060 file exists on any pushed
+> branch at `a31b61cb`"* — and states that 0059 **is claimed in prose by this very packet**.
+> The authority for everything below is therefore the dated packet, not a record number.
+> If the architect later files an ADR for it, this row names it and the repo that owns it
+> (see [`docs/adr/README.md`](../adr/README.md)).
 
 This file states what doc-tools writes for a training document and what the workbench may rely on.
 - The machine-readable form is [`tests/fixtures/training/golden.json`](../../tests/fixtures/training/golden.json), which shows what doc-tools writes for the fixture deck.
@@ -22,7 +31,7 @@ This file states what doc-tools writes for a training document and what the work
   - End users authenticate to the workbench's own Keycloak realm, which gates the workbench API and not the stores.
   - So the reads need no Lane 1 domain and no grants.
 - **The workbench also WRITES to the same Neo4j** (§4.4).
-- **Direct store reads are the interim, not the destination.** ADR-0060 (consumers read through the mesh) is in draft. When its manifest route lands, the store reads are replaced by one client; what this contract says the workbench needs stays the same.
+- **Direct store reads are the interim, not the destination.** invincible-agent ADR-0060 (consumers read through the mesh) is in draft. When its manifest route lands, the store reads are replaced by one client; what this contract says the workbench needs stays the same.
 
 ## 2. The drop: how a course arrives
 
@@ -36,9 +45,9 @@ The workbench has no upload endpoint. A course arrives only as a drop into MinIO
 
 - Put one deck in each folder. `<folder>` is free text and carries no identity.
 - `metadata.json` must land **before** the deck. The parser reads it when the deck's run starts, so a sidecar that arrives later is not seen.
-- **The path carries the kind, by ADR-0021's existing rule** (`<domain>/<kind>/<folder>/<file>`): the first segment is the domain, `training` → `TRAINING`; the second is the content kind, `course`.
+- **The path carries the kind, by invincible-agent ADR-0021's existing rule** (`<domain>/<kind>/<folder>/<file>`): the first segment is the domain, `training` → `TRAINING`; the second is the content kind, `course`.
   - A kind names the document, not the domain: a course in the training domain, the way a PCN is a notice in sustainment.
-  - Nothing new is invented: no sensor-supplied kind, no new precedence level. The precedence stays ADR-0021's metadata > path > HALT.
+  - Nothing new is invented: no sensor-supplied kind, no new precedence level. The precedence stays invincible-agent ADR-0021's metadata > path > HALT.
 - A training sensor watches `training/course/`. It ignores `generated/`, `archive/` and `metadata.json` keys, and accepts only `.pptx`, `.pdf` and `.docx`.
 - **The sidecar needs no `content_kind` or `domain_type`.** If it has them, they must be `course` and `training`: a sidecar value wins over the path, so any other value re-routes the drop.
 - **Re-uploading the same bytes to the same key does NOT start a new run.** The run key is `{ETag}-{key}`, so it is consumed. To re-ingest, use a new key.

@@ -58,7 +58,7 @@ from doc_tools.utils.sustainment_merge import (
     build_review_items, validate_count, empty_header,
 )
 
-# Telemetry (ADR-0038) — the thin seam lives in doc_tools.telemetry so the mapping
+# Telemetry (invincible-agent ADR-0038) — the thin seam lives in doc_tools.telemetry so the mapping
 # and the projected-values contract can be unit-tested without the plugin's heavy
 # imports (that test is the vocabulary-owner truth check). When the leaf / Langfuse
 # is absent these are no-ops, so file-mode keeps its zero-Langfuse-dependency.
@@ -127,8 +127,60 @@ def _fetch_image_b64(s3_client, s3_url: str):
     return media, base64.b64encode(data).decode("ascii")
 
 
+# How many times a FAST REJECTION is re-sent. Not attempts -- retries, so the bound is
+# `1 + N` calls.
+#
+# REGION: raised from 1 to 3 on the architect's order of 2026-11-17. The measured
+# rejection rate is one fire in three (see `_read_one_region`), so one retry still loses
+# a region read on about 1 fire in 9 and the lost field is `mfr`, which the corpus gate
+# then sees move between fires. Four calls take it to ~1 in 81 on the same arithmetic.
+# The cost of the extra calls is small for the reason the retry is safe at all: a
+# rejection comes back FAST, and a slow failure (a timeout) is never retried, so the
+# worst case this bound adds is three quick 400s, not three 300 s stalls.
+#
+# PARTS: deliberately left at 1. The same host behaviour is measured there
+# (`_extract_parts_once`), but the 2026-11-17 order is scoped to the region read and a
+# parts crop is the expensive call -- raising it is its own change, wanting its own
+# evidence.
+REGION_READ_RETRIES = 3
+PARTS_CROP_RETRIES = 1
+
+
+def _is_vision_timeout(exc: BaseException) -> bool:
+    """Is this the ~300 s server-side stall rather than a fast rejection?
+
+    ONE reader for both call sites, so they cannot disagree about what a timeout is --
+    the property their docstrings have claimed of each other since the retries were
+    added. Discriminates on the CLASS NAME rather than an imported type: BAML's error
+    hierarchy is vendored and generated, and importing from it here would couple the
+    retry to a module the tests cannot construct (see `_FakeB.RAISE_TIMEOUT` in
+    `tests/test_second_witness_wiring.py`, which fakes a timeout by name for exactly
+    this reason).
+    """
+    return "timeout" in type(exc).__name__.lower()
+
+
+def _call_with_bounded_retries(call, *, retries: int, what: str):
+    """`call()`, re-sent up to `retries` times on a FAST REJECTION only.
+
+    Returns whatever `call()` returns. Raises if the last attempt raises, and raises
+    IMMEDIATELY on a timeout without consuming the budget -- so a caller that counts a
+    failure still counts exactly one. `call` must build its own per-attempt options
+    where that matters (the parts path needs a fresh collector per attempt).
+    """
+    for attempt in range(1, retries + 2):
+        try:
+            return call()
+        except Exception as e:  # noqa: BLE001
+            if _is_vision_timeout(e) or attempt == retries + 1:
+                raise
+            print(f"[SustainmentPlugin] {what}: attempt {attempt} of {retries + 1} "
+                  f"failed ({e}) — re-sending the SAME bytes, which is the measured "
+                  f"shape of this failure")
+
+
 def _read_one_region(b, Image, media: str, b64: str, instructions: str, name: str):
-    """ONE region read, with ONE retry, and the retry is measured rather than hopeful.
+    """ONE region read, with a BOUNDED retry, and the retry is measured rather than hopeful.
 
     The vision host returns `400 Bad Request: Failed to load image or audio file` on
     crops it accepts perfectly well seconds later. Measured 2026-10-01 against the
@@ -138,29 +190,29 @@ def _read_one_region(b, Image, media: str, b64: str, instructions: str, name: st
     three to a 400. So the rejection is not a property of the image, and a second attempt
     is the correct response rather than a guess.
 
+    The bound is `REGION_READ_RETRIES` (3 since 2026-11-17, was 1): at a measured one in
+    three, a single retry still loses the region on roughly one fire in nine, and what it
+    loses is the header field the corpus gate then reports as unstable.
+
     This matters more than a corroborator's retry would: the region now SUPPLIES the
     header value, so dropping it does not weaken a check, it publishes the damaged text
     layer's reading (`TE Connecvity`, and a print stamp for a notice date).
 
     A TIMEOUT is NOT retried. There is a hard ~300s server-side ceiling that is not ours
     and not configurable from this repo, and retrying into it turns a 300s stall into a
-    600s one for the same answer. Only a fast rejection earns the second call.
+    600s one for the same answer. Only a fast rejection earns another call.
 
-    The parts crop has the same retry in `_extract_parts_once`; the two detect a timeout
-    the same way so they cannot disagree about what one is.
+    The parts crop has the same retry in `_extract_parts_once` with its own bound; both
+    go through `_call_with_bounded_retries`, so they cannot disagree about what a timeout
+    is.
     """
-    try:
+    def _attempt():
         return b.ReadRegion(region_image=Image.from_base64(media, b64),
                             system_instructions=instructions,
                             baml_options=_vision_call_opts()[0])
-    except Exception as e:  # noqa: BLE001
-        if "timeout" in type(e).__name__.lower():
-            raise
-        print(f"[SustainmentPlugin] region {name}: first read failed ({e}) — retrying "
-              f"once with the SAME bytes, which is the measured shape of this failure")
-        return b.ReadRegion(region_image=Image.from_base64(media, b64),
-                            system_instructions=instructions,
-                            baml_options=_vision_call_opts()[0])
+
+    return _call_with_bounded_retries(_attempt, retries=REGION_READ_RETRIES,
+                                      what=f"region {name}")
 
 
 def _extract_parts_once(b, ocr, html, images, prompt):
@@ -180,23 +232,22 @@ def _extract_parts_once(b, ocr, html, images, prompt):
 
     A TIMEOUT is NOT retried. There is a hard ~300s server-side ceiling that is not ours,
     and retrying into it turns a 300s stall into a 600s one for the same answer; it is
-    detected exactly as `_read_one_region` detects it. If the retry also raises, it
-    propagates and the caller counts the crop failed, which is the correct outcome.
+    detected by the same reader `_read_one_region` uses (`_is_vision_timeout`), so the
+    two cannot disagree. If the last attempt also raises, it propagates and the caller
+    counts the crop failed, which is the correct outcome.
+
+    The bound is `PARTS_CROP_RETRIES` and is still ONE: the 2026-11-17 order that raised
+    the region bound to three is scoped to the region read, and this is the expensive
+    call.
     """
-    opts, collector = _vision_call_opts()
-    try:
+    def _attempt():
+        opts, collector = _vision_call_opts()
         res = b.ExtractParts(ocr_text=ocr, html_table=html, table_images=images,
                              system_instructions=prompt, baml_options=opts)
         return res, collector
-    except Exception as e:  # noqa: BLE001
-        if "timeout" in type(e).__name__.lower():
-            raise
-        print(f"[SustainmentPlugin] ExtractParts first attempt failed ({e}) — retrying "
-              f"once with the SAME bytes, which is the measured shape of this failure")
-    opts, collector = _vision_call_opts()
-    res = b.ExtractParts(ocr_text=ocr, html_table=html, table_images=images,
-                         system_instructions=prompt, baml_options=opts)
-    return res, collector
+
+    return _call_with_bounded_retries(_attempt, retries=PARTS_CROP_RETRIES,
+                                      what="ExtractParts")
 
 
 def _best_declined_grid(declines_by_page, page_no):
@@ -356,6 +407,27 @@ HEADER_SEED = 0
 # through `baml_py.ClientRegistry`, so no other domain sharing `LLM` is affected.
 VISION_TEMPERATURE = 0
 
+# Seed for the VISION pass, on the architect's order of 2026-11-17.
+#
+# The vision client was the LAST sampling path in this repo with a temperature pinned and
+# no seed, and it is the one that decides a header field: on a degraded text layer `mfr`
+# is published only if `ReadRegion` -- this client -- corroborates it, and the two
+# non-corroborating branches of `require_mfr_witness_agreement` both write null. So a
+# document whose bytes never change got `mfr` or null depending on one unseeded call.
+# Measured over six fires of two images (2026-11-11 and 2026-11-15): everything
+# deterministic was identical -- parts 512/512, crop seal identical, 3 of 10 documents
+# degraded every time -- while TYC's written `mfr` read
+# `TE Connectivity | null | TE Connectivity` from IDENTICAL raw text-layer input in fires
+# 1 and 2.
+#
+# Same caveat as HEADER_SEED, and it is not a formality: temperature 0 WITH seed 0 still
+# produced three different outputs on the header client. One variable removed, not a
+# determinism guarantee -- and the host-level 400 this repo also retries (see
+# `_read_one_region`) is a separate cause that a seed cannot touch.
+#
+# Deliberately NOT env-overridable, for the reason the temperature above is not.
+VISION_SEED = 0
+
 # Early warning for the bound above. Truncation is only detectable AT the cap, by
 # which point rows are already lost; a crop that emits close to the cap is the last
 # observable state before that happens, and the ratio is the ONLY signal available
@@ -471,6 +543,11 @@ def _vision_call_opts():
         "model": os.environ.get("VISION_LLM_MODEL", ""),
         "max_tokens": VISION_MAX_TOKENS,
         "temperature": VISION_TEMPERATURE,
+        # TOP LEVEL, not inside a nested `options` dict: `seed` is a standard
+        # OpenAI-compatible REQUEST parameter, and the nesting on the header client is
+        # the Ollama `num_ctx` passthrough, not where a request parameter goes. See
+        # VISION_SEED for what this does and does not buy.
+        "seed": VISION_SEED,
     })
     cr.set_primary("VisionBounded")
     collector = Collector(name="vision")
@@ -1673,7 +1750,7 @@ class SustainmentPlugin(AugmentationPlugin):
     def process_fulltext(self, full_text: str, doc_id: str, metadata: Dict[str, Any] = None,
                          elements: List[Dict[str, Any]] = None, manifest: Dict[str, Any] = None,
                          s3_client: Any = None, bucket: str = None) -> List[DocumentNode]:
-        # v4 extraction-trace JOIN (ADR-0038): open the trace on doc_id via
+        # v4 extraction-trace JOIN (invincible-agent ADR-0038): open the trace on doc_id via
         # create_trace_id(seed=doc_id), so THIS extraction and the downstream review (which
         # seeds on the same doc_id it reads from review.json.trace_id) land ONE unified trace —
         # bucket -> extraction -> review. The header/parts @traced passes nest as child spans;
@@ -2418,7 +2495,7 @@ class SustainmentPlugin(AugmentationPlugin):
         if any(it["needs_review"] for it in items):
             needs_review = True
 
-        # Telemetry (ADR-0038): project the extraction's provenance onto the trace
+        # Telemetry (invincible-agent ADR-0038): project the extraction's provenance onto the trace
         # `traced` opened above — identity keyed on doc_id, honest-degradation as
         # scores (needs_review, crops_failed/n_tables). No-op when Langfuse is off;
         # emission never blocks the extraction (fail-soft-and-counted in the leaf).
@@ -2429,7 +2506,7 @@ class SustainmentPlugin(AugmentationPlugin):
         ))
 
         review = {"doc_id": header_d.get("doc_id") or doc_id,
-                  # PROVENANCE — the extractor that PRODUCED this artifact (ADR-0034).
+                  # PROVENANCE — the extractor that PRODUCED this artifact (invincible-agent ADR-0034).
                   #
                   # WHY IT LIVES IN THE ARTIFACT AND NOT IN THE READER'S ENVIRONMENT. The trust
                   # table is keyed on (vendor-format x pipeline_version) precisely so a rung
@@ -2482,7 +2559,7 @@ class SustainmentPlugin(AugmentationPlugin):
                   # Categories stringified to their enum values (== the ruleset's
                   # pcn:changeClass category keys: 'Material','Process',…).
                   "doc_type": header_d.get("doc_type") or "PCN",
-                  # ATTESTATION, not a second copy of the value (ADR-0034 normalization).
+                  # ATTESTATION, not a second copy of the value (invincible-agent ADR-0034 normalization).
                   #
                   # `doc_type` above DEFAULTS to "PCN" when the header pass extracted none — which
                   # makes "identified as a PCN" and "we did not know" the SAME VALUE downstream.
@@ -2564,10 +2641,10 @@ class SustainmentPlugin(AugmentationPlugin):
     def to_graph_queries(self, nodes: List[DocumentNode], config: Any, doc_id: str = "",
                          image_prefix: str = "",
                          provenance: Optional[Dict[str, Any]] = None) -> Tuple[List[str], List[str]]:
-        """`provenance` is the ADR-0041 block (doc_tools/utils/ingest_provenance.py's
+        """`provenance` is the invincible-agent ADR-0041 block (doc_tools/utils/ingest_provenance.py's
         `as_dict()` output) off the manifest — present only for documents that
         arrived via a non-vetted path (e.g. the ingress-user sensor). When absent
-        (every pre-ADR-0041 call site, and every vetted sensor), this emits exactly
+        (every call site predating invincible-agent ADR-0041, and every vetted sensor), this emits exactly
         what it emitted before this parameter existed — no stamp, no change. See
         doc_tools/assets/semantic_assets.py's DOMAINS_THAT_PERSIST_PROVENANCE for
         why SUSTAINMENT is the one domain allowed to receive a provenance-bearing
@@ -2589,7 +2666,7 @@ class SustainmentPlugin(AugmentationPlugin):
             # the IRI normalized while the Neo4j :SustainmentNotice id took doc_id
             # VERBATIM -- so the same notice was keyed two ways and never joined
             # across the two stores. Both :SustainmentNotice MERGE sites below (the
-            # edge query and the ADR-0041 provenance query) use this, and so does the IRI.
+            # edge query and the invincible-agent ADR-0041 provenance query) use this, and so does the IRI.
             notice_graph_key = norm.normalize_doc_id(notice.doc_id)
 
             cypher_queries.append({
@@ -2670,7 +2747,7 @@ class SustainmentPlugin(AugmentationPlugin):
                 },
             })
 
-            # ADR-0041 — persist the provenance block onto the SAME per-document
+            # invincible-agent ADR-0041 — persist the provenance block onto the SAME per-document
             # node the queries above already MERGE (n:SustainmentNotice), never a
             # new node type and never keyed on a component/figure subject — those
             # IRIs/ids are shared across notices (see AGENTS.md), so a
@@ -2757,14 +2834,14 @@ class SustainmentPlugin(AugmentationPlugin):
                     sparql += f"""
                     <http://internal/components/{safe_mpn}> pcn:hasReplacement <http://internal/components/{safe_rep}> .
                     """
-            # ADR-0041 — the two provenance fields the SDK maps onto PROV terms,
+            # invincible-agent ADR-0041 — the two provenance fields the SDK maps onto PROV terms,
             # written into the SAME GRAPH <..._INSTANCES> block above (never the
             # default graph — invisible to the mesh resolver — and never the
             # vocabulary graph <http://internal/{DOMAIN}>, which prime DROPs on
             # every re-ingest and would wipe this runtime instance data).
             # PROV_DERIVED_FROM/PROV_GENERATED_AT come from iagent_mesh.provenance
             # (SDK v0.9.5+) rather than inventing pcn:* predicates for them, per
-            # ADR-0035's "cherry-picked standard vocabulary" posture.
+            # invincible-agent ADR-0035's "cherry-picked standard vocabulary" posture.
             if provenance:
                 from iagent_mesh.provenance import PROV_DERIVED_FROM, PROV_GENERATED_AT
 

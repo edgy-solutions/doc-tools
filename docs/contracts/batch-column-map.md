@@ -1,23 +1,37 @@
 # Contract: the batch column map — the one vocabulary a batch export profile is written in
 
-**Status:** the contract **and a validator**, as of 2026-10-30. Version 1 of this
-file said "the contract only. There is no column map in code"; that is no longer
-true, and the change is the point:
+**Status, re-measured at `origin/main@54de79c` on 2026-11-16: the contract, a
+validator, an exporter and a scorer.** `contract_version` stays **2** — the three
+builds below implement this contract, they do not amend it, and §12 sets the
+precedent: a change that "adds no requirement, closes no vocabulary, and changes
+no validation" does not bump the version.
 
 - [`batch-column-map.schema.json`](batch-column-map.schema.json) — the shape, as
   JSON Schema draft 2020-12.
 - `doc_tools/batch/profile.py` — the rules a JSON Schema cannot express, because
   they depend on `registry/export_field_catalogue.json`: the producibility gate,
-  the shared-wire-name selector, the landing rule, the granularity rule.
+  the shared-wire-name selector, the landing rule, the granularity rule
+  (landed 2026-10-31, PR #198).
+- `doc_tools/batch/cli.py` — **the exporter.** A validated profile plus saved
+  extraction responses become CSV rows; reads files only, no network and no
+  credentials (landed 2026-10-31, PR #200).
+- `doc_tools/batch/score.py` — the scorer, against a hand-typed truth set; the
+  scorecard carries integers and column names only, the detail carries the values
+  and never leaves (landed 2026-10-31, PR #202).
 - `registry/batch_profiles/pcn-ltb-by-part.yaml` — §10's worked profile, as a
   file that the suite validates.
 
-**There is still no exporter**, and nothing under `doc_tools/` imports
-`doc_tools.batch`. A profile can be written and refused; it cannot yet be run.
-Two of the four rulings this file encodes name fields the extractor **does not
-produce at all** (§7, §9) — that is recorded here rather than worked around,
-because a profile that names an unproducible column must fail at validation time,
-not surprise someone at runtime, and now it does: `field-not-extracted`.
+**What is still true, and what is no longer.** Version 1 said *"the contract only.
+There is no column map in code"*; the 2026-10-30 line said *"there is still no
+exporter"*. Both are stale: a profile can now be written, refused, **and run**.
+What remains true is that nothing in the *pipeline* imports `doc_tools.batch` —
+these are operator entry points (`python -m doc_tools.batch.cli`), not Dagster
+assets, exactly as [`../batch-fixture-runbook.md`](../batch-fixture-runbook.md)
+and `AGENTS.md` §"Batch fixtures" describe. Two of the four rulings this file
+encodes name fields the extractor **does not produce at all** (§7, §9) — recorded
+here rather than worked around, because a profile that names an unproducible
+column must fail at validation time, not surprise someone at runtime, and it does:
+`field-not-extracted`.
 
 **Order it answers** (architect, 2026-10-28), verbatim:
 

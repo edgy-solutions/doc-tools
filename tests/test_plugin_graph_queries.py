@@ -379,7 +379,7 @@ def test_a_path_fragment_doc_id_keys_both_stores_identically():
     body = " ".join(sparql)
     expected = norm.normalize_doc_id("inbound/adi_23_0120")
 
-    # EVERY Cypher site that keys a notice -- the edge query and the ADR-0041
+    # EVERY Cypher site that keys a notice -- the edge query and the invincible-agent ADR-0041
     # provenance query -- not just the first one found.
     keyed = [q["params"]["notice_id"] for q in cypher if "notice_id" in q.get("params", {})]
     assert len(keyed) >= 2, "expected both :SustainmentNotice MERGE sites to key a notice"

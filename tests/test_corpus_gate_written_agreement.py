@@ -857,3 +857,101 @@ def test_a_fire_set_predating_the_field_says_so_rather_than_reading_clean(
     assert report["header_mfr_witness"] == {}
     md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
     assert "every image in this set predates the field" in md
+
+
+# --- Region witness coverage is SURFACED too ----------------------------------
+# `stats["witness_regions"]` and `stats["witness_regions_lost"]` have been written
+# since 2026-10-01 and were readable only while the Job pod ran. Without them a
+# blanked header field has no cause: the 2026-11-11 report shows TYC `mfr`
+# populated in fires 1 and 3 and absent in fire 2, and nothing published could say
+# whether fire 2 LOST the crop to a transient host 400 or whether the witness
+# answered and did not corroborate. Ordered surfaced 2026-11-17.
+
+def _cov(regions, lost, *, degraded=True, pages=3):
+    return {"text_layer_degraded": degraded, "witness_regions": regions,
+            "witness_regions_lost": lost, "witness_pages": pages}
+
+
+def test_the_report_surfaces_whether_a_region_was_located_and_lost(
+        tmp_path, monkeypatch):
+    report = _score(
+        tmp_path, monkeypatch, 0, "", [_wh(), _wh(mfr=None), _wh()],
+        stats_by_fire={
+            1: _cov(2, 0),
+            2: _cov(1, 1),
+            3: _cov(2, 0),
+        })
+    assert report["witness_coverage"][FN]["2"] == {
+        "degraded": True, "regions": 1, "lost": 1, "pages": 3}
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    assert "## Region witness coverage (advisory, never blocks)" in md
+    # The losing fire is marked, so the cause of the blank above it is readable
+    # rather than inferred.
+    assert ("| 2 located/0 lost | **1 located/1 lost** | 2 located/0 lost |"
+            in md)
+
+
+def test_a_lost_region_is_distinguishable_from_a_witness_that_disagreed(
+        tmp_path, monkeypatch):
+    """The whole point of the block. Two blanks, two causes, one report.
+
+    A withdrawal with `lost > 0` is the host dropping the crop. A withdrawal with
+    `lost == 0` is the witness answering and not corroborating -- the arm working.
+    Both blank the written value, and before this block both rendered identically.
+    """
+    report = _score(
+        tmp_path, monkeypatch, 0, "", [_wh(), _wh(mfr=None), _wh()],
+        stats_by_fire={
+            1: _cov(2, 0),
+            2: dict(_cov(2, 0),
+                    header_mfr_witness=_rec("readings_disagree", withdrawn=True,
+                                            degraded=True)),
+            3: _cov(2, 0),
+        })
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    assert report["witness_coverage"][FN]["2"]["lost"] == 0
+    assert report["header_mfr_witness"][FN]["2"]["withdrawn"] is True
+    # No bold cell: nothing was lost, so the reader is told to look at the branch.
+    assert "**2 located/0 lost**" not in md
+    # The branch block names the cause the coverage block rules out.
+    assert "**readings_disagree**" in md
+
+
+def test_a_degraded_document_with_no_located_region_is_not_a_clean_read(
+        tmp_path, monkeypatch):
+    """`0 located` on a degraded document means corroboration had NOTHING to
+    consult -- an unfamiliar masthead -- which is a third case, not a pass."""
+    report = _score(tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()],
+                    stats_by_fire={1: _cov(0, 0), 2: _cov(0, 0), 3: _cov(0, 0)})
+    assert report["witness_coverage"][FN]["1"]["regions"] == 0
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    assert "| 0 located/0 lost | 0 located/0 lost | 0 located/0 lost |" in md
+
+
+def test_an_undegraded_corpus_renders_no_coverage_rows(tmp_path, monkeypatch):
+    """Ten rows of zeros would bury the three documents that matter."""
+    report = _score(tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()],
+                    stats_by_fire={1: _cov(0, 0, degraded=False, pages=0),
+                                   2: _cov(0, 0, degraded=False, pages=0),
+                                   3: _cov(0, 0, degraded=False, pages=0)})
+    assert report["witness_coverage"] == {}
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    assert "no fire recorded a witness counter" in md
+
+
+def test_the_coverage_block_carries_no_document_value(tmp_path, monkeypatch):
+    report = _score(tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()],
+                    stats_by_fire={2: _cov(1, 1)})
+    md = gate.render_markdown(report, str(tmp_path), "cmd", ["f1.log"])
+    block = md.split("## Region witness coverage")[1].split("## Header agreement")[0]
+    assert "TE Connectivity" not in block
+    assert "PCN-24-210412" not in block.replace(FN, "")
+    for v in report["witness_coverage"][FN]["2"].values():
+        assert isinstance(v, (bool, int)) or v is None
+
+
+def test_surfacing_coverage_does_not_move_the_verdict(tmp_path, monkeypatch):
+    report = _score(tmp_path, monkeypatch, 0, "", [_wh(), _wh(), _wh()],
+                    stats_by_fire={2: _cov(1, 1)})
+    assert report["verdict"] == "pass"
+    assert report["blocking"] == []

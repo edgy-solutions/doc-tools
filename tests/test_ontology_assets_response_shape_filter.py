@@ -1,6 +1,6 @@
 """Response shapes must not enter the Weaviate grounding pool — and MUST stay in Neo4j.
 
-HISTORY (2026-09-01, measured on a one-cell PROGRAM_FINANCE user at 12/20). ADR-0019
+HISTORY (2026-09-01, measured on a one-cell PROGRAM_FINANCE user at 12/20). invincible-agent ADR-0019
 Contract D requires BOTH ends of a verb edge to pre-exist as ``owl:Class``, so every verb's
 OUTPUT shape becomes an ``OntologyClass`` — and every ``OntologyClass`` is a candidate in
 Engine O's ``/resolve`` grounding pool. A verb's output therefore competes with its own

@@ -1,5 +1,5 @@
 {
-  "status": "DRAFT: ground truth when both sides confirm it (ADR-0046 v2 section 9)",
+  "status": "DRAFT: ground truth when both sides confirm it (invincible-agent ADR-0046 v2 section 9)",
   "bit_code": "MRAD-ARR-0417",
   "bit_text": "array module fault, section 3",
   "citations": {

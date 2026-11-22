@@ -48,10 +48,10 @@ each is left at its default for a stated reason:
     ``review_shape`` and ``label``, carried to Lane 1, who fills them into the
     platform registry that the server actually serves.
 
-  * ``branch`` and ``refresh`` -- **CLOSED by this change; ADR-0063 section 1's
+  * ``branch`` and ``refresh`` -- **CLOSED by this change; invincible-agent ADR-0063 section 1's
     remaining answer.** ``ContentKindEntry`` now carries both, so doc-tools can
     DECLARE an event row and this projection emits it. Two things that does NOT
-    mean: it does not register ADR-0063's three event kinds, which lane 01
+    mean: it does not register invincible-agent ADR-0063's three event kinds, which lane 01
     confirmed on 2026-10-28 are iagent overlay rows under
     ``policy/overlays/openddil-lab/content_kinds/``; and it adds no event row
     here. All thirteen rows are still documents and none sets ``seeds_workflow``,

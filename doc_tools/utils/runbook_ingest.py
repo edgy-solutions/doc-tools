@@ -1,8 +1,8 @@
 """Runbook frontmatter -> DocPage, with the prefix pass-through sealed.
 
-ADR-0041 ingest-on-arrival: a work-side runbook directory becomes `mesh:DocPage`
+invincible-agent ADR-0041 ingest-on-arrival: a work-side runbook directory becomes `mesh:DocPage`
 nodes carrying `explains` edges, so "what explains this verb" is a one-hop query
-instead of a search index hoping to agree with reality (ADR-0037).
+instead of a search index hoping to agree with reality (invincible-agent ADR-0037).
 
 WHAT THIS MODULE IS FOR, AND WHY IT IS A SEPARATE SEAM. The whole risk of this
 feature lives in ONE step: turning an author-written compact IRI (`docs:runbook-x`,
@@ -19,7 +19,7 @@ unknown case has to refuse.
 
 TWO HALVES, DELIBERATELY SEPARATE. Resolution (above) is a string operation and
 needs no graph. EXISTENCE — the invented-IRI rule, "a doc that claims to explain
-`mesh:composeReviewBatch` fails ingest if that IRI doesn't exist" (ADR-0037 §1) —
+`mesh:composeReviewBatch` fails ingest if that IRI doesn't exist" (invincible-agent ADR-0037 §1) —
 is a graph query and needs a session. `check_explains_targets` below is that half.
 Keeping them apart is what lets the resolution rules be tested without standing up
 Neo4j, and stops the graph half quietly pretending it does not need one.

@@ -342,7 +342,7 @@ def _is_meta_ontology_iri(uri: str) -> bool:
 #: The declared roots of "this class is an ANSWER, not a thing to ask about".
 #:
 #: THE DEFECT (measured 2026-09-01, a one-cell PROGRAM_FINANCE user, 12/20).
-#: ADR-0019 Contract D requires BOTH ends of a verb edge to pre-exist as
+#: invincible-agent ADR-0019 Contract D requires BOTH ends of a verb edge to pre-exist as
 #: owl:Class, so every verb's OUTPUT shape becomes an OntologyClass — and every
 #: OntologyClass is a candidate in Engine O's /resolve grounding pool. A verb's
 #: output therefore competes with its own input subject for the very question
@@ -482,7 +482,7 @@ def partition_ontology_classes(
             # enough that copying that symmetry would take down all routing.
             #
             # Neo4j MUST keep every response shape as an :OntologyClass node:
-            #   * ADR-0019 Contract D refuses a registration whose OUTPUT class
+            #   * invincible-agent ADR-0019 Contract D refuses a registration whose OUTPUT class
             #     does not pre-exist as one, so filtering Neo4j un-registers
             #     every verb at its next registration; and
             #   * find_compatible_verbs matches `(scope)-[r]->(o:OntologyClass)`
@@ -1692,7 +1692,7 @@ def weaviate_ontology_readiness(
 #      before, only NODES were synced and the edges were hand-MERGEd by that
 #      one-off, so a fresh cluster's class set was flat and
 #      find_compatible_verbs' subClassOf* walk never formed. Source-authority
-#      per ADR-0006: the ingest owns node AND hierarchy, so no hand-run is
+#      per invincible-agent ADR-0006: the ingest owns node AND hierarchy, so no hand-run is
 #      needed and none can silently revert.
 #   6. Verification readback, which raises on a class that MERGEd but is not
 #      there, and on a universal-referent partition that does not match the
@@ -2041,7 +2041,7 @@ def sync_jena_ontologies_to_neo4j(
     # edges had to be hand-MERGEd by
     # scripts/phase5_catalog_verb_migration.py — whose docstring FALSELY
     # claimed they "land at TTL ingest via the Jena->Neo4j step." This step
-    # makes that claim TRUE (source-authority, ADR-0006): the ingest that
+    # makes that claim TRUE (source-authority, invincible-agent ADR-0006): the ingest that
     # owns the nodes now owns their hierarchy too, so no fresh cluster needs
     # a hand-run and none can silently revert on the next ingest.
     #
