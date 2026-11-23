@@ -1,27 +1,34 @@
 {
   "schema": 1,
-  "verdict": "pass",
-  "strict_verdict": "pass",
-  "generated_at": "2026-11-15T08:33:13Z",
-  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:2f6761ac5f5b44c5bad14182b8da2fac4efa053179fca2e76af3ee909acb800a",
-  "identity_mode": "pre_roll",
+  "verdict": "fail",
+  "strict_verdict": "fail",
+  "generated_at": "2026-11-11T06:45:33Z",
+  "measured_image": "ghcr.io/edgy-solutions/doc-tools@sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+  "identity_mode": "rolled",
   "measured_pin_note": null,
   "image_identity": {
-    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:2f6761ac5f5b44c5bad14182b8da2fac4efa053179fca2e76af3ee909acb800a",
-    "measured_digest": "sha256:2f6761ac5f5b44c5bad14182b8da2fac4efa053179fca2e76af3ee909acb800a",
-    "checked": false,
-    "comparisons": [],
+    "measured": "ghcr.io/edgy-solutions/doc-tools@sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+    "measured_digest": "sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+    "checked": true,
+    "comparisons": [
+      {
+        "source": "pods",
+        "expected": "ghcr.io/edgy-solutions/doc-tools@sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+        "expected_digest": "sha256:e73d8b08eada030e3a135eb2625e33bd3c9a31e9fed968f8c683603d242d8c8c",
+        "result": "match"
+      }
+    ],
     "void_reasons": [],
-    "mode": "pre_roll",
-    "self_declared": true
+    "mode": "rolled",
+    "self_declared": false
   },
   "fires": [
     {
       "n": 1,
       "exit": 0,
-      "started_at": "2026-11-15T06:02:27Z",
-      "ended_at": "2026-11-15T06:55:48Z",
-      "elapsed_s": 3201.1,
+      "started_at": "2026-11-11T04:04:43Z",
+      "ended_at": "2026-11-11T04:57:22Z",
+      "elapsed_s": 3159.0,
       "log": "fire1.log",
       "totals": {
         "gt": 512,
@@ -67,16 +74,16 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 485660,
-      "log_echoed": false,
-      "log_echo_cap_bytes": null
+      "log_bytes": 478941,
+      "log_echoed": true,
+      "log_echo_cap_bytes": 262144
     },
     {
       "n": 2,
       "exit": 0,
-      "started_at": "2026-11-15T06:55:48Z",
-      "ended_at": "2026-11-15T07:44:14Z",
-      "elapsed_s": 2905.9,
+      "started_at": "2026-11-11T04:57:22Z",
+      "ended_at": "2026-11-11T05:51:56Z",
+      "elapsed_s": 3273.8,
       "log": "fire2.log",
       "totals": {
         "gt": 512,
@@ -122,16 +129,16 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 487336,
-      "log_echoed": false,
-      "log_echo_cap_bytes": null
+      "log_bytes": 485763,
+      "log_echoed": true,
+      "log_echo_cap_bytes": 262144
     },
     {
       "n": 3,
       "exit": 0,
-      "started_at": "2026-11-15T07:44:14Z",
-      "ended_at": "2026-11-15T08:33:12Z",
-      "elapsed_s": 2938.1,
+      "started_at": "2026-11-11T05:51:56Z",
+      "ended_at": "2026-11-11T06:45:33Z",
+      "elapsed_s": 3216.7,
       "log": "fire3.log",
       "totals": {
         "gt": 512,
@@ -177,9 +184,9 @@
         }
       },
       "seal_error": null,
-      "log_bytes": 483773,
-      "log_echoed": false,
-      "log_echo_cap_bytes": null
+      "log_bytes": 481779,
+      "log_echoed": true,
+      "log_echo_cap_bytes": 262144
     }
   ],
   "rates_available": true,
@@ -523,9 +530,9 @@
         "pending": []
       },
       "2": {
-        "exact": 14,
+        "exact": 13,
         "fields_scored": 16,
-        "clean": true,
+        "clean": false,
         "observed": true,
         "unobserved": [],
         "pending": []
@@ -539,7 +546,9 @@
         "pending": []
       }
     },
-    "failing_notices": []
+    "failing_notices": [
+      "TYC-PCN-24-210412.pdf"
+    ]
   },
   "customer_aliases": {
     "advisory": true,
@@ -581,15 +590,18 @@
     "blocks": false,
     "notices": {
       "TYC-PCN-24-210412.pdf": {
-        "verdict": "BLANK",
+        "verdict": "DISAGREE",
         "fields": {
-          "doc_level_ltb_date": "'2024-06-06' | None | None   <- BLANK vs POPULATED, blank in: ['fire2.log', 'fire3.log']",
-          "doc_level_ltb_date_source": "'06-JUN-2024' | None | None   <- BLANK vs POPULATED, blank in: ['fire2.log', 'fire3.log']"
+          "mfr": "'TE Connecvity' | 'TE Connecvity' | 'TE'",
+          "mfr_source": "'TE Connecvity' | 'TE Connecvity' | 'TE'",
+          "doc_level_ltb_date_source": "'06-JUN-2024' | '-2024\\n[Unca' | '-2024'"
         }
       },
       "Diodes_PCN_2683_Rev1_EOL.pdf": {
-        "verdict": "agree",
-        "fields": {}
+        "verdict": "DISAGREE",
+        "fields": {
+          "doc_id": "'PCN-2683' | 'PCN-2683' | 'PCN #: 2683'"
+        }
       },
       "EOL-36_BYV34-400,-BYV34-500.pdf": {
         "verdict": "agree",
@@ -632,6 +644,15 @@
   },
   "unstable_raw": [
     {
+      "notice": "Diodes_PCN_2683_Rev1_EOL.pdf",
+      "field": "doc_id",
+      "forms": [
+        "'PCN-2683'",
+        "'PCN-2683'",
+        "'PCN #: 2683'"
+      ]
+    },
+    {
       "notice": "TI_PCN_20210316000.pdf",
       "field": "mfr",
       "forms": [
@@ -651,11 +672,20 @@
     },
     {
       "notice": "TYC-PCN-24-210412.pdf",
-      "field": "doc_level_ltb_date",
+      "field": "mfr",
       "forms": [
-        "'2024-06-06'",
-        "None",
-        "None"
+        "'TE Connecvity'",
+        "'TE Connecvity'",
+        "'TE'"
+      ]
+    },
+    {
+      "notice": "TYC-PCN-24-210412.pdf",
+      "field": "mfr_source",
+      "forms": [
+        "'TE Connecvity'",
+        "'TE Connecvity'",
+        "'TE'"
       ]
     },
     {
@@ -663,8 +693,8 @@
       "field": "doc_level_ltb_date_source",
       "forms": [
         "'06-JUN-2024'",
-        "None",
-        "None"
+        "'-2024\\n[Unca'",
+        "'-2024'"
       ]
     }
   ],
@@ -677,12 +707,25 @@
       "PCN23-002.pdf": "agree",
       "PCN24-029.pdf": "agree",
       "TI_PCN_20210316000.pdf": "agree",
-      "TYC-PCN-24-210412.pdf": "agree",
+      "TYC-PCN-24-210412.pdf": "BLANK",
       "onsemi_Generic_IPCN25300X.pdf": "agree",
       "onsemi_Generic_PD26044X1.pdf": "agree"
     },
     "disagreements": [],
-    "blank_rows": [],
+    "blank_rows": [
+      {
+        "notice": "TYC-PCN-24-210412.pdf",
+        "field": "mfr",
+        "seen": {
+          "1": "TE Connectivity",
+          "2": null,
+          "3": "TE Connectivity"
+        },
+        "blank_fires": [
+          2
+        ]
+      }
+    ],
     "absent": [],
     "no_written": [],
     "unrecorded": [],
@@ -753,10 +796,23 @@
     "distinct_notices": 10,
     "collapses": [],
     "incomplete_identity": [],
-    "identity_half_unstable": [],
-    "identity_moving_fields": {},
-    "revision_half_unstable": []
+    "identity_half_unstable": [
+      "TYC-PCN-24-210412.pdf"
+    ],
+    "identity_moving_fields": {
+      "TYC-PCN-24-210412.pdf": [
+        "mfr",
+        "doc_id"
+      ]
+    },
+    "revision_half_unstable": [
+      "Diodes_PCN_2683_Rev1_EOL.pdf"
+    ]
   },
-  "blocking": [],
+  "blocking": [
+    "TYC-PCN-24-210412.pdf: identity half is unstable across fires on `mfr/doc_id` \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one (every moving identity field must be declared; undeclared: mfr, doc_id)",
+    "TYC-PCN-24-210412.pdf: `mfr` is blank in fire 2 but populated in the others (fire 1='TE Connectivity'; fire 3='TE Connectivity') \u2014 blocking, undeclared silent blank: needs_review=True in fire 2 but no reason names `mfr` -- a declaration about another field is not a declaration about this one",
+    "TYC-PCN-24-210412.pdf: written header `mfr` does not match ground truth \u2014 fire 2: mfr (absent) (pcn_ground_truth.json notices[TYC-PCN-24-210412.pdf].headers) \u2014 blocking: needs_review=True in all three fires but no reason names `mfr` -- a declaration about another field is not a declaration about this one"
+  ],
   "exempted": []
 }
